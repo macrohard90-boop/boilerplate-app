@@ -1,11 +1,11 @@
 # Phase 3: Authentication System
 
-**Estimate:** 5-6 hours
+**Estimate:** 6-7 hours
 **Depends on:** Phase 2
 **Category:** Security & identity
 
 ## Goal
-Build the complete authentication and authorization system: JWT access/refresh tokens backed by Redis sessions, OAuth provider integrations, role-based access control (RBAC), machine-to-machine API key auth, and the full middleware chain. At the end of this phase, every API route can be protected with authentication, authorization, and audit logging.
+Build the complete authentication and authorization system: JWT access/refresh tokens backed by Redis sessions, OAuth provider integrations, role-based access control (RBAC), machine-to-machine API key auth, and the full middleware chain. Includes a lightweight frontend auth UI to visually verify all auth flows in the browser. At the end of this phase, every API route can be protected with authentication, authorization, and audit logging — and the auth system is verifiable end-to-end from a browser.
 
 ## Prerequisite Reading
 Read `docs/ARCHITECTURE.md` sections 3 (Session & Auth Architecture), 4 (Redis Key Architecture), 5 (Full Middleware Chain), and 12 (Security Measures) for the complete auth specification.
@@ -86,6 +86,66 @@ Read `docs/ARCHITECTURE.md` sections 3 (Session & Auth Architecture), 4 (Redis K
     - Password validation: min 8 chars, uppercase + lowercase + digit
     - Token response: `{access_token, refresh_token, token_type, expires_in}`
 
+11. **Lightweight frontend auth UI** (frontend/app/auth/ + frontend/components/):
+    Minimal pages to visually verify all auth flows in the browser. These are intentionally
+    simple — Phase 9 replaces them with the full production UI.
+
+    **Pages:**
+    - `/auth/login` — Email/password form + OAuth provider buttons (Google, GitHub, etc.)
+      - Error display for invalid credentials
+      - "Forgot password?" link
+      - "Create account" link to register
+    - `/auth/register` — Registration form (email, password, first_name, last_name)
+      - Client-side password strength indicator (min 8, upper, lower, digit)
+      - Error display for duplicate email, validation failures
+      - Auto-login on successful registration
+    - `/auth/forgot-password` — Email input form, triggers reset token generation
+      - Success message: "If an account exists, a reset link has been sent"
+    - `/auth/reset-password` — New password form (accessed via reset token URL param)
+      - Token validation on page load, error if expired/invalid
+    - `/protected` — Authenticated-only page showing verified user context:
+      - User info: email, name, role
+      - Session info: session_id, created_at, device/IP
+      - Permissions list
+      - Active sessions count
+      - "This page proves auth works" banner
+
+    **Shared components:**
+    - `AuthNav` — Minimal navigation bar:
+      - Logged out: Login / Register links
+      - Logged in: User email, role badge, Logout button
+    - `AuthProvider` (React Context) — Client-side auth state:
+      - Stores access token in memory (NOT localStorage)
+      - Refresh token in httpOnly cookie (set by backend)
+      - `useAuth()` hook: `{user, isAuthenticated, login, logout, refresh}`
+      - Auto-refresh: intercept 401 responses → call refresh → retry original request
+      - On refresh failure: clear state, redirect to `/auth/login`
+
+    **API client** (frontend/lib/api.ts):
+    - Centralized fetch wrapper with base URL
+    - Auto-attaches access token to Authorization header
+    - 401 interceptor: attempt token refresh, retry once, redirect to login on failure
+    - Parses backend error format `{error, message, details}`
+
+    **Token flow in browser:**
+    1. Login/register → backend sets refresh token as httpOnly cookie + returns access token in body
+    2. Frontend stores access token in memory (React state)
+    3. Every API call → attach access token in Authorization header
+    4. On 401 → call `POST /api/auth/refresh` (cookie sent automatically) → get new access token
+    5. On refresh failure → redirect to login
+    6. Logout → call `POST /api/auth/logout` → clear memory state, backend clears cookie
+
+    **Visual verification checklist (what you can test in browser):**
+    - Register a new user → auto-redirected to /protected → see user info
+    - Logout → redirected to /auth/login
+    - Login with created credentials → back to /protected
+    - Visit /protected while logged out → redirected to /auth/login
+    - Login with wrong password → error message displayed
+    - Register with existing email → error message displayed
+    - OAuth button click → redirects to provider → callback → /protected
+    - Wait 15+ min (JWT expiry) → next API call triggers silent refresh
+    - Open 6 browser tabs, login in each → oldest session evicted
+
 ## Acceptance Criteria
 - [ ] `POST /api/auth/register` creates user with bcrypt-hashed password
 - [ ] `POST /api/auth/login` returns JWT access token + refresh token
@@ -106,6 +166,15 @@ Read `docs/ARCHITECTURE.md` sections 3 (Session & Auth Architecture), 4 (Redis K
 - [ ] Password reset flow works end-to-end
 - [ ] All user_id values come from server-verified JWT, never client input
 - [ ] All auth endpoints return consistent error format `{error, message, details}`
+- [ ] Frontend: `/auth/login` page renders with email/password form and OAuth buttons
+- [ ] Frontend: `/auth/register` page creates account and auto-redirects to /protected
+- [ ] Frontend: `/protected` page shows user info (email, role, session) when authenticated
+- [ ] Frontend: `/protected` redirects to /auth/login when not authenticated
+- [ ] Frontend: Logout clears session and redirects to login
+- [ ] Frontend: OAuth button redirects to provider, callback returns to /protected
+- [ ] Frontend: Token refresh happens transparently on 401 (no manual re-login)
+- [ ] Frontend: Invalid credentials show error message on login page
+- [ ] Frontend: Password reset flow works end-to-end via browser
 
 ## Implementation Notes
 - Password hashing: bcrypt with cost factor 12
@@ -140,3 +209,12 @@ Read `docs/ARCHITECTURE.md` sections 3 (Session & Auth Architecture), 4 (Redis K
 - Modified: `backend/main.py` — Register auth middleware, mount auth routes
 - Modified: `backend/requirements.txt` — Add PyJWT, bcrypt, httpx
 - Modified: `.env.template` — Add JWT_SECRET, OAuth credentials
+- `frontend/app/auth/login/page.tsx` — Login page (email/password + OAuth buttons)
+- `frontend/app/auth/register/page.tsx` — Registration page with validation
+- `frontend/app/auth/forgot-password/page.tsx` — Forgot password form
+- `frontend/app/auth/reset-password/page.tsx` — Reset password form (token from URL)
+- `frontend/app/protected/page.tsx` — Authenticated-only page showing user context
+- `frontend/components/AuthNav.tsx` — Minimal nav bar (login/register or user+logout)
+- `frontend/lib/auth-context.tsx` — React Context for auth state + useAuth() hook
+- `frontend/lib/api.ts` — API client with token handling and 401 refresh interceptor
+- Modified: `frontend/app/layout.tsx` — Wrap with AuthProvider, add AuthNav
