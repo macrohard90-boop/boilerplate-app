@@ -8,6 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from backend.core.config import settings
 from backend.core.redis import close_redis, redis_health_check
+from backend.core.database import close_db, db_health_check, get_db
 from backend.core.module_loader import load_modules
 
 logging.basicConfig(
@@ -30,6 +31,7 @@ async def lifespan(app: FastAPI):
 
     # Cleanup
     await close_redis()
+    await close_db()
     logger.info("Shutdown complete")
 
 
@@ -60,18 +62,22 @@ def create_app() -> FastAPI:
     @app.get("/api/health")
     async def health():
         redis_status = await redis_health_check()
-        # DB health will be added in Phase 2
+        db_status = await db_health_check()
         return {
             "status": "ok",
             "services": {
                 "redis": redis_status.get("status", "error"),
-                "db": "ok",  # placeholder until Phase 2
+                "db": db_status.get("status", "error"),
             },
         }
 
     @app.get("/api/health/redis")
     async def health_redis():
         return await redis_health_check()
+
+    @app.get("/api/health/db")
+    async def health_db():
+        return await db_health_check()
 
     return app
 

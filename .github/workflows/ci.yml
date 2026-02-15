@@ -81,6 +81,17 @@ jobs:
       - name: Install dependencies
         run: pip install -r backend/requirements.txt
 
+      - name: Run migrations (up → seed → down)
+        env:
+          DATABASE_URL: postgresql+asyncpg://test:test@localhost:5432/test_db
+          REDIS_URL: redis://localhost:6379/0
+          APP_TEMPLATE: ecommerce
+          ENABLE_TRACKING: "true"
+        run: |
+          python scripts/migrate.py up
+          python scripts/seed.py
+          python scripts/migrate.py down
+
       - name: Run tests
         env:
           DATABASE_URL: postgresql+asyncpg://test:test@localhost:5432/test_db

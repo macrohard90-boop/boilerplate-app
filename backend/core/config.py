@@ -35,12 +35,26 @@ class Settings(BaseSettings):
     refresh_token_ttl: int = 604800
     max_sessions_per_user: int = 5
 
+    # Currency
+    default_currency: str = "USD"
+
     # Module toggles
     enable_payments: bool = True
     enable_tracking: bool = True
     enable_chatbot: bool = False
     enable_marketing: bool = True
+    enable_recommendations: bool = True
     app_template: str = "ecommerce"
+
+    # Abandoned Cart & Recommendations
+    cart_abandon_timeout: int = 60
+    recommendation_provider: str = "default"
+    rfm_compute_schedule: str = "daily"
+
+    # Email / Notifications
+    email_provider: str = "placeholder"
+    from_email: str = "noreply@localhost"
+    from_name: str = "Boilerplate App"
 
     # Scaling
     uvicorn_workers: int = 2

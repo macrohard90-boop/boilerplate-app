@@ -145,4 +145,22 @@ Read `docs/ARCHITECTURE.md` sections 2 (Database Schemas) and 9 (Connection Pool
 - Cart status lifecycle defined: active/abandoned/recovered/converted/expired — not in original spec
 
 ## Files Created
-_Update this section after building. List every file created with its path._
+- `migrations/000_extensions.sql` — uuid-ossp extension, PG schemas, updated_at trigger function
+- `migrations/001_core_schema.sql` — 7 core tables (users, roles, permissions, sessions, api_keys, audit_log, exchange_rates)
+- `migrations/002_ecommerce_schema.sql` — 21 e-commerce tables (template: ecommerce)
+- `migrations/002_saas_schema.sql` — 6 SaaS tables (template: saas)
+- `migrations/003_gdpr_schema.sql` — 7 GDPR tables (consent, export, deletion, cookies, email prefs/events)
+- `migrations/004_analytics_schema.sql` — 6 analytics tables (page views, sessions, events, user agents, referrals, UTM)
+- `scripts/migrate.py` — Migration runner (up, down, down --to, status)
+- `scripts/seed.py` — Seed data runner (--reset flag)
+- `seeds/common.sql` — Roles, permissions, test users, exchange rates, email preferences
+- `seeds/ecommerce.sql` — Categories, products, variants, images, reviews, discounts, digital assets
+- `seeds/saas.sql` — Plans, plan features, subscriptions
+- `backend/core/database.py` — SQLAlchemy async engine, session factory, get_db(), health check
+- `modules/notifications/` — Module scaffold (adapters, interfaces, models, routes, services)
+- `modules/recommendations/` — Module scaffold (adapters, interfaces, models, routes, services)
+- Modified: `backend/main.py` — Added db health check + shutdown
+- Modified: `backend/core/config.py` — Added currency, recommendations, email settings
+- Modified: `backend/requirements.txt` — Replaced alembic with psycopg2-binary
+- Modified: `.env.template` — Added currency, cart, recommendations, email vars
+- Modified: `.github/workflows/ci.yml` — Added migrate up/seed/down test step
