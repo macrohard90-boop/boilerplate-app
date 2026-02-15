@@ -13,7 +13,8 @@ Read `docs/ARCHITECTURE.md` sections 2 (Database Schemas) and 9 (Connection Pool
 ## Deliverables
 
 1. **Core schema** (always present):
-   - users, roles, permissions, sessions, api_keys, audit_log
+   - users, roles, permissions, sessions, api_keys, audit_log, **exchange_rates**
+   - `exchange_rates`: base_currency, target_currency, rate, source, fetched_at — UNIQUE(base, target), display conversion only
    - See ARCHITECTURE.md §2.1 for full column definitions
 
 2. **E-commerce schema** (21 tables, template choice):
@@ -107,10 +108,19 @@ Read `docs/ARCHITECTURE.md` sections 2 (Database Schemas) and 9 (Connection Pool
 - [ ] `customer_metrics`, `abandoned_cart_events`, `product_associations` tables created with correct indexes
 - [ ] `email_preferences`, `email_events` tables created in GDPR schema
 - [ ] `consent_records` consent_type values documented and consistent with email_preferences booleans
+- [ ] All monetary columns are INTEGER (cents) with paired `currency CHAR(3)` column
+- [ ] All status/type columns use VARCHAR + CHECK constraints (no PG ENUMs)
+- [ ] `cart.status` CHECK constraint includes: active, abandoned, recovered, converted, expired
+- [ ] `exchange_rates` table created in core schema with UNIQUE(base_currency, target_currency)
+- [ ] Migration ordering enforced: 000 → 001 (core) → 002 (template) → 003 (gdpr) → 004 (analytics)
 - [ ] CI pipeline runs `migrate up → seed → migrate down` against throwaway Postgres container
 - [ ] Failed migration rolls back cleanly (no partial state)
 
 ## Implementation Notes
+- **Money as integer cents**: all monetary amounts stored as INTEGER (e.g., $19.99 = 1999). Every amount column paired with `currency CHAR(3)` (ISO 4217). `DEFAULT_CURRENCY` env var for deployment default. See ARCHITECTURE.md §2.9.
+- **VARCHAR + CHECK constraints** for all status/type enum columns. No PostgreSQL ENUM types. See ARCHITECTURE.md §2.10.
+- **Cart status lifecycle**: active → abandoned/converted/expired; abandoned → recovered → active. See ARCHITECTURE.md §2.11.
+- **Migration ordering**: 000 (extensions+schemas) → 001 (core) → 002 (ecommerce XOR saas) → 003 (gdpr) → 004 (analytics). Core always first due to cross-schema FKs. See ARCHITECTURE.md §2.12.
 - Use JSONB for flexible fields (variant attributes, addresses, product snapshots, plan features)
 - UUID primary keys (uuid_generate_v4()) for all tables — requires `uuid-ossp` extension (migration 000)
 - All timestamps with timezone (TIMESTAMPTZ)
@@ -130,6 +140,9 @@ Read `docs/ARCHITECTURE.md` sections 2 (Database Schemas) and 9 (Connection Pool
 - New `recommendations` module added to Module Registry — scaffolded in Phase 2, implementation deferred
 - New `notifications` module added to Module Registry (required core) — EmailProvider interface, scaffolded in Phase 2
 - GDPR schema expanded from 5 to 7 tables: added `email_preferences`, `email_events` — update ARCHITECTURE.md §2.4 when building
+- Core schema expanded from 6 to 7 tables: added `exchange_rates` for multi-currency support
+- All monetary columns changed from untyped to INTEGER cents + currency CHAR(3) — update ARCHITECTURE.md §2.2, §2.3 when building
+- Cart status lifecycle defined: active/abandoned/recovered/converted/expired — not in original spec
 
 ## Files Created
 _Update this section after building. List every file created with its path._

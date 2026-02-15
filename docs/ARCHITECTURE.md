@@ -91,7 +91,7 @@ Placeholder interface. Implement per client with chosen AI provider.
 
 ## 2. Database Schemas
 
-### 2.1 Core Schema (6 tables — always present)
+### 2.1 Core Schema (7 tables — always present)
 ```
 users           id, email, password_hash, first_name, last_name, role_id, is_verified,
                 is_active, created_at, updated_at, deleted_at
@@ -102,16 +102,20 @@ api_keys        id, user_id, key_hash, name, scopes (JSONB), rate_limit, is_acti
                 last_used_at, created_at
 audit_log       id, user_id, api_key_id, action, resource, resource_id, ip_address,
                 payload_hash, created_at
+exchange_rates  id, base_currency CHAR(3), target_currency CHAR(3), rate NUMERIC(12,6),
+                source VARCHAR(20), fetched_at TIMESTAMPTZ, created_at
+                — UNIQUE(base_currency, target_currency). Display conversion only.
 ```
+Note: All monetary amounts are INTEGER cents with a paired `currency CHAR(3)` column. See §2.9.
 
 ### 2.2 E-commerce Schema (21 tables — template choice)
 ```
-products            id, name, slug, description, sku, base_price, status, type (physical/digital),
-                    created_at, updated_at, deleted_at
+products            id, name, slug, description, sku, base_price (INT cents), currency CHAR(3),
+                    status, type (physical/digital), created_at, updated_at, deleted_at
 categories          id, name, slug, parent_id (self-ref hierarchy), description, sort_order
 product_categories  product_id, category_id (M2M junction)
-product_variants    id, product_id, name, sku, price_override, stock_quantity,
-                    attributes (JSONB: size, color, material, custom)
+product_variants    id, product_id, name, sku, price_override (INT cents, nullable),
+                    stock_quantity, attributes (JSONB: size, color, material, custom)
 product_images      id, product_id, variant_id (nullable), url, alt_text, sort_order, is_primary
 product_reviews     id, product_id, user_id, rating (1-5), title, body,
                     status (pending/approved/rejected), created_at
@@ -120,21 +124,27 @@ related_items       id, product_id, related_product_id,
 inventory_records   id, variant_id, quantity_change, reason, reference_id, created_at
 wishlists           id, user_id, name, is_default, created_at
 wishlist_items      wishlist_id, product_id, variant_id (nullable), added_at
-discount_codes      id, code, type (percentage/fixed/free_shipping), value, min_order_amount,
-                    max_uses, uses_count, valid_from, valid_until, active
+discount_codes      id, code, type (percentage/fixed/free_shipping), value (INT cents for fixed),
+                    currency CHAR(3), min_order_amount (INT cents), max_uses, uses_count,
+                    valid_from, valid_until, active
 digital_assets      id, product_id, file_url, file_name, file_size, download_limit, created_at
-pricing_tiers       id, product_id, variant_id (nullable), min_quantity, price_per_unit, label
-cart                id, user_id (nullable), session_id, status, discount_code_id,
-                    created_at, updated_at
-cart_items          cart_id, product_id, variant_id, quantity, unit_price_at_add
-orders              id, user_id, order_number, status, subtotal, discount_amount, tax_amount,
-                    total, shipping_address (JSONB), billing_address (JSONB), created_at
-order_items         order_id, product_id, variant_id, quantity, unit_price, total_price,
-                    product_snapshot (JSONB)
-payment_records     id, order_id, provider, provider_payment_id, status, amount, currency,
-                    method, created_at
-customer_metrics    user_id (FK unique), last_purchase_at, order_count, total_spent,
-                    rfm_segment (VARCHAR: champion/loyal/at_risk/lost/new/etc),
+pricing_tiers       id, product_id, variant_id (nullable), min_quantity,
+                    price_per_unit (INT cents), label
+cart                id, user_id (nullable), session_id,
+                    status VARCHAR(20) CHECK (active/abandoned/recovered/converted/expired),
+                    discount_code_id, currency CHAR(3), created_at, updated_at
+cart_items          cart_id, product_id, variant_id, quantity, unit_price_at_add (INT cents)
+orders              id, user_id, order_number, status, currency CHAR(3),
+                    subtotal (INT cents), discount_amount (INT cents), tax_amount (INT cents),
+                    total (INT cents), shipping_address (JSONB), billing_address (JSONB), created_at
+order_items         order_id, product_id, variant_id, quantity, unit_price (INT cents),
+                    total_price (INT cents), product_snapshot (JSONB)
+payment_records     id, order_id, provider, provider_payment_id, status,
+                    amount (INT cents), currency CHAR(3), method, created_at
+customer_metrics    user_id (FK unique), last_purchase_at, order_count,
+                    total_spent (INT cents), default_currency CHAR(3),
+                    rfm_segment VARCHAR(30) CHECK (champion/loyal/potential_loyalist/
+                    at_risk/hibernating/lost/new),
                     last_calculated_at
 abandoned_cart_events  id, cart_id (FK), user_id (FK), abandoned_at, reminder_count,
                     last_reminder_at, recovered_at,
@@ -147,13 +157,15 @@ product_associations   id, product_a_id (FK), product_b_id (FK),
 
 ### 2.3 SaaS Schema (6 tables — alternative template)
 ```
-plans           id, name, slug, description, price_monthly, price_yearly, features (JSONB), is_active
+plans           id, name, slug, description, price_monthly (INT cents), price_yearly (INT cents),
+                currency CHAR(3), features (JSONB), is_active
 plan_features   plan_id, feature_key, feature_value, limit
-subscriptions   id, user_id, plan_id, status, current_period_start, current_period_end,
-                cancel_at_period_end
+subscriptions   id, user_id, plan_id, status, currency CHAR(3),
+                current_period_start, current_period_end, cancel_at_period_end
 usage_records   id, subscription_id, feature_key, quantity, recorded_at
-invoices        id, user_id, subscription_id, amount, status, due_date, paid_at
-invoice_items   invoice_id, description, quantity, unit_price, total
+invoices        id, user_id, subscription_id, amount (INT cents), currency CHAR(3),
+                status, due_date, paid_at
+invoice_items   invoice_id, description, quantity, unit_price (INT cents), total (INT cents)
 ```
 
 ### 2.4 GDPR Schema (7 tables — always present)
@@ -206,6 +218,54 @@ utm_tracking     id, session_id, utm_source, utm_medium, utm_campaign, utm_conte
 ### 2.8 Soft Delete
 All user-facing tables include deleted_at column for GDPR compliance.
 Queries default to WHERE deleted_at IS NULL.
+
+### 2.9 Money & Currency Convention
+- All monetary amounts stored as **INTEGER cents** (e.g., $19.99 = 1999). Matches Stripe, avoids floating point.
+- Every amount column is paired with a `currency CHAR(3)` column (ISO 4217: USD, EUR, GBP, etc.)
+- `DEFAULT_CURRENCY` in .env sets the deployment default; individual records can override.
+- Display layer converts cents → formatted string using currency locale.
+- Affected columns: `products.base_price`, `product_variants.price_override`, `pricing_tiers.price_per_unit`,
+  `discount_codes.value` (for fixed type), `discount_codes.min_order_amount`, `cart_items.unit_price_at_add`,
+  `orders.subtotal/discount_amount/tax_amount/total`, `order_items.unit_price/total_price`,
+  `payment_records.amount`, `plans.price_monthly/price_yearly`, `invoices.amount`,
+  `invoice_items.unit_price/total`, `customer_metrics.total_spent`
+- **Exchange rates table** (core schema):
+  ```
+  exchange_rates    id, base_currency CHAR(3), target_currency CHAR(3), rate NUMERIC(12,6),
+                    source (VARCHAR: manual/api), fetched_at TIMESTAMPTZ, created_at
+  ```
+  - Unique constraint on (base_currency, target_currency)
+  - Updated manually or via external API (future integration)
+  - Used for display conversion only; transactions always store the original currency
+
+### 2.10 Enum Strategy
+- All status/type columns use **VARCHAR + CHECK constraints** (not PostgreSQL ENUM types).
+- Rationale: CHECK constraints can be altered inside transactions; PG ENUMs cannot (`ALTER TYPE ADD VALUE` is non-transactional).
+- Pattern: `status VARCHAR(30) NOT NULL CHECK (status IN ('active', 'abandoned', 'converted', 'expired'))`
+- When adding a new value: `ALTER TABLE ... DROP CONSTRAINT ...; ALTER TABLE ... ADD CONSTRAINT ... CHECK (status IN (...))`
+
+### 2.11 Cart Status Lifecycle
+```
+active → abandoned (CART_ABANDON_TIMEOUT inactivity)
+active → converted (checkout completed, order created)
+active → expired (TTL exceeded, no recovery)
+abandoned → recovered (user returns and interacts with cart) → active
+abandoned → expired (max reminders sent, no recovery)
+```
+Valid `cart.status` values: `active`, `abandoned`, `recovered`, `converted`, `expired`
+
+### 2.12 Migration Ordering
+Migrations must run in dependency order due to cross-schema foreign keys:
+```
+000_extensions.sql      — uuid-ossp, schemas, updated_at trigger function
+001_core_schema.sql     — users, roles, permissions, sessions, api_keys, audit_log, exchange_rates
+002_ecommerce_schema.sql — all 21 ecommerce tables (references core.users) [template: ecommerce]
+    OR
+002_saas_schema.sql     — all 6 SaaS tables (references core.users) [template: saas]
+003_gdpr_schema.sql     — all 7 GDPR tables (references core.users)
+004_analytics_schema.sql — all 6 analytics tables [if ENABLE_TRACKING=true]
+```
+Core always runs first. Template migration (ecommerce XOR saas) second. GDPR third. Analytics last (optional).
 
 ---
 
@@ -369,6 +429,9 @@ ENABLE_PAYMENTS=true | ENABLE_TRACKING=true | ENABLE_CHATBOT=false | ENABLE_MARK
 
 ### Abandoned Cart & Recommendations
 CART_ABANDON_TIMEOUT=60 | RECOMMENDATION_PROVIDER=default | RFM_COMPUTE_SCHEDULE=daily
+
+### Currency
+DEFAULT_CURRENCY=USD
 
 ### Database
 DATABASE_URL | POOL_SIZE=5 | MAX_OVERFLOW=10 | POOL_TIMEOUT=30
