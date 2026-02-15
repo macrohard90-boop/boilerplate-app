@@ -93,28 +93,28 @@ Read `docs/ARCHITECTURE.md` sections 2 (Database Schemas) and 9 (Connection Pool
     - **Idempotent by default**: uses `INSERT ... ON CONFLICT DO NOTHING` for roles/permissions
 
 ## Acceptance Criteria
-- [ ] `python scripts/migrate.py up` creates all tables without errors
-- [ ] `python scripts/migrate.py down` drops all tables cleanly
-- [ ] `python scripts/migrate.py down --to 001` rolls back to a specific version
-- [ ] `python scripts/migrate.py status` shows applied migrations
-- [ ] `python scripts/seed.py` populates database with template-appropriate sample data
-- [ ] `python scripts/seed.py --reset` truncates and re-seeds cleanly
-- [ ] SQLAlchemy async session works from a FastAPI route (test endpoint)
-- [ ] All indexes created (verify with `\di` in psql)
-- [ ] PG schemas created: `core`, `ecommerce`/`saas`, `gdpr`, `analytics` (verify with `\dn` in psql)
-- [ ] Soft-delete columns (deleted_at) present on all user-facing tables
-- [ ] `updated_at` trigger fires correctly (verify with manual UPDATE + SELECT)
-- [ ] Schema matches ARCHITECTURE.md exactly (with documented deviations noted below)
-- [ ] `customer_metrics`, `abandoned_cart_events`, `product_associations` tables created with correct indexes
-- [ ] `email_preferences`, `email_events` tables created in GDPR schema
-- [ ] `consent_records` consent_type values documented and consistent with email_preferences booleans
-- [ ] All monetary columns are INTEGER (cents) with paired `currency CHAR(3)` column
-- [ ] All status/type columns use VARCHAR + CHECK constraints (no PG ENUMs)
-- [ ] `cart.status` CHECK constraint includes: active, abandoned, recovered, converted, expired
-- [ ] `exchange_rates` table created in core schema with UNIQUE(base_currency, target_currency)
-- [ ] Migration ordering enforced: 000 → 001 (core) → 002 (template) → 003 (gdpr) → 004 (analytics)
-- [ ] CI pipeline runs `migrate up → seed → migrate down` against throwaway Postgres container
-- [ ] Failed migration rolls back cleanly (no partial state)
+- [x] `python scripts/migrate.py up` creates all tables without errors
+- [x] `python scripts/migrate.py down` drops all tables cleanly
+- [x] `python scripts/migrate.py down --to 001` rolls back to a specific version
+- [x] `python scripts/migrate.py status` shows applied migrations
+- [x] `python scripts/seed.py` populates database with template-appropriate sample data
+- [x] `python scripts/seed.py --reset` truncates and re-seeds cleanly
+- [x] SQLAlchemy async session works from a FastAPI route (test endpoint)
+- [x] All indexes created (verify with `\di` in psql)
+- [x] PG schemas created: `core`, `ecommerce`/`saas`, `gdpr`, `analytics` (verify with `\dn` in psql)
+- [x] Soft-delete columns (deleted_at) present on all user-facing tables
+- [x] `updated_at` trigger fires correctly (verify with manual UPDATE + SELECT)
+- [x] Schema matches ARCHITECTURE.md exactly (with documented deviations noted below)
+- [x] `customer_metrics`, `abandoned_cart_events`, `product_associations` tables created with correct indexes
+- [x] `email_preferences`, `email_events` tables created in GDPR schema
+- [x] `consent_records` consent_type values documented and consistent with email_preferences booleans
+- [x] All monetary columns are INTEGER (cents) with paired `currency CHAR(3)` column
+- [x] All status/type columns use VARCHAR + CHECK constraints (no PG ENUMs)
+- [x] `cart.status` CHECK constraint includes: active, abandoned, recovered, converted, expired
+- [x] `exchange_rates` table created in core schema with UNIQUE(base_currency, target_currency)
+- [x] Migration ordering enforced: 000 → 001 (core) → 002 (template) → 003 (gdpr) → 004 (analytics)
+- [x] CI pipeline runs `migrate up → seed → migrate down` against throwaway Postgres container
+- [x] Failed migration rolls back cleanly (no partial state)
 
 ## Implementation Notes
 - **Money as integer cents**: all monetary amounts stored as INTEGER (e.g., $19.99 = 1999). Every amount column paired with `currency CHAR(3)` (ISO 4217). `DEFAULT_CURRENCY` env var for deployment default. See ARCHITECTURE.md §2.9.
