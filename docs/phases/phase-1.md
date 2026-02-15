@@ -86,14 +86,14 @@ Create the monorepo structure, Docker Compose stack, module auto-discovery syste
    - Can be added as post-push hook or CI step
 
 ## Acceptance Criteria
-- [ ] `docker compose up -d` starts all services without errors
-- [ ] GET /api/health returns {status: "ok", services: {redis: "ok", db: "ok"}}
-- [ ] GET /api/health/redis returns Redis connection status
-- [ ] Next.js serves a placeholder page at http://localhost
-- [ ] Nginx routes /api/* to FastAPI and /* to Next.js
-- [ ] Module loader logs "Loaded modules: []" (empty, none built yet)
-- [ ] .env.template contains all expected variables with comments
-- [ ] CI pipeline runs lint + test steps (even if tests are placeholder)
+- [x] `docker compose up -d` starts all services without errors
+- [x] GET /api/health returns {status: "ok", services: {redis: "ok", db: "ok"}}
+- [x] GET /api/health/redis returns Redis connection status
+- [x] Next.js serves a placeholder page at http://localhost
+- [x] Nginx routes /api/* to FastAPI and /* to Next.js
+- [x] Module loader logs "Loaded modules: []" (empty, none built yet)
+- [x] .env.template contains all expected variables with comments
+- [x] CI pipeline runs lint + test steps (even if tests are placeholder)
 
 ## Implementation Notes
 - Use multi-stage Dockerfiles for smaller images
@@ -104,4 +104,51 @@ Create the monorepo structure, Docker Compose stack, module auto-discovery syste
 - All ARM64 compatible images (no x86-only base images)
 
 ## Files Created
-_Update this section after building. List every file created with its path._
+
+### Root
+- `.dockerignore`
+- `.env.template`
+- `.gitignore`
+- `docker-compose.yml`
+- `docker-compose.scale.yml`
+
+### Backend
+- `backend/__init__.py`
+- `backend/main.py`
+- `backend/requirements.txt`
+- `backend/core/__init__.py`
+- `backend/core/config.py`
+- `backend/core/module_loader.py`
+- `backend/core/redis.py`
+
+### Frontend
+- `frontend/package.json`
+- `frontend/next.config.js`
+- `frontend/tsconfig.json`
+- `frontend/.eslintrc.json`
+- `frontend/app/layout.tsx`
+- `frontend/app/page.tsx`
+- `frontend/public/.gitkeep`
+
+### Docker
+- `docker/backend.Dockerfile`
+- `docker/frontend.Dockerfile`
+- `docker/nginx.conf`
+
+### Scripts
+- `scripts/setup.sh`
+- `scripts/mirror.sh`
+
+### CI/CD
+- `.github/workflows/ci.yml`
+
+### Modules (empty directory scaffolds)
+- `modules/auth/`
+- `modules/gdpr/`
+- `modules/seo/`
+- `modules/payments/`
+- `modules/ecommerce/`
+- `modules/saas/`
+- `modules/tracking/`
+- `modules/chatbot/`
+- `modules/marketing/`

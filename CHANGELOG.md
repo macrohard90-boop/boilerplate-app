@@ -51,7 +51,7 @@ _Update as phases are completed:_
 
 | Phase | Completed | Tag | Notes |
 |-------|-----------|-----|-------|
-| 1 | — | — | — |
+| 1 | 2026-02-15 | phase-1-complete | Project skeleton, Docker Compose stack, module loader, Redis integration, CI/CD pipeline, setup script |
 | 2 | — | — | — |
 | 3 | — | — | — |
 | 4 | — | — | — |
