@@ -56,7 +56,30 @@ class ReminderStrategy(ABC):
 ```
 Default implementation: uniform cadence (1hr, 24hr, 72hr). Swappable for RFM-segment-based strategy.
 
-### 1.6 ChatbotProvider (modules/chatbot/interfaces/)
+### 1.6 EmailProvider (modules/notifications/interfaces/)
+```python
+class EmailProvider(ABC):
+    async def send(to, template_id, template_data, email_type) -> SendResult
+    async def send_batch(recipients: list[BatchEmail]) -> list[SendResult]
+    async def sync_suppression(suppressed_emails: list[str]) -> SyncResult
+    async def process_webhook(payload, signature) -> WebhookEvent  # bounce/complaint/delivery
+```
+Default implementation: placeholder (logs to console). Swap in Mailgun, SendGrid, Postmark, etc.
+Swap by: implementing EmailProvider ABC, updating EMAIL_PROVIDER in .env
+
+Consent check flow:
+1. Caller requests send with `email_type` (marketing_email | transactional_email)
+2. Notifications service checks `email_preferences` for suppression + `consent_records` for opt-in
+3. If consent valid and not suppressed → delegate to EmailProvider → log to `email_events`
+4. If no consent or suppressed → skip send, log reason to `email_events`
+
+Webhook flow (provider → app):
+- POST /api/notifications/webhook — validates provider signature
+- Bounce → auto-add to `email_preferences.suppressed_at`, reason = 'bounce'
+- Complaint (spam report) → auto-add to `email_preferences.suppressed_at`, reason = 'complaint'
+- Delivery confirmation → update `email_events.delivered_at`
+
+### 1.7 ChatbotProvider (modules/chatbot/interfaces/)
 ```python
 class ChatbotProvider(ABC):
     async def send_message(conversation_id, message) -> ChatResponse
@@ -133,15 +156,28 @@ invoices        id, user_id, subscription_id, amount, status, due_date, paid_at
 invoice_items   invoice_id, description, quantity, unit_price, total
 ```
 
-### 2.4 GDPR Schema (5 tables — always present)
+### 2.4 GDPR Schema (7 tables — always present)
 ```
 consent_records       id, user_id, consent_type, granted, version, ip_address, created_at
+                      consent_type values: marketing_email, transactional_email, third_party_sharing,
+                      analytics, cookies_analytics, cookies_marketing
 data_export_requests  id, user_id, status, file_url, requested_at, completed_at, expires_at
 deletion_requests     id, user_id, status, requested_at, grace_period_ends, completed_at
 cookie_preferences    id, user_id (nullable), session_id, necessary, analytics, marketing,
                       preferences, created_at, updated_at
 consent_audit_log     id, user_id, action, consent_type, old_value, new_value, ip_address,
                       created_at
+email_preferences     id, user_id (FK unique), marketing_email (bool), transactional_email (bool),
+                      suppressed_at (nullable TIMESTAMPTZ), suppression_reason (nullable: bounce/
+                      complaint/manual/deletion_request), updated_at
+                      — App-side source of truth. Synced to email provider on change.
+                      — Checked before every send. Suppressed users never receive any email.
+email_events          id, user_id (FK), email_type (marketing_email/transactional_email),
+                      template_id, provider, provider_message_id, consent_snapshot (JSONB:
+                      consent state at send time), status (queued/sent/delivered/bounced/
+                      complained/skipped), skip_reason (nullable: no_consent/suppressed),
+                      sent_at, delivered_at, created_at
+                      — Audit trail: proves what was sent, when, and that consent existed.
 ```
 
 ### 2.5 Analytics Schema (6 tables — optional module)
@@ -353,8 +389,9 @@ OIDC_ISSUER | OIDC_CLIENT_ID | OIDC_CLIENT_SECRET
 ### Stripe
 STRIPE_SECRET_KEY | STRIPE_PUBLISHABLE_KEY | STRIPE_WEBHOOK_SECRET | PLATFORM_FEE_PERCENT=10
 
-### SMTP
-SMTP_HOST | SMTP_PORT | SMTP_USER | SMTP_PASSWORD | FROM_EMAIL
+### Email / Notifications
+EMAIL_PROVIDER=placeholder | FROM_EMAIL | FROM_NAME
+SMTP_HOST | SMTP_PORT | SMTP_USER | SMTP_PASSWORD (fallback if provider uses SMTP relay)
 
 ### Domain
 DOMAIN | FRONTEND_URL | BACKEND_URL

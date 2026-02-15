@@ -31,8 +31,11 @@ Read `docs/ARCHITECTURE.md` sections 2 (Database Schemas) and 9 (Connection Pool
    - plans, plan_features, subscriptions, usage_records, invoices, invoice_items
    - See ARCHITECTURE.md §2.3 for full column definitions
 
-4. **GDPR schema** (5 tables, always present):
-   - consent_records, data_export_requests, deletion_requests, cookie_preferences, consent_audit_log
+4. **GDPR schema** (7 tables, always present):
+   - consent_records, data_export_requests, deletion_requests, cookie_preferences, consent_audit_log, **email_preferences**, **email_events**
+   - `consent_records.consent_type` taxonomy: `marketing_email`, `transactional_email`, `third_party_sharing`, `analytics`, `cookies_analytics`, `cookies_marketing`
+   - `email_preferences`: per-user suppression list + per-type opt-in booleans. App-side source of truth synced to email provider.
+   - `email_events`: audit trail of every email sent/skipped, with consent snapshot at send time and provider message ID
    - See ARCHITECTURE.md §2.4 for full column definitions
 
 5. **Analytics schema** (6 tables, optional module):
@@ -102,6 +105,8 @@ Read `docs/ARCHITECTURE.md` sections 2 (Database Schemas) and 9 (Connection Pool
 - [ ] `updated_at` trigger fires correctly (verify with manual UPDATE + SELECT)
 - [ ] Schema matches ARCHITECTURE.md exactly (with documented deviations noted below)
 - [ ] `customer_metrics`, `abandoned_cart_events`, `product_associations` tables created with correct indexes
+- [ ] `email_preferences`, `email_events` tables created in GDPR schema
+- [ ] `consent_records` consent_type values documented and consistent with email_preferences booleans
 - [ ] CI pipeline runs `migrate up → seed → migrate down` against throwaway Postgres container
 - [ ] Failed migration rolls back cleanly (no partial state)
 
@@ -123,6 +128,8 @@ Read `docs/ARCHITECTURE.md` sections 2 (Database Schemas) and 9 (Connection Pool
 - Tables organized into PG schemas (`core.*`, `ecommerce.*`, etc.) rather than flat public schema — update ARCHITECTURE.md §2 preamble when building
 - E-commerce schema expanded from 18 to 21 tables: added `customer_metrics`, `abandoned_cart_events`, `product_associations` — update ARCHITECTURE.md §2.2 when building
 - New `recommendations` module added to Module Registry — scaffolded in Phase 2, implementation deferred
+- New `notifications` module added to Module Registry (required core) — EmailProvider interface, scaffolded in Phase 2
+- GDPR schema expanded from 5 to 7 tables: added `email_preferences`, `email_events` — update ARCHITECTURE.md §2.4 when building
 
 ## Files Created
 _Update this section after building. List every file created with its path._

@@ -33,6 +33,7 @@ A reusable GitHub Template Repository for deploying fully independent web applic
 | tracking   | User Analytics               | Optional        | GeoProvider, AgentParser       |
 | chatbot    | AI Chatbot                   | Optional        | ChatbotProvider                |
 | marketing  | Marketing & Promotions       | Optional        | —                              |
+| notifications | Email & Notifications       | Required (core) | EmailProvider                  |
 | recommendations | Recommendations & Cart Recovery | Optional   | RecommendationProvider, ReminderStrategy |
 
 ## Module Structure (consistent for all)
