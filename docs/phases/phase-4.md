@@ -1,84 +1,118 @@
-# Phase 2: Database Schema & Migration System
+# Phase 4: Payment Processing
 
 **Estimate:** 4-5 hours
-**Depends on:** Phase 1
-**Category:** Data layer
+**Depends on:** Phase 3, Phase 5
+**Category:** Commerce & transactions
 
 ## Goal
-Create all database schemas (core, e-commerce, SaaS, GDPR, analytics), the migration system, SQLAlchemy async engine with connection pooling, indexing strategy, and seed data. At the end of this phase, the database is fully structured and populated with sample data for the chosen template.
+Integrate Stripe as the default payment provider via the PaymentProvider adapter pattern, implement the cart-to-order conversion flow, webhook handling for payment events, and merchant onboarding via Stripe Connect. At the end of this phase, a user can complete a full checkout and payment lifecycle.
 
 ## Prerequisite Reading
-Read `docs/ARCHITECTURE.md` sections 2 (Database Schemas) and 9 (Connection Pooling) for the complete schema definitions and pool configuration.
+Read `docs/ARCHITECTURE.md` sections 1.1 (PaymentProvider interface), 6 (Payment Lifecycle), and 10 (Environment Variables — Stripe section) for the payment specification.
 
 ## Deliverables
 
-1. **Core schema** (always present):
-   - users, roles, permissions, sessions, api_keys, audit_log
-   - See ARCHITECTURE.md §2.1 for full column definitions
+1. **PaymentProvider interface** (modules/payments/interfaces/):
+   - ABC with methods: `create_payment`, `refund`, `get_status`, `create_merchant`, `list_transactions`
+   - `PaymentResult`, `RefundResult`, `PaymentStatus`, `MerchantAccount`, `Transaction` response models
+   - Provider-agnostic — any payment gateway can implement this interface
 
-2. **E-commerce schema** (18 tables, template choice):
-   - products, categories, product_categories, product_variants, product_images,
-     product_reviews, related_items, inventory_records, wishlists, wishlist_items,
-     discount_codes, digital_assets, pricing_tiers, cart, cart_items, orders,
-     order_items, payment_records
-   - See ARCHITECTURE.md §2.2 for full column definitions
+2. **Stripe adapter** (modules/payments/adapters/):
+   - Implements PaymentProvider ABC using Stripe SDK
+   - Payment Intents API for creating and confirming payments
+   - Refunds API (partial and full refunds)
+   - Payment status retrieval
+   - Stripe Connect Express for merchant accounts
+   - Configurable platform fee (`PLATFORM_FEE_PERCENT`, default 10%)
 
-3. **SaaS schema** (6 tables, alternative template):
-   - plans, plan_features, subscriptions, usage_records, invoices, invoice_items
-   - See ARCHITECTURE.md §2.3 for full column definitions
+3. **Cart-to-order conversion** (modules/payments/services/):
+   - Validate cart contents (stock availability, price verification)
+   - Reserve inventory (decrement stock, handle race conditions)
+   - Create order record with line items, pricing snapshot, addresses
+   - Price lock: use prices at conversion time, store in `product_snapshot` JSONB
+   - Apply discount codes: validate code, calculate discount, update totals
+   - Calculate tax amount (placeholder for tax service integration)
+   - Create payment intent via PaymentProvider
+   - On payment success: order status → completed, cart status → converted
+   - On payment failure: release inventory reservation, order status → rejected
 
-4. **GDPR schema** (5 tables, always present):
-   - consent_records, data_export_requests, deletion_requests, cookie_preferences, consent_audit_log
-   - See ARCHITECTURE.md §2.4 for full column definitions
+4. **Payment lifecycle management** (modules/payments/services/):
+   - Status flow: `pending → processing → accepted → completed` or `→ rejected` or `→ refunded`
+   - Create `payment_records` entry for each payment attempt
+   - Idempotency: prevent duplicate payments for same order
+   - Currency handling: pass through order currency to Stripe (INT cents)
 
-5. **Analytics schema** (6 tables, optional module):
-   - page_views, sessions, events, user_agents, referral_sources, utm_tracking
-   - See ARCHITECTURE.md §2.5 for full column definitions
+5. **Webhook handling** (modules/payments/routes/):
+   - `POST /api/payments/webhook` — receives Stripe webhook events
+   - Signature validation using `STRIPE_WEBHOOK_SECRET`
+   - Idempotency: store event_id, skip duplicate events
+   - Key events handled:
+     - `payment_intent.succeeded` → update order status, record payment
+     - `payment_intent.payment_failed` → update order status, release inventory
+     - `charge.refunded` → create refund record, update order status
+     - `account.updated` → update merchant account status
+   - Error handling: return 200 to Stripe even on processing errors (log and retry internally)
 
-6. **SQLAlchemy async engine** (backend/core/database.py):
-   - Async engine using asyncpg
-   - Connection pool: pool_size, max_overflow, pool_timeout from .env
-   - Session factory: async_sessionmaker
-   - Dependency injection: get_db() for FastAPI routes
-   - Engine disposal on shutdown
+6. **Merchant onboarding** (modules/payments/services/):
+   - `POST /api/payments/merchants/onboard` — generate Stripe Connect onboarding link
+   - `GET /api/payments/merchants/status` — check onboarding completion
+   - Stripe Express accounts: simplified onboarding, platform handles checkout
+   - Platform fee deduction on each merchant transaction
+   - Dashboard link generation for merchants to view payouts
 
-7. **Indexing strategy:**
-   - All foreign keys
-   - All user_id columns
-   - All created_at columns
-   - Frequently filtered: status, type, active, slug, email
-   - Composite: user_id + status, product_id + variant_id where relevant
+7. **Checkout endpoints** (modules/payments/routes/):
+   - `POST /api/checkout` — convert cart to order, create payment intent, return client_secret
+   - `GET /api/orders/{id}` — order details with payment status
+   - `GET /api/orders` — list user's orders (paginated)
+   - `POST /api/orders/{id}/refund` — initiate refund (admin or order owner)
+   - All endpoints require authentication
 
-8. **Migration system** (scripts/migrate.py + /migrations/):
-   - Numbered SQL files: 001_core_schema.sql, 002_ecommerce_schema.sql, etc.
-   - Each file has -- UP and -- DOWN sections
-   - Version tracking table: schema_migrations (version, applied_at)
-   - Commands: migrate up, migrate down, migrate status
-   - Template-aware: only runs e-commerce OR SaaS migrations based on config
-
-9. **Seed data** (scripts/seed.py + /seeds/):
-   - E-commerce seeds: 10 products with variants and images, 5 categories (2 levels deep), 3 test users (admin, merchant, customer), sample discount codes, sample reviews
-   - SaaS seeds: 3 plans (free, pro, enterprise) with features, 3 test users, sample subscriptions
-   - Common seeds: roles (admin, merchant, customer), default permissions
+8. **Pydantic schemas** (modules/payments/models/):
+   - `CheckoutRequest`: cart_id, shipping_address, billing_address, discount_code (optional)
+   - `CheckoutResponse`: order_id, client_secret, total
+   - `OrderResponse`: full order details with line items and payment status
+   - `RefundRequest`: amount (optional for partial), reason
+   - `WebhookEvent`: Stripe event payload model
 
 ## Acceptance Criteria
-- [ ] `python scripts/migrate.py up` creates all tables without errors
-- [ ] `python scripts/migrate.py down` drops all tables cleanly
-- [ ] `python scripts/migrate.py status` shows applied migrations
-- [ ] `python scripts/seed.py` populates database with template-appropriate sample data
-- [ ] SQLAlchemy async session works from a FastAPI route (test endpoint)
-- [ ] All indexes created (verify with \di in psql)
-- [ ] Soft-delete columns (deleted_at) present on all user-facing tables
-- [ ] Schema matches ARCHITECTURE.md exactly
+- [ ] PaymentProvider interface defined with all required methods
+- [ ] Stripe adapter implements full interface
+- [ ] Cart-to-order conversion creates order with correct totals (INT cents)
+- [ ] Inventory is reserved on checkout, released on payment failure
+- [ ] Discount codes apply correctly (percentage, fixed, free shipping)
+- [ ] Payment intent created with correct amount and currency
+- [ ] Webhook signature validation rejects invalid signatures
+- [ ] `payment_intent.succeeded` webhook updates order to completed
+- [ ] `charge.refunded` webhook creates refund record
+- [ ] Duplicate webhook events are ignored (idempotency)
+- [ ] Merchant onboarding generates valid Stripe Connect link
+- [ ] Platform fee is applied to merchant transactions
+- [ ] Refund flow works (partial and full)
+- [ ] All monetary values stored as INT cents with currency CHAR(3)
+- [ ] All checkout/order endpoints require authentication
+- [ ] Product snapshots stored in JSONB (price at time of purchase preserved)
 
 ## Implementation Notes
-- Use JSONB for flexible fields (variant attributes, addresses, product snapshots, plan features)
-- UUID primary keys (uuid_generate_v4()) for all tables
-- All timestamps with timezone (TIMESTAMPTZ)
-- Soft-delete: deleted_at TIMESTAMPTZ DEFAULT NULL on user-facing tables
-- created_at DEFAULT NOW(), updated_at with trigger or application-level update
-- Foreign keys with ON DELETE CASCADE where parent deletion should cascade, RESTRICT otherwise
-- The setup script from Phase 1 should be updated to call migrate + seed after template selection
+- Stripe SDK: `stripe` Python package
+- Payment amounts in cents (matches our INT cents convention and Stripe's API)
+- Webhook endpoint must be excluded from CSRF protection (Stripe signs with its own scheme)
+- Use database transactions for cart-to-order conversion (atomic operation)
+- Inventory reservation: use `SELECT ... FOR UPDATE` to prevent race conditions
+- Consider retry logic for failed webhook processing
+- Test with Stripe test mode keys — never use live keys in development
 
-## Files Created
-_Update this section after building. List every file created with its path._
+## Files to Create
+- `modules/payments/interfaces/payment_provider.py` — PaymentProvider ABC + response models
+- `modules/payments/adapters/stripe_provider.py` — Stripe implementation
+- `modules/payments/services/checkout_service.py` — Cart-to-order conversion, inventory, pricing
+- `modules/payments/services/payment_service.py` — Payment lifecycle, refunds
+- `modules/payments/services/merchant_service.py` — Stripe Connect onboarding
+- `modules/payments/services/webhook_service.py` — Webhook processing and idempotency
+- `modules/payments/models/schemas.py` — Pydantic request/response models
+- `modules/payments/routes/checkout_routes.py` — Checkout and order endpoints
+- `modules/payments/routes/webhook_routes.py` — Stripe webhook receiver
+- `modules/payments/routes/merchant_routes.py` — Merchant onboarding endpoints
+- `modules/payments/config.py` — Payment module configuration
+- Modified: `backend/main.py` — Mount payment routes
+- Modified: `backend/requirements.txt` — Add stripe
+- Modified: `.env.template` — Add STRIPE_SECRET_KEY, STRIPE_PUBLISHABLE_KEY, STRIPE_WEBHOOK_SECRET

@@ -1,84 +1,116 @@
-# Phase 2: Database Schema & Migration System
+# Phase 6: User Tracking & Analytics
 
-**Estimate:** 4-5 hours
-**Depends on:** Phase 1
-**Category:** Data layer
+**Estimate:** 3-4 hours
+**Depends on:** Phase 3
+**Category:** Data & insights
 
 ## Goal
-Create all database schemas (core, e-commerce, SaaS, GDPR, analytics), the migration system, SQLAlchemy async engine with connection pooling, indexing strategy, and seed data. At the end of this phase, the database is fully structured and populated with sample data for the chosen template.
+Build the server-side analytics module: page view tracking, session management, event capture, UTM parameter tracking, user agent parsing, and geo lookup via the GeoProvider interface. At the end of this phase, all user interactions are tracked in the analytics schema and queryable via admin API endpoints.
 
 ## Prerequisite Reading
-Read `docs/ARCHITECTURE.md` sections 2 (Database Schemas) and 9 (Connection Pooling) for the complete schema definitions and pool configuration.
+Read `docs/ARCHITECTURE.md` sections 1.3 (GeoProvider interface), 2.5 (Analytics Schema), 4 (Redis Key Architecture), and 10 (Environment Variables — ENABLE_TRACKING) for the analytics specification.
 
 ## Deliverables
 
-1. **Core schema** (always present):
-   - users, roles, permissions, sessions, api_keys, audit_log
-   - See ARCHITECTURE.md §2.1 for full column definitions
+1. **Page view tracking** (modules/tracking/services/):
+   - Record page views: user_id (nullable for anonymous), session_id, path, referrer, duration_ms
+   - Server-side collection via API endpoint: `POST /api/tracking/pageview`
+   - Batch insert support for buffered client-side events
+   - Respect `ENABLE_TRACKING` toggle — skip collection if disabled
+   - GDPR guard: check `consent_records` for `analytics` consent before recording
 
-2. **E-commerce schema** (18 tables, template choice):
-   - products, categories, product_categories, product_variants, product_images,
-     product_reviews, related_items, inventory_records, wishlists, wishlist_items,
-     discount_codes, digital_assets, pricing_tiers, cart, cart_items, orders,
-     order_items, payment_records
-   - See ARCHITECTURE.md §2.2 for full column definitions
+2. **Analytics session management** (modules/tracking/services/):
+   - Create `analytics_sessions` record on first page view
+   - Session identification: use session_id from auth or generate anonymous session_id
+   - Track: started_at, ended_at, page_count
+   - Session timeout: configurable inactivity period
+   - Link to user_id when authenticated (nullable for anonymous visitors)
 
-3. **SaaS schema** (6 tables, alternative template):
-   - plans, plan_features, subscriptions, usage_records, invoices, invoice_items
-   - See ARCHITECTURE.md §2.3 for full column definitions
+3. **Event tracking** (modules/tracking/services/):
+   - Generic event capture: `POST /api/tracking/events`
+   - Event types: custom string (e.g., `add_to_cart`, `checkout_started`, `search`, `product_view`)
+   - Event data: JSONB payload (flexible schema per event type)
+   - Batch event submission for efficiency
 
-4. **GDPR schema** (5 tables, always present):
-   - consent_records, data_export_requests, deletion_requests, cookie_preferences, consent_audit_log
-   - See ARCHITECTURE.md §2.4 for full column definitions
+4. **UTM parameter tracking** (modules/tracking/services/):
+   - Capture UTM parameters from inbound URLs: source, medium, campaign, content, term
+   - Store in `utm_tracking` table linked to analytics session
+   - Referral source extraction: parse referrer URL into source and medium
 
-5. **Analytics schema** (6 tables, optional module):
-   - page_views, sessions, events, user_agents, referral_sources, utm_tracking
-   - See ARCHITECTURE.md §2.5 for full column definitions
+5. **User agent parsing** (modules/tracking/services/):
+   - Parse User-Agent header: browser, browser_version, OS, device_type
+   - Store in `user_agents` table linked to session
+   - AgentParser interface (placeholder): allows swapping parsing library
+   - Default implementation: `user-agents` Python package or regex-based
 
-6. **SQLAlchemy async engine** (backend/core/database.py):
-   - Async engine using asyncpg
-   - Connection pool: pool_size, max_overflow, pool_timeout from .env
-   - Session factory: async_sessionmaker
-   - Dependency injection: get_db() for FastAPI routes
-   - Engine disposal on shutdown
+6. **GeoProvider interface + placeholder** (modules/tracking/interfaces/ + adapters/):
+   - GeoProvider ABC: `async def lookup(ip_address) -> GeoResult`
+   - GeoResult: country, city, region, latitude, longitude
+   - Placeholder adapter: returns "Unknown" for all fields (no external API call)
+   - Ready for MaxMind GeoIP2 or similar integration
 
-7. **Indexing strategy:**
-   - All foreign keys
-   - All user_id columns
-   - All created_at columns
-   - Frequently filtered: status, type, active, slug, email
-   - Composite: user_id + status, product_id + variant_id where relevant
+7. **Referral source tracking** (modules/tracking/services/):
+   - Parse referrer URLs into source and medium categories
+   - Known sources: google, facebook, twitter, linkedin, direct, email, etc.
+   - Store in `referral_sources` table linked to session
 
-8. **Migration system** (scripts/migrate.py + /migrations/):
-   - Numbered SQL files: 001_core_schema.sql, 002_ecommerce_schema.sql, etc.
-   - Each file has -- UP and -- DOWN sections
-   - Version tracking table: schema_migrations (version, applied_at)
-   - Commands: migrate up, migrate down, migrate status
-   - Template-aware: only runs e-commerce OR SaaS migrations based on config
+8. **Admin analytics endpoints** (modules/tracking/routes/):
+   - `GET /api/admin/analytics/pageviews` — page view stats (date range, top pages, unique visitors)
+   - `GET /api/admin/analytics/sessions` — session stats (count, avg duration, bounce rate)
+   - `GET /api/admin/analytics/events` — event counts by type (date range)
+   - `GET /api/admin/analytics/sources` — traffic sources breakdown
+   - `GET /api/admin/analytics/utm` — UTM campaign performance
+   - All admin endpoints require `admin` role
+   - Support date range filtering, pagination
 
-9. **Seed data** (scripts/seed.py + /seeds/):
-   - E-commerce seeds: 10 products with variants and images, 5 categories (2 levels deep), 3 test users (admin, merchant, customer), sample discount codes, sample reviews
-   - SaaS seeds: 3 plans (free, pro, enterprise) with features, 3 test users, sample subscriptions
-   - Common seeds: roles (admin, merchant, customer), default permissions
+9. **Tracking middleware** (modules/tracking/services/):
+   - Automatic page view recording for all requests (configurable path exclusions)
+   - Extract and store UTM parameters from query string
+   - Parse and store user agent on session creation
+   - Non-blocking: use background tasks to avoid adding latency to requests
+
+10. **Data retention comments** (migrations/):
+    - `-- RETENTION: consider archival policy for rows older than N months` on analytics_sessions, events, page_views
+    - `-- FUTURE: range partition on created_at (monthly)` on high-volume tables
 
 ## Acceptance Criteria
-- [ ] `python scripts/migrate.py up` creates all tables without errors
-- [ ] `python scripts/migrate.py down` drops all tables cleanly
-- [ ] `python scripts/migrate.py status` shows applied migrations
-- [ ] `python scripts/seed.py` populates database with template-appropriate sample data
-- [ ] SQLAlchemy async session works from a FastAPI route (test endpoint)
-- [ ] All indexes created (verify with \di in psql)
-- [ ] Soft-delete columns (deleted_at) present on all user-facing tables
-- [ ] Schema matches ARCHITECTURE.md exactly
+- [ ] Page views recorded with path, referrer, duration, user/session link
+- [ ] Analytics sessions created and updated (started_at, ended_at, page_count)
+- [ ] Custom events captured with JSONB payload
+- [ ] UTM parameters extracted and stored per session
+- [ ] User agent parsed into browser, OS, device_type
+- [ ] GeoProvider interface defined with placeholder implementation
+- [ ] Referral sources categorized from referrer URLs
+- [ ] Admin analytics endpoints return aggregated data with date filtering
+- [ ] ENABLE_TRACKING=false disables all data collection
+- [ ] GDPR consent check: analytics data only collected if user consented
+- [ ] Tracking is non-blocking (background tasks, no request latency impact)
+- [ ] Anonymous visitors tracked with session_id (no user_id required)
+- [ ] All tracking endpoints return consistent error format
 
 ## Implementation Notes
-- Use JSONB for flexible fields (variant attributes, addresses, product snapshots, plan features)
-- UUID primary keys (uuid_generate_v4()) for all tables
-- All timestamps with timezone (TIMESTAMPTZ)
-- Soft-delete: deleted_at TIMESTAMPTZ DEFAULT NULL on user-facing tables
-- created_at DEFAULT NOW(), updated_at with trigger or application-level update
-- Foreign keys with ON DELETE CASCADE where parent deletion should cascade, RESTRICT otherwise
-- The setup script from Phase 1 should be updated to call migrate + seed after template selection
+- Non-blocking tracking: use FastAPI `BackgroundTasks` or asyncio fire-and-forget
+- GDPR check flow: if user authenticated → check consent_records for analytics consent; if anonymous → check cookie_preferences
+- Analytics schema is optional: guarded by `ENABLE_TRACKING` env var (migrations skip if false)
+- High-volume tables (page_views, events): partition-ready comments in place, actual partitioning deferred
+- User agent parsing: `user-agents` pip package or lightweight regex — avoid heavy dependencies
+- Session timeout: 30 minutes of inactivity (configurable)
+- Batch inserts: accept array of events in single POST for client-side batching
 
-## Files Created
-_Update this section after building. List every file created with its path._
+## Files to Create
+- `modules/tracking/interfaces/geo_provider.py` — GeoProvider ABC + GeoResult model
+- `modules/tracking/interfaces/agent_parser.py` — AgentParser interface
+- `modules/tracking/adapters/placeholder_geo.py` — Placeholder geo implementation
+- `modules/tracking/adapters/default_agent_parser.py` — User agent parser implementation
+- `modules/tracking/services/pageview_service.py` — Page view recording and querying
+- `modules/tracking/services/session_service.py` — Analytics session management
+- `modules/tracking/services/event_service.py` — Custom event capture
+- `modules/tracking/services/utm_service.py` — UTM parameter extraction and storage
+- `modules/tracking/services/referral_service.py` — Referral source parsing
+- `modules/tracking/services/tracking_middleware.py` — Auto-tracking middleware
+- `modules/tracking/models/schemas.py` — Pydantic request/response models
+- `modules/tracking/routes/tracking_routes.py` — Page view, event collection endpoints
+- `modules/tracking/routes/admin_routes.py` — Admin analytics endpoints
+- `modules/tracking/config.py` — Tracking module configuration
+- Modified: `backend/main.py` — Mount tracking routes, register middleware
+- Modified: `backend/requirements.txt` — Add user-agents (if used)
