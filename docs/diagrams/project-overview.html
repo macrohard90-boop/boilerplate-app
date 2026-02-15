@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Project Overview — All Phases</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #1a1b26;
+      color: #c0caf5;
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      padding: 2rem;
+    }
+    h1 {
+      text-align: center;
+      font-size: 1.6rem;
+      font-weight: 600;
+      margin-bottom: 0.3rem;
+      color: #7aa2f7;
+    }
+    .subtitle {
+      text-align: center;
+      font-size: 0.9rem;
+      color: #565f89;
+      margin-bottom: 0.5rem;
+    }
+    .legend {
+      text-align: center;
+      font-size: 0.8rem;
+      color: #565f89;
+      margin-bottom: 2rem;
+    }
+    .legend span {
+      margin: 0 1rem;
+    }
+    .legend .done { color: #9ece6a; }
+    .legend .pending { color: #565f89; }
+    .mermaid {
+      display: flex;
+      justify-content: center;
+      overflow-x: auto;
+    }
+    .mermaid svg { max-width: 100%; }
+  </style>
+</head>
+<body>
+  <h1>Boilerplate App — Project Build Overview</h1>
+  <p class="subtitle">10-phase build sequence with inter-phase dependencies</p>
+  <p class="legend">
+    <span class="done">&#9632; Complete</span>
+    <span class="pending">&#9632; Not started</span>
+  </p>
+
+  <div class="mermaid">
+%%{init: {
+  "theme": "dark",
+  "themeVariables": {
+    "primaryColor": "#364fc7",
+    "primaryBorderColor": "#7aa2f7",
+    "primaryTextColor": "#c0caf5",
+    "lineColor": "#565f89",
+    "secondaryColor": "#2d3250",
+    "tertiaryColor": "#1e2030",
+    "fontFamily": "Segoe UI, system-ui, sans-serif",
+    "fontSize": "13px"
+  }
+}}%%
+
+flowchart TD
+
+%% ── Phase nodes ──────────────────────────────────────────
+P1["&#10003; Phase 1\nProject Skeleton &amp;\nModular Architecture\n\nDocker, FastAPI, Next.js,\nRedis, module loader, CI/CD"]
+
+P2["&#10003; Phase 2\nDatabase Schema &amp;\nMigration System\n\n47 tables across 5 PG schemas,\nmigrate.py, seed.py,\nSQLAlchemy async engine"]
+
+P3["Phase 3\nAuthentication System\n\nJWT + Redis sessions,\nOAuth providers, RBAC,\nM2M API keys, middleware"]
+
+P4["Phase 4\nPayment Processing\n\nStripe integration,\ncart-to-order, webhooks,\nmerchant onboarding"]
+
+P5["Phase 5\nE-commerce Engine\n\nProduct CRUD, categories,\nvariants, cart, orders,\ninventory, wishlists"]
+
+P6["Phase 6\nUser Tracking &amp;\nAnalytics\n\nPage views, sessions,\nevents, UTM, user agents,\ngeo lookup"]
+
+P7["Phase 7\nGDPR &amp; Cookie\nManagement\n\nConsent UI, data export,\ndeletion workflow,\ncookie banner, email prefs"]
+
+P8["Phase 8\nSEO Module\n\nMeta tags, sitemap.xml,\nrobots.txt, OG tags,\nstructured data"]
+
+P9["Phase 9\nFrontend (Next.js)\n\nApp Router pages, auth UI,\nproduct pages, cart, checkout,\ndashboard, responsive design"]
+
+P10["Phase 10\nIntegration, Deployment\n&amp; Docs\n\nEnd-to-end tests, SSL,\nproduction hardening,\ndeployment docs"]
+
+%% ── Dependencies ─────────────────────────────────────────
+P1 --> P2
+P2 --> P3
+P2 --> P5
+P3 --> P4
+P3 --> P5
+P3 --> P6
+P3 --> P7
+P5 --> P4
+P5 --> P8
+P6 --> P7
+P4 --> P9
+P5 --> P9
+P7 --> P9
+P8 --> P9
+P9 --> P10
+P6 --> P10
+
+%% ── Styling: completed phases ────────────────────────────
+style P1 fill:#1f3d2e,stroke:#9ece6a,stroke-width:3px,color:#c0caf5
+style P2 fill:#1f3d2e,stroke:#9ece6a,stroke-width:3px,color:#c0caf5
+
+%% ── Styling: pending phases ──────────────────────────────
+style P3 fill:#24283b,stroke:#565f89,stroke-width:2px,color:#a9b1d6
+style P4 fill:#24283b,stroke:#565f89,stroke-width:2px,color:#a9b1d6
+style P5 fill:#24283b,stroke:#565f89,stroke-width:2px,color:#a9b1d6
+style P6 fill:#24283b,stroke:#565f89,stroke-width:2px,color:#a9b1d6
+style P7 fill:#24283b,stroke:#565f89,stroke-width:2px,color:#a9b1d6
+style P8 fill:#24283b,stroke:#565f89,stroke-width:2px,color:#a9b1d6
+style P9 fill:#24283b,stroke:#565f89,stroke-width:2px,color:#a9b1d6
+style P10 fill:#24283b,stroke:#565f89,stroke-width:2px,color:#a9b1d6
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+  <script>
+    mermaid.initialize({
+      startOnLoad: true,
+      securityLevel: 'loose',
+      flowchart: {
+        useMaxWidth: true,
+        htmlLabels: true,
+        curve: 'basis',
+        rankSpacing: 80,
+        nodeSpacing: 50
+      }
+    });
+  </script>
+</body>
+</html>

@@ -58,9 +58,11 @@ A reusable GitHub Template Repository for deploying fully independent web applic
 - When ALL deliverables for a phase are complete:
   1. Update CLAUDE.md Build Progress table: change status to [x] Complete and add the git tag
   2. Update CHANGELOG.md phase completion log with date and notes
-  3. Git commit with message following pattern: "feat(phase-N): description"
-  4. Git tag: phase-N-complete
-  5. Git push (commit + tags)
+  3. Create `docs/diagrams/phase-N-flow.html` — a Mermaid.js flow diagram showing everything built in that phase (files, data flows, dependencies, startup sequences). Use dark theme, colored subgraphs per section. Self-contained HTML (Mermaid CDN). See existing diagrams for style reference.
+  4. Update `docs/diagrams/project-overview.html` — mark the completed phase, update connections to subsequent phases
+  5. Git commit with message following pattern: "feat(phase-N): description"
+  6. Git tag: phase-N-complete
+  7. Git push (commit + tags)
 
 ### Before Building
 - Always read the phase file (docs/phases/phase-{N}.md) before starting
@@ -92,6 +94,8 @@ Read these files for detailed context when needed:
 |------|----------|--------------|
 | docs/ARCHITECTURE.md | Full schemas, interface contracts, Redis keys, middleware chain, scaling tiers, connection pooling | Modifying existing code, building cross-module features, or any phase that touches shared infrastructure |
 | docs/phases/phase-{N}.md | Detailed build spec for phase N: deliverables, acceptance criteria, implementation notes | Starting a new phase or resuming work on one |
+| docs/diagrams/phase-N-flow.html | Visual flow diagram for phase N: files created, data flows, dependencies, startup sequences | Onboarding, reviewing what a phase built, understanding flow at a glance |
+| docs/diagrams/project-overview.html | Master diagram: all 10 phases, completion status, inter-phase dependencies | Understanding the big picture, planning next steps, onboarding new developers |
 | docs/features/feature-{name}.md | Spec for post-build features (same format as phase files) | Adding new functionality after initial build |
 | CHANGELOG.md | What changed since initial build: new features, modified schemas, added interfaces | Returning to modify previously completed work |
 
