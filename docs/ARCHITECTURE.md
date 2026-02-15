@@ -37,7 +37,26 @@ class GeoProvider(ABC):
 ```
 Placeholder interface. Recommended: MaxMind GeoIP2.
 
-### 1.4 ChatbotProvider (modules/chatbot/interfaces/)
+### 1.4 RecommendationProvider (modules/recommendations/interfaces/)
+```python
+class RecommendationProvider(ABC):
+    async def get_recommendations(product_id, limit, rule_type) -> list[ProductRecommendation]
+    async def get_cart_recommendations(cart_item_ids, limit) -> list[ProductRecommendation]
+    async def compute_associations(min_support, min_confidence) -> int  # returns rules created
+```
+Default implementation: association rule learning (batch-computed, served from `product_associations` table).
+Swap by: implementing RecommendationProvider ABC, updating RECOMMENDATION_PROVIDER in .env
+
+### 1.5 ReminderStrategy (modules/recommendations/interfaces/)
+```python
+class ReminderStrategy(ABC):
+    async def get_cadence(user_id, cart_id) -> ReminderCadence  # timing + channel list
+    async def should_send(user_id, cart_id, reminder_count) -> bool
+    async def get_content(user_id, cart_id) -> ReminderContent  # subject, body, recommendations
+```
+Default implementation: uniform cadence (1hr, 24hr, 72hr). Swappable for RFM-segment-based strategy.
+
+### 1.6 ChatbotProvider (modules/chatbot/interfaces/)
 ```python
 class ChatbotProvider(ABC):
     async def send_message(conversation_id, message) -> ChatResponse
@@ -62,7 +81,7 @@ audit_log       id, user_id, api_key_id, action, resource, resource_id, ip_addre
                 payload_hash, created_at
 ```
 
-### 2.2 E-commerce Schema (18 tables — template choice)
+### 2.2 E-commerce Schema (21 tables — template choice)
 ```
 products            id, name, slug, description, sku, base_price, status, type (physical/digital),
                     created_at, updated_at, deleted_at
@@ -91,6 +110,16 @@ order_items         order_id, product_id, variant_id, quantity, unit_price, tota
                     product_snapshot (JSONB)
 payment_records     id, order_id, provider, provider_payment_id, status, amount, currency,
                     method, created_at
+customer_metrics    user_id (FK unique), last_purchase_at, order_count, total_spent,
+                    rfm_segment (VARCHAR: champion/loyal/at_risk/lost/new/etc),
+                    last_calculated_at
+abandoned_cart_events  id, cart_id (FK), user_id (FK), abandoned_at, reminder_count,
+                    last_reminder_at, recovered_at,
+                    status (abandoned/reminded/recovered/expired),
+                    channel (JSONB: tracks which channels sent), created_at
+product_associations   id, product_a_id (FK), product_b_id (FK),
+                    rule_type (frequently_bought_together/category_affinity/sequential),
+                    support, confidence, lift, sample_size, computed_at
 ```
 
 ### 2.3 SaaS Schema (6 tables — alternative template)
@@ -196,6 +225,8 @@ csrf:{token}                      → {session_id}                              
 cache:products:{hash}             → {data}                                         TTL: configurable
 cache:categories:{hash}           → {data}                                         TTL: configurable
 reset:{token}                     → {user_id}                                      TTL: 1h
+cart:last_active:{cart_id}        → timestamp                                      TTL: CART_ABANDON_TIMEOUT
+recommend:{product_id}            → [{product_id, score, rule_type}, ...]          TTL: configurable
 ```
 
 ---
@@ -219,6 +250,26 @@ Cart system:
 - Guest users: Redis with session_id key, TTL 24h
 - Authenticated users: PostgreSQL cart + cart_items tables
 - Cart-to-order: inventory reservation, price lock at conversion time
+
+Abandoned cart recovery:
+- Time-based: cart marked abandoned after CART_ABANDON_TIMEOUT minutes of inactivity (configurable, default 60)
+- Background job scans for inactive carts, creates `abandoned_cart_events` record
+- Reminders via email + webhook (external channels). Default cadence: 1hr, 24hr, 72hr
+- `ReminderStrategy` interface determines cadence — swappable for RFM-segment-based logic
+- Recovery: if user completes checkout after abandonment, status → recovered, recovered_at set
+- Recommendations: abandoned cart reminders include similar/associated products from `product_associations`
+
+Product association rules:
+- Batch job computes association rules from completed order history (Apriori / FP-Growth)
+- Stored in `product_associations` with support, confidence, lift metrics
+- `RecommendationProvider` interface serves pre-computed results, swappable for real-time ML
+- Used in: cart page ("frequently bought together"), abandoned cart emails, product detail page
+
+RFM (Recency, Frequency, Monetary) analysis:
+- `customer_metrics` table updated on each completed order (last_purchase_at, order_count, total_spent)
+- Batch job computes rfm_segment based on configurable thresholds
+- Segments: champion, loyal, potential_loyalist, at_risk, hibernating, lost, new (extensible)
+- Used by `ReminderStrategy` to vary abandoned cart reminder cadence per segment
 
 Webhook handling:
 - POST /api/payments/webhook with Stripe-Signature header validation
@@ -278,7 +329,10 @@ Additional costs: Stripe (2.9% + $0.30/txn), domain (~$12/yr), Supabase Pro if n
 ## 10. Environment Variables (.env.template)
 
 ### Module Toggles
-ENABLE_PAYMENTS=true | ENABLE_TRACKING=true | ENABLE_CHATBOT=false | ENABLE_MARKETING=true
+ENABLE_PAYMENTS=true | ENABLE_TRACKING=true | ENABLE_CHATBOT=false | ENABLE_MARKETING=true | ENABLE_RECOMMENDATIONS=true
+
+### Abandoned Cart & Recommendations
+CART_ABANDON_TIMEOUT=60 | RECOMMENDATION_PROVIDER=default | RFM_COMPUTE_SCHEDULE=daily
 
 ### Database
 DATABASE_URL | POOL_SIZE=5 | MAX_OVERFLOW=10 | POOL_TIMEOUT=30
