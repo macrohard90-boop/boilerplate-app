@@ -46,6 +46,13 @@ class Settings(BaseSettings):
     # Currency
     default_currency: str = "USD"
 
+    # Payments (Stripe)
+    payment_provider: str = "stripe"
+    stripe_secret_key: str = ""
+    stripe_publishable_key: str = ""
+    stripe_webhook_secret: str = ""
+    platform_fee_percent: int = 10
+
     # Module toggles
     enable_payments: bool = True
     enable_tracking: bool = True

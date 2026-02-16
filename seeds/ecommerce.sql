@@ -154,3 +154,13 @@ ON CONFLICT (user_id) DO UPDATE SET
     order_count = 1,
     total_spent = 12998,
     last_purchase_at = '2026-01-01 12:00:00+00';
+
+-- Payment record for the completed seed order
+INSERT INTO ecommerce.payment_records (id, order_id, provider, provider_payment_id, status, amount, currency, method) VALUES
+    ('f1000000-0000-0000-0000-000000000001', 'a2000000-0000-0000-0000-000000000001', 'stripe', 'pi_seed_test_001', 'succeeded', 12998, 'USD', 'card')
+ON CONFLICT DO NOTHING;
+
+-- Sample webhook event (for idempotency test data)
+INSERT INTO ecommerce.webhook_events (id, event_id, event_type) VALUES
+    ('f2000000-0000-0000-0000-000000000001', 'evt_seed_test_001', 'payment_intent.succeeded')
+ON CONFLICT DO NOTHING;

@@ -1,0 +1,116 @@
+"""PaymentProvider abstract base class and response models.
+
+Any payment gateway (Stripe, PayPal, etc.) implements this interface.
+Swap by implementing the ABC and setting PAYMENT_PROVIDER in .env.
+"""
+
+from abc import ABC, abstractmethod
+from dataclasses import dataclass, field
+from typing import Any
+
+
+@dataclass
+class PaymentResult:
+    """Returned by create_payment."""
+
+    provider_payment_id: str
+    client_secret: str | None = None
+    status: str = "pending"
+    amount: int = 0
+    currency: str = "USD"
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
+class RefundResult:
+    """Returned by refund."""
+
+    provider_refund_id: str
+    status: str = "pending"
+    amount: int = 0
+    currency: str = "USD"
+
+
+@dataclass
+class PaymentStatus:
+    """Returned by get_status."""
+
+    provider_payment_id: str
+    status: str = "unknown"
+    amount: int = 0
+    currency: str = "USD"
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
+class MerchantAccount:
+    """Returned by create_merchant."""
+
+    provider_account_id: str
+    onboarding_url: str | None = None
+    status: str = "pending"
+    charges_enabled: bool = False
+    payouts_enabled: bool = False
+
+
+@dataclass
+class Transaction:
+    """Returned by list_transactions."""
+
+    provider_payment_id: str
+    amount: int = 0
+    currency: str = "USD"
+    status: str = "unknown"
+    created_at: str = ""
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+
+class PaymentProvider(ABC):
+    """Abstract payment provider interface.
+
+    Implementations must handle all monetary values as INT cents.
+    """
+
+    @abstractmethod
+    async def create_payment(
+        self,
+        order_id: str,
+        amount: int,
+        currency: str,
+        customer_id: str,
+        *,
+        merchant_account_id: str | None = None,
+        metadata: dict[str, Any] | None = None,
+    ) -> PaymentResult:
+        """Create a payment intent/charge for an order."""
+        ...
+
+    @abstractmethod
+    async def refund(
+        self,
+        payment_id: str,
+        amount: int | None = None,
+        *,
+        reason: str | None = None,
+    ) -> RefundResult:
+        """Refund a payment. If amount is None, refund the full amount."""
+        ...
+
+    @abstractmethod
+    async def get_status(self, payment_id: str) -> PaymentStatus:
+        """Get the current status of a payment."""
+        ...
+
+    @abstractmethod
+    async def create_merchant(
+        self, merchant_data: dict[str, Any]
+    ) -> MerchantAccount:
+        """Create a merchant/connected account for payouts."""
+        ...
+
+    @abstractmethod
+    async def list_transactions(
+        self, filters: dict[str, Any] | None = None
+    ) -> list[Transaction]:
+        """List transactions matching filters."""
+        ...

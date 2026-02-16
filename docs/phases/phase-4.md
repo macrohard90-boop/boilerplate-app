@@ -75,22 +75,22 @@ Read `docs/ARCHITECTURE.md` sections 1.1 (PaymentProvider interface), 6 (Payment
    - `WebhookEvent`: Stripe event payload model
 
 ## Acceptance Criteria
-- [ ] PaymentProvider interface defined with all required methods
-- [ ] Stripe adapter implements full interface
-- [ ] Cart-to-order conversion creates order with correct totals (INT cents)
-- [ ] Inventory is reserved on checkout, released on payment failure
-- [ ] Discount codes apply correctly (percentage, fixed, free shipping)
-- [ ] Payment intent created with correct amount and currency
-- [ ] Webhook signature validation rejects invalid signatures
-- [ ] `payment_intent.succeeded` webhook updates order to completed
-- [ ] `charge.refunded` webhook creates refund record
-- [ ] Duplicate webhook events are ignored (idempotency)
-- [ ] Merchant onboarding generates valid Stripe Connect link
-- [ ] Platform fee is applied to merchant transactions
-- [ ] Refund flow works (partial and full)
-- [ ] All monetary values stored as INT cents with currency CHAR(3)
-- [ ] All checkout/order endpoints require authentication
-- [ ] Product snapshots stored in JSONB (price at time of purchase preserved)
+- [x] PaymentProvider interface defined with all required methods
+- [x] Stripe adapter implements full interface
+- [x] Cart-to-order conversion creates order with correct totals (INT cents)
+- [x] Inventory is reserved on checkout, released on payment failure
+- [x] Discount codes apply correctly (percentage, fixed, free shipping)
+- [x] Payment intent created with correct amount and currency
+- [x] Webhook signature validation rejects invalid signatures
+- [x] `payment_intent.succeeded` webhook updates order to completed
+- [x] `charge.refunded` webhook creates refund record
+- [x] Duplicate webhook events are ignored (idempotency)
+- [x] Merchant onboarding generates valid Stripe Connect link
+- [x] Platform fee is applied to merchant transactions
+- [x] Refund flow works (partial and full)
+- [x] All monetary values stored as INT cents with currency CHAR(3)
+- [x] All checkout/order endpoints require authentication
+- [x] Product snapshots stored in JSONB (price at time of purchase preserved)
 
 ## Implementation Notes
 - Stripe SDK: `stripe` Python package
@@ -116,3 +116,27 @@ Read `docs/ARCHITECTURE.md` sections 1.1 (PaymentProvider interface), 6 (Payment
 - Modified: `backend/main.py` — Mount payment routes
 - Modified: `backend/requirements.txt` — Add stripe
 - Modified: `.env.template` — Add STRIPE_SECRET_KEY, STRIPE_PUBLISHABLE_KEY, STRIPE_WEBHOOK_SECRET
+
+## Files Created
+- `migrations/006_payment_tables.sql` — merchant_accounts + webhook_events tables
+- `modules/payments/__init__.py`
+- `modules/payments/config.py`
+- `modules/payments/interfaces/__init__.py`
+- `modules/payments/interfaces/payment_provider.py` — PaymentProvider ABC + 5 response dataclasses
+- `modules/payments/adapters/__init__.py`
+- `modules/payments/adapters/stripe_provider.py` — Stripe implementation of PaymentProvider
+- `modules/payments/models/__init__.py`
+- `modules/payments/models/schemas.py` — ~12 Pydantic models
+- `modules/payments/services/__init__.py`
+- `modules/payments/services/checkout_service.py` — Cart-to-order + payment intent orchestration
+- `modules/payments/services/payment_service.py` — Payment record CRUD + refund records
+- `modules/payments/services/webhook_service.py` — Stripe signature verification + event dispatch
+- `modules/payments/services/merchant_service.py` — Stripe Connect Express onboarding
+- `modules/payments/routes/__init__.py` — Route aggregator
+- `modules/payments/routes/checkout_routes.py` — 3 endpoints (checkout, payment status, refund)
+- `modules/payments/routes/webhook_routes.py` — 1 endpoint (Stripe webhook receiver)
+- `modules/payments/routes/merchant_routes.py` — 3 endpoints (onboard, status, dashboard link)
+- Modified: `backend/requirements.txt` — added `stripe>=7.0.0`
+- Modified: `backend/core/config.py` — added Stripe settings fields
+- Modified: `.env.template` — added `PAYMENT_PROVIDER=stripe`
+- Modified: `seeds/ecommerce.sql` — added payment_records and webhook_events seed data

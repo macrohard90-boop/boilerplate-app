@@ -21,6 +21,9 @@ email-validator==2.1.1
 # HTTP
 httpx==0.28.1
 
+# Payments
+stripe>=7.0.0
+
 # Linting / Dev
 black==24.10.0
 flake8==7.1.1
