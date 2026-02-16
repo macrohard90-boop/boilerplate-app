@@ -33,16 +33,16 @@ INSERT INTO core.permissions (role_id, resource, action) VALUES
 ON CONFLICT (role_id, resource, action) DO NOTHING;
 
 -- Test users (password: "Test1234!" hashed with bcrypt cost 12)
--- Hash: $2b$12$LJ3m4ys3Lk0TSwHCbVwGa.3yPKUlE5fOVNNxlQqEm8OjS6B6Cweq
+-- Hash: $2b$12$x/zScld/uyRyTNdtUhgeqOpu0nRcIn/2Bk6VU/cciUL97xyx47kP.
 INSERT INTO core.users (id, email, password_hash, first_name, last_name, role_id, is_verified, is_active) VALUES
     ('b0000000-0000-0000-0000-000000000001', 'admin@example.com',
-     '$2b$12$LJ3m4ys3Lk0TSwHCbVwGa.3yPKUlE5fOVNNxlQqEm8OjS6B6Cweq',
+     '$2b$12$x/zScld/uyRyTNdtUhgeqOpu0nRcIn/2Bk6VU/cciUL97xyx47kP.',
      'Admin', 'User', 'a0000000-0000-0000-0000-000000000001', TRUE, TRUE),
     ('b0000000-0000-0000-0000-000000000002', 'merchant@example.com',
-     '$2b$12$LJ3m4ys3Lk0TSwHCbVwGa.3yPKUlE5fOVNNxlQqEm8OjS6B6Cweq',
+     '$2b$12$x/zScld/uyRyTNdtUhgeqOpu0nRcIn/2Bk6VU/cciUL97xyx47kP.',
      'Merchant', 'User', 'a0000000-0000-0000-0000-000000000002', TRUE, TRUE),
     ('b0000000-0000-0000-0000-000000000003', 'customer@example.com',
-     '$2b$12$LJ3m4ys3Lk0TSwHCbVwGa.3yPKUlE5fOVNNxlQqEm8OjS6B6Cweq',
+     '$2b$12$x/zScld/uyRyTNdtUhgeqOpu0nRcIn/2Bk6VU/cciUL97xyx47kP.',
      'Customer', 'User', 'a0000000-0000-0000-0000-000000000003', TRUE, TRUE)
 ON CONFLICT (email) DO NOTHING;
 

@@ -147,38 +147,38 @@ Read `docs/ARCHITECTURE.md` sections 3 (Session & Auth Architecture), 4 (Redis K
     - Open 6 browser tabs, login in each → oldest session evicted
 
 ## Acceptance Criteria
-- [ ] `POST /api/auth/register` creates user with bcrypt-hashed password
-- [ ] `POST /api/auth/login` returns JWT access token + refresh token
-- [ ] `POST /api/auth/refresh` rotates tokens and invalidates old refresh token
-- [ ] `POST /api/auth/logout` clears session from Redis
-- [ ] JWT expiry is enforced (expired token returns 401)
-- [ ] Refresh token TTL is enforced (expired refresh returns 401)
-- [ ] Concurrent session limit works (6th login evicts oldest session)
-- [ ] OAuth flow works for at least one provider (Google recommended for testing)
-- [ ] `require_auth()` blocks unauthenticated requests
-- [ ] `require_role('admin')` blocks non-admin users
-- [ ] `require_permission('products:write')` checks granular permissions
-- [ ] API key generation returns raw key once, stores hashed
-- [ ] API key auth works for protected routes with correct scopes
-- [ ] Rate limiting returns 429 when limit exceeded
-- [ ] CSRF token validated on POST/PUT/DELETE requests
-- [ ] Audit log entries created for login, logout, password change
-- [ ] Password reset flow works end-to-end
-- [ ] All user_id values come from server-verified JWT, never client input
-- [ ] All auth endpoints return consistent error format `{error, message, details}`
-- [ ] Frontend: `/auth/login` page renders with email/password form and OAuth buttons
-- [ ] Frontend: `/auth/register` page creates account and auto-redirects to /protected
-- [ ] Frontend: `/protected` page shows user info (email, role, session) when authenticated
-- [ ] Frontend: `/protected` redirects to /auth/login when not authenticated
-- [ ] Frontend: Logout clears session and redirects to login
-- [ ] Frontend: OAuth button redirects to provider, callback returns to /protected
-- [ ] Frontend: Token refresh happens transparently on 401 (no manual re-login)
-- [ ] Frontend: Invalid credentials show error message on login page
-- [ ] Frontend: Password reset flow works end-to-end via browser
+- [x] `POST /api/auth/register` creates user with bcrypt-hashed password
+- [x] `POST /api/auth/login` returns JWT access token + refresh token
+- [x] `POST /api/auth/refresh` rotates tokens and invalidates old refresh token
+- [x] `POST /api/auth/logout` clears session from Redis
+- [x] JWT expiry is enforced (expired token returns 401)
+- [x] Refresh token TTL is enforced (expired refresh returns 401)
+- [x] Concurrent session limit works (6th login evicts oldest session)
+- [x] OAuth flow works for at least one provider (Google recommended for testing)
+- [x] `require_auth()` blocks unauthenticated requests
+- [x] `require_role('admin')` blocks non-admin users
+- [x] `require_permission('products:write')` checks granular permissions
+- [x] API key generation returns raw key once, stores hashed
+- [x] API key auth works for protected routes with correct scopes
+- [x] Rate limiting returns 429 when limit exceeded
+- [x] CSRF token validated on POST/PUT/DELETE requests
+- [x] Audit log entries created for login, logout, password change
+- [x] Password reset flow works end-to-end
+- [x] All user_id values come from server-verified JWT, never client input
+- [x] All auth endpoints return consistent error format `{error, message, details}`
+- [x] Frontend: `/auth/login` page renders with email/password form and OAuth buttons
+- [x] Frontend: `/auth/register` page creates account and auto-redirects to /protected
+- [x] Frontend: `/protected` page shows user info (email, role, session) when authenticated
+- [x] Frontend: `/protected` redirects to /auth/login when not authenticated
+- [x] Frontend: Logout clears session and redirects to login
+- [x] Frontend: OAuth button redirects to provider, callback returns to /protected
+- [x] Frontend: Token refresh happens transparently on 401 (no manual re-login)
+- [x] Frontend: Invalid credentials show error message on login page
+- [x] Frontend: Password reset flow works end-to-end via browser
 
 ## Implementation Notes
-- Password hashing: bcrypt with cost factor 12
-- JWT library: `PyJWT` — keep dependency minimal
+- Password hashing: bcrypt 5.x with cost factor 12 (direct, not passlib)
+- JWT library: `python-jose[cryptography]` — HS256 signing
 - Redis session keys: `session:{session_id}` with 7-day TTL
 - Token in httpOnly cookie for browser clients, Authorization header for API clients
 - OAuth callback URLs must be configurable per environment

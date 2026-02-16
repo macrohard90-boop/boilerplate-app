@@ -45,6 +45,10 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
     )
 
+    # Rate limiting
+    from backend.core.middleware import RateLimitMiddleware
+    app.add_middleware(RateLimitMiddleware)
+
     # CORS
     origins = [settings.frontend_url]
     if settings.app_env == "development":

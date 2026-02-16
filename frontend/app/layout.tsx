@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import { AuthProvider } from "../lib/auth-context";
+import AuthNav from "../components/AuthNav";
 
 export const metadata: Metadata = {
   title: "Boilerplate App",
@@ -12,7 +14,12 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body style={{ margin: 0 }}>
+        <AuthProvider>
+          <AuthNav />
+          {children}
+        </AuthProvider>
+      </body>
     </html>
   );
 }
