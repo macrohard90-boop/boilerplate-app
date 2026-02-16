@@ -51,7 +51,7 @@ async def get_current_user(
         raise HTTPException(status_code=401, detail={"error": "unauthorized", "message": "Invalid or expired token", "details": None})
 
     user_id = claims.get("sub")
-    session_id = claims.get("session_id")
+    session_id = claims.get("sid")
     role = claims.get("role", "")
     permissions = claims.get("permissions", [])
 
@@ -74,6 +74,11 @@ async def get_current_user(
         "permissions": permissions,
         "session_id": session_id,
         "auth_type": "jwt",
+        "auth_time": claims.get("auth_time"),
+        "amr": claims.get("amr", []),
+        "jti": claims.get("jti"),
+        "consent": claims.get("consent", []),
+        "token_type": claims.get("token_type", "access"),
     }
 
     # Attach to request state for downstream use

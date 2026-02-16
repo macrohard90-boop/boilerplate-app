@@ -22,6 +22,8 @@ async def create_session(
     device: str | None = None,
     ip: str | None = None,
     user_agent: str | None = None,
+    auth_time: int | None = None,
+    amr: list[str] | None = None,
 ) -> str:
     """Create a new session in Redis and PostgreSQL.
 
@@ -58,6 +60,8 @@ async def create_session(
         "ip": ip or "",
         "user_agent": user_agent or "",
         "created_at": str(now.timestamp()),
+        "auth_time": str(auth_time or int(now.timestamp())),
+        "amr": json.dumps(amr or ["pwd"]),
     }
     await redis.hset(session_key, mapping=mapping)
     await redis.expire(session_key, ttl)

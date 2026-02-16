@@ -1,10 +1,13 @@
 """Authentication endpoints: register, login, refresh, logout, password reset, email verify."""
 
+import json
 import logging
+from datetime import datetime, timezone
 from typing import Any
 
 from fastapi import APIRouter, Cookie, Depends, HTTPException, Request, Response
 from redis.asyncio import Redis
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.core.config import settings
@@ -60,6 +63,28 @@ def _clear_refresh_cookie(response: Response) -> None:
     )
 
 
+async def _get_user_consent(db: AsyncSession, user_id: str) -> list[str]:
+    """Fetch active consent types for a user from gdpr.consent_records.
+
+    Returns the latest granted consents. Returns [] if no records exist
+    (forward-compatible with Phase 7 GDPR build).
+    """
+    try:
+        result = await db.execute(
+            text(
+                "SELECT DISTINCT ON (consent_type) consent_type, granted "
+                "FROM gdpr.consent_records "
+                "WHERE user_id = :uid "
+                "ORDER BY consent_type, created_at DESC"
+            ),
+            {"uid": user_id},
+        )
+        rows = result.mappings().all()
+        return [r["consent_type"] for r in rows if r["granted"]]
+    except Exception:
+        return []
+
+
 # -----------------------------------------------------------------------
 # POST /register
 # -----------------------------------------------------------------------
@@ -85,13 +110,18 @@ async def register(
     user_id = str(user["id"])
     permissions = await auth_service.get_user_permissions(db, user_id)
 
+    now_ts = int(datetime.now(timezone.utc).timestamp())
     ip = _client_ip(request)
     device = request.headers.get("user-agent", "")[:255]
     session_id = await session_service.create_session(
         redis, db, user_id, user["role"], device=device, ip=ip, user_agent=device,
+        auth_time=now_ts, amr=["pwd"],
     )
 
-    access = token_service.create_access_token(user_id, user["role"], session_id, permissions)
+    access = token_service.create_access_token(
+        user_id, user["role"], session_id, permissions,
+        auth_time=now_ts, amr=["pwd"], consent=[], token_type="access",
+    )
     refresh = await token_service.create_refresh_token(redis, user_id, session_id)
     csrf = await auth_service.create_csrf_token(redis, session_id)
 
@@ -127,14 +157,20 @@ async def login(
 
     user_id = str(user["id"])
     permissions = await auth_service.get_user_permissions(db, user_id)
+    consent = await _get_user_consent(db, user_id)
 
+    now_ts = int(datetime.now(timezone.utc).timestamp())
     ip = _client_ip(request)
     device = request.headers.get("user-agent", "")[:255]
     session_id = await session_service.create_session(
         redis, db, user_id, user["role"], device=device, ip=ip, user_agent=device,
+        auth_time=now_ts, amr=["pwd"],
     )
 
-    access = token_service.create_access_token(user_id, user["role"], session_id, permissions)
+    access = token_service.create_access_token(
+        user_id, user["role"], session_id, permissions,
+        auth_time=now_ts, amr=["pwd"], consent=consent, token_type="access",
+    )
     refresh = await token_service.create_refresh_token(redis, user_id, session_id)
     csrf = await auth_service.create_csrf_token(redis, session_id)
 
@@ -184,8 +220,19 @@ async def refresh(
     if not user:
         raise HTTPException(status_code=401, detail={"error": "unauthorized", "message": "User not found", "details": None})
 
+    # Preserve auth_time and amr from original session, refresh consent
+    auth_time = int(float(session.get("auth_time", 0))) or None
+    try:
+        amr = json.loads(session.get("amr", "[]"))
+    except (json.JSONDecodeError, TypeError):
+        amr = ["pwd"]
+    consent = await _get_user_consent(db, user_id)
+
     permissions = await auth_service.get_user_permissions(db, user_id)
-    access = token_service.create_access_token(user_id, user["role"], session_id, permissions)
+    access = token_service.create_access_token(
+        user_id, user["role"], session_id, permissions,
+        auth_time=auth_time, amr=amr, consent=consent, token_type="access",
+    )
     new_refresh = await token_service.create_refresh_token(redis, user_id, session_id)
     csrf = await auth_service.create_csrf_token(redis, session_id)
 
@@ -319,4 +366,7 @@ async def get_me(
         session=session_resp,
         active_sessions_count=session_count,
         auth_type=user.get("auth_type", "jwt"),
+        auth_time=user.get("auth_time"),
+        amr=user.get("amr", []),
+        consent=user.get("consent", []),
     )

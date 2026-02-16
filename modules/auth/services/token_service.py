@@ -20,17 +20,38 @@ def create_access_token(
     role: str,
     session_id: str,
     permissions: list[str],
+    *,
+    auth_time: int | None = None,
+    amr: list[str] | None = None,
+    consent: list[str] | None = None,
+    token_type: str = "access",
+    client_id: str | None = None,
 ) -> str:
-    """Create a signed JWT access token."""
+    """Create a signed JWT access token with OIDC-standard claims."""
     now = datetime.now(timezone.utc)
+    now_ts = int(now.timestamp())
     payload: dict[str, Any] = {
+        # OIDC standard claims
+        "iss": settings.jwt_issuer,
         "sub": user_id,
+        "aud": [settings.jwt_audience],
+        "iat": now_ts,
+        "exp": now_ts + settings.jwt_expiry,
+        "jti": secrets.token_urlsafe(16),
+        # Session & RBAC
+        "sid": session_id,
         "role": role,
-        "session_id": session_id,
         "permissions": permissions,
-        "iat": int(now.timestamp()),
-        "exp": int(now.timestamp()) + settings.jwt_expiry,
+        # Auth context
+        "auth_time": auth_time or now_ts,
+        "amr": amr or ["pwd"],
+        # GDPR consent snapshot
+        "consent": consent or [],
+        # Token metadata
+        "token_type": token_type,
     }
+    if client_id:
+        payload["client_id"] = client_id
     return jwt.encode(payload, settings.jwt_secret, algorithm=settings.jwt_algorithm)
 
 
@@ -43,6 +64,8 @@ def decode_access_token(token: str) -> dict[str, Any]:
         token,
         settings.jwt_secret,
         algorithms=[settings.jwt_algorithm],
+        audience=settings.jwt_audience,
+        issuer=settings.jwt_issuer,
         options={"require_exp": True, "require_sub": True},
     )
 

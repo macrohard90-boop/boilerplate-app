@@ -113,6 +113,9 @@ class UserContextResponse(BaseModel):
     session: SessionResponse | None = None
     active_sessions_count: int
     auth_type: str = "jwt"
+    auth_time: int | None = None
+    amr: list[str] = Field(default_factory=list)
+    consent: list[str] = Field(default_factory=list)
 
 
 class ApiKeyResponse(BaseModel):

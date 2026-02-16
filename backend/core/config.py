@@ -35,6 +35,14 @@ class Settings(BaseSettings):
     refresh_token_ttl: int = 604800
     max_sessions_per_user: int = 5
 
+    @property
+    def jwt_issuer(self) -> str:
+        return f"https://api.{self.domain}"
+
+    @property
+    def jwt_audience(self) -> str:
+        return f"https://api.{self.domain}"
+
     # Currency
     default_currency: str = "USD"
 

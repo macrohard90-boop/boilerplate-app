@@ -1,6 +1,7 @@
 """OAuth redirect and callback endpoints."""
 
 import logging
+from datetime import datetime, timezone
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -11,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from backend.core.config import settings
 from backend.core.database import get_db
 from backend.core.redis import get_redis
+from modules.auth.routes.auth_routes import _get_user_consent
 from modules.auth.services import (
     auth_service,
     audit_service,
@@ -99,11 +101,17 @@ async def oauth_callback(
     ip = request.headers.get("x-forwarded-for", request.client.host if request.client else "unknown")
     device = request.headers.get("user-agent", "")[:255]
 
+    now_ts = int(datetime.now(timezone.utc).timestamp())
+    consent = await _get_user_consent(db, user_id)
     session_id = await session_service.create_session(
         redis, db, user_id, user["role"], device=device, ip=ip, user_agent=device,
+        auth_time=now_ts, amr=["oauth"],
     )
 
-    access = token_service.create_access_token(user_id, user["role"], session_id, permissions)
+    access = token_service.create_access_token(
+        user_id, user["role"], session_id, permissions,
+        auth_time=now_ts, amr=["oauth"], consent=consent, token_type="access",
+    )
     refresh = await token_service.create_refresh_token(redis, user_id, session_id)
 
     await audit_service.log_audit(
