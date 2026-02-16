@@ -74,19 +74,19 @@ Read `docs/ARCHITECTURE.md` sections 1.3 (GeoProvider interface), 2.5 (Analytics
     - `-- FUTURE: range partition on created_at (monthly)` on high-volume tables
 
 ## Acceptance Criteria
-- [ ] Page views recorded with path, referrer, duration, user/session link
-- [ ] Analytics sessions created and updated (started_at, ended_at, page_count)
-- [ ] Custom events captured with JSONB payload
-- [ ] UTM parameters extracted and stored per session
-- [ ] User agent parsed into browser, OS, device_type
-- [ ] GeoProvider interface defined with placeholder implementation
-- [ ] Referral sources categorized from referrer URLs
-- [ ] Admin analytics endpoints return aggregated data with date filtering
-- [ ] ENABLE_TRACKING=false disables all data collection
-- [ ] GDPR consent check: analytics data only collected if user consented
-- [ ] Tracking is non-blocking (background tasks, no request latency impact)
-- [ ] Anonymous visitors tracked with session_id (no user_id required)
-- [ ] All tracking endpoints return consistent error format
+- [x] Page views recorded with path, referrer, duration, user/session link
+- [x] Analytics sessions created and updated (started_at, ended_at, page_count)
+- [x] Custom events captured with JSONB payload
+- [x] UTM parameters extracted and stored per session
+- [x] User agent parsed into browser, OS, device_type
+- [x] GeoProvider interface defined with placeholder implementation
+- [x] Referral sources categorized from referrer URLs
+- [x] Admin analytics endpoints return aggregated data with date filtering
+- [x] ENABLE_TRACKING=false disables all data collection
+- [x] GDPR consent check: analytics data only collected if user consented
+- [x] Tracking is non-blocking (background tasks, no request latency impact)
+- [x] Anonymous visitors tracked with session_id (no user_id required)
+- [x] All tracking endpoints return consistent error format
 
 ## Implementation Notes
 - Non-blocking tracking: use FastAPI `BackgroundTasks` or asyncio fire-and-forget
@@ -112,5 +112,29 @@ Read `docs/ARCHITECTURE.md` sections 1.3 (GeoProvider interface), 2.5 (Analytics
 - `modules/tracking/routes/tracking_routes.py` — Page view, event collection endpoints
 - `modules/tracking/routes/admin_routes.py` — Admin analytics endpoints
 - `modules/tracking/config.py` — Tracking module configuration
-- Modified: `backend/main.py` — Mount tracking routes, register middleware
-- Modified: `backend/requirements.txt` — Add user-agents (if used)
+- Modified: `backend/main.py` — Register TrackingMiddleware
+- Modified: `backend/core/config.py` — Added tracking_session_timeout, geo_provider, tracking_exclude_paths
+
+## Files Created
+- `modules/tracking/__init__.py`
+- `modules/tracking/config.py`
+- `modules/tracking/interfaces/__init__.py`
+- `modules/tracking/interfaces/geo_provider.py`
+- `modules/tracking/interfaces/agent_parser.py`
+- `modules/tracking/adapters/__init__.py`
+- `modules/tracking/adapters/placeholder_geo.py`
+- `modules/tracking/adapters/default_agent_parser.py`
+- `modules/tracking/models/__init__.py`
+- `modules/tracking/models/schemas.py`
+- `modules/tracking/services/__init__.py`
+- `modules/tracking/services/consent_service.py`
+- `modules/tracking/services/session_service.py`
+- `modules/tracking/services/pageview_service.py`
+- `modules/tracking/services/event_service.py`
+- `modules/tracking/services/utm_service.py`
+- `modules/tracking/services/referral_service.py`
+- `modules/tracking/services/agent_service.py`
+- `modules/tracking/services/tracking_middleware.py`
+- `modules/tracking/routes/__init__.py`
+- `modules/tracking/routes/tracking_routes.py`
+- `modules/tracking/routes/admin_routes.py`

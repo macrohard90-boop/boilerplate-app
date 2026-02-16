@@ -45,6 +45,11 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
     )
 
+    # Tracking middleware (non-blocking, fire-and-forget)
+    if settings.enable_tracking:
+        from modules.tracking.services.tracking_middleware import TrackingMiddleware
+        app.add_middleware(TrackingMiddleware)
+
     # Rate limiting
     from backend.core.middleware import RateLimitMiddleware
     app.add_middleware(RateLimitMiddleware)

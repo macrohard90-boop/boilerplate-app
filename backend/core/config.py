@@ -61,6 +61,11 @@ class Settings(BaseSettings):
     enable_recommendations: bool = True
     app_template: str = "ecommerce"
 
+    # Tracking & Analytics
+    tracking_session_timeout: int = 30  # minutes of inactivity
+    geo_provider: str = "placeholder"
+    tracking_exclude_paths: str = "/api/health,/api/docs,/api/openapi.json"
+
     # Abandoned Cart & Recommendations
     cart_abandon_timeout: int = 60
     recommendation_provider: str = "default"

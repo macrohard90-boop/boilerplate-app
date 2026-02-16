@@ -56,7 +56,7 @@ _Update as phases are completed:_
 | 3 | 2026-02-16 | phase-3-complete | JWT auth, Redis sessions, bcrypt passwords, RBAC, rate limiting, M2M API keys, OAuth (Google/GitHub/Microsoft/Apple/OIDC), audit logging, lightweight frontend auth UI |
 | 4 | 2026-02-16 | phase-4-complete | Payment processing: PaymentProvider ABC + Stripe adapter, checkout with cart-to-order conversion + PaymentIntent, webhook handler (signature verification + idempotency), refund flow, Stripe Connect Express merchant onboarding. ~7 endpoints, 4 services, 1 migration (merchant_accounts + webhook_events) |
 | 5 | 2026-02-16 | phase-5-complete | E-commerce engine: product catalog (CRUD, variants, images, categories), shopping cart (guest Redis + auth PG + merge), orders with checkout + stock reservation, inventory management, discount codes, wishlists, reviews with moderation, digital assets with HMAC-signed downloads, pricing tiers. ~35 endpoints across 7 route files and 11 service files |
-| 6 | — | — | — |
+| 6 | 2026-02-16 | phase-6-complete | User tracking & analytics: GeoProvider + AgentParser interfaces, placeholder geo + regex UA parser adapters, GDPR consent checks, analytics sessions (Redis TTL), pageview/event collection (single + batch), UTM extraction, referral parsing, non-blocking tracking middleware (asyncio.create_task), 5 admin analytics endpoints (pageviews, sessions, events, sources, UTM). ~9 endpoints, 7 services, 1 middleware |
 | 7 | — | — | — |
 | 8 | — | — | — |
 | 9 | — | — | — |
