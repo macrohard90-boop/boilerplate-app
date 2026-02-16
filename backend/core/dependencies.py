@@ -86,6 +86,21 @@ async def get_current_user(
     return context
 
 
+async def get_optional_user(
+    request: Request,
+    credentials: HTTPAuthorizationCredentials | None = Depends(_bearer),
+    db: AsyncSession = Depends(get_db),
+    redis: Redis = Depends(get_redis),
+) -> dict[str, Any] | None:
+    """Like get_current_user but returns None instead of 401 for guests."""
+    if not credentials:
+        return None
+    try:
+        return await get_current_user(request, credentials, db, redis)
+    except HTTPException:
+        return None
+
+
 async def _validate_api_key(
     raw_key: str,
     db: AsyncSession,

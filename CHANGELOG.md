@@ -55,7 +55,7 @@ _Update as phases are completed:_
 | 2 | 2026-02-15 | phase-2-complete | Database schemas (core 7, ecommerce 21, saas 6, gdpr 7, analytics 6), migration system, seed data, SQLAlchemy async engine, notifications + recommendations module scaffolds |
 | 3 | 2026-02-16 | phase-3-complete | JWT auth, Redis sessions, bcrypt passwords, RBAC, rate limiting, M2M API keys, OAuth (Google/GitHub/Microsoft/Apple/OIDC), audit logging, lightweight frontend auth UI |
 | 4 | — | — | — |
-| 5 | — | — | — |
+| 5 | 2026-02-16 | phase-5-complete | E-commerce engine: product catalog (CRUD, variants, images, categories), shopping cart (guest Redis + auth PG + merge), orders with checkout + stock reservation, inventory management, discount codes, wishlists, reviews with moderation, digital assets with HMAC-signed downloads, pricing tiers. ~35 endpoints across 7 route files and 11 service files |
 | 6 | — | — | — |
 | 7 | — | — | — |
 | 8 | — | — | — |

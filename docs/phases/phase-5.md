@@ -103,25 +103,25 @@ Read `docs/ARCHITECTURE.md` sections 2.2 (E-commerce Schema), 2.9 (Money & Curre
     - Per-product or per-variant
 
 ## Acceptance Criteria
-- [ ] Product CRUD works with pagination, filtering, and search
-- [ ] Product variants store JSONB attributes and optional price override
-- [ ] Categories support nested hierarchy (parent_id self-reference)
-- [ ] Authenticated cart persists in PostgreSQL
-- [ ] Guest cart works via Redis with 24h TTL
-- [ ] Cart merge works on guest login
-- [ ] Cart status lifecycle tracked (active/abandoned/converted/expired)
-- [ ] `cart:last_active:{cart_id}` Redis key set on cart interaction
-- [ ] Discount codes validate correctly (date range, max uses, min order)
-- [ ] Order records include JSONB product snapshots
-- [ ] Inventory tracking prevents overselling
-- [ ] Wishlists support multiple lists per user
-- [ ] Product reviews enforce one review per user per product
-- [ ] Digital asset download respects download limits
-- [ ] Pricing tiers apply correctly to cart totals
-- [ ] All prices stored as INT cents with currency CHAR(3)
-- [ ] Soft-delete works on products (deleted_at)
-- [ ] All write endpoints require appropriate auth (admin/merchant)
-- [ ] Slug uniqueness enforced on products and categories
+- [x] Product CRUD works with pagination, filtering, and search
+- [x] Product variants store JSONB attributes and optional price override
+- [x] Categories support nested hierarchy (parent_id self-reference)
+- [x] Authenticated cart persists in PostgreSQL
+- [x] Guest cart works via Redis with 24h TTL
+- [x] Cart merge works on guest login
+- [x] Cart status lifecycle tracked (active/abandoned/converted/expired)
+- [ ] `cart:last_active:{cart_id}` Redis key set on cart interaction (deferred to recommendations module)
+- [x] Discount codes validate correctly (date range, max uses, min order)
+- [x] Order records include JSONB product snapshots
+- [x] Inventory tracking prevents overselling
+- [x] Wishlists support multiple lists per user
+- [x] Product reviews enforce one review per user per product
+- [x] Digital asset download respects download limits
+- [x] Pricing tiers apply correctly to cart totals
+- [x] All prices stored as INT cents with currency CHAR(3)
+- [x] Soft-delete works on products (deleted_at)
+- [x] All write endpoints require appropriate auth (admin/merchant)
+- [x] Slug uniqueness enforced on products and categories
 
 ## Implementation Notes
 - All monetary values as INT cents + currency CHAR(3) (see ARCHITECTURE.md §2.9)
@@ -154,3 +154,34 @@ Read `docs/ARCHITECTURE.md` sections 2.2 (E-commerce Schema), 2.9 (Money & Curre
 - `modules/ecommerce/routes/admin_routes.py` — Admin-only endpoints (inventory, moderation)
 - `modules/ecommerce/config.py` — E-commerce module configuration
 - Modified: `backend/main.py` — Mount ecommerce routes
+
+## Files Created
+- `modules/ecommerce/__init__.py`
+- `modules/ecommerce/config.py`
+- `modules/ecommerce/models/__init__.py`
+- `modules/ecommerce/models/schemas.py` — ~30 Pydantic models
+- `modules/ecommerce/services/__init__.py`
+- `modules/ecommerce/services/product_service.py`
+- `modules/ecommerce/services/variant_service.py`
+- `modules/ecommerce/services/image_service.py`
+- `modules/ecommerce/services/category_service.py`
+- `modules/ecommerce/services/cart_service.py`
+- `modules/ecommerce/services/order_service.py`
+- `modules/ecommerce/services/inventory_service.py`
+- `modules/ecommerce/services/discount_service.py`
+- `modules/ecommerce/services/pricing_service.py`
+- `modules/ecommerce/services/wishlist_service.py`
+- `modules/ecommerce/services/review_service.py`
+- `modules/ecommerce/services/digital_asset_service.py`
+- `modules/ecommerce/routes/__init__.py` — route aggregator
+- `modules/ecommerce/routes/product_routes.py` — 14 endpoints
+- `modules/ecommerce/routes/category_routes.py` — 5 endpoints
+- `modules/ecommerce/routes/cart_routes.py` — 7 endpoints
+- `modules/ecommerce/routes/order_routes.py` — 3 endpoints
+- `modules/ecommerce/routes/wishlist_routes.py` — 5 endpoints
+- `modules/ecommerce/routes/review_routes.py` — 2 endpoints
+- `modules/ecommerce/routes/admin_routes.py` — ~12 endpoints
+- `modules/ecommerce/adapters/__init__.py`
+- `modules/ecommerce/interfaces/__init__.py`
+- Modified: `backend/core/dependencies.py` — added `get_optional_user`
+- Modified: `seeds/ecommerce.sql` — enriched with pricing tiers, related items, wishlist, sample order
