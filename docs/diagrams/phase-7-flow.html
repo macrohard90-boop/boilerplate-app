@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Phase 7 — GDPR &amp; Cookie Management</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #1a1b26;
+      color: #c0caf5;
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      padding: 2rem;
+    }
+    h1 {
+      text-align: center;
+      font-size: 1.6rem;
+      font-weight: 600;
+      margin-bottom: 0.3rem;
+      color: #7aa2f7;
+    }
+    .subtitle {
+      text-align: center;
+      font-size: 0.9rem;
+      color: #565f89;
+      margin-bottom: 2rem;
+    }
+    .mermaid {
+      display: flex;
+      justify-content: center;
+      overflow-x: auto;
+    }
+    .mermaid svg { max-width: 100%; }
+  </style>
+</head>
+<body>
+  <h1>Phase 7: GDPR &amp; Cookie Management</h1>
+  <p class="subtitle">Consent management, cookie preferences, data export, data deletion, email preferences, admin dashboard &mdash; ~14 endpoints, 5 services, 6 route files</p>
+
+  <div class="mermaid">
+%%{init: {
+  "theme": "dark",
+  "themeVariables": {
+    "primaryColor": "#364fc7",
+    "primaryBorderColor": "#7aa2f7",
+    "primaryTextColor": "#c0caf5",
+    "lineColor": "#565f89",
+    "secondaryColor": "#2d3250",
+    "tertiaryColor": "#1e2030",
+    "fontFamily": "Segoe UI, system-ui, sans-serif"
+  }
+}}%%
+
+flowchart TB
+
+  subgraph USER["User-Facing Endpoints"]
+    style USER fill:#2d3250,stroke:#7aa2f7,stroke-width:1px
+    CONSENT_EP["Consent Routes<br/>GET /consent — current state<br/>POST /consent — grant/revoke<br/>GET /consent/history — audit"]
+    COOKIE_EP["Cookie Routes<br/>GET /cookies — preferences<br/>POST /cookies — update prefs<br/>(auth or guest session)"]
+    EXPORT_EP["Export Routes<br/>POST /export — request export<br/>GET /export/{id} — status/data"]
+    DELETE_EP["Deletion Routes<br/>POST /deletion — request<br/>GET /deletion/{id} — status<br/>POST /deletion/{id}/cancel"]
+    EMAIL_EP["Email Preference Routes<br/>GET /email-preferences<br/>PUT /email-preferences<br/>POST /unsubscribe (no auth)"]
+  end
+
+  subgraph ADMIN["Admin Endpoints (admin role)"]
+    style ADMIN fill:#3d1e2d,stroke:#f7768e,stroke-width:1px
+    A_EXPORTS["GET /admin/gdpr/exports<br/>paginated, filterable"]
+    A_DELETIONS["GET /admin/gdpr/deletions<br/>paginated, filterable"]
+    A_STATS["GET /admin/gdpr/consent-stats<br/>grant/revoke rates by type"]
+    A_AUDIT["GET /admin/gdpr/audit<br/>paginated, filterable"]
+  end
+
+  subgraph SERVICES["Business Logic Services"]
+    style SERVICES fill:#1e3a2d,stroke:#73daca,stroke-width:1px
+    CONSENT_SVC["consent_service.py<br/>get_consent_state()<br/>update_consent()<br/>get_consent_history()<br/>check_marketing_consent()"]
+    COOKIE_SVC["cookie_service.py<br/>get_preferences()<br/>update_preferences()<br/>(guest: by session_id)"]
+    EXPORT_SVC["export_service.py<br/>request_export() — 1/24h rate limit<br/>_process_export() — collect all data<br/>get_export_status() — expiry check"]
+    DELETE_SVC["deletion_service.py<br/>request_deletion() — revoke sessions<br/>get_deletion_status() — grace check<br/>cancel_deletion()<br/>_process_deletion() — anonymize"]
+    EMAIL_SVC["email_pref_service.py<br/>get/update_preferences()<br/>generate_unsubscribe_token() — HMAC<br/>unsubscribe_by_token() — RFC 8058"]
+  end
+
+  subgraph CONSENT_TYPES["Consent Taxonomy (6 types)"]
+    style CONSENT_TYPES fill:#3d2d1e,stroke:#e0af68,stroke-width:1px
+    CT["marketing_email | transactional_email<br/>third_party_sharing | analytics<br/>cookies_analytics | cookies_marketing"]
+  end
+
+  subgraph DELETION_FLOW["Deletion Workflow"]
+    style DELETION_FLOW fill:#3d1e1e,stroke:#f7768e,stroke-width:1px
+    D1["POST /deletion"] --> D2["Revoke all sessions<br/>(invalidate_all_sessions)"]
+    D2 --> D3["Grace period<br/>(default 30 days)"]
+    D3 -->|cancelled| D4["Status: cancelled"]
+    D3 -->|expired| D5["Anonymize PII<br/>email → deleted_{uuid}<br/>name → DELETED"]
+    D5 --> D6["Delete analytics,<br/>consent, cookies"]
+    D6 --> D7["Keep anonymized orders<br/>(tax/legal)"]
+    D7 --> D8["Status: completed"]
+  end
+
+  subgraph STORAGE["Data Storage (gdpr schema)"]
+    style STORAGE fill:#1e2030,stroke:#565f89,stroke-width:1px
+    T_CR["gdpr.consent_records<br/>(user, type, granted, version, ip)"]
+    T_CAL["gdpr.consent_audit_log<br/>(immutable, append-only)"]
+    T_CP["gdpr.cookie_preferences<br/>(user_id or session_id)"]
+    T_DER["gdpr.data_export_requests<br/>(status, file_url as JSON)"]
+    T_DR["gdpr.deletion_requests<br/>(status, grace_period_ends)"]
+    T_EP["gdpr.email_preferences<br/>(marketing, transactional, suppressed_at)"]
+    T_ES["gdpr.email_suppression_list<br/>(email, reason)"]
+  end
+
+  subgraph INTEGRATION["Cross-Module Integration"]
+    style INTEGRATION fill:#2d2d3e,stroke:#bb9af7,stroke-width:1px
+    INT_TRACK["Phase 6 Tracking Middleware<br/>checks analytics consent"]
+    INT_AUTH["Phase 3 Auth<br/>session invalidation"]
+    INT_CART["Abandoned Cart (future)<br/>checks marketing_email consent"]
+  end
+
+  CONSENT_EP --> CONSENT_SVC
+  COOKIE_EP --> COOKIE_SVC
+  EXPORT_EP --> EXPORT_SVC
+  DELETE_EP --> DELETE_SVC
+  EMAIL_EP --> EMAIL_SVC
+
+  CONSENT_SVC --> T_CR
+  CONSENT_SVC --> T_CAL
+  CONSENT_SVC --> CT
+  COOKIE_SVC --> T_CP
+  EXPORT_SVC --> T_DER
+  DELETE_SVC --> T_DR
+  EMAIL_SVC --> T_EP
+  EMAIL_SVC --> T_ES
+
+  DELETE_SVC --> INT_AUTH
+  INT_TRACK --> CONSENT_SVC
+  INT_CART --> EMAIL_SVC
+
+  A_EXPORTS --> T_DER
+  A_DELETIONS --> T_DR
+  A_STATS --> T_CR
+  A_AUDIT --> T_CAL
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <script>mermaid.initialize({ startOnLoad: true, securityLevel: 'loose' });</script>
+</body>
+</html>

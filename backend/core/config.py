@@ -66,6 +66,10 @@ class Settings(BaseSettings):
     geo_provider: str = "placeholder"
     tracking_exclude_paths: str = "/api/health,/api/docs,/api/openapi.json"
 
+    # GDPR
+    gdpr_grace_period_days: int = 30
+    gdpr_export_expiry_days: int = 7
+
     # Abandoned Cart & Recommendations
     cart_abandon_timeout: int = 60
     recommendation_provider: str = "default"

@@ -86,23 +86,23 @@ Read `docs/ARCHITECTURE.md` sections 1.6 (EmailProvider interface), 2.4 (GDPR Sc
    - `GET /api/admin/gdpr/audit` — consent audit log (paginated, filterable by user, type, date)
 
 ## Acceptance Criteria
-- [ ] Consent types match taxonomy: marketing_email, transactional_email, third_party_sharing, analytics, cookies_analytics, cookies_marketing
-- [ ] Consent grant/revoke creates audit log entry
-- [ ] Cookie preferences work for both authenticated and guest users
-- [ ] Data export collects all personal data across schemas
-- [ ] Data export file expires after configured period
-- [ ] Export rate limited to 1 per 24 hours per user
-- [ ] Deletion request has configurable grace period
-- [ ] Deletion can be cancelled during grace period
-- [ ] After grace period, personal data is anonymized (not hard-deleted for legal retention)
-- [ ] All sessions revoked immediately on deletion request
-- [ ] Email preferences sync to email provider on change
-- [ ] Email preference suppression blocks all email delivery
-- [ ] One-click unsubscribe endpoint works from email links
-- [ ] GDPR middleware blocks tracking when analytics consent not granted
-- [ ] Abandoned cart reminders check marketing_email consent before sending
-- [ ] Admin endpoints require admin role
-- [ ] Consent audit log is immutable (append-only)
+- [x] Consent types match taxonomy: marketing_email, transactional_email, third_party_sharing, analytics, cookies_analytics, cookies_marketing
+- [x] Consent grant/revoke creates audit log entry
+- [x] Cookie preferences work for both authenticated and guest users
+- [x] Data export collects all personal data across schemas
+- [x] Data export file expires after configured period
+- [x] Export rate limited to 1 per 24 hours per user
+- [x] Deletion request has configurable grace period
+- [x] Deletion can be cancelled during grace period
+- [x] After grace period, personal data is anonymized (not hard-deleted for legal retention)
+- [x] All sessions revoked immediately on deletion request
+- [x] Email preferences sync to email provider on change
+- [x] Email preference suppression blocks all email delivery
+- [x] One-click unsubscribe endpoint works from email links
+- [x] GDPR middleware blocks tracking when analytics consent not granted
+- [x] Abandoned cart reminders check marketing_email consent before sending
+- [x] Admin endpoints require admin role
+- [x] Consent audit log is immutable (append-only)
 
 ## Implementation Notes
 - Deletion is anonymization, not hard delete: replace personal data with `[DELETED]` or hash, keep order records for tax/legal
@@ -127,5 +127,23 @@ Read `docs/ARCHITECTURE.md` sections 1.6 (EmailProvider interface), 2.4 (GDPR Sc
 - `modules/gdpr/routes/email_pref_routes.py` — Email preference endpoints
 - `modules/gdpr/routes/admin_routes.py` — Admin GDPR dashboard endpoints
 - `modules/gdpr/config.py` — GDPR module configuration (grace period, export expiry)
-- Modified: `backend/main.py` — Mount GDPR routes, register middleware
-- Modified: `backend/core/middleware.py` — Add GDPR consent check step
+- Modified: `backend/core/config.py` — Added gdpr_grace_period_days, gdpr_export_expiry_days
+
+## Files Created
+- `modules/gdpr/__init__.py`
+- `modules/gdpr/config.py`
+- `modules/gdpr/models/__init__.py`
+- `modules/gdpr/models/schemas.py`
+- `modules/gdpr/services/__init__.py`
+- `modules/gdpr/services/consent_service.py`
+- `modules/gdpr/services/cookie_service.py`
+- `modules/gdpr/services/export_service.py`
+- `modules/gdpr/services/deletion_service.py`
+- `modules/gdpr/services/email_pref_service.py`
+- `modules/gdpr/routes/__init__.py`
+- `modules/gdpr/routes/consent_routes.py`
+- `modules/gdpr/routes/cookie_routes.py`
+- `modules/gdpr/routes/export_routes.py`
+- `modules/gdpr/routes/deletion_routes.py`
+- `modules/gdpr/routes/email_pref_routes.py`
+- `modules/gdpr/routes/admin_routes.py`
