@@ -3,8 +3,9 @@
 import logging
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import PlainTextResponse, Response
 
 from backend.core.config import settings
 from backend.core.redis import close_redis, redis_health_check
@@ -87,6 +88,22 @@ def create_app() -> FastAPI:
     @app.get("/api/health/db")
     async def health_db():
         return await db_health_check()
+
+    # SEO root-level routes (sitemap.xml, robots.txt)
+    from sqlalchemy.ext.asyncio import AsyncSession
+
+    @app.get("/sitemap.xml", response_class=Response)
+    async def sitemap_xml(db: AsyncSession = Depends(get_db)):
+        from modules.seo.services.sitemap_service import generate_sitemap
+
+        xml = await generate_sitemap(db)
+        return Response(content=xml, media_type="application/xml")
+
+    @app.get("/robots.txt", response_class=PlainTextResponse)
+    async def robots_txt():
+        from modules.seo.services.robots_service import generate_robots
+
+        return PlainTextResponse(content=generate_robots())
 
     return app
 

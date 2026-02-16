@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Phase 8 — SEO Module</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #1a1b26;
+      color: #c0caf5;
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      padding: 2rem;
+    }
+    h1 {
+      text-align: center;
+      font-size: 1.6rem;
+      font-weight: 600;
+      margin-bottom: 0.3rem;
+      color: #7aa2f7;
+    }
+    .subtitle {
+      text-align: center;
+      font-size: 0.9rem;
+      color: #565f89;
+      margin-bottom: 2rem;
+    }
+    .mermaid {
+      display: flex;
+      justify-content: center;
+      overflow-x: auto;
+    }
+    .mermaid svg { max-width: 100%; }
+  </style>
+</head>
+<body>
+  <h1>Phase 8: SEO Module</h1>
+  <p class="subtitle">Meta tags, sitemap, robots.txt, Open Graph, Twitter Cards, JSON-LD structured data, admin management &mdash; ~10 endpoints, 5 services</p>
+
+  <div class="mermaid">
+%%{init: {
+  "theme": "dark",
+  "themeVariables": {
+    "primaryColor": "#364fc7",
+    "primaryBorderColor": "#7aa2f7",
+    "primaryTextColor": "#c0caf5",
+    "lineColor": "#565f89",
+    "secondaryColor": "#2d3250",
+    "tertiaryColor": "#1e2030",
+    "fontFamily": "Segoe UI, system-ui, sans-serif"
+  }
+}}%%
+
+flowchart TB
+
+  subgraph ENTRY["Request Entry Points"]
+    style ENTRY fill:#2d3250,stroke:#7aa2f7,stroke-width:1px
+    NGINX["Nginx"]
+    ROOT_SM["GET /sitemap.xml<br/>(root-level)"]
+    ROOT_RB["GET /robots.txt<br/>(root-level)"]
+    API_META["GET /api/seo/meta/{path}<br/>(module route)"]
+  end
+
+  subgraph ADMIN["Admin Endpoints (admin role)"]
+    style ADMIN fill:#3d1e2d,stroke:#f7768e,stroke-width:1px
+    A_LIST["GET /admin/seo/meta<br/>list overrides"]
+    A_SET["PUT /admin/seo/meta/{path}<br/>set override"]
+    A_DEL["DELETE /admin/seo/meta/{path}<br/>remove override"]
+    A_REGEN["POST /admin/seo/sitemap/regenerate<br/>invalidate cache"]
+    A_CFG["GET /admin/seo/config<br/>SEO settings"]
+  end
+
+  subgraph SERVICES["Core Services"]
+    style SERVICES fill:#1e3a2d,stroke:#73daca,stroke-width:1px
+    META_SVC["meta_service.py<br/>get_meta_tags()<br/>set/delete/list overrides<br/>auto-generate from content"]
+    SM_SVC["sitemap_service.py<br/>generate_sitemap()<br/>Redis cached (1hr TTL)<br/>sitemap index for >50k URLs"]
+    RB_SVC["robots_service.py<br/>generate_robots()<br/>disallow admin/auth/gdpr paths"]
+    OG_SVC["og_service.py<br/>get_og_tags()<br/>OG + Twitter Card tags"]
+    SD_SVC["structured_data_service.py<br/>Product, Organization,<br/>BreadcrumbList, WebSite JSON-LD"]
+  end
+
+  subgraph AUTODET["Auto-Detection (path parsing)"]
+    style AUTODET fill:#3d2d1e,stroke:#e0af68,stroke-width:1px
+    DET_PROD["/products/{slug}<br/>→ product meta + OG + JSON-LD"]
+    DET_CAT["/categories/{slug}<br/>→ category meta + breadcrumbs"]
+    DET_DEF["other paths<br/>→ site defaults"]
+  end
+
+  subgraph STORAGE["Data Sources"]
+    style STORAGE fill:#1e2030,stroke:#565f89,stroke-width:1px
+    PG_OVR["seo.meta_overrides<br/>(custom overrides)"]
+    PG_PROD["ecommerce.products<br/>(name, slug, price, status)"]
+    PG_CAT["ecommerce.categories<br/>(name, slug, parent_id)"]
+    PG_IMG["ecommerce.product_images<br/>(url, is_primary)"]
+    PG_VAR["ecommerce.product_variants<br/>(stock_quantity)"]
+    PG_REV["ecommerce.product_reviews<br/>(rating, status)"]
+    REDIS["Redis: seo:sitemap:xml<br/>(cached XML, TTL 1hr)"]
+  end
+
+  subgraph OUTPUT["Response Format"]
+    style OUTPUT fill:#2d2d3e,stroke:#bb9af7,stroke-width:1px
+    OUT_META["MetaTagsResponse<br/>title, description, canonical,<br/>robots, og_tags, twitter_tags,<br/>structured_data[]"]
+    OUT_XML["application/xml<br/>sitemap.xml"]
+    OUT_TXT["text/plain<br/>robots.txt"]
+  end
+
+  NGINX --> ROOT_SM
+  NGINX --> ROOT_RB
+  NGINX --> API_META
+
+  ROOT_SM --> SM_SVC
+  ROOT_RB --> RB_SVC
+  API_META --> META_SVC
+
+  META_SVC --> PG_OVR
+  META_SVC --> AUTODET
+  META_SVC --> OG_SVC
+  META_SVC --> SD_SVC
+
+  DET_PROD --> PG_PROD
+  DET_CAT --> PG_CAT
+
+  OG_SVC --> PG_PROD
+  OG_SVC --> PG_IMG
+
+  SD_SVC --> PG_PROD
+  SD_SVC --> PG_IMG
+  SD_SVC --> PG_VAR
+  SD_SVC --> PG_REV
+  SD_SVC --> PG_CAT
+
+  SM_SVC --> REDIS
+  SM_SVC --> PG_PROD
+  SM_SVC --> PG_CAT
+
+  META_SVC --> OUT_META
+  SM_SVC --> OUT_XML
+  RB_SVC --> OUT_TXT
+
+  A_SET --> META_SVC
+  A_DEL --> META_SVC
+  A_LIST --> META_SVC
+  A_REGEN --> SM_SVC
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <script>mermaid.initialize({ startOnLoad: true, securityLevel: 'loose' });</script>
+</body>
+</html>

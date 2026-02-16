@@ -75,21 +75,21 @@ Read `docs/ARCHITECTURE.md` section 10 (Environment Variables — SEO section) a
    - Sitemap cache TTL (default 1 hour)
 
 ## Acceptance Criteria
-- [ ] `GET /api/seo/meta/{path}` returns auto-generated meta tags for products and categories
-- [ ] Custom meta tag overrides take priority over auto-generated
-- [ ] `GET /sitemap.xml` returns valid XML sitemap with all active products and categories
-- [ ] Sitemap excludes soft-deleted and inactive items
-- [ ] `GET /robots.txt` returns proper robots directives with sitemap reference
-- [ ] Open Graph tags generated for product pages (type, image, price)
-- [ ] Twitter Card tags included with proper card type
-- [ ] JSON-LD Product schema includes name, price, availability, reviews
-- [ ] JSON-LD Organization schema includes site name and social profiles
-- [ ] JSON-LD BreadcrumbList reflects category hierarchy
-- [ ] Canonical URLs prevent duplicate content issues
-- [ ] Title ≤ 60 chars, description ≤ 160 chars enforced
-- [ ] Admin can override meta tags for any page
-- [ ] Sitemap regeneration can be triggered manually
-- [ ] All SEO admin endpoints require admin role
+- [x] `GET /api/seo/meta/{path}` returns auto-generated meta tags for products and categories
+- [x] Custom meta tag overrides take priority over auto-generated
+- [x] `GET /sitemap.xml` returns valid XML sitemap with all active products and categories
+- [x] Sitemap excludes soft-deleted and inactive items
+- [x] `GET /robots.txt` returns proper robots directives with sitemap reference
+- [x] Open Graph tags generated for product pages (type, image, price)
+- [x] Twitter Card tags included with proper card type
+- [x] JSON-LD Product schema includes name, price, availability, reviews
+- [x] JSON-LD Organization schema includes site name and social profiles
+- [x] JSON-LD BreadcrumbList reflects category hierarchy
+- [x] Canonical URLs prevent duplicate content issues
+- [x] Title ≤ 60 chars, description ≤ 160 chars enforced
+- [x] Admin can override meta tags for any page
+- [x] Sitemap regeneration can be triggered manually
+- [x] All SEO admin endpoints require admin role
 
 ## Implementation Notes
 - Sitemap generation: query products and categories tables, generate XML in-memory
@@ -112,3 +112,22 @@ Read `docs/ARCHITECTURE.md` section 10 (Environment Variables — SEO section) a
 - `modules/seo/config.py` — SEO module configuration
 - Modified: `backend/main.py` — Mount SEO routes
 - Modified: `.env.template` — Add SITE_NAME, DEFAULT_OG_IMAGE, SOCIAL_HANDLES
+
+## Files Created
+- `modules/seo/__init__.py`
+- `modules/seo/config.py`
+- `modules/seo/models/__init__.py`
+- `modules/seo/models/schemas.py`
+- `modules/seo/services/__init__.py`
+- `modules/seo/services/meta_service.py`
+- `modules/seo/services/sitemap_service.py`
+- `modules/seo/services/robots_service.py`
+- `modules/seo/services/og_service.py`
+- `modules/seo/services/structured_data_service.py`
+- `modules/seo/routes/__init__.py`
+- `modules/seo/routes/seo_routes.py`
+- `modules/seo/routes/admin_routes.py`
+- `migrations/007_seo_schema.sql`
+- Modified: `backend/core/config.py` — Added site_name, default_og_image, social_handles, sitemap_cache_ttl
+- Modified: `backend/main.py` — Added root-level /sitemap.xml and /robots.txt routes
+- Modified: `docker/nginx.conf` — Added location rules for /sitemap.xml and /robots.txt → FastAPI

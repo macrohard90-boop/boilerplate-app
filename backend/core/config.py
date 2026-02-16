@@ -66,6 +66,12 @@ class Settings(BaseSettings):
     geo_provider: str = "placeholder"
     tracking_exclude_paths: str = "/api/health,/api/docs,/api/openapi.json"
 
+    # SEO
+    site_name: str = "Boilerplate App"
+    default_og_image: str = "/images/og-default.png"
+    social_handles: str = ""
+    sitemap_cache_ttl: int = 3600
+
     # GDPR
     gdpr_grace_period_days: int = 30
     gdpr_export_expiry_days: int = 7
