@@ -4,6 +4,7 @@ import { Suspense, useState, FormEvent } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { apiFetch, type ApiError } from "../../../lib/api";
+import LoadingSpinner from "../../../components/LoadingSpinner";
 
 function ResetPasswordForm() {
   const searchParams = useSearchParams();
@@ -15,16 +16,28 @@ function ResetPasswordForm() {
 
   if (!token) {
     return (
-      <div style={{ maxWidth: 400, margin: "60px auto", fontFamily: "system-ui, sans-serif" }}>
-        <h1>Reset Password</h1>
-        <div style={{ background: "#fee2e2", color: "#dc2626", padding: 12, borderRadius: 4, marginTop: 16 }}>
+      <div className="glass rounded-2xl p-8 text-center">
+        <h1 className="font-serif text-3xl font-bold gradient-text mb-4">Invalid Link</h1>
+        <div className="p-4 rounded-lg bg-accent-pink/10 border border-accent-pink/20 text-accent-pink text-sm mb-4">
           Invalid or missing reset token. Please request a new reset link.
         </div>
-        <div style={{ marginTop: 16 }}>
-          <Link href="/auth/forgot-password" style={{ color: "#2563eb" }}>
-            Request new reset link
-          </Link>
+        <Link href="/auth/forgot-password" className="text-accent-purple hover:text-accent-blue transition-colors text-sm">
+          Request new reset link
+        </Link>
+      </div>
+    );
+  }
+
+  if (success) {
+    return (
+      <div className="glass rounded-2xl p-8 text-center">
+        <h1 className="font-serif text-3xl font-bold gradient-text mb-4">Password Reset</h1>
+        <div className="p-4 rounded-lg bg-accent-green/10 border border-accent-green/20 text-accent-green text-sm mb-4">
+          Your password has been reset successfully.
         </div>
+        <Link href="/auth/login" className="btn-primary text-sm">
+          Sign in with new password
+        </Link>
       </div>
     );
   }
@@ -47,61 +60,40 @@ function ResetPasswordForm() {
     }
   }
 
-  if (success) {
-    return (
-      <div style={{ maxWidth: 400, margin: "60px auto", fontFamily: "system-ui, sans-serif" }}>
-        <h1>Password Reset</h1>
-        <div style={{ background: "#dcfce7", color: "#16a34a", padding: 16, borderRadius: 4, marginTop: 16 }}>
-          Your password has been reset successfully.
-          <div style={{ marginTop: 16 }}>
-            <Link href="/auth/login" style={{ color: "#2563eb" }}>
-              Login with new password
-            </Link>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div style={{ maxWidth: 400, margin: "60px auto", fontFamily: "system-ui, sans-serif" }}>
-      <h1 style={{ marginBottom: 24 }}>Set New Password</h1>
+    <div className="glass rounded-2xl p-8">
+      <div className="text-center mb-8">
+        <h1 className="font-serif text-3xl font-bold gradient-text mb-2">Set New Password</h1>
+        <p className="text-text-secondary text-sm">Choose a strong password</p>
+      </div>
 
       {error && (
-        <div style={{ background: "#fee2e2", color: "#dc2626", padding: 12, borderRadius: 4, marginBottom: 16 }}>
+        <div className="mb-6 p-3 rounded-lg bg-accent-pink/10 border border-accent-pink/20 text-accent-pink text-sm">
           {error}
         </div>
       )}
 
-      <form onSubmit={handleSubmit}>
-        <div style={{ marginBottom: 16 }}>
-          <label style={{ display: "block", marginBottom: 4, fontWeight: 500 }}>New Password</label>
+      <form onSubmit={handleSubmit} className="space-y-5">
+        <div>
+          <label className="block text-sm text-text-secondary mb-1.5">New Password</label>
           <input
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
             minLength={8}
-            style={{ width: "100%", padding: 8, border: "1px solid #ccc", borderRadius: 4, boxSizing: "border-box" }}
+            className="input-glass"
+            placeholder="Min 8 characters"
           />
-          <div style={{ fontSize: 12, marginTop: 4, color: "#666" }}>
-            Min 8 chars, uppercase, lowercase, digit
-          </div>
+          <p className="text-xs text-text-muted mt-1">
+            Requires uppercase, lowercase, and digit
+          </p>
         </div>
 
         <button
           type="submit"
           disabled={loading}
-          style={{
-            width: "100%",
-            padding: 10,
-            background: "#111",
-            color: "white",
-            border: "none",
-            borderRadius: 4,
-            cursor: loading ? "wait" : "pointer",
-            fontSize: 14,
-          }}
+          className="btn-primary w-full text-sm disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {loading ? "Resetting..." : "Reset Password"}
         </button>
@@ -112,8 +104,12 @@ function ResetPasswordForm() {
 
 export default function ResetPasswordPage() {
   return (
-    <Suspense fallback={<div style={{ padding: 40, textAlign: "center" }}>Loading...</div>}>
-      <ResetPasswordForm />
-    </Suspense>
+    <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center px-4 py-12">
+      <div className="w-full max-w-md">
+        <Suspense fallback={<LoadingSpinner size="lg" className="py-20" />}>
+          <ResetPasswordForm />
+        </Suspense>
+      </div>
+    </div>
   );
 }

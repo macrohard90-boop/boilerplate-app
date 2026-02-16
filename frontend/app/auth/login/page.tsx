@@ -5,7 +5,12 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "../../../lib/auth-context";
 
-const OAUTH_PROVIDERS = ["google", "github", "microsoft", "apple"];
+const OAUTH_PROVIDERS = [
+  { id: "google", label: "Google" },
+  { id: "github", label: "GitHub" },
+  { id: "microsoft", label: "Microsoft" },
+  { id: "apple", label: "Apple" },
+];
 
 export default function LoginPage() {
   const router = useRouter();
@@ -15,7 +20,7 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
 
   if (isAuthenticated) {
-    router.push("/protected");
+    router.push("/dashboard");
     return null;
   }
 
@@ -25,7 +30,7 @@ export default function LoginPage() {
     clearError();
     try {
       await login(email, password);
-      router.push("/protected");
+      router.push("/dashboard");
     } catch {
       // error is set in auth context
     } finally {
@@ -34,88 +39,82 @@ export default function LoginPage() {
   }
 
   return (
-    <div style={{ maxWidth: 400, margin: "60px auto", fontFamily: "system-ui, sans-serif" }}>
-      <h1 style={{ marginBottom: 24 }}>Login</h1>
+    <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center px-4 py-12">
+      <div className="w-full max-w-md">
+        <div className="glass rounded-2xl p-8">
+          <div className="text-center mb-8">
+            <h1 className="font-serif text-3xl font-bold gradient-text mb-2">Welcome back</h1>
+            <p className="text-text-secondary text-sm">Sign in to your account</p>
+          </div>
 
-      {error && (
-        <div style={{ background: "#fee2e2", color: "#dc2626", padding: 12, borderRadius: 4, marginBottom: 16 }}>
-          {error}
+          {error && (
+            <div className="mb-6 p-3 rounded-lg bg-accent-pink/10 border border-accent-pink/20 text-accent-pink text-sm">
+              {error}
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit} className="space-y-5">
+            <div>
+              <label className="block text-sm text-text-secondary mb-1.5">Email</label>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                className="input-glass"
+                placeholder="you@example.com"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm text-text-secondary mb-1.5">Password</label>
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                className="input-glass"
+                placeholder="Enter your password"
+              />
+            </div>
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="btn-primary w-full text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {loading ? "Signing in..." : "Sign in"}
+            </button>
+          </form>
+
+          <div className="my-6 flex items-center gap-3">
+            <div className="flex-1 h-px bg-glass-border" />
+            <span className="text-xs text-text-muted">or continue with</span>
+            <div className="flex-1 h-px bg-glass-border" />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            {OAUTH_PROVIDERS.map((p) => (
+              <a
+                key={p.id}
+                href={`/api/auth/oauth/${p.id}`}
+                className="btn-secondary text-center text-sm !py-2.5"
+              >
+                {p.label}
+              </a>
+            ))}
+          </div>
+
+          <div className="mt-6 text-center text-sm space-x-3">
+            <Link href="/auth/forgot-password" className="text-text-muted hover:text-accent-purple transition-colors">
+              Forgot password?
+            </Link>
+            <span className="text-text-muted">|</span>
+            <Link href="/auth/register" className="text-text-muted hover:text-accent-purple transition-colors">
+              Create account
+            </Link>
+          </div>
         </div>
-      )}
-
-      <form onSubmit={handleSubmit}>
-        <div style={{ marginBottom: 16 }}>
-          <label style={{ display: "block", marginBottom: 4, fontWeight: 500 }}>Email</label>
-          <input
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-            style={{ width: "100%", padding: 8, border: "1px solid #ccc", borderRadius: 4, boxSizing: "border-box" }}
-          />
-        </div>
-
-        <div style={{ marginBottom: 16 }}>
-          <label style={{ display: "block", marginBottom: 4, fontWeight: 500 }}>Password</label>
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-            style={{ width: "100%", padding: 8, border: "1px solid #ccc", borderRadius: 4, boxSizing: "border-box" }}
-          />
-        </div>
-
-        <button
-          type="submit"
-          disabled={loading}
-          style={{
-            width: "100%",
-            padding: 10,
-            background: "#111",
-            color: "white",
-            border: "none",
-            borderRadius: 4,
-            cursor: loading ? "wait" : "pointer",
-            fontSize: 14,
-          }}
-        >
-          {loading ? "Logging in..." : "Login"}
-        </button>
-      </form>
-
-      <div style={{ margin: "24px 0", textAlign: "center", color: "#999" }}>or continue with</div>
-
-      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-        {OAUTH_PROVIDERS.map((p) => (
-          <a
-            key={p}
-            href={`/api/auth/oauth/${p}`}
-            style={{
-              flex: 1,
-              padding: "8px 12px",
-              border: "1px solid #ccc",
-              borderRadius: 4,
-              textAlign: "center",
-              textDecoration: "none",
-              color: "#333",
-              textTransform: "capitalize",
-              fontSize: 13,
-            }}
-          >
-            {p}
-          </a>
-        ))}
-      </div>
-
-      <div style={{ marginTop: 24, textAlign: "center", fontSize: 14 }}>
-        <Link href="/auth/forgot-password" style={{ color: "#2563eb" }}>
-          Forgot password?
-        </Link>
-        {" | "}
-        <Link href="/auth/register" style={{ color: "#2563eb" }}>
-          Create account
-        </Link>
       </div>
     </div>
   );

@@ -25,55 +25,52 @@ export default function ForgotPasswordPage() {
   }
 
   return (
-    <div style={{ maxWidth: 400, margin: "60px auto", fontFamily: "system-ui, sans-serif" }}>
-      <h1 style={{ marginBottom: 24 }}>Forgot Password</h1>
-
-      {sent ? (
-        <div style={{ background: "#dcfce7", color: "#16a34a", padding: 16, borderRadius: 4 }}>
-          If an account exists with that email, a reset link has been sent.
-          <div style={{ marginTop: 16 }}>
-            <Link href="/auth/login" style={{ color: "#2563eb" }}>
-              Back to login
-            </Link>
+    <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center px-4 py-12">
+      <div className="w-full max-w-md">
+        <div className="glass rounded-2xl p-8">
+          <div className="text-center mb-8">
+            <h1 className="font-serif text-3xl font-bold gradient-text mb-2">Forgot Password</h1>
+            <p className="text-text-secondary text-sm">We&apos;ll send you a reset link</p>
           </div>
+
+          {sent ? (
+            <div className="p-4 rounded-lg bg-accent-green/10 border border-accent-green/20 text-accent-green text-sm">
+              <p>If an account exists with that email, a reset link has been sent.</p>
+              <Link href="/auth/login" className="inline-block mt-4 text-accent-purple hover:text-accent-blue transition-colors">
+                Back to sign in
+              </Link>
+            </div>
+          ) : (
+            <form onSubmit={handleSubmit} className="space-y-5">
+              <div>
+                <label className="block text-sm text-text-secondary mb-1.5">Email</label>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  className="input-glass"
+                  placeholder="you@example.com"
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="btn-primary w-full text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {loading ? "Sending..." : "Send Reset Link"}
+              </button>
+
+              <div className="text-center text-sm">
+                <Link href="/auth/login" className="text-text-muted hover:text-accent-purple transition-colors">
+                  Back to sign in
+                </Link>
+              </div>
+            </form>
+          )}
         </div>
-      ) : (
-        <form onSubmit={handleSubmit}>
-          <div style={{ marginBottom: 16 }}>
-            <label style={{ display: "block", marginBottom: 4, fontWeight: 500 }}>Email</label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              style={{ width: "100%", padding: 8, border: "1px solid #ccc", borderRadius: 4, boxSizing: "border-box" }}
-            />
-          </div>
-
-          <button
-            type="submit"
-            disabled={loading}
-            style={{
-              width: "100%",
-              padding: 10,
-              background: "#111",
-              color: "white",
-              border: "none",
-              borderRadius: 4,
-              cursor: loading ? "wait" : "pointer",
-              fontSize: 14,
-            }}
-          >
-            {loading ? "Sending..." : "Send Reset Link"}
-          </button>
-
-          <div style={{ marginTop: 16, textAlign: "center", fontSize: 14 }}>
-            <Link href="/auth/login" style={{ color: "#2563eb" }}>
-              Back to login
-            </Link>
-          </div>
-        </form>
-      )}
+      </div>
     </div>
   );
 }
