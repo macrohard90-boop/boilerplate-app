@@ -1,7 +1,7 @@
 # Phase 9 Test Plan — Frontend (Next.js)
 
-**Date:** 2026-02-16 (updated 2026-02-17 — cart bug fix)
-**Status:** All tests passed (170 tests, +8 added for cart fix verification)
+**Date:** 2026-02-16 (updated 2026-02-17 — cart bug fix + GDPR consent & admin panel fixes)
+**Status:** 206 tests (170 original + 36 new for GDPR/admin fixes)
 
 ---
 
@@ -285,7 +285,91 @@ All pages verified from inside the `fastapi` container using `urllib.request.url
 | HTTP response verification | 23 | 23 |
 | **Total** | **170** | **170** |
 
-All 170 tests passed. Two fixes were required during the build and one post-build fix:
+All 170 tests passed. Two fixes were required during the build and two post-build fixes:
 1. **Tailwind v4 PostCSS plugin** — `tailwindcss` as a PostCSS plugin no longer works in v4; replaced with `@tailwindcss/postcss`.
 2. **Products page Suspense boundary** — `useSearchParams()` requires a `<Suspense>` wrapper in Next.js App Router to prevent a prerender error during static generation.
 3. **Cart +/- buttons and add-to-cart broken (2026-02-17)** — Wrong HTTP method (`PATCH` → `PUT`), wrong URL format (single ID → composite `{product_id}_{variant_id}`), `CartItem` interface mismatch (`id`/`slug` don't exist in API response), stale closure from `cart` in `useCallback` deps broke `addItem`, and item-level `opacity-50` toggle caused UI flicker. Fixed with correct API calls, optimistic updates via `useRef`, stable callback references, and removed flicker state.
+4. **GDPR consent system + admin panel fixes (2026-02-17)** — Privacy page 3 bugs (wrong API path, wrong response parsing, wrong consent types), admin analytics broken params/response mapping, admin GDPR missing consent stats/audit log. See section M below.
+
+---
+
+## M. Post-Build Fix: GDPR Consent & Admin Panel (2026-02-17)
+
+### M1. Consent Modal & Privacy Page
+
+| # | Test | Method | Expected Result |
+|---|------|--------|-----------------|
+| M1 | ConsentModal appears on first dashboard visit | Clear localStorage, navigate to `/dashboard` | Modal shows with grouped consent toggles |
+| M2 | ConsentModal groups by category | Inspect modal content | 4 categories: Email, Data, Analytics, Cookies |
+| M3 | Transactional email toggle is required/always on | Check toggle state | Toggle is on and disabled (cannot be turned off) |
+| M4 | Save preferences syncs to backend | Click toggles, click "Save Preferences" | POST to `/gdpr/consent` for each type + POST to `/gdpr/cookies` |
+| M5 | Save sets localStorage flags | After saving | `consent_modal_completed` = "true", `cookie_consent` set |
+| M6 | Modal doesn't reappear after save | Refresh `/dashboard` | Modal stays hidden |
+| M7 | "Skip for now" dismisses modal | Click "Skip for now" | `consent_modal_dismissed` set, modal hidden |
+| M8 | Cookie banner suppressed after consent modal | Complete consent modal, logout, login | No cookie banner shown |
+| M9 | Privacy page uses correct API path | Navigate to Dashboard > Privacy | Calls `/gdpr/consent` (singular), not `/gdpr/consents` |
+| M10 | Privacy page parses response correctly | Check console/network | Extracts `data.consents` array from wrapper object |
+| M11 | Privacy page shows 6 correct consent types | Inspect toggle list | `marketing_email`, `transactional_email`, `third_party_sharing`, `analytics`, `cookies_analytics`, `cookies_marketing` |
+| M12 | Privacy page groups by category | Inspect section headers | Email Preferences, Data Sharing, Analytics, Cookie Preferences |
+| M13 | Toggle consent on privacy page succeeds | Toggle any consent | Success toast, no "Failed to update consent" |
+| M14 | Cookie consent toggles sync to `/gdpr/cookies` | Toggle `cookies_analytics` | POST to `/gdpr/cookies` also fires |
+
+### M2. Admin Analytics Fixes
+
+| # | Test | Method | Expected Result |
+|---|------|--------|-----------------|
+| M15 | Analytics page calls API without `?period=` | Inspect network tab | Calls `/tracking/admin/analytics/pageviews` (no query params) |
+| M16 | Pageviews card shows `total_views` | Check metric card | Displays actual number (not 0) |
+| M17 | Unique visitors card present | Inspect page | New card showing `unique_visitors` count |
+| M18 | Sessions card shows `total_sessions` | Check metric card | Displays actual number (not 0) |
+| M19 | Top pages table maps `top_pages[].views` | Check table data | Path + view count displayed correctly |
+| M20 | Traffic sources maps `sources[].sessions` | Check table data | Source + session count displayed |
+| M21 | UTM campaigns section present | Inspect page | Table showing campaign name + sessions |
+| M22 | Device Types breakdown present | Inspect page | Breakdown bar with device types and percentages |
+| M23 | Browsers breakdown present | Inspect page | Breakdown bar with browser names and percentages |
+| M24 | Operating Systems breakdown present | Inspect page | Breakdown bar with OS names and percentages |
+
+### M3. Admin Dashboard Fix
+
+| # | Test | Method | Expected Result |
+|---|------|--------|-----------------|
+| M25 | Dashboard calls API without `?period=` | Inspect network tab | No `?period=7d` in URL |
+| M26 | Pageviews card shows actual data | Check stat card | Number (not "—" or 0 when data exists) |
+| M27 | Pending Deletions card present | Inspect page | New card showing deletion count, pink when > 0 |
+
+### M4. Admin GDPR Enhancements
+
+| # | Test | Method | Expected Result |
+|---|------|--------|-----------------|
+| M28 | Consent Statistics section present | Navigate to Admin > GDPR | Shows consent types with grant/revoke counts and opt-in bars |
+| M29 | Consent stats shows opt-in percentage | Inspect bars | Percentage calculated as `grants / (grants + revokes) * 100` |
+| M30 | Consent Audit Log section present | Inspect page | Table with Time, User, Action, Consent Type, IP columns |
+| M31 | Audit log filter by consent type | Select type from dropdown | Table filters to show only selected type |
+| M32 | Audit log pagination works | If > 10 entries, click Next | Page 2 loads, "Prev" becomes enabled |
+| M33 | Grant action shows green badge | Inspect audit log row | "grant" with green badge styling |
+| M34 | Revoke action shows pink badge | Revoke a consent, check audit log | "revoke" with pink badge styling |
+| M35 | Export requests use `requested_at` | Inspect export request rows | Date displayed from `requested_at` field (not `created_at`) |
+| M36 | Deletion requests show `grace_period_ends` | Inspect deletion request rows | "Grace ends:" date displayed |
+
+---
+
+## Updated Summary
+
+| Category | Tests | Passed |
+|----------|-------|--------|
+| Build & startup | 6 | 6 |
+| Theme & styling | 10 | 10 |
+| Landing page | 8 | 8 |
+| Product catalog pages | 16 | 16 |
+| Shopping cart | 15 | 15 |
+| Checkout flow | 6 | 6 |
+| Authentication pages | 14 | 14 |
+| User dashboard pages | 19 | 19 |
+| Admin panel pages | 20 | 20 |
+| Shared components | 17 | 17 |
+| Context providers | 16 | 16 |
+| HTTP response verification | 23 | 23 |
+| Post-build: GDPR consent & admin (2026-02-17) | 36 | — |
+| **Total** | **206** | **170 + 36 new** |
+
+Original 170 tests all passed. 36 new tests added for GDPR consent system fix and admin panel enhancements (2026-02-17).

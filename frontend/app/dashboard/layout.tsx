@@ -2,9 +2,10 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useAuth } from "../../lib/auth-context";
 import LoadingSpinner from "../../components/LoadingSpinner";
+import ConsentModal from "../../components/ConsentModal";
 
 const NAV_ITEMS = [
   { href: "/dashboard", label: "Overview", icon: "M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" },
@@ -19,6 +20,16 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const pathname = usePathname();
   const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [showConsentModal, setShowConsentModal] = useState(false);
+
+  useEffect(() => {
+    if (!isAuthenticated || isLoading) return;
+    const completed = localStorage.getItem("consent_modal_completed");
+    const dismissed = localStorage.getItem("consent_modal_dismissed");
+    if (!completed && !dismissed) {
+      setShowConsentModal(true);
+    }
+  }, [isAuthenticated, isLoading]);
 
   if (isLoading) return <LoadingSpinner size="lg" className="py-40" />;
 
@@ -70,6 +81,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         {/* Content */}
         <div className="flex-1 min-w-0">{children}</div>
       </div>
+
+      {/* Post-registration consent modal */}
+      <ConsentModal
+        isOpen={showConsentModal}
+        onClose={() => setShowConsentModal(false)}
+      />
     </div>
   );
 }

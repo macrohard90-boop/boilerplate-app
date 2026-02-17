@@ -9,6 +9,53 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Claude Code shou
 ## [Unreleased]
 _Changes staged but not yet tagged._
 
+## [2026-02-17] - Fix GDPR consent system, admin analytics & GDPR panels
+
+### Added
+- **ConsentModal component** (`frontend/components/ConsentModal.tsx`) — post-registration consent modal shown on first dashboard visit, grouped by category, syncs with backend consent records + cookie preferences
+- **Shared consent type constants** (`frontend/lib/consent-types.ts`) — single source of truth for 6 consent types, categories, labels, and consent-to-cookie mapping
+- **Device/browser analytics endpoint** (`GET /api/tracking/admin/analytics/devices`) — returns device type, browser, and OS breakdowns from `analytics.user_agents` table (Phase 6 backend)
+- **Device/browser analytics schemas** (`DeviceStats`, `DeviceTypeStat`, `BrowserStat`, `OSStat`) in tracking module
+- **Admin GDPR: Consent Statistics section** — opt-in rate per consent type with progress bars, grant/revoke counts
+- **Admin GDPR: Consent Audit Log section** — paginated table of consent changes with filter by consent type, user ID, action badges, IP addresses
+- **Admin Dashboard: Pending Deletions card** — shows count of active deletion requests (grace_period status), highlights pink when > 0
+- **CookieBanner suppression** — authenticated users who completed consent modal don't see cookie banner
+
+### Fixed
+- **GDPR admin route prefix** (`modules/gdpr/routes/admin_routes.py`) — prefix was `/admin/gdpr` which combined with module loader's `/api/gdpr` created `/api/gdpr/admin/gdpr/...` (double `gdpr`). Changed to `/admin` so routes resolve to `/api/gdpr/admin/...`. This fix made consent-stats, audit log, exports, and deletions endpoints reachable from the frontend.
+- **Privacy page API path** — was calling `/gdpr/consents` (plural) but backend route is `/gdpr/consent` (singular) → 404
+- **Privacy page response parsing** — backend returns `{ consents: [...] }` wrapper but page expected bare array → consents always empty
+- **Privacy page consent types** — was sending `functional`, `third_party`, `marketing`, `preferences` but backend only accepts the 6 registered types (`marketing_email`, `transactional_email`, etc.)
+- **Admin Analytics API params** — frontend sent `?period=30d` / `?period=7d` but backend only accepts `date_from`/`date_to` query params → stats silently showed 0
+- **Admin Analytics response mapping** — frontend expected `total`/`data[]` but backend returns `total_views`/`top_pages[]`, `total_sessions`, `sources[]`, `campaigns[]`
+- **Admin GDPR export requests** — frontend used `created_at` but backend returns `requested_at`
+- **Admin GDPR deletion requests** — frontend used `scheduled_at` but backend returns `grace_period_ends`
+
+### Changed
+- **Privacy page** redesigned with category-grouped toggles (Email, Data, Analytics, Cookies), `transactional_email` marked required/always-on, cookie sync on toggle
+- **Admin Analytics page** — added unique visitors metric card, UTM campaigns table, device/browser/OS breakdown bars
+- **Admin Dashboard** — stat cards now show 30d data (matching backend default), added GDPR summary card
+- **Admin GDPR page** — complete rewrite with 4 sections: consent stats, audit log, exports, deletions
+- **Dashboard layout** — integrates ConsentModal for first-visit consent collection
+
+### Files Modified
+- `modules/gdpr/routes/admin_routes.py` — route prefix fix
+- `modules/tracking/routes/admin_routes.py` — new `/devices` endpoint
+- `modules/tracking/models/schemas.py` — new device/browser/OS schemas
+- `frontend/lib/consent-types.ts` — NEW: shared consent type constants
+- `frontend/components/ConsentModal.tsx` — NEW: post-registration consent modal
+- `frontend/components/CookieBanner.tsx` — suppression check for consent modal
+- `frontend/app/dashboard/privacy/page.tsx` — 3 bug fixes + redesign
+- `frontend/app/dashboard/layout.tsx` — ConsentModal integration
+- `frontend/app/admin/page.tsx` — API param fix + GDPR summary card
+- `frontend/app/admin/analytics/page.tsx` — API fix + device breakdown
+- `frontend/app/admin/gdpr/page.tsx` — consent stats + audit log + field fixes
+
+### Schema Changes
+- None (no database migrations)
+
+---
+
 ## [2026-02-17] - Fix cart quantity/remove buttons and add-to-cart
 
 ### Fixed

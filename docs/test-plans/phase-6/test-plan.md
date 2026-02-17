@@ -1,7 +1,7 @@
 # Phase 6 Test Plan — User Tracking & Analytics
 
-**Date:** 2026-02-16
-**Status:** All tests passed
+**Date:** 2026-02-16 (updated 2026-02-17 — device analytics endpoint)
+**Status:** 37 tests (30 original + 7 new for device endpoint)
 
 ---
 
@@ -99,6 +99,20 @@ All tested with admin token (`admin@example.com` / `Test1234!`).
 
 ---
 
+## I. Post-Build Fix Tests (2026-02-17)
+
+| # | Test | Method | Expected Result |
+|---|------|--------|-----------------|
+| I1 | Device stats endpoint exists | `GET /api/tracking/admin/analytics/devices` with admin auth | 200 OK with `DeviceStats` response |
+| I2 | Device stats returns `by_device_type` breakdown | Inspect response `by_device_type` array | Array of `{device_type, count}` objects (e.g., `desktop`, `mobile`) |
+| I3 | Device stats returns `by_browser` breakdown | Inspect response `by_browser` array | Array of `{browser, count}` objects (top 10) |
+| I4 | Device stats returns `by_os` breakdown | Inspect response `by_os` array | Array of `{os, count}` objects (top 10) |
+| I5 | Device stats respects date range | `GET /api/tracking/admin/analytics/devices?date_from=2026-01-01&date_to=2026-01-01` | Empty or zero results for date range with no data |
+| I6 | Device stats defaults to 30 days | `GET /api/tracking/admin/analytics/devices` (no params) | `date_from` and `date_to` fields show 30-day window |
+| I7 | Device stats requires admin role | Call endpoint without auth or with non-admin token | 401 or 403 |
+
+---
+
 ## Summary
 
 | Category | Tests | Passed |
@@ -111,4 +125,7 @@ All tested with admin token (`admin@example.com` / `Test1234!`).
 | Middleware | 3 | 3 |
 | Admin endpoints | 6 | 6 |
 | Error handling | 5 | 5 |
-| **Total** | **30** | **30** |
+| Post-build fix (devices) | 7 | — |
+| **Total** | **37** | **30 + 7 new** |
+
+Original 30 tests all passed. 7 new tests added for the device/browser analytics endpoint (2026-02-17).

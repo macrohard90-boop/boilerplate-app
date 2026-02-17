@@ -21,7 +21,7 @@ from modules.gdpr.models.schemas import (
 )
 
 router = APIRouter(
-    prefix="/admin/gdpr",
+    prefix="/admin",
     tags=["admin-gdpr"],
     dependencies=[Depends(require_role("admin"))],
 )

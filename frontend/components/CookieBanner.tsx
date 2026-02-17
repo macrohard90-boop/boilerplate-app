@@ -16,7 +16,8 @@ export default function CookieBanner() {
 
   useEffect(() => {
     const saved = localStorage.getItem(COOKIE_KEY);
-    if (!saved) {
+    const consentModalCompleted = localStorage.getItem("consent_modal_completed");
+    if (!saved && !consentModalCompleted) {
       setVisible(true);
     }
   }, []);

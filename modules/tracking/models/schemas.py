@@ -118,3 +118,29 @@ class UTMStats(BaseModel):
     date_from: str | None = None
     date_to: str | None = None
     campaigns: list[UTMCampaignStat] = []
+
+
+# ── Admin: Device / Browser Stats ──────────────────────
+
+class DeviceTypeStat(BaseModel):
+    device_type: str
+    count: int
+
+
+class BrowserStat(BaseModel):
+    browser: str
+    count: int
+
+
+class OSStat(BaseModel):
+    os: str
+    count: int
+
+
+class DeviceStats(BaseModel):
+    total_agents: int
+    date_from: str | None = None
+    date_to: str | None = None
+    by_device_type: list[DeviceTypeStat] = []
+    by_browser: list[BrowserStat] = []
+    by_os: list[OSStat] = []

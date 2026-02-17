@@ -223,3 +223,37 @@ Read `docs/ARCHITECTURE.md` sections 3 (Session & Auth), 6 (Payment Lifecycle), 
 - `frontend/lib/cart-context.tsx`
 - `frontend/app/cart/page.tsx`
 - `frontend/app/checkout/page.tsx`
+
+### GDPR consent system fix + post-registration consent modal (2026-02-17)
+
+**Symptom:** Dashboard > Privacy page consent toggles showed "Failed to update consent" for every toggle. Admin panel Analytics showed 0 for all stats. Admin panel GDPR showed no consent stats or audit log.
+
+**Root causes (8 bugs across 3 pages):**
+1. **Privacy page — wrong API path:** called `/gdpr/consents` (plural) but backend route is `/gdpr/consent` (singular) → 404
+2. **Privacy page — wrong response parsing:** backend returns `{ consents: [...] }` but page expected bare array → consents always empty
+3. **Privacy page — wrong consent types:** sent `functional`, `third_party`, `marketing`, `preferences` but backend only accepts `marketing_email`, `transactional_email`, `third_party_sharing`, `analytics`, `cookies_analytics`, `cookies_marketing`
+4. **Admin Analytics — wrong API params:** sent `?period=30d` but backend only accepts `date_from`/`date_to` → silently returned defaults or failed
+5. **Admin Analytics — wrong response mapping:** expected `total`/`data[]` but backend returns `total_views`/`top_pages[]`, `total_sessions`, `sources[]`, `campaigns[]`
+6. **Admin Dashboard — same API param bug** as Analytics
+7. **Admin GDPR — wrong field names:** used `created_at`/`scheduled_at` but backend returns `requested_at`/`grace_period_ends`
+8. **Admin GDPR — missing sections:** consent-stats and audit log endpoints existed in backend but frontend never called them
+
+**New features added:**
+- `frontend/lib/consent-types.ts` — shared constants for 6 consent types, category labels, consent-to-cookie mapping
+- `frontend/components/ConsentModal.tsx` — post-registration modal shown on first dashboard visit, grouped by category, syncs consent records + cookie preferences + localStorage
+- `frontend/components/CookieBanner.tsx` — suppressed when consent modal was completed
+- `frontend/app/admin/analytics/page.tsx` — added unique visitors card, UTM campaigns table, device/browser/OS breakdown (new backend endpoint)
+- `frontend/app/admin/gdpr/page.tsx` — added consent statistics with opt-in bars, consent audit log with filter/pagination
+- `frontend/app/admin/page.tsx` — added pending deletions GDPR summary card
+
+**Files created:**
+- `frontend/lib/consent-types.ts`
+- `frontend/components/ConsentModal.tsx`
+
+**Files modified:**
+- `frontend/app/dashboard/privacy/page.tsx` — 3 bug fixes + category-grouped redesign
+- `frontend/app/dashboard/layout.tsx` — ConsentModal integration
+- `frontend/components/CookieBanner.tsx` — suppression check
+- `frontend/app/admin/analytics/page.tsx` — API fix + device breakdown
+- `frontend/app/admin/gdpr/page.tsx` — consent stats + audit log + field fixes
+- `frontend/app/admin/page.tsx` — API fix + GDPR summary card

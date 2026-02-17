@@ -113,6 +113,15 @@ Read `docs/ARCHITECTURE.md` sections 1.6 (EmailProvider interface), 2.4 (GDPR Sc
 - Grace period countdown: background job or on-demand check (check if `grace_period_ends < NOW()`)
 - Data retention: analytics data deleted on erasure request, audit logs retained (legal basis: legitimate interest)
 
+## Post-Build Fix (2026-02-17)
+
+**GDPR admin route prefix fix:**
+- `modules/gdpr/routes/admin_routes.py` had `prefix="/admin/gdpr"` which combined with the module loader's `/api/gdpr` prefix created `/api/gdpr/admin/gdpr/...` (double `gdpr`). Changed to `prefix="/admin"` so routes resolve to `/api/gdpr/admin/...` as intended.
+- This fix made all 4 admin GDPR endpoints (consent-stats, audit, exports, deletions) reachable from the frontend. Previously they returned 404, silently caught by `.catch()`.
+
+**Files modified:**
+- `modules/gdpr/routes/admin_routes.py` — prefix changed from `/admin/gdpr` to `/admin`
+
 ## Files to Create
 - `modules/gdpr/services/consent_service.py` — Consent management, audit logging
 - `modules/gdpr/services/cookie_service.py` — Cookie preference management

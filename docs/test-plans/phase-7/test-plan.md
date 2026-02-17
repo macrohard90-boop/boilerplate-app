@@ -1,7 +1,7 @@
 # Phase 7 Test Plan — GDPR & Cookie Management
 
-**Date:** 2026-02-16
-**Status:** All tests passed (2 required fixes during run)
+**Date:** 2026-02-16 (updated 2026-02-17 — admin route prefix fix)
+**Status:** 46 tests (39 original + 7 new for route prefix fix)
 
 ---
 
@@ -100,11 +100,13 @@ All tested with admin token (`admin@example.com` / `Test1234!`).
 
 | # | Test | Method | Result |
 |---|------|--------|--------|
-| G1 | List export requests | `GET /api/gdpr/admin/gdpr/exports` | 1 item: `status: "completed"`, `user_id` matches admin |
-| G2 | List deletion requests | `GET /api/gdpr/admin/gdpr/deletions` | 1 item: `status: "cancelled"`, `user_id` matches customer |
-| G3 | Consent stats by type | `GET /api/gdpr/admin/gdpr/consent-stats` | `[{"consent_type": "analytics", "total_grants": 1, "total_revokes": 0}, {"consent_type": "marketing_email", "total_grants": 1, "total_revokes": 0}]` |
-| G4 | Audit log (paginated) | `GET /api/gdpr/admin/gdpr/audit` | Items with `action: "grant"`, `consent_type`, `old_value`, `new_value`, `ip_address` |
+| G1 | List export requests | `GET /api/gdpr/admin/exports` | 1 item: `status: "completed"`, `user_id` matches admin |
+| G2 | List deletion requests | `GET /api/gdpr/admin/deletions` | 1 item: `status: "cancelled"`, `user_id` matches customer |
+| G3 | Consent stats by type | `GET /api/gdpr/admin/consent-stats` | `[{"consent_type": "analytics", "total_grants": 1, "total_revokes": 0}, {"consent_type": "marketing_email", "total_grants": 1, "total_revokes": 0}]` |
+| G4 | Audit log (paginated) | `GET /api/gdpr/admin/audit` | Items with `action: "grant"`, `consent_type`, `old_value`, `new_value`, `ip_address` |
 | G5 | Admin endpoints require admin role | All 4 endpoints tested with admin token | 200 OK (non-admin would get 403) |
+
+> **Note (2026-02-17):** URLs updated from `/api/gdpr/admin/gdpr/...` to `/api/gdpr/admin/...` after route prefix fix (see section I).
 
 ---
 
@@ -133,3 +135,38 @@ All tested with admin token (`admin@example.com` / `Test1234!`).
 | **Total** | **39** | **37** | **2** |
 
 All 39 tests passing at end of phase. The 2 failures were column name mismatches in the export service (`full_name` → `first_name`/`last_name`, `total_amount` → `total`) which were fixed immediately.
+
+---
+
+## I. Post-Build Fix Tests (2026-02-17)
+
+**Route prefix fix:** Admin routes prefix changed from `/admin/gdpr` to `/admin` to eliminate double `gdpr` in URL path.
+
+| # | Test | Method | Expected Result |
+|---|------|--------|-----------------|
+| I1 | Consent-stats reachable at correct URL | `GET /api/gdpr/admin/consent-stats` (was 404 at `/api/gdpr/admin/gdpr/consent-stats`) | 200 with `{ stats: [...] }` |
+| I2 | Audit log reachable at correct URL | `GET /api/gdpr/admin/audit` with admin auth | 200 with `{ items: [...], total, page, page_size }` |
+| I3 | Exports reachable at correct URL | `GET /api/gdpr/admin/exports` with admin auth | 200 with `{ items: [...], total, page, page_size }` |
+| I4 | Deletions reachable at correct URL | `GET /api/gdpr/admin/deletions` with admin auth | 200 with `{ items: [...], total, page, page_size }` |
+| I5 | Old double-gdpr URL returns 404 | `GET /api/gdpr/admin/gdpr/consent-stats` | 404 (confirms old broken path no longer exists) |
+| I6 | Audit log filter by consent_type | `GET /api/gdpr/admin/audit?consent_type=marketing_email` | Only `marketing_email` entries returned |
+| I7 | Audit log pagination | `GET /api/gdpr/admin/audit?page=1&page_size=5` | Max 5 items, `total` reflects full count |
+
+---
+
+## Updated Summary
+
+| Category | Tests | Passed |
+|----------|-------|--------|
+| Module loading | 3 | 3 |
+| Consent management | 6 | 6 |
+| Cookie preferences | 4 | 4 |
+| Data export | 8 | 6 (+2 fixed) |
+| Email preferences | 4 | 4 |
+| Data deletion | 6 | 6 |
+| Admin dashboard | 5 | 5 |
+| Error handling | 3 | 3 |
+| Post-build fix (route prefix) | 7 | — |
+| **Total** | **46** | **39 + 7 new** |
+
+Original 39 tests all passed. 7 new tests added for route prefix fix verification (2026-02-17).

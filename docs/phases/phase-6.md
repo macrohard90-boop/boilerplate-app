@@ -115,6 +115,17 @@ Read `docs/ARCHITECTURE.md` sections 1.3 (GeoProvider interface), 2.5 (Analytics
 - Modified: `backend/main.py` — Register TrackingMiddleware
 - Modified: `backend/core/config.py` — Added tracking_session_timeout, geo_provider, tracking_exclude_paths
 
+## Post-Build Fix (2026-02-17)
+
+**Device/browser analytics endpoint added:**
+- New `GET /api/tracking/admin/analytics/devices` endpoint — queries `analytics.user_agents` joined to `analytics.analytics_sessions` for date-range filtering, returns 3 breakdowns: device type, browser (top 10), OS (top 10)
+- New Pydantic schemas: `DeviceStats`, `DeviceTypeStat`, `BrowserStat`, `OSStat` in `modules/tracking/models/schemas.py`
+- The `user_agents` table was already populated by the tracking middleware but had no admin query endpoint
+
+**Files modified:**
+- `modules/tracking/routes/admin_routes.py` — added `/devices` endpoint
+- `modules/tracking/models/schemas.py` — added 4 new response models
+
 ## Files Created
 - `modules/tracking/__init__.py`
 - `modules/tracking/config.py`

@@ -10,8 +10,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from backend.core.database import get_db
 from backend.core.dependencies import require_role
 from modules.tracking.models.schemas import (
+    BrowserStat,
+    DeviceStats,
+    DeviceTypeStat,
     EventStats,
     EventTypeStat,
+    OSStat,
     PageViewStats,
     SessionDayStat,
     SessionStats,
@@ -243,4 +247,74 @@ async def get_utm_stats(
         date_from=lbl_from,
         date_to=lbl_to,
         campaigns=[UTMCampaignStat(**r) for r in rows],
+    )
+
+
+# ── Device / Browser Stats ───────────────────────────────
+
+@router.get("/devices", response_model=DeviceStats)
+async def get_device_stats(
+    db: AsyncSession = Depends(get_db),
+    user: dict = Depends(require_role("admin")),
+    date_from: date | None = Query(None),
+    date_to: date | None = Query(None),
+):
+    """Device, browser, and OS breakdown from user-agent data."""
+    ts_from, ts_end, lbl_from, lbl_to = _date_range(date_from, date_to)
+
+    # Join user_agents to sessions for date filtering
+    base_where = (
+        "FROM analytics.user_agents ua "
+        "JOIN analytics.analytics_sessions s ON ua.session_id = s.session_id "
+        "WHERE s.started_at >= :ts_from AND s.started_at < :ts_end"
+    )
+    params = {"ts_from": ts_from, "ts_end": ts_end}
+
+    total = (
+        await db.execute(
+            text(f"SELECT COUNT(*) AS total_agents {base_where}"),
+            params,
+        )
+    ).mappings().first()
+
+    by_device = (
+        await db.execute(
+            text(
+                f"SELECT COALESCE(ua.device_type, 'unknown') AS device_type, COUNT(*) AS count "
+                f"{base_where} "
+                f"GROUP BY ua.device_type ORDER BY count DESC"
+            ),
+            params,
+        )
+    ).mappings().all()
+
+    by_browser = (
+        await db.execute(
+            text(
+                f"SELECT COALESCE(ua.browser, 'Unknown') AS browser, COUNT(*) AS count "
+                f"{base_where} "
+                f"GROUP BY ua.browser ORDER BY count DESC LIMIT 10"
+            ),
+            params,
+        )
+    ).mappings().all()
+
+    by_os = (
+        await db.execute(
+            text(
+                f"SELECT COALESCE(ua.os, 'Unknown') AS os, COUNT(*) AS count "
+                f"{base_where} "
+                f"GROUP BY ua.os ORDER BY count DESC LIMIT 10"
+            ),
+            params,
+        )
+    ).mappings().all()
+
+    return DeviceStats(
+        total_agents=total["total_agents"],
+        date_from=lbl_from,
+        date_to=lbl_to,
+        by_device_type=[DeviceTypeStat(**r) for r in by_device],
+        by_browser=[BrowserStat(**r) for r in by_browser],
+        by_os=[OSStat(**r) for r in by_os],
     )
