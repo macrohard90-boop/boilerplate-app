@@ -9,8 +9,25 @@ interface Stats {
   pendingDeletions: number;
 }
 
+interface ServiceHealth {
+  name: string;
+  status: "ok" | "error" | "checking";
+}
+
+const SERVICE_LABELS: Record<string, string> = {
+  api: "API",
+  db: "Database",
+  redis: "Cache",
+};
+
 export default function AdminDashboardPage() {
   const [stats, setStats] = useState<Stats>({ pageviews: 0, sessions: 0, pendingDeletions: 0 });
+  const [services, setServices] = useState<ServiceHealth[]>([
+    { name: "api", status: "checking" },
+    { name: "db", status: "checking" },
+    { name: "redis", status: "checking" },
+  ]);
+  const [statusExpanded, setStatusExpanded] = useState(false);
 
   useEffect(() => {
     apiFetch<{ total_views: number }>("/tracking/admin/analytics/pageviews")
@@ -22,7 +39,30 @@ export default function AdminDashboardPage() {
     apiFetch<{ total: number }>("/gdpr/admin/deletions?status=grace_period")
       .then((d) => setStats((s) => ({ ...s, pendingDeletions: d.total || 0 })))
       .catch(() => {});
+
+    // Health check — /api/health is unauthenticated
+    fetch("/api/health")
+      .then((r) => r.json())
+      .then((data: { status: string; services: Record<string, string> }) => {
+        const result: ServiceHealth[] = [
+          { name: "api", status: "ok" },
+          { name: "db", status: data.services?.db === "ok" ? "ok" : "error" },
+          { name: "redis", status: data.services?.redis === "ok" ? "ok" : "error" },
+        ];
+        setServices(result);
+      })
+      .catch(() => {
+        setServices([
+          { name: "api", status: "error" },
+          { name: "db", status: "error" },
+          { name: "redis", status: "error" },
+        ]);
+      });
   }, []);
+
+  const healthyCount = services.filter((s) => s.status === "ok").length;
+  const allHealthy = healthyCount === services.length;
+  const checking = services.some((s) => s.status === "checking");
 
   return (
     <div>
@@ -45,9 +85,42 @@ export default function AdminDashboardPage() {
             {stats.pendingDeletions}
           </p>
         </div>
-        <div className="glass rounded-xl p-5">
+        <div
+          className="glass rounded-xl p-5 cursor-pointer hover:bg-bg-secondary/30 transition-colors"
+          onClick={() => setStatusExpanded(!statusExpanded)}
+        >
           <p className="text-xs text-text-muted mb-1">Status</p>
-          <p className="text-sm"><span className="badge-green">All systems operational</span></p>
+          {checking ? (
+            <p className="text-sm text-text-muted">Checking...</p>
+          ) : allHealthy ? (
+            <p className="text-sm">
+              <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-green-500/20 text-green-300 border border-green-500/30">
+                All systems operational
+              </span>
+            </p>
+          ) : (
+            <p className="text-sm">
+              <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-red-500/20 text-red-300 border border-red-500/30">
+                {services.length - healthyCount} service{services.length - healthyCount !== 1 ? "s" : ""} degraded
+              </span>
+            </p>
+          )}
+          {statusExpanded && (
+            <div className="mt-3 space-y-1.5 border-t border-border/50 pt-3">
+              {services.map((s) => (
+                <div key={s.name} className="flex items-center justify-between text-xs">
+                  <span className="text-text-secondary">{SERVICE_LABELS[s.name] ?? s.name}</span>
+                  {s.status === "checking" ? (
+                    <span className="text-text-muted">...</span>
+                  ) : s.status === "ok" ? (
+                    <span className="text-green-400">Operational</span>
+                  ) : (
+                    <span className="text-red-400">Down</span>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 

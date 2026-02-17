@@ -11,7 +11,7 @@ export default function Footer() {
               Boilerplate
             </Link>
             <p className="mt-3 text-sm text-text-muted">
-              A modern e-commerce platform built with Next.js and FastAPI.
+              A modern e-commerce platform.
             </p>
           </div>
 
@@ -51,7 +51,7 @@ export default function Footer() {
             &copy; {new Date().getFullYear()} Boilerplate App. All rights reserved.
           </p>
           <p className="text-xs text-text-muted">
-            Built with Next.js & FastAPI
+            Powered by Boilerplate
           </p>
         </div>
       </div>

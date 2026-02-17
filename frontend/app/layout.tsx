@@ -12,7 +12,7 @@ export const metadata: Metadata = {
     default: "Boilerplate App",
     template: "%s | Boilerplate App",
   },
-  description: "A modern e-commerce platform built with Next.js and FastAPI",
+  description: "A modern e-commerce platform",
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"),
 };
 

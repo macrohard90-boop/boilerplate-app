@@ -140,3 +140,39 @@ class ErrorResponse(BaseModel):
     error: str
     message: str
     details: dict | list | None = None
+
+
+# ---------------------------------------------------------------------------
+# Admin user management
+# ---------------------------------------------------------------------------
+
+
+class AdminUserItem(BaseModel):
+    id: UUID
+    email: str
+    first_name: str | None
+    last_name: str | None
+    role: str
+    is_verified: bool
+    is_active: bool
+    deleted_at: datetime | None = None
+    created_at: datetime
+
+
+class AdminUserListResponse(BaseModel):
+    items: list[AdminUserItem]
+    total: int
+    page: int
+    page_size: int
+
+
+class AdminUserDetail(AdminUserItem):
+    is_merchant: bool = False
+
+
+class UpdateRoleRequest(BaseModel):
+    role: str = Field(..., min_length=1, max_length=50)
+
+
+class UpdateStatusRequest(BaseModel):
+    is_active: bool
