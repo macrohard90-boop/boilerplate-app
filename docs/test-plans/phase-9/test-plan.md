@@ -1,7 +1,7 @@
 # Phase 9 Test Plan — Frontend (Next.js)
 
-**Date:** 2026-02-16
-**Status:** All tests passed
+**Date:** 2026-02-16 (updated 2026-02-17 — cart bug fix)
+**Status:** All tests passed (170 tests, +8 added for cart fix verification)
 
 ---
 
@@ -89,6 +89,15 @@
 | E6 | Discount code input present | Inspected page source | Input field + "Apply" button wired to `CartContext.applyDiscount()` |
 | E7 | Cart totals section present | Inspected page source | Subtotal, discount, tax, total rendered via `PriceDisplay` (INT cents → formatted string) |
 | E8 | "Proceed to checkout" CTA present | Inspected page source | Link to `/checkout` |
+| E9 | Quantity +/- buttons use correct API method | Inspected `cart-context.tsx` | `PUT /ecommerce/cart/items/{product_id}_{variant_id}` with composite key (was PATCH with single id — fixed 2026-02-17) |
+| E10 | Remove button uses correct API URL | Inspected `cart-context.tsx` | `DELETE /ecommerce/cart/items/{product_id}_{variant_id}` with composite key (was single id — fixed 2026-02-17) |
+| E11 | Optimistic UI updates on quantity change | Inspected `cart-context.tsx` | Local state updates immediately; API response reconciles; `useRef` for rollback on failure |
+| E12 | Optimistic UI updates on item removal | Inspected `cart-context.tsx` | Item removed from local state immediately; rollback on API error |
+| E13 | No flicker on quantity +/- | Inspected `cart/page.tsx` | Removed `updating` state and `opacity-50` toggle; optimistic updates prevent loading flash |
+| E14 | Cart item React keys use composite key | Inspected `cart/page.tsx` and `checkout/page.tsx` | `cartItemKey(item)` = `${product_id}_${variant_id}` (was `item.id` which doesn't exist — fixed 2026-02-17) |
+| E15 | Add-to-cart from product detail works | Runtime test: added item from `/products/[slug]` page | Item appears in cart; toast shows "added to cart" (was broken by stale closure — fixed 2026-02-17) |
+
+**Post-build fix (2026-02-17):** Cart +/- and remove buttons were non-functional due to wrong HTTP method (`PATCH` → `PUT`), wrong URL format (single ID → composite `{product_id}_{variant_id}`), and `CartItem` interface mismatch (`id`/`slug` fields don't exist in API response). Optimistic updates with `useRef` rollback replaced `refreshCart()` calls to eliminate loading spinner flicker. Stale closure bug (callbacks depending on `cart` state) broke `addItem` — fixed by using empty dependency arrays and setting cart state directly from API responses.
 
 ---
 
@@ -214,12 +223,13 @@
 | K5 | `AuthProvider` handles token refresh | Inspected `auth-context.tsx` | Refresh token sent via httpOnly cookie; on 401 response, `refresh()` called before retry |
 | K6 | `AuthProvider` handles OAuth callback | Inspected `auth-context.tsx` | `handleOAuthCallback(code, provider)` → POST `/api/auth/oauth/callback`, stores returned token |
 | K7 | `CartProvider` wraps app in root layout | Inspected `frontend/app/layout.tsx` | `<CartProvider>` at root level |
-| K8 | `CartProvider` exposes addItem function | Inspected `frontend/lib/cart-context.tsx` | `addItem(productId, variantId, qty)` → POST `/api/ecommerce/cart/items` |
-| K9 | `CartProvider` exposes removeItem function | Inspected `cart-context.tsx` | `removeItem(itemId)` → DELETE `/api/ecommerce/cart/items/{id}` |
-| K10 | `CartProvider` exposes updateQuantity function | Inspected `cart-context.tsx` | `updateQuantity(itemId, qty)` → PATCH `/api/ecommerce/cart/items/{id}` |
-| K11 | `CartProvider` exposes applyDiscount function | Inspected `cart-context.tsx` | `applyDiscount(code)` → POST `/api/ecommerce/cart/discount` |
-| K12 | `CartProvider` exposes removeDiscount function | Inspected `cart-context.tsx` | `removeDiscount()` → DELETE `/api/ecommerce/cart/discount` |
+| K8 | `CartProvider` exposes addItem function | Inspected `frontend/lib/cart-context.tsx` | `addItem(productId, variantId, qty)` → POST `/api/ecommerce/cart/items`; sets cart from response (no `refreshCart` call) |
+| K9 | `CartProvider` exposes removeItem function | Inspected `cart-context.tsx` | `removeItem(productId, variantId)` → DELETE `/api/ecommerce/cart/items/{product_id}_{variant_id}` with optimistic update and rollback (fixed 2026-02-17: was single `itemId` with wrong URL) |
+| K10 | `CartProvider` exposes updateQuantity function | Inspected `cart-context.tsx` | `updateQuantity(productId, variantId, qty)` → PUT `/api/ecommerce/cart/items/{product_id}_{variant_id}` with optimistic update and rollback (fixed 2026-02-17: was PATCH with single `itemId`) |
+| K11 | `CartProvider` exposes applyDiscount function | Inspected `cart-context.tsx` | `applyDiscount(code)` → POST `/api/ecommerce/cart/discount`; sets cart from response |
+| K12 | `CartProvider` exposes removeDiscount function | Inspected `cart-context.tsx` | `removeDiscount()` → DELETE `/api/ecommerce/cart/discount`; sets cart from response |
 | K13 | `CartProvider` syncs with backend | Inspected `cart-context.tsx` | On mount, GET `/api/ecommerce/cart` to hydrate state from backend |
+| K16 | `CartProvider` callbacks are stable references | Inspected `cart-context.tsx` | All `useCallback` have `[]` deps; `useRef` for rollback state (fixed 2026-02-17: `cart` in deps caused stale closures and broke `addItem`) |
 | K14 | `ToastProvider` wraps app in root layout | Inspected `frontend/app/layout.tsx` | `<ToastProvider>` at root level |
 | K15 | `ToastProvider` exposes toast functions | Inspected `frontend/lib/toast-context.tsx` (or `Toast.tsx`) | `toast.success()`, `toast.error()`, `toast.info()` with auto-dismiss |
 
@@ -265,16 +275,17 @@ All pages verified from inside the `fastapi` container using `urllib.request.url
 | Theme & styling | 10 | 10 |
 | Landing page | 8 | 8 |
 | Product catalog pages | 16 | 16 |
-| Shopping cart | 8 | 8 |
+| Shopping cart | 15 | 15 |
 | Checkout flow | 6 | 6 |
 | Authentication pages | 14 | 14 |
 | User dashboard pages | 19 | 19 |
 | Admin panel pages | 20 | 20 |
 | Shared components | 17 | 17 |
-| Context providers | 15 | 15 |
+| Context providers | 16 | 16 |
 | HTTP response verification | 23 | 23 |
-| **Total** | **162** | **162** |
+| **Total** | **170** | **170** |
 
-All 162 tests passed. Two fixes were required during the build:
+All 170 tests passed. Two fixes were required during the build and one post-build fix:
 1. **Tailwind v4 PostCSS plugin** — `tailwindcss` as a PostCSS plugin no longer works in v4; replaced with `@tailwindcss/postcss`.
 2. **Products page Suspense boundary** — `useSearchParams()` requires a `<Suspense>` wrapper in Next.js App Router to prevent a prerender error during static generation.
+3. **Cart +/- buttons and add-to-cart broken (2026-02-17)** — Wrong HTTP method (`PATCH` → `PUT`), wrong URL format (single ID → composite `{product_id}_{variant_id}`), `CartItem` interface mismatch (`id`/`slug` don't exist in API response), stale closure from `cart` in `useCallback` deps broke `addItem`, and item-level `opacity-50` toggle caused UI flicker. Fixed with correct API calls, optimistic updates via `useRef`, stable callback references, and removed flicker state.

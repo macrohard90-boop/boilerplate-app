@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useCart, type CartItem } from "../../lib/cart-context";
+import { useCart, type CartItem, cartItemKey } from "../../lib/cart-context";
 import { useAuth } from "../../lib/auth-context";
 import { formatPrice } from "../../lib/format";
 import { useToast } from "../../components/Toast";
@@ -52,7 +52,7 @@ export default function CartPage() {
           <div className="lg:col-span-2 space-y-4">
             {cart.items.map((item) => (
               <CartItemRow
-                key={item.id}
+                key={cartItemKey(item)}
                 item={item}
                 onUpdateQuantity={updateQuantity}
                 onRemove={removeItem}
@@ -143,30 +143,20 @@ function CartItemRow({
   onRemove,
 }: {
   item: CartItem;
-  onUpdateQuantity: (id: string, qty: number) => Promise<void>;
-  onRemove: (id: string) => Promise<void>;
+  onUpdateQuantity: (productId: string, variantId: string, qty: number) => Promise<void>;
+  onRemove: (productId: string, variantId: string) => Promise<void>;
 }) {
-  const [updating, setUpdating] = useState(false);
-
-  async function handleQuantity(qty: number) {
-    setUpdating(true);
-    try {
-      await onUpdateQuantity(item.id, qty);
-    } catch {}
-    setUpdating(false);
+  function handleQuantity(qty: number) {
+    onUpdateQuantity(item.product_id, item.variant_id, qty);
   }
 
-  async function handleRemove() {
-    setUpdating(true);
-    try {
-      await onRemove(item.id);
-    } catch {}
-    setUpdating(false);
+  function handleRemove() {
+    onRemove(item.product_id, item.variant_id);
   }
 
   return (
-    <div className={`glass rounded-xl p-4 flex gap-4 ${updating ? "opacity-50" : ""}`}>
-      <Link href={`/products/${item.slug}`} className="w-20 h-20 bg-base-100 rounded-lg shrink-0 overflow-hidden">
+    <div className="glass rounded-xl p-4 flex gap-4">
+      <div className="w-20 h-20 bg-base-100 rounded-lg shrink-0 overflow-hidden">
         {item.image_url ? (
           <img src={item.image_url} alt={item.product_name} className="w-full h-full object-cover" />
         ) : (
@@ -176,12 +166,12 @@ function CartItemRow({
             </svg>
           </div>
         )}
-      </Link>
+      </div>
 
       <div className="flex-1 min-w-0">
-        <Link href={`/products/${item.slug}`} className="text-sm font-medium text-text-primary hover:text-accent-blue transition-colors">
+        <span className="text-sm font-medium text-text-primary">
           {item.product_name}
-        </Link>
+        </span>
         {item.variant_name && (
           <p className="text-xs text-text-muted mt-0.5">{item.variant_name}</p>
         )}

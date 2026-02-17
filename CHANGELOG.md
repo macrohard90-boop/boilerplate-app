@@ -9,6 +9,29 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Claude Code shou
 ## [Unreleased]
 _Changes staged but not yet tagged._
 
+## [2026-02-17] - Fix cart quantity/remove buttons and add-to-cart
+
+### Fixed
+- Cart +/- quantity buttons and remove button were non-functional (silent failure, no errors)
+- Add-to-cart from product detail page broken by stale closure after initial optimistic update attempt
+- UI flicker on cart item rows during quantity changes (opacity-50 toggle during async call)
+
+### Changed
+- `CartProvider.updateQuantity()` — changed HTTP method from `PATCH` to `PUT`, URL from single `{itemId}` to composite `{product_id}_{variant_id}`, signature from `(itemId, qty)` to `(productId, variantId, qty)`
+- `CartProvider.removeItem()` — URL changed to composite key format, signature from `(itemId)` to `(productId, variantId)`
+- All cart mutation callbacks (`addItem`, `updateQuantity`, `removeItem`, `applyDiscount`, `removeDiscount`) now set cart state directly from API response instead of calling `refreshCart()` — eliminates loading spinner flash
+- `updateQuantity` and `removeItem` use optimistic local state updates with `useRef` rollback on failure
+- All `useCallback` dependencies changed to `[]` (stable references) — prevents stale closures and unnecessary re-renders
+- `CartItem` interface updated to match actual API response (removed non-existent `id`/`slug` fields, added `currency`)
+- Cart item React keys use `cartItemKey()` composite helper instead of `item.id`
+
+### Files Modified
+- `frontend/lib/cart-context.tsx` — API methods, interface, optimistic updates, stable callbacks
+- `frontend/app/cart/page.tsx` — composite keys, removed flicker state, removed stale `item.id`/`item.slug` refs
+- `frontend/app/checkout/page.tsx` — cart item React keys use `cartItemKey()`
+- `docs/phases/phase-9.md` — added Post-Build Fixes section
+- `docs/test-plans/phase-9/test-plan.md` — added 8 new tests (E9–E15, K16), updated totals to 170
+
 ---
 
 ## Template

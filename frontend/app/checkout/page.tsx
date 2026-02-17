@@ -3,7 +3,7 @@
 import { useState, FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { useCart } from "../../lib/cart-context";
+import { useCart, cartItemKey } from "../../lib/cart-context";
 import { useAuth } from "../../lib/auth-context";
 import { apiFetch } from "../../lib/api";
 import { formatPrice } from "../../lib/format";
@@ -211,7 +211,7 @@ export default function CheckoutPage() {
               <h2 className="text-lg font-semibold text-text-primary mb-4">Order Review</h2>
               <div className="space-y-3 mb-6">
                 {cart.items.map((item) => (
-                  <div key={item.id} className="flex justify-between text-sm">
+                  <div key={cartItemKey(item)} className="flex justify-between text-sm">
                     <span className="text-text-secondary">
                       {item.product_name} {item.variant_name ? `(${item.variant_name})` : ""} x{item.quantity}
                     </span>
@@ -258,7 +258,7 @@ export default function CheckoutPage() {
             <h3 className="text-sm font-semibold text-text-primary mb-4">Cart ({cart.item_count} items)</h3>
             <div className="space-y-2 max-h-[300px] overflow-y-auto">
               {cart.items.map((item) => (
-                <div key={item.id} className="flex gap-3 text-sm">
+                <div key={cartItemKey(item)} className="flex gap-3 text-sm">
                   <div className="w-10 h-10 bg-base-100 rounded shrink-0" />
                   <div className="flex-1 min-w-0">
                     <p className="text-text-primary truncate">{item.product_name}</p>

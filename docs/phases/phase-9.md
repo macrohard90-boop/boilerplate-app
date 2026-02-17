@@ -190,3 +190,36 @@ Read `docs/ARCHITECTURE.md` sections 3 (Session & Auth), 6 (Payment Lifecycle), 
 - `frontend/lib/format.ts` — Price formatting and utility functions
 - Modified: `frontend/app/layout.tsx` — Add providers, navigation, footer
 - Modified: `frontend/package.json` — Add Stripe, React Hook Form dependencies
+
+## Post-Build Fixes
+
+### Cart quantity +/- and remove buttons not working (2026-02-17)
+
+**Symptom:** Clicking +/- quantity buttons or remove button in `/cart` had no effect. No errors shown. Add-to-cart from product pages also broke after the initial optimistic-update attempt.
+
+**Root cause (3 issues):**
+1. **Wrong HTTP method and URL format** — `updateQuantity` used `PATCH /cart/items/{itemId}` but the backend expects `PUT /cart/items/{product_id}_{variant_id}`. `removeItem` used `DELETE /cart/items/{itemId}` but needs the composite key format.
+2. **CartItem interface mismatch** — Frontend assumed `id` and `slug` fields on cart items, but the backend returns `product_id`, `variant_id`, `product_name`, `variant_name`, `quantity`, `unit_price`, `total_price`, `currency` only.
+3. **Stale closure / flicker** — After switching to optimistic updates, `updateQuantity` and `removeItem` used `cart` in their `useCallback` dependency arrays. This caused all callbacks to be recreated on every cart state change, producing unstable context value references. This broke `addItem` (stale closure) and caused UI flicker (item-level `opacity-50` toggle during async calls).
+
+**Fix applied:**
+- `frontend/lib/cart-context.tsx`:
+  - Updated `CartItem` interface to match actual API response (removed `id`/`slug`, added `currency`)
+  - Added `cartItemKey()` helper for composite key (`product_id + "_" + variant_id`)
+  - Changed `updateQuantity` to `PUT` with composite key URL
+  - Changed `removeItem` to `DELETE` with composite key URL
+  - All callbacks now use `[]` empty dependency arrays (stable references)
+  - `updateQuantity`/`removeItem` use optimistic local state updates with `useRef` for rollback
+  - All mutation callbacks set cart state directly from API response instead of calling `refreshCart()`
+- `frontend/app/cart/page.tsx`:
+  - React keys use `cartItemKey(item)` instead of `item.id`
+  - `CartItemRow` passes `item.product_id` and `item.variant_id` to handlers
+  - Removed item-level `updating` state and `opacity-50` flicker
+  - Removed `<Link>` wrappers (no `slug` available in cart response)
+- `frontend/app/checkout/page.tsx`:
+  - Cart item React keys use `cartItemKey(item)` instead of `item.id`
+
+**Files modified:**
+- `frontend/lib/cart-context.tsx`
+- `frontend/app/cart/page.tsx`
+- `frontend/app/checkout/page.tsx`
