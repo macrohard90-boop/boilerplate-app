@@ -1243,6 +1243,89 @@ Open `http://localhost` in a browser (Edge/Chrome on Windows).
 
 ---
 
+## Section M: Admin User Management (Post-Build 2026-02-17)
+
+### Test M1: List Users (Paginated)
+
+| # | Test | Method | Expected Result |
+|---|------|--------|-----------------|
+| M1 | List all users | `GET /api/auth/admin/users` with admin token | 200 with `{ items: [...], total: 3, page: 1, page_size: 20 }` |
+| M2 | Search by email | `GET /api/auth/admin/users?search=admin` | `total: 1`, item email matches "admin@example.com" |
+| M3 | Search by name | `GET /api/auth/admin/users?search=Customer` | `total: 1`, item matches customer user |
+| M4 | Filter by role | `GET /api/auth/admin/users?role=customer` | `total: 1`, only customer role returned |
+| M5 | Filter by status (active) | `GET /api/auth/admin/users?status=active` | Only `is_active=true` and `deleted_at=null` users |
+| M6 | Filter by status (deleted) | `GET /api/auth/admin/users?status=deleted` | Only users with `deleted_at` set |
+| M7 | Pagination | `GET /api/auth/admin/users?page=1&page_size=1` | `items` has 1 entry, `total: 3` |
+
+### Test M2: User Detail
+
+| # | Test | Method | Expected Result |
+|---|------|--------|-----------------|
+| M8 | Get user detail | `GET /api/auth/admin/users/{user_id}` | 200 with user fields + `is_merchant: bool` |
+| M9 | Non-existent user | `GET /api/auth/admin/users/00000000-0000-0000-0000-000000000000` | 404 |
+| M10 | is_merchant flag (non-merchant) | Get detail for admin user | `is_merchant: false` |
+
+### Test M3: Role Change
+
+| # | Test | Method | Expected Result |
+|---|------|--------|-----------------|
+| M11 | Change customer to admin | `PUT /api/auth/admin/users/{customer_id}/role` with `{"role": "admin"}` | 200, `"Role updated to admin"` |
+| M12 | Revert to customer | `PUT /api/auth/admin/users/{customer_id}/role` with `{"role": "customer"}` | 200, role reverted |
+| M13 | Invalid role rejected | `PUT .../role` with `{"role": "bogus"}` | 400, `"Role 'bogus' does not exist"` |
+| M14 | Self-demotion blocked | Admin changes own role | 400, `"Cannot change your own role"` |
+| M15 | Merchant role change blocked | Change role for user with merchant_account | 400, `"Cannot change role for merchant accounts"` |
+| M16 | Sessions revoked on role change | Login as customer, admin changes role, old token used | Old token returns 401 |
+
+### Test M4: Activate/Deactivate
+
+| # | Test | Method | Expected Result |
+|---|------|--------|-----------------|
+| M17 | Deactivate user | `PUT .../status` with `{"is_active": false}` | 200, `"User deactivated"` |
+| M18 | Reactivate user | `PUT .../status` with `{"is_active": true}` | 200, `"User activated"` |
+| M19 | Self-deactivation blocked | Admin deactivates self | 400, `"Cannot change your own status"` |
+| M20 | Sessions revoked on deactivation | Deactivate user, check their sessions | Sessions cleared from Redis |
+
+### Test M5: Soft Delete
+
+| # | Test | Method | Expected Result |
+|---|------|--------|-----------------|
+| M21 | Soft delete user | `DELETE /api/auth/admin/users/{customer_id}` | 200, `"User deleted"` |
+| M22 | Deleted user has deleted_at set | `GET .../users/{id}` after delete | `deleted_at` is non-null, `is_active: false` |
+| M23 | Double delete blocked | Delete same user again | 400, `"User is already deleted"` |
+| M24 | Self-delete blocked | Admin deletes self | 400, `"Cannot delete yourself"` |
+| M25 | Sessions revoked on delete | Delete user, check sessions | Sessions cleared from Redis |
+
+### Test M6: Authorization
+
+| # | Test | Method | Expected Result |
+|---|------|--------|-----------------|
+| M26 | Requires admin role | `GET /api/auth/admin/users` with customer token | 403 |
+| M27 | Requires authentication | `GET /api/auth/admin/users` with no token | 401 |
+
+---
+
+## Updated Summary (with Post-Build Tests)
+
+| Section | Tests |
+|---------|-------|
+| A: Core Auth | 8 |
+| B: Token Refresh | 3 |
+| C: JWT Claims | 3 |
+| D: Session Management | 3 |
+| E: RBAC & Permissions | 3 |
+| F: M2M API Key Auth | 3 |
+| G: Password Reset | 3 |
+| H: Rate Limiting | 1 |
+| I: CSRF Protection | 2 |
+| J: Audit Logging | 3 |
+| K: Browser Tests | 10 |
+| M: Admin User Management (post-build) | 27 |
+| **Total** | **69** |
+
+Original 42 tests. 27 new tests added for admin user management endpoints (2026-02-17).
+
+---
+
 ## Test Execution Log
 
 | Date | Executor | Scope | Result | Notes |

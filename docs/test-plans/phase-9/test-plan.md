@@ -353,6 +353,50 @@ All 170 tests passed. Two fixes were required during the build and two post-buil
 
 ---
 
+## N. Post-Build: Admin Users, Health Status, Stack Removal (2026-02-17)
+
+### Admin Users Page
+
+| # | Test | Method | Expected Result |
+|---|------|--------|-----------------|
+| N1 | Users page loads with table | Navigate to `/admin/users` as admin | Table with columns: Email, Name, Role, Status, Verified, Created, Actions |
+| N2 | Total count displayed | Check header next to "Users" title | Shows "{N} total" count |
+| N3 | Search by email filters results | Type "admin" in search box, wait 300ms | Only admin user shown |
+| N4 | Search by name filters results | Type "Customer" in search box | Only customer user shown |
+| N5 | Role filter works | Select "Merchant" from role dropdown | Only merchant user shown |
+| N6 | Status filter works | Select "Active" from status dropdown | Only active users shown |
+| N7 | Pagination controls appear | Set page_size low or have enough users | Prev/Next buttons with page count |
+| N8 | Current user shows "you" label | Find admin row in table | Actions column shows "you" (italic), no action buttons |
+| N9 | Details button expands row | Click "Details" on another user | Expanded row shows Role, Status, Delete sections |
+| N10 | Role dropdown excludes "merchant" | Expand non-merchant user details | Role select only shows Admin, Customer (not Merchant) |
+| N11 | Merchant user shows role warning | Expand merchant user details | "Merchant account — role cannot be changed" message |
+| N12 | Deactivate button toggles | Click "Deactivate" on active user | Button changes to "Activate", status badge updates to yellow "inactive" |
+| N13 | Delete shows confirmation | Click "Delete user" button | "Confirm?" prompt with "Yes, delete" and "Cancel" buttons |
+| N14 | Delete confirmation works | Click "Yes, delete" | User status changes to red "deleted" badge, actions show "User is deleted" |
+| N15 | Role badge colors correct | Check role badges in table | admin=purple, merchant=blue, customer=gray |
+| N16 | Status badge colors correct | Check status badges | active=green, inactive=yellow, deleted=red |
+| N17 | Verified indicator correct | Check verified column | Checkmark (green) or X (red) |
+
+### Health Status Card
+
+| # | Test | Method | Expected Result |
+|---|------|--------|-----------------|
+| N18 | Status card shows real health | Load `/admin` dashboard | Status card shows "All systems operational" (green badge) when all services up |
+| N19 | Card is clickable | Click on status card | Expands to show individual services: API, Database, Cache |
+| N20 | Service names are generic | Inspect expanded status card | Shows "API", "Database", "Cache" — no "FastAPI", "PostgreSQL", "Redis" |
+| N21 | Individual statuses shown | Check expanded card content | Each service shows "Operational" (green) |
+| N22 | Click again collapses | Click expanded status card | Detail section hides |
+
+### Stack Reference Removal
+
+| # | Test | Method | Expected Result |
+|---|------|--------|-----------------|
+| N23 | Footer body text generic | Inspect footer paragraph text | "A modern e-commerce platform." (no stack names) |
+| N24 | Footer bottom text generic | Inspect footer bottom-right text | "Powered by Boilerplate" (no stack names) |
+| N25 | Meta description generic | View page source, check `<meta name="description">` | "A modern e-commerce platform" (no stack names) |
+
+---
+
 ## Updated Summary
 
 | Category | Tests | Passed |
@@ -370,6 +414,7 @@ All 170 tests passed. Two fixes were required during the build and two post-buil
 | Context providers | 16 | 16 |
 | HTTP response verification | 23 | 23 |
 | Post-build: GDPR consent & admin (2026-02-17) | 36 | — |
-| **Total** | **206** | **170 + 36 new** |
+| Post-build: Admin users, health, stack removal (2026-02-17) | 25 | — |
+| **Total** | **231** | **170 + 61 new** |
 
-Original 170 tests all passed. 36 new tests added for GDPR consent system fix and admin panel enhancements (2026-02-17).
+Original 170 tests all passed. 36 tests added for GDPR consent system fix. 25 tests added for admin user management, health status card, and stack reference removal (2026-02-17).

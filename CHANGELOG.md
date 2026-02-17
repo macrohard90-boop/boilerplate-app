@@ -9,6 +9,39 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Claude Code shou
 ## [Unreleased]
 _Changes staged but not yet tagged._
 
+## [2026-02-17] - Admin user management, health checks, stack reference removal
+
+### Added
+- **Admin user management backend** (Phase 3) — 5 new endpoints under `/api/auth/admin/users`: list (paginated, searchable, filterable), detail (with `is_merchant` flag), role change, activate/deactivate, soft delete
+- **Admin user management frontend** (Phase 9) — full user table with search, role/status filters, pagination, expandable detail rows with inline action buttons
+- **Real health status card** — admin dashboard status card now calls `/api/health` and checks API, Database, and Cache services. Click to expand individual service statuses. Generic labels (no stack names exposed).
+
+### Changed
+- **Footer text** — "Built with Next.js & FastAPI" → "Powered by Boilerplate"
+- **Footer description** — "A modern e-commerce platform built with Next.js and FastAPI." → "A modern e-commerce platform."
+- **Meta description** — removed "built with Next.js and FastAPI" from layout metadata
+
+### Security
+- Merchant accounts cannot have role changed (checked via `ecommerce.merchant_accounts` table)
+- Admin cannot change own role, deactivate self, or delete self (lockout prevention)
+- All state changes (role, deactivation, delete) immediately revoke sessions via `invalidate_all_sessions()`
+- Removed tech stack references from all user-visible frontend text to avoid exposing implementation details
+
+### Files Modified
+- `modules/auth/services/admin_user_service.py` — NEW: admin user management service
+- `modules/auth/routes/admin_routes.py` — NEW: 5 admin user endpoints
+- `modules/auth/models/schemas.py` — added admin user schemas
+- `modules/auth/routes/__init__.py` — registered admin router
+- `frontend/app/admin/users/page.tsx` — full rewrite with user management UI
+- `frontend/app/admin/page.tsx` — real health status card
+- `frontend/app/layout.tsx` — removed stack names from meta description
+- `frontend/components/Footer.tsx` — removed stack names from footer text
+
+### Schema Changes
+- None (uses existing `core.users` columns: `role_id`, `is_active`, `deleted_at`)
+
+---
+
 ## [2026-02-17] - Fix GDPR consent system, admin analytics & GDPR panels
 
 ### Added

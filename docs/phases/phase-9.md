@@ -257,3 +257,33 @@ Read `docs/ARCHITECTURE.md` sections 3 (Session & Auth), 6 (Payment Lifecycle), 
 - `frontend/app/admin/analytics/page.tsx` — API fix + device breakdown
 - `frontend/app/admin/gdpr/page.tsx` — consent stats + audit log + field fixes
 - `frontend/app/admin/page.tsx` — API fix + GDPR summary card
+
+### Admin user management frontend + health status + stack reference removal (2026-02-17)
+
+**Admin Users page** (`/admin/users`):
+- Replaced placeholder with full user management table
+- Search by email/name (debounced 300ms), filter by role (admin/merchant/customer), filter by status (active/inactive/deleted)
+- Pagination with page controls
+- Expandable detail rows with inline actions: role change dropdown (hidden for merchants), activate/deactivate toggle, delete with confirmation dialog
+- Role badges (purple=admin, blue=merchant, gray=customer), status badges (green/yellow/red), verified checkmark
+- Self-protection: current admin user row shows "you" label, no action buttons
+- Calls `GET /api/auth/admin/users` endpoints (new backend from Phase 3 post-build)
+
+**Health status card** (admin dashboard):
+- Replaced hardcoded "All systems operational" with real `fetch("/api/health")` call
+- Checks 3 services: API (responds at all), Database (`services.db`), Cache (`services.redis`)
+- Generic labels (no stack names exposed): "API", "Database", "Cache"
+- Aggregate badge: green "All systems operational" or red "X service(s) degraded"
+- Click to expand: shows individual service status (Operational / Down)
+- One-shot check on page load (not polling)
+
+**Stack reference removal:**
+- Removed "Next.js and FastAPI" from `<meta description>` in `layout.tsx`
+- Removed "built with Next.js and FastAPI" from `Footer.tsx` body text
+- Changed "Built with Next.js & FastAPI" to "Powered by Boilerplate" in footer
+
+**Files modified:**
+- `frontend/app/admin/users/page.tsx` — full rewrite with user management UI
+- `frontend/app/admin/page.tsx` — real health status card with expandable detail
+- `frontend/app/layout.tsx` — removed stack names from meta description
+- `frontend/components/Footer.tsx` — removed stack names from footer text

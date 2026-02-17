@@ -218,3 +218,30 @@ Read `docs/ARCHITECTURE.md` sections 3 (Session & Auth Architecture), 4 (Redis K
 - `frontend/lib/auth-context.tsx` — React Context for auth state + useAuth() hook
 - `frontend/lib/api.ts` — API client with token handling and 401 refresh interceptor
 - Modified: `frontend/app/layout.tsx` — Wrap with AuthProvider, add AuthNav
+
+## Post-Build Fix (2026-02-17)
+
+### Admin user management endpoints
+
+**Context:** The admin panel `/admin/users` page was a placeholder. Backend had no endpoints for listing or managing users. Added a full admin user management API to the auth module.
+
+**Endpoints added** (all require admin role):
+- `GET /api/auth/admin/users` — list users with pagination, search (email/name), filter by role/status
+- `GET /api/auth/admin/users/{user_id}` — user detail with `is_merchant` flag
+- `PUT /api/auth/admin/users/{user_id}/role` — change role (guards: no merchant role change, no self-demotion)
+- `PUT /api/auth/admin/users/{user_id}/status` — activate/deactivate (revokes sessions on deactivation)
+- `DELETE /api/auth/admin/users/{user_id}` — soft delete (sets `deleted_at` + `is_active=false`, revokes sessions)
+
+**Protection guards:**
+- Merchant accounts (linked via `ecommerce.merchant_accounts`) cannot have role changed
+- Admin cannot change own role, deactivate self, or delete self
+- All state changes (role, deactivation, delete) revoke sessions via `invalidate_all_sessions()`
+- Soft delete uses existing `deleted_at` column (no schema changes)
+
+**Files created:**
+- `modules/auth/services/admin_user_service.py` — list, detail, role change, toggle active, soft delete
+- `modules/auth/routes/admin_routes.py` — 5 admin endpoints
+
+**Files modified:**
+- `modules/auth/models/schemas.py` — added `AdminUserItem`, `AdminUserListResponse`, `AdminUserDetail`, `UpdateRoleRequest`, `UpdateStatusRequest`
+- `modules/auth/routes/__init__.py` — registered admin router
