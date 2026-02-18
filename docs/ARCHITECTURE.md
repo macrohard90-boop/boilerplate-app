@@ -10,7 +10,7 @@
 ### 1.1 PaymentProvider (modules/payments/interfaces/)
 ```python
 class PaymentProvider(ABC):
-    async def create_payment(order_id, amount, currency, customer_id) -> PaymentResult
+    async def create_payment(order_id, amount, currency, customer_id, *, payment_method_types=None) -> PaymentResult
     async def refund(payment_id, amount) -> RefundResult
     async def get_status(payment_id) -> PaymentStatus
     async def create_merchant(merchant_data) -> MerchantAccount
@@ -108,7 +108,7 @@ exchange_rates  id, base_currency CHAR(3), target_currency CHAR(3), rate NUMERIC
 ```
 Note: All monetary amounts are INTEGER cents with a paired `currency CHAR(3)` column. See §2.9.
 
-### 2.2 E-commerce Schema (21 tables — template choice)
+### 2.2 E-commerce Schema (22 tables — template choice)
 ```
 products            id, name, slug, description, sku, base_price (INT cents), currency CHAR(3),
                     status, type (physical/digital), created_at, updated_at, deleted_at
@@ -141,6 +141,8 @@ order_items         order_id, product_id, variant_id, quantity, unit_price (INT 
                     total_price (INT cents), product_snapshot (JSONB)
 payment_records     id, order_id, provider, provider_payment_id, status,
                     amount (INT cents), currency CHAR(3), method, created_at
+payment_settings    key VARCHAR(100) PRIMARY KEY, value (JSONB), updated_at
+                    — admin-configurable settings (e.g. payment method toggles)
 customer_metrics    user_id (FK unique), last_purchase_at, order_count,
                     total_spent (INT cents), default_currency CHAR(3),
                     rfm_segment VARCHAR(30) CHECK (champion/loyal/potential_loyalist/

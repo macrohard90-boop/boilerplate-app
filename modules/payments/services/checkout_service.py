@@ -60,7 +60,10 @@ async def checkout(
     await db.commit()
 
     # 4. Create Stripe PaymentIntent
+    from modules.payments.services import payment_settings_service
+
     provider = get_payment_provider()
+    enabled_methods = await payment_settings_service.get_enabled_payment_methods(db)
     try:
         result = await provider.create_payment(
             order_id=order_id,
@@ -68,6 +71,7 @@ async def checkout(
             currency=order.get("currency", settings.default_currency),
             customer_id=user_id,
             metadata={"order_number": order["order_number"]},
+            payment_method_types=enabled_methods,
         )
     except Exception as e:
         # Payment creation failed — release inventory and mark order rejected

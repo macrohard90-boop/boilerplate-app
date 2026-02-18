@@ -9,6 +9,36 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Claude Code shou
 ## [Unreleased]
 _Changes staged but not yet tagged._
 
+## [2026-02-18] - Admin Payment Method Toggles
+
+### Added
+- **Payment settings table** — `ecommerce.payment_settings` key-value store (JSONB) for admin-configurable payment settings
+- **Payment settings service** (`modules/payments/services/payment_settings_service.py`) — `get_setting()`, `upsert_setting()`, `get_enabled_payment_methods()` for reading/writing payment method toggles
+- **Settings API endpoints** (`modules/payments/routes/settings_routes.py`) — `GET /api/payments/settings/payment-methods` and `PUT /api/payments/settings/payment-methods` (admin-only)
+- **Admin payments page** (`frontend/app/admin/payments/page.tsx`) — toggle cards for 7 payment methods (Card, Link, Apple Pay, Google Pay, Klarna, Afterpay, PayPal) with save/reset controls
+- **Payments nav link** in admin sidebar
+
+### Changed
+- **PaymentProvider interface** — `create_payment()` now accepts optional `payment_method_types: list[str] | None` parameter
+- **StripeProvider** — when `payment_method_types` is provided, uses explicit `payment_method_types` list on PaymentIntent instead of `automatic_payment_methods`
+- **Checkout service** — fetches admin-configured payment methods from DB before creating PaymentIntent; falls back to automatic mode when no customization exists
+
+### Schema Changes
+- Migration `011_payment_settings.sql`: creates `ecommerce.payment_settings` table (key VARCHAR(100) PK, value JSONB, updated_at TIMESTAMPTZ)
+
+### Files Created
+- `migrations/011_payment_settings.sql`
+- `modules/payments/services/payment_settings_service.py`
+- `modules/payments/routes/settings_routes.py`
+- `frontend/app/admin/payments/page.tsx`
+
+### Files Modified
+- `modules/payments/interfaces/payment_provider.py` — added `payment_method_types` param
+- `modules/payments/adapters/stripe_provider.py` — conditional automatic vs explicit methods
+- `modules/payments/services/checkout_service.py` — fetches enabled methods before payment creation
+- `modules/payments/routes/__init__.py` — registered settings router
+- `frontend/app/admin/layout.tsx` — added Payments nav item
+
 ## [2026-02-18] - Image Upload, Synced Provider, Catalog Webhooks & 5-Product Test
 
 ### Added

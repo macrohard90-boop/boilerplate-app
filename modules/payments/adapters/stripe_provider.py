@@ -54,6 +54,7 @@ class StripeProvider(PaymentProvider, CatalogProvider):
         *,
         merchant_account_id: str | None = None,
         metadata: dict[str, Any] | None = None,
+        payment_method_types: list[str] | None = None,
     ) -> PaymentResult:
         intent_params: dict[str, Any] = {
             "amount": amount,
@@ -63,8 +64,13 @@ class StripeProvider(PaymentProvider, CatalogProvider):
                 "customer_id": customer_id,
                 **(metadata or {}),
             },
-            "automatic_payment_methods": {"enabled": True},
         }
+
+        # Explicit method list vs automatic
+        if payment_method_types:
+            intent_params["payment_method_types"] = payment_method_types
+        else:
+            intent_params["automatic_payment_methods"] = {"enabled": True}
 
         # If merchant account, use Connect with platform fee
         if merchant_account_id:

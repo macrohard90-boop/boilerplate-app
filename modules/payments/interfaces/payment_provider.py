@@ -88,8 +88,13 @@ class PaymentProvider(ABC):
         *,
         merchant_account_id: str | None = None,
         metadata: dict[str, Any] | None = None,
+        payment_method_types: list[str] | None = None,
     ) -> PaymentResult:
-        """Create a payment intent/charge for an order."""
+        """Create a payment intent/charge for an order.
+
+        If payment_method_types is provided, only those methods are accepted.
+        If None, the provider decides which methods to offer (automatic).
+        """
         ...
 
     @abstractmethod
