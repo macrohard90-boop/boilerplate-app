@@ -134,6 +134,13 @@ async def create_product(db: AsyncSession, data: dict[str, Any]) -> dict[str, An
         await _set_categories(db, str(product["id"]), category_ids)
 
     await db.commit()
+
+    # Sync to catalog if product is active
+    if product.get("status") == "active":
+        from modules.ecommerce.services import catalog_sync_service
+
+        product = await catalog_sync_service.sync_product_to_catalog(db, product)
+
     return product
 
 
@@ -166,11 +173,28 @@ async def update_product(db: AsyncSession, product_id: str, data: dict[str, Any]
         await _set_categories(db, product_id, category_ids)
 
     await db.commit()
+
+    # Catalog sync logic
+    from modules.ecommerce.services import catalog_sync_service
+
+    was_active = existing.get("status") == "active"
+    is_active = product.get("status") == "active"
+    sync_fields_changed = any(k in fields for k in ("name", "description", "base_price"))
+
+    if is_active and (not was_active or sync_fields_changed):
+        product = await catalog_sync_service.sync_product_to_catalog(db, product)
+    elif was_active and not is_active:
+        await catalog_sync_service.archive_product_in_catalog(db, product)
+
     return product
 
 
 async def delete_product(db: AsyncSession, product_id: str) -> None:
-    """Soft-delete a product."""
+    """Soft-delete a product and archive in catalog provider."""
+    product = await get_product_by_id(db, product_id)
+    if not product:
+        raise ValueError("Product not found")
+
     result = await db.execute(
         text("UPDATE ecommerce.products SET deleted_at = NOW() WHERE id = :id AND deleted_at IS NULL"),
         {"id": product_id},
@@ -178,6 +202,11 @@ async def delete_product(db: AsyncSession, product_id: str) -> None:
     if result.rowcount == 0:
         raise ValueError("Product not found")
     await db.commit()
+
+    # Archive in catalog provider if synced
+    from modules.ecommerce.services import catalog_sync_service
+
+    await catalog_sync_service.archive_product_in_catalog(db, product)
 
 
 async def get_product_categories(db: AsyncSession, product_id: str) -> list[dict[str, Any]]:

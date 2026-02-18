@@ -9,6 +9,50 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Claude Code shou
 ## [Unreleased]
 _Changes staged but not yet tagged._
 
+## [2026-02-18] - Product Catalog Sync + Admin Product Management
+
+### Added
+- **CatalogProvider interface** (`modules/payments/interfaces/catalog_provider.py`) — new ABC for product/price catalog management, separate from PaymentProvider. Methods: `create_product`, `update_product`, `archive_product`, `create_price`, `archive_price`
+- **StripeProvider catalog methods** — `StripeProvider` now implements both `PaymentProvider` and `CatalogProvider`. Uses `stripe.Product.*` and `stripe.Price.*` APIs
+- **Catalog provider factory** — `get_catalog_provider()` in `modules/payments/adapters/__init__.py`, returns `None` for providers without catalog support (makes sync a no-op)
+- **Catalog sync service** (`modules/ecommerce/services/catalog_sync_service.py`) — provider-agnostic orchestration: `sync_product_to_catalog`, `sync_variant_to_catalog`, `archive_product_in_catalog`, `retry_sync`
+- **Product sync hooks** — `product_service.create_product/update_product/delete_product` and `variant_service.create_variant/update_variant` now trigger catalog sync automatically when products are active
+- **Sync retry endpoint** — `POST /api/ecommerce/products/{id}/sync` (admin-only) for retrying failed syncs
+- **Admin product management UI** — full CRUD: create modal, edit page with variant manager, delete confirmation, sync status badges, retry sync buttons
+- **Product edit page** (`frontend/app/admin/products/[id]/page.tsx`) — dedicated edit page with product form + variant manager + sync status display
+- **SyncStatusBadge component** — green (synced), gray (unsynced), red (error with retry button)
+- **ProductForm component** — reusable create/edit form with price in dollars, status selector, Stripe sync notice
+- **VariantManager component** — inline variant CRUD with effective price display and sync status
+
+### Schema Changes
+- Migration `009_stripe_catalog_sync.sql`: adds `stripe_product_id`, `stripe_price_id`, `stripe_sync_status`, `stripe_sync_error` to `ecommerce.products`; adds `stripe_price_id`, `stripe_sync_status`, `stripe_sync_error` to `ecommerce.product_variants`
+
+### Design Decisions
+- Sync triggers on "active" status only — draft products don't sync to Stripe
+- Local-first: products always save locally; Stripe errors are tracked and retryable
+- Stripe Prices are immutable — price changes archive old Price and create new one
+- Providers without catalog support (e.g. PayPal) get `None` from factory, making all sync no-ops
+
+### Files Created
+- `migrations/009_stripe_catalog_sync.sql`
+- `modules/payments/interfaces/catalog_provider.py`
+- `modules/ecommerce/services/catalog_sync_service.py`
+- `frontend/app/admin/products/[id]/page.tsx`
+- `frontend/components/admin/ProductForm.tsx`
+- `frontend/components/admin/VariantManager.tsx`
+- `frontend/components/admin/SyncStatusBadge.tsx`
+
+### Files Modified
+- `modules/payments/adapters/stripe_provider.py` — added CatalogProvider methods
+- `modules/payments/adapters/__init__.py` — added `get_catalog_provider()`
+- `modules/ecommerce/services/product_service.py` — added sync hooks
+- `modules/ecommerce/services/variant_service.py` — added sync hooks
+- `modules/ecommerce/models/schemas.py` — added stripe fields to response models
+- `modules/ecommerce/routes/product_routes.py` — added sync retry endpoint
+- `frontend/app/admin/products/page.tsx` — rewritten with full CRUD
+
+---
+
 ## [2026-02-18] - Phase 10: Stripe Integration & Payment Frontend
 
 ### Added

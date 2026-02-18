@@ -67,7 +67,23 @@ async def create_variant(db: AsyncSession, product_id: str, data: dict[str, Any]
         {"pid": product_id},
     )).scalar()
     variant["base_price"] = bp
-    return _with_effective_price(variant)
+    variant = _with_effective_price(variant)
+
+    # Sync variant to catalog if parent product is active + synced
+    product = (
+        await db.execute(
+            text("SELECT * FROM ecommerce.products WHERE id = :pid AND deleted_at IS NULL"),
+            {"pid": product_id},
+        )
+    ).mappings().first()
+    if product and product["status"] == "active" and product.get("stripe_product_id"):
+        from modules.ecommerce.services import catalog_sync_service
+
+        variant = await catalog_sync_service.sync_variant_to_catalog(
+            db, variant, dict(product)
+        )
+
+    return variant
 
 
 async def update_variant(db: AsyncSession, variant_id: str, data: dict[str, Any]) -> dict[str, Any]:
@@ -112,12 +128,30 @@ async def update_variant(db: AsyncSession, variant_id: str, data: dict[str, Any]
     await db.commit()
 
     variant = dict(row)
+    product_id = str(variant["product_id"])
     bp = (await db.execute(
         text("SELECT base_price FROM ecommerce.products WHERE id = :pid"),
-        {"pid": str(variant["product_id"])},
+        {"pid": product_id},
     )).scalar()
     variant["base_price"] = bp
-    return _with_effective_price(variant)
+    variant = _with_effective_price(variant)
+
+    # Sync variant to catalog if price changed and parent product is active + synced
+    if "price_override" in data:
+        product = (
+            await db.execute(
+                text("SELECT * FROM ecommerce.products WHERE id = :pid AND deleted_at IS NULL"),
+                {"pid": product_id},
+            )
+        ).mappings().first()
+        if product and product["status"] == "active" and product.get("stripe_product_id"):
+            from modules.ecommerce.services import catalog_sync_service
+
+            variant = await catalog_sync_service.sync_variant_to_catalog(
+                db, variant, dict(product)
+            )
+
+    return variant
 
 
 async def delete_variant(db: AsyncSession, variant_id: str) -> None:

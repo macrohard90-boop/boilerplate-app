@@ -1,0 +1,297 @@
+"""Product catalog sync service.
+
+Orchestrates syncing local products/variants to the configured payment
+provider's product catalog (e.g. Stripe Products + Prices).  All
+provider-specific logic lives in the adapter; this service only talks to
+the ``CatalogProvider`` interface.
+"""
+
+import logging
+from typing import Any
+
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from modules.payments.adapters import get_catalog_provider
+
+logger = logging.getLogger(__name__)
+
+
+# ---------------------------------------------------------------------------
+# Public API
+# ---------------------------------------------------------------------------
+
+
+async def sync_product_to_catalog(
+    db: AsyncSession,
+    product: dict[str, Any],
+) -> dict[str, Any]:
+    """Sync a product (and its base price) to the catalog provider.
+
+    Called when:
+    - Product status transitions to ``active``
+    - An already-active product's name, description, or base_price changes.
+
+    Returns the product dict with stripe_* fields updated.
+    """
+    provider = get_catalog_provider()
+    if provider is None:
+        logger.info("No catalog provider configured; skipping product sync")
+        return product
+
+    product_id = str(product["id"])
+
+    try:
+        if product.get("stripe_product_id"):
+            # Update existing catalog product
+            await provider.update_product(
+                product["stripe_product_id"],
+                name=product["name"],
+                description=product.get("description"),
+                active=product["status"] == "active",
+                metadata={"local_product_id": product_id},
+            )
+
+            # Check if base_price changed → rotate price
+            current_price_id = product.get("stripe_price_id")
+            if current_price_id:
+                new_price = await _rotate_price(
+                    provider,
+                    product["stripe_product_id"],
+                    current_price_id,
+                    product["base_price"],
+                    product.get("currency", "USD"),
+                    metadata={"local_product_id": product_id, "type": "base_price"},
+                )
+                if new_price:
+                    await db.execute(
+                        text(
+                            "UPDATE ecommerce.products "
+                            "SET stripe_price_id = :sprice "
+                            "WHERE id = :id"
+                        ),
+                        {"id": product_id, "sprice": new_price.provider_price_id},
+                    )
+        else:
+            # Create new catalog product + base price
+            catalog_product = await provider.create_product(
+                name=product["name"],
+                description=product.get("description"),
+                metadata={"local_product_id": product_id},
+            )
+            catalog_price = await provider.create_price(
+                catalog_product.provider_product_id,
+                product["base_price"],
+                product.get("currency", "USD"),
+                metadata={"local_product_id": product_id, "type": "base_price"},
+            )
+            await db.execute(
+                text(
+                    "UPDATE ecommerce.products "
+                    "SET stripe_product_id = :spid, stripe_price_id = :sprice, "
+                    "    stripe_sync_status = 'synced', stripe_sync_error = NULL "
+                    "WHERE id = :id"
+                ),
+                {
+                    "id": product_id,
+                    "spid": catalog_product.provider_product_id,
+                    "sprice": catalog_price.provider_price_id,
+                },
+            )
+            await db.commit()
+
+        # Mark synced
+        await _mark_product_synced(db, product_id)
+        product["stripe_sync_status"] = "synced"
+        product["stripe_sync_error"] = None
+
+    except Exception as e:
+        logger.error("Catalog sync failed for product %s: %s", product_id, e)
+        await _mark_product_error(db, product_id, str(e))
+        product["stripe_sync_status"] = "error"
+        product["stripe_sync_error"] = str(e)
+
+    return product
+
+
+async def sync_variant_to_catalog(
+    db: AsyncSession,
+    variant: dict[str, Any],
+    product: dict[str, Any],
+) -> dict[str, Any]:
+    """Sync a variant's price to the catalog provider.
+
+    Each variant gets its own catalog Price under the parent product's
+    catalog Product.  Called when a variant is created or its
+    ``price_override`` changes on an active, synced product.
+    """
+    provider = get_catalog_provider()
+    if provider is None:
+        return variant
+
+    # Can only sync if parent product is synced
+    stripe_product_id = product.get("stripe_product_id")
+    if not stripe_product_id:
+        return variant
+
+    variant_id = str(variant["id"])
+    effective_price = variant.get("price_override") or product["base_price"]
+
+    try:
+        if variant.get("stripe_price_id"):
+            new_price = await _rotate_price(
+                provider,
+                stripe_product_id,
+                variant["stripe_price_id"],
+                effective_price,
+                product.get("currency", "USD"),
+                metadata={
+                    "local_variant_id": variant_id,
+                    "local_product_id": str(product["id"]),
+                    "type": "variant_price",
+                },
+            )
+            if new_price:
+                await db.execute(
+                    text(
+                        "UPDATE ecommerce.product_variants "
+                        "SET stripe_price_id = :sprice, stripe_sync_status = 'synced', "
+                        "    stripe_sync_error = NULL "
+                        "WHERE id = :id"
+                    ),
+                    {"id": variant_id, "sprice": new_price.provider_price_id},
+                )
+        else:
+            catalog_price = await provider.create_price(
+                stripe_product_id,
+                effective_price,
+                product.get("currency", "USD"),
+                metadata={
+                    "local_variant_id": variant_id,
+                    "local_product_id": str(product["id"]),
+                    "type": "variant_price",
+                },
+            )
+            await db.execute(
+                text(
+                    "UPDATE ecommerce.product_variants "
+                    "SET stripe_price_id = :sprice, stripe_sync_status = 'synced', "
+                    "    stripe_sync_error = NULL "
+                    "WHERE id = :id"
+                ),
+                {"id": variant_id, "sprice": catalog_price.provider_price_id},
+            )
+
+        await db.commit()
+        variant["stripe_sync_status"] = "synced"
+
+    except Exception as e:
+        logger.error("Catalog sync failed for variant %s: %s", variant_id, e)
+        await db.execute(
+            text(
+                "UPDATE ecommerce.product_variants "
+                "SET stripe_sync_status = 'error', stripe_sync_error = :err "
+                "WHERE id = :id"
+            ),
+            {"id": variant_id, "err": str(e)},
+        )
+        await db.commit()
+        variant["stripe_sync_status"] = "error"
+
+    return variant
+
+
+async def archive_product_in_catalog(
+    db: AsyncSession,
+    product: dict[str, Any],
+) -> None:
+    """Archive a product in the catalog provider.
+
+    Called when a product is soft-deleted or status changes away from active.
+    """
+    provider = get_catalog_provider()
+    if provider is None or not product.get("stripe_product_id"):
+        return
+
+    try:
+        await provider.archive_product(product["stripe_product_id"])
+        await _mark_product_synced(db, str(product["id"]))
+    except Exception as e:
+        logger.error(
+            "Catalog archive failed for product %s: %s", product["id"], e
+        )
+
+
+async def retry_sync(db: AsyncSession, product_id: str) -> dict[str, Any]:
+    """Admin-initiated retry of a failed catalog sync.
+
+    Re-syncs the product and all its variants.
+    """
+    from modules.ecommerce.services import product_service, variant_service
+
+    product = await product_service.get_product_by_id(db, product_id)
+    if not product:
+        raise ValueError("Product not found")
+
+    if product["status"] != "active":
+        raise ValueError("Only active products can be synced to catalog")
+
+    product = await sync_product_to_catalog(db, product)
+
+    # Also sync all variants
+    variants = await variant_service.list_variants(db, product_id)
+    for v in variants:
+        await sync_variant_to_catalog(db, v, product)
+
+    return product
+
+
+# ---------------------------------------------------------------------------
+# Internal helpers
+# ---------------------------------------------------------------------------
+
+
+async def _rotate_price(
+    provider, stripe_product_id: str, old_price_id: str | None,
+    amount: int, currency: str, *, metadata: dict | None = None,
+):
+    """Archive old price and create a new one.
+
+    Returns the new CatalogPrice, or None if no rotation was needed.
+    Always creates a new price (caller decides when to call this).
+    """
+    if old_price_id:
+        try:
+            await provider.archive_price(old_price_id)
+        except Exception as e:
+            logger.warning("Failed to archive old price %s: %s", old_price_id, e)
+
+    return await provider.create_price(
+        stripe_product_id, amount, currency, metadata=metadata,
+    )
+
+
+async def _mark_product_synced(db: AsyncSession, product_id: str) -> None:
+    await db.execute(
+        text(
+            "UPDATE ecommerce.products "
+            "SET stripe_sync_status = 'synced', stripe_sync_error = NULL "
+            "WHERE id = :id"
+        ),
+        {"id": product_id},
+    )
+    await db.commit()
+
+
+async def _mark_product_error(
+    db: AsyncSession, product_id: str, error_msg: str
+) -> None:
+    await db.execute(
+        text(
+            "UPDATE ecommerce.products "
+            "SET stripe_sync_status = 'error', stripe_sync_error = :err "
+            "WHERE id = :id"
+        ),
+        {"id": product_id, "err": error_msg},
+    )
+    await db.commit()

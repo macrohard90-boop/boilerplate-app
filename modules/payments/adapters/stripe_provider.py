@@ -10,6 +10,11 @@ from typing import Any
 import stripe
 
 from backend.core.config import settings
+from modules.payments.interfaces.catalog_provider import (
+    CatalogPrice,
+    CatalogProduct,
+    CatalogProvider,
+)
 from modules.payments.interfaces.payment_provider import (
     MerchantAccount,
     PaymentProvider,
@@ -33,7 +38,7 @@ _STRIPE_STATUS_MAP = {
 }
 
 
-class StripeProvider(PaymentProvider):
+class StripeProvider(PaymentProvider, CatalogProvider):
     """Stripe payment provider using Payment Intents API."""
 
     def __init__(self) -> None:
@@ -209,6 +214,84 @@ class StripeProvider(PaymentProvider):
             )
             for pi in intents.data
         ]
+
+
+    # -----------------------------------------------------------------------
+    # CatalogProvider methods
+    # -----------------------------------------------------------------------
+
+    async def create_product(
+        self,
+        name: str,
+        description: str | None = None,
+        *,
+        metadata: dict[str, Any] | None = None,
+    ) -> CatalogProduct:
+        product = stripe.Product.create(
+            name=name,
+            description=description or "",
+            metadata=metadata or {},
+        )
+        return CatalogProduct(
+            provider_product_id=product.id,
+            name=product.name,
+            active=product.active,
+            metadata=product.metadata or {},
+        )
+
+    async def update_product(
+        self,
+        provider_product_id: str,
+        *,
+        name: str | None = None,
+        description: str | None = None,
+        active: bool | None = None,
+        metadata: dict[str, Any] | None = None,
+    ) -> CatalogProduct:
+        params: dict[str, Any] = {}
+        if name is not None:
+            params["name"] = name
+        if description is not None:
+            params["description"] = description
+        if active is not None:
+            params["active"] = active
+        if metadata is not None:
+            params["metadata"] = metadata
+        product = stripe.Product.modify(provider_product_id, **params)
+        return CatalogProduct(
+            provider_product_id=product.id,
+            name=product.name,
+            active=product.active,
+            metadata=product.metadata or {},
+        )
+
+    async def archive_product(self, provider_product_id: str) -> None:
+        stripe.Product.modify(provider_product_id, active=False)
+
+    async def create_price(
+        self,
+        provider_product_id: str,
+        unit_amount: int,
+        currency: str,
+        *,
+        metadata: dict[str, Any] | None = None,
+    ) -> CatalogPrice:
+        price = stripe.Price.create(
+            product=provider_product_id,
+            unit_amount=unit_amount,
+            currency=currency.lower(),
+            metadata=metadata or {},
+        )
+        return CatalogPrice(
+            provider_price_id=price.id,
+            provider_product_id=provider_product_id,
+            unit_amount=price.unit_amount,
+            currency=price.currency.upper(),
+            active=price.active,
+        )
+
+    async def archive_price(self, provider_price_id: str) -> None:
+        stripe.Price.modify(provider_price_id, active=False)
 
 
 def get_stripe_provider() -> StripeProvider:

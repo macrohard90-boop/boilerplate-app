@@ -85,6 +85,24 @@ async def update_product(
         raise HTTPException(status_code=404, detail={"error": "not_found", "message": str(e), "details": None})
 
 
+@router.post("/{product_id}/sync", response_model=ProductResponse)
+async def retry_product_sync(
+    product_id: str,
+    user: dict = Depends(require_role("admin")),
+    db: AsyncSession = Depends(get_db),
+) -> Any:
+    """Retry catalog sync for a product and its variants (admin only)."""
+    from modules.ecommerce.services import catalog_sync_service
+
+    try:
+        return await catalog_sync_service.retry_sync(db, product_id)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=400,
+            detail={"error": "sync_failed", "message": str(e), "details": None},
+        )
+
+
 @router.delete("/{product_id}", status_code=204)
 async def delete_product(
     product_id: str,

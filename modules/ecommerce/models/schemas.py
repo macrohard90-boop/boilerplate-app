@@ -111,6 +111,10 @@ class ProductResponse(BaseModel):
     currency: str
     status: str
     type: str
+    stripe_product_id: str | None = None
+    stripe_price_id: str | None = None
+    stripe_sync_status: str = "unsynced"
+    stripe_sync_error: str | None = None
     created_at: datetime
     updated_at: datetime
 
@@ -158,6 +162,8 @@ class VariantResponse(BaseModel):
     stock_quantity: int
     effective_price: int
     attributes: dict
+    stripe_price_id: str | None = None
+    stripe_sync_status: str = "unsynced"
     created_at: datetime
     updated_at: datetime
 
