@@ -2,8 +2,8 @@
 
 **Phase:** 10 — Stripe Integration & Payment Frontend
 **Created:** 2026-02-18
-**Last executed:** —
-**Status:** Not yet executed (requires Stripe API keys for full test suite)
+**Last executed:** 2026-02-18
+**Status:** Partially executed (6/69 passed — L1-L6 infra + UI verified; full suite requires Stripe keys + webhook forwarding)
 
 ---
 
@@ -21,7 +21,8 @@
 10. [Section I: Provider Swapability](#section-i-provider-swapability)
 11. [Section J: Stripe Test Cards](#section-j-stripe-test-cards)
 12. [Section K: Frontend Integration](#section-k-frontend-integration)
-13. [Test Summary](#test-summary)
+13. [Section L: Admin Payment Method Toggles](#section-l-admin-payment-method-toggles)
+14. [Test Summary](#test-summary)
 
 ---
 
@@ -188,6 +189,28 @@ All passwords: `Test1234!`
 
 ---
 
+## Section L: Admin Payment Method Toggles
+
+| # | Test | Steps | Expected | Status |
+|---|------|-------|----------|--------|
+| L1 | Migration 011 applies | Run `CREATE TABLE IF NOT EXISTS ecommerce.payment_settings` via async engine | Table created, no errors | [x] |
+| L2 | API health after deploy | `curl http://localhost/api/health` after rebuilding fastapi with new code | `{"status":"ok","services":{"redis":"ok","db":"ok"}}` | [x] |
+| L3 | Frontend builds with payments page | `npm run build` in frontend | Build succeeds, `/admin/payments` route included | [x] |
+| L4 | Next.js container starts | `docker compose up -d nextjs` after rebuild | Container starts, `Ready in Xms` in logs | [x] |
+| L5 | Payments nav link visible | Navigate to admin panel on lg+ viewport | "Payments" link appears in sidebar between GDPR and SEO | [x] |
+| L6 | Payments page loads | Navigate to `/admin/payments` | Page renders with 7 payment method toggle cards | [x] |
+| L7 | GET settings — no customization | `GET /api/payments/settings/payment-methods` with no DB rows | Returns all methods `true`, `customized: false` | [ ] |
+| L8 | PUT settings — toggle methods | `PUT /api/payments/settings/payment-methods` with `{"methods": {"card": true, "klarna": false, ...}}` | Returns updated methods, `customized: true` | [ ] |
+| L9 | GET settings — after customization | `GET /api/payments/settings/payment-methods` after L8 | Returns stored toggles, `customized: true` | [ ] |
+| L10 | Non-admin rejected | `GET /api/payments/settings/payment-methods` as customer | 403 Forbidden | [ ] |
+| L11 | Checkout uses automatic when no settings | Create checkout with no `payment_settings` row in DB | PaymentIntent created with `automatic_payment_methods: {enabled: true}` | [ ] |
+| L12 | Checkout uses explicit methods | Set `payment_methods` setting to `{"card": true, "link": true, "klarna": false, ...}`, then checkout | PaymentIntent created with `payment_method_types: ["card", "link"]` | [ ] |
+| L13 | All methods disabled falls back to automatic | Set all methods to `false` in DB, then checkout | Falls back to `automatic_payment_methods` (no empty list sent) | [ ] |
+| L14 | Toggle UI saves and reflects | Toggle methods on/off in admin UI, click Save, refresh page | Saved state persists across page reload | [ ] |
+| L15 | Reset to Auto | Click "Reset to Auto" button after customizing | All methods toggled on, dirty state shown | [ ] |
+
+---
+
 ## Test Summary
 
 | Section | Tests | Description |
@@ -203,8 +226,12 @@ All passwords: `Test1234!`
 | I | 3 | Provider Swapability |
 | J | 6 | Stripe Test Cards |
 | K | 5 | Frontend Integration |
-| **Total** | **54** | |
+| L | 15 | Admin Payment Method Toggles |
+| **Total** | **69** | |
 
 ### Tests by Stripe dependency:
-- **Without Stripe keys (19 tests):** A1-A4, C1-C5, G1-G4, I1-I3, F1
-- **With Stripe test keys (35 tests):** B1-B6, D1-D4, E1-E4, F2-F5, G5-G6, H1-H6, J1-J6, K1-K5
+- **Without Stripe keys (28 tests):** A1-A4, C1-C5, G1-G4, I1-I3, F1, L1-L10, L13, L15
+- **With Stripe test keys (41 tests):** B1-B6, D1-D4, E1-E4, F2-F5, G5-G6, H1-H6, J1-J6, K1-K5, L11-L12, L14
+
+### Executed tests:
+- **2026-02-18:** L1-L6 passed (migration, API health, frontend build, container start, nav link visible, payments page loads)
