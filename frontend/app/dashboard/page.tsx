@@ -53,6 +53,36 @@ export default function DashboardPage() {
         </div>
       </div>
 
+      {/* Merchant quick link */}
+      {user?.role === "merchant" && (
+        <div className="glass rounded-xl p-5 mb-8">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-text-primary font-medium">Merchant Account</p>
+              <p className="text-sm text-text-muted">Manage your Stripe Connect account and payouts.</p>
+            </div>
+            <Link href="/merchant/dashboard" className="btn-primary text-sm !px-4 !py-2">
+              Merchant Dashboard
+            </Link>
+          </div>
+        </div>
+      )}
+
+      {/* Become a merchant CTA for customers */}
+      {user?.role === "customer" && (
+        <div className="glass rounded-xl p-5 mb-8 border border-accent-purple/20">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-text-primary font-medium">Start Selling</p>
+              <p className="text-sm text-text-muted">Upgrade to a merchant account to list products and receive payments.</p>
+            </div>
+            <Link href="/merchant/register" className="btn-secondary text-sm !px-4 !py-2">
+              Learn More
+            </Link>
+          </div>
+        </div>
+      )}
+
       {/* Recent orders */}
       <div className="glass rounded-xl p-6">
         <div className="flex items-center justify-between mb-4">

@@ -76,7 +76,8 @@ class Settings(BaseSettings):
     gdpr_grace_period_days: int = 30
     gdpr_export_expiry_days: int = 7
 
-    # Abandoned Cart & Recommendations
+    # Checkout & Cart
+    checkout_timeout: int = 60  # minutes before a processing order expires
     cart_abandon_timeout: int = 60
     recommendation_provider: str = "default"
     rfm_compute_schedule: str = "daily"

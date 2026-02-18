@@ -1,5 +1,6 @@
 """FastAPI application factory."""
 
+import asyncio
 import logging
 from contextlib import asynccontextmanager
 
@@ -28,7 +29,21 @@ async def lifespan(app: FastAPI):
     loaded = load_modules(app)
     app.state.loaded_modules = loaded
 
+    # Start background tasks
+    tasks: list[asyncio.Task] = []
+    if settings.enable_payments:
+        from modules.payments.services.order_reaper import reaper_loop
+
+        tasks.append(asyncio.create_task(reaper_loop()))
+        logger.info("Order reaper background task started")
+
     yield
+
+    # Cancel background tasks
+    for task in tasks:
+        task.cancel()
+    if tasks:
+        await asyncio.gather(*tasks, return_exceptions=True)
 
     # Cleanup
     await close_redis()

@@ -9,6 +9,48 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Claude Code shou
 ## [Unreleased]
 _Changes staged but not yet tagged._
 
+## [2026-02-18] - Phase 10: Stripe Integration & Payment Frontend
+
+### Added
+- **CSRF token handling** — frontend captures `csrf_token` from login/register/refresh responses and auto-attaches `X-CSRF-Token` header on state-changing requests
+- **Stripe.js integration** — `@stripe/stripe-js` + `@stripe/react-stripe-js` installed, singleton loader at `frontend/lib/stripe.ts`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` as Docker build arg
+- **Real checkout flow** — 3-step checkout (Shipping -> Review -> Payment) using Stripe PaymentElement, calls `POST /api/payments/checkout`
+- **Order confirmation** — reads Stripe redirect params (`redirect_status`), shows success/processing/failed states, polls payment status every 3s
+- **Payment retry** — `/orders/{id}/pay` re-renders Stripe Elements with existing `client_secret` for failed payments
+- **Stale order reaper** — background task (5-min interval) expires orders in 'processing' beyond `CHECKOUT_TIMEOUT` (default 60 min), releases stock, cancels payment
+- **Merchant self-signup** — `POST /api/auth/upgrade-to-merchant` endpoint, 3 frontend pages (register, onboard, dashboard), nav links in Header and Dashboard
+- **charge.succeeded webhook** — stores `charge_id` in `ecommerce.payment_records` for audit trail
+- **Provider factory** — `get_payment_provider()` reads `settings.payment_provider`, centralizes provider instantiation
+- **Provider interface extensions** — `cancel_payment()`, `verify_webhook()`, `create_account_link()`, `create_login_link()` added to `PaymentProvider` ABC
+- **Stripe setup guide** — `docs/guides/stripe-setup.md` with keys, webhooks, Connect, test cards, going-live checklist, provider swapping
+
+### Changed
+- All payment services now use `get_payment_provider()` factory instead of direct `get_stripe_provider()` imports
+- `import stripe` only appears in `stripe_provider.py` — no Stripe SDK usage in services, routes, or reaper
+- Webhook signature verification delegated to `PaymentProvider.verify_webhook()`
+- Phase 10 (Integration & Deployment) renamed to Phase 11
+
+### Schema Changes
+- Migration `008_payment_charge_id.sql`: adds `charge_id VARCHAR(255)` column to `ecommerce.payment_records`, adds `expired` to status check constraint
+
+### Files Created
+- `frontend/lib/stripe.ts`, `frontend/app/checkout/page.tsx` (rewritten), `frontend/app/orders/[id]/confirmation/page.tsx` (rewritten)
+- `frontend/app/orders/[id]/pay/page.tsx`, `frontend/app/merchant/register/page.tsx`, `frontend/app/merchant/onboard/page.tsx`, `frontend/app/merchant/dashboard/page.tsx`
+- `modules/payments/adapters/__init__.py`, `modules/payments/services/order_reaper.py`
+- `migrations/008_payment_charge_id.sql`, `docs/guides/stripe-setup.md`, `docs/phases/phase-10.md`, `docs/test-plans/phase-10/test-plan.md`
+
+### Files Modified
+- `frontend/lib/api.ts`, `frontend/lib/auth-context.tsx`, `frontend/components/Header.tsx`, `frontend/app/dashboard/page.tsx`
+- `.env.template`, `docker/frontend.Dockerfile`, `docker-compose.yml`
+- `backend/core/config.py`, `backend/main.py`
+- `modules/auth/routes/auth_routes.py`
+- `modules/payments/interfaces/payment_provider.py`, `modules/payments/adapters/stripe_provider.py`
+- `modules/payments/models/schemas.py`, `modules/payments/routes/checkout_routes.py`
+- `modules/payments/services/checkout_service.py`, `modules/payments/services/webhook_service.py`
+- `modules/payments/services/merchant_service.py`, `modules/payments/services/order_reaper.py`
+
+---
+
 ## [2026-02-17] - Admin user management, health checks, stack reference removal
 
 ### Added
@@ -163,4 +205,5 @@ _Update as phases are completed:_
 | 7 | 2026-02-16 | phase-7-complete | GDPR & cookie management: consent management (6 types with audit log), cookie preferences (auth + guest), data export (right of access, rate limited, JSON), data deletion (right to erasure, 30-day grace period, anonymization), email preferences with one-click unsubscribe (HMAC-signed, RFC 8058), 4 admin dashboard endpoints. ~14 endpoints, 5 services, 6 route files, ~20 Pydantic schemas |
 | 8 | 2026-02-16 | phase-8-complete | SEO module: dynamic meta tags (auto-generated from products/categories + custom overrides), sitemap.xml (Redis-cached, products/categories/static pages, large catalog index support), robots.txt, Open Graph + Twitter Card tags, JSON-LD structured data (Product with price/availability/reviews, Organization, BreadcrumbList, WebSite with SearchAction), 6 admin endpoints, nginx root-level routing. ~8 endpoints + 2 root-level, 5 services, 1 migration |
 | 9 | 2026-02-16 | phase-9-complete | Frontend (Next.js): Tailwind CSS v4 with neurons.html-inspired dark theme (particle canvas, gradient mesh, glass morphism), landing page with scroll reveal, auth pages (login, register, forgot/reset password with OAuth), product catalog (grid/list view, search, sort, pagination), product detail (variants, images, reviews, add-to-cart), categories, shopping cart with discount codes, mock checkout (3-step), order confirmation, user dashboard (overview, orders, order detail, profile, wishlists, privacy/GDPR), admin panel (dashboard, products, orders, users, analytics, GDPR, SEO), cookie consent banner, responsive design. ~21 pages, 15 components, 2 contexts, 1 utility lib |
-| 10 | — | — | — |
+| 10 | 2026-02-18 | phase-10-complete | Stripe integration: real checkout with Stripe Elements, merchant self-signup, stale order reaper, payment retry, charge tracking, provider factory abstraction, 54-test plan |
+| 11 | — | — | — |

@@ -3,13 +3,11 @@
 import logging
 from typing import Any
 
-import stripe
-
 from backend.core.config import settings
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from modules.payments.adapters.stripe_provider import get_stripe_provider
+from modules.payments.adapters import get_payment_provider
 
 logger = logging.getLogger(__name__)
 
@@ -39,15 +37,15 @@ async def onboard_merchant(
     if existing:
         acct = dict(existing)
         # Generate a fresh onboarding link for existing account
-        link = stripe.AccountLink.create(
-            account=acct["stripe_account_id"],
+        provider = get_payment_provider()
+        onboarding_url = await provider.create_account_link(
+            account_id=acct["stripe_account_id"],
             refresh_url=f"{settings.frontend_url}/merchant/onboard",
             return_url=f"{settings.frontend_url}/merchant/dashboard",
-            type="account_onboarding",
         )
         return {
             "account_id": acct["stripe_account_id"],
-            "onboarding_url": link.url,
+            "onboarding_url": onboarding_url,
             "status": acct["status"],
         }
 
@@ -61,7 +59,7 @@ async def onboard_merchant(
     email = user_row["email"] if user_row else None
 
     # Create via provider
-    provider = get_stripe_provider()
+    provider = get_payment_provider()
     result = await provider.create_merchant({
         "email": email,
         "business_type": business_type,
@@ -135,5 +133,5 @@ async def get_dashboard_link(
     if not row:
         return None
 
-    link = stripe.Account.create_login_link(row["stripe_account_id"])
-    return link.url
+    provider = get_payment_provider()
+    return await provider.create_login_link(row["stripe_account_id"])

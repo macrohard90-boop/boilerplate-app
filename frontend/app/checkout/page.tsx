@@ -1,12 +1,14 @@
 "use client";
 
-import { useState, FormEvent } from "react";
+import { useState, useEffect, FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js";
 import { useCart, cartItemKey } from "../../lib/cart-context";
 import { useAuth } from "../../lib/auth-context";
 import { apiFetch } from "../../lib/api";
 import { formatPrice } from "../../lib/format";
+import { getStripe } from "../../lib/stripe";
 import { useToast } from "../../components/Toast";
 import LoadingSpinner from "../../components/LoadingSpinner";
 
@@ -21,6 +23,17 @@ interface AddressForm {
   country: string;
 }
 
+interface CheckoutResponse {
+  order_id: string;
+  order_number: string;
+  client_secret: string;
+  subtotal: number;
+  discount_amount: number;
+  tax_amount: number;
+  total: number;
+  currency: string;
+}
+
 const emptyAddress: AddressForm = {
   first_name: "",
   last_name: "",
@@ -32,16 +45,67 @@ const emptyAddress: AddressForm = {
   country: "US",
 };
 
+/* ── Stripe Payment Form (rendered inside <Elements>) ── */
+function PaymentForm({ orderId }: { orderId: string }) {
+  const stripe = useStripe();
+  const elements = useElements();
+  const [paying, setPaying] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleSubmit(e: FormEvent) {
+    e.preventDefault();
+    if (!stripe || !elements) return;
+
+    setPaying(true);
+    setError(null);
+
+    const { error: stripeError } = await stripe.confirmPayment({
+      elements,
+      confirmParams: {
+        return_url: `${window.location.origin}/orders/${orderId}/confirmation`,
+      },
+    });
+
+    // Only reaches here if there's an immediate error (redirect didn't happen)
+    if (stripeError) {
+      setError(stripeError.message || "Payment failed. Please try again.");
+    }
+    setPaying(false);
+  }
+
+  return (
+    <form onSubmit={handleSubmit}>
+      <PaymentElement options={{ layout: "tabs" }} />
+      {error && (
+        <div className="mt-4 p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-sm text-red-400">
+          {error}
+        </div>
+      )}
+      <button
+        type="submit"
+        disabled={!stripe || paying}
+        className="btn-primary w-full mt-6 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+      >
+        {paying ? "Processing..." : "Pay Now"}
+      </button>
+    </form>
+  );
+}
+
+/* ── Main Checkout Page ── */
 export default function CheckoutPage() {
   const router = useRouter();
   const { cart, isLoading, clearCart } = useCart();
-  const { isAuthenticated, user } = useAuth();
+  const { isAuthenticated } = useAuth();
   const { showToast } = useToast();
   const [step, setStep] = useState(1);
   const [shipping, setShipping] = useState<AddressForm>({ ...emptyAddress });
   const [billing, setBilling] = useState<AddressForm>({ ...emptyAddress });
   const [sameAsShipping, setSameAsShipping] = useState(true);
   const [processing, setProcessing] = useState(false);
+  const [clientSecret, setClientSecret] = useState<string | null>(null);
+  const [orderId, setOrderId] = useState<string | null>(null);
+  const [stripePromise] = useState(() => getStripe());
 
   if (!isAuthenticated) {
     return (
@@ -55,7 +119,7 @@ export default function CheckoutPage() {
 
   if (isLoading) return <LoadingSpinner size="lg" className="py-40" />;
 
-  if (cart.items.length === 0) {
+  if (!clientSecret && cart.items.length === 0) {
     return (
       <div className="max-w-md mx-auto px-4 py-20 text-center">
         <h1 className="font-serif text-2xl font-bold gradient-text mb-4">Cart is Empty</h1>
@@ -69,23 +133,36 @@ export default function CheckoutPage() {
     setter({ ...state, [field]: value });
   }
 
-  async function handlePlaceOrder() {
+  function mapAddress(addr: AddressForm) {
+    return {
+      line1: addr.address_line1,
+      line2: addr.address_line2 || null,
+      city: addr.city,
+      state: addr.state,
+      postal_code: addr.postal_code,
+      country: addr.country,
+    };
+  }
+
+  async function handleCreatePaymentIntent() {
     setProcessing(true);
     try {
-      const order = await apiFetch<{ id: string }>("/ecommerce/orders", {
+      const result = await apiFetch<CheckoutResponse>("/payments/checkout", {
         method: "POST",
         body: JSON.stringify({
-          shipping_address: shipping,
-          billing_address: sameAsShipping ? shipping : billing,
-          payment_method: "mock",
+          shipping_address: mapAddress(shipping),
+          billing_address: sameAsShipping ? null : mapAddress(billing),
+          discount_code: cart.discount_code || null,
         }),
       });
+      setClientSecret(result.client_secret);
+      setOrderId(result.order_id);
+      // Cart is consumed when order is created — clear it now
       await clearCart();
-      showToast("Order placed successfully!", "success");
-      router.push(`/orders/${order.id}/confirmation`);
+      setStep(3);
     } catch (e: unknown) {
       const err = e as { message?: string };
-      showToast(err?.message || "Failed to place order", "error");
+      showToast(err?.message || "Checkout failed", "error");
     }
     setProcessing(false);
   }
@@ -126,6 +203,8 @@ export default function CheckoutPage() {
     );
   }
 
+  const stepLabels = ["Shipping", "Review", "Payment"];
+
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <h1 className="font-serif text-3xl font-bold mb-8">
@@ -142,7 +221,7 @@ export default function CheckoutPage() {
               {s}
             </div>
             <span className={`text-sm hidden sm:inline ${step >= s ? "text-text-primary" : "text-text-muted"}`}>
-              {s === 1 ? "Shipping" : s === 2 ? "Payment" : "Review"}
+              {stepLabels[s - 1]}
             </span>
             {s < 3 && <div className={`w-10 h-px ${step > s ? "bg-accent-purple/40" : "bg-glass-border"}`} />}
           </div>
@@ -152,6 +231,7 @@ export default function CheckoutPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Form */}
         <div className="lg:col-span-2">
+          {/* Step 1: Shipping */}
           {step === 1 && (
             <div className="glass rounded-2xl p-6">
               <h2 className="text-lg font-semibold text-text-primary mb-4">Shipping Address</h2>
@@ -169,44 +249,13 @@ export default function CheckoutPage() {
                 </div>
               )}
               <button onClick={() => setStep(2)} className="btn-primary w-full mt-6 text-sm">
-                Continue to Payment
+                Continue to Review
               </button>
             </div>
           )}
 
+          {/* Step 2: Review & Create Payment */}
           {step === 2 && (
-            <div className="glass rounded-2xl p-6">
-              <h2 className="text-lg font-semibold text-text-primary mb-4">Payment</h2>
-              <div className="p-6 rounded-xl bg-accent-blue/5 border border-accent-blue/20 mb-6">
-                <p className="text-sm text-accent-blue mb-2 font-medium">Mock Payment Mode</p>
-                <p className="text-xs text-text-secondary">
-                  This is a demo checkout. No real payment will be processed. Click &quot;Continue&quot; to proceed.
-                </p>
-              </div>
-              <div className="space-y-4 opacity-50 pointer-events-none">
-                <div>
-                  <label className="block text-sm text-text-secondary mb-1">Card number</label>
-                  <input value="4242 4242 4242 4242" readOnly className="input-glass text-sm" />
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-sm text-text-secondary mb-1">Expiry</label>
-                    <input value="12/28" readOnly className="input-glass text-sm" />
-                  </div>
-                  <div>
-                    <label className="block text-sm text-text-secondary mb-1">CVC</label>
-                    <input value="123" readOnly className="input-glass text-sm" />
-                  </div>
-                </div>
-              </div>
-              <div className="flex gap-3 mt-6">
-                <button onClick={() => setStep(1)} className="btn-secondary text-sm flex-1">Back</button>
-                <button onClick={() => setStep(3)} className="btn-primary text-sm flex-1">Continue to Review</button>
-              </div>
-            </div>
-          )}
-
-          {step === 3 && (
             <div className="glass rounded-2xl p-6">
               <h2 className="text-lg font-semibold text-text-primary mb-4">Order Review</h2>
               <div className="space-y-3 mb-6">
@@ -239,15 +288,40 @@ export default function CheckoutPage() {
                 <p><strong>Ship to:</strong> {shipping.first_name} {shipping.last_name}, {shipping.address_line1}, {shipping.city}, {shipping.state} {shipping.postal_code}</p>
               </div>
               <div className="flex gap-3">
-                <button onClick={() => setStep(2)} className="btn-secondary text-sm flex-1">Back</button>
+                <button onClick={() => setStep(1)} className="btn-secondary text-sm flex-1">Back</button>
                 <button
-                  onClick={handlePlaceOrder}
+                  onClick={handleCreatePaymentIntent}
                   disabled={processing}
                   className="btn-primary text-sm flex-1 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {processing ? "Processing..." : "Place Order"}
+                  {processing ? "Processing..." : "Proceed to Payment"}
                 </button>
               </div>
+            </div>
+          )}
+
+          {/* Step 3: Stripe Payment */}
+          {step === 3 && clientSecret && (
+            <div className="glass rounded-2xl p-6">
+              <h2 className="text-lg font-semibold text-text-primary mb-4">Payment</h2>
+              <Elements
+                stripe={stripePromise}
+                options={{
+                  clientSecret,
+                  appearance: {
+                    theme: "night",
+                    variables: {
+                      colorPrimary: "#a855f7",
+                      colorBackground: "#1a1a2e",
+                      colorText: "#e2e8f0",
+                      colorDanger: "#ef4444",
+                      borderRadius: "8px",
+                    },
+                  },
+                }}
+              >
+                <PaymentForm orderId={orderId!} />
+              </Elements>
             </div>
           )}
         </div>
@@ -255,23 +329,31 @@ export default function CheckoutPage() {
         {/* Order summary sidebar */}
         <div className="lg:col-span-1">
           <div className="glass rounded-2xl p-6 sticky top-24">
-            <h3 className="text-sm font-semibold text-text-primary mb-4">Cart ({cart.item_count} items)</h3>
-            <div className="space-y-2 max-h-[300px] overflow-y-auto">
-              {cart.items.map((item) => (
-                <div key={cartItemKey(item)} className="flex gap-3 text-sm">
-                  <div className="w-10 h-10 bg-base-100 rounded shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-text-primary truncate">{item.product_name}</p>
-                    <p className="text-text-muted">x{item.quantity}</p>
-                  </div>
-                  <p className="text-text-primary shrink-0">{formatPrice(item.total_price)}</p>
+            <h3 className="text-sm font-semibold text-text-primary mb-4">
+              {step < 3 ? `Cart (${cart.item_count} items)` : "Order created"}
+            </h3>
+            {step < 3 ? (
+              <>
+                <div className="space-y-2 max-h-[300px] overflow-y-auto">
+                  {cart.items.map((item) => (
+                    <div key={cartItemKey(item)} className="flex gap-3 text-sm">
+                      <div className="w-10 h-10 bg-base-100 rounded shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-text-primary truncate">{item.product_name}</p>
+                        <p className="text-text-muted">x{item.quantity}</p>
+                      </div>
+                      <p className="text-text-primary shrink-0">{formatPrice(item.total_price)}</p>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
-            <div className="border-t border-glass-border mt-4 pt-4 flex justify-between font-semibold">
-              <span>Total</span>
-              <span className="gradient-text">{formatPrice(cart.total)}</span>
-            </div>
+                <div className="border-t border-glass-border mt-4 pt-4 flex justify-between font-semibold">
+                  <span>Total</span>
+                  <span className="gradient-text">{formatPrice(cart.total)}</span>
+                </div>
+              </>
+            ) : (
+              <p className="text-sm text-text-secondary">Complete payment to confirm your order.</p>
+            )}
           </div>
         </div>
       </div>

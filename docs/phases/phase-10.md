@@ -1,172 +1,121 @@
-# Phase 10: Integration, Deployment & Docs
+# Phase 10: Stripe Integration & Payment Frontend
 
-**Estimate:** 3-4 hours
-**Depends on:** Phase 9, Phase 6
-**Category:** Quality assurance & operations
+**Estimate:** 4-5 hours
+**Depends on:** Phase 4, Phase 5, Phase 9
+**Category:** Payment integration & frontend
 
 ## Goal
-Final integration phase: end-to-end testing across all modules, SSL/TLS configuration, production hardening (security headers, environment validation, log management), deployment documentation, and the complete setup guide. At the end of this phase, the boilerplate is production-ready and can be deployed to a new VPS within 24 hours.
+Connect the real Stripe payment integration end-to-end: replace the mock checkout frontend with Stripe Elements, add merchant self-signup flow, implement stock reservation timeout (stale order reaper), add payment retry, charge tracking, and ensure the payment provider is fully swappable via the adapter pattern. At the end of this phase, a user can complete a real purchase with a Stripe test card.
 
 ## Prerequisite Reading
-Read `docs/ARCHITECTURE.md` sections 7 (Docker Compose Services), 8 (Scaling Tiers), 9 (Connection Pooling), 11 (24-Hour Deployment Workflow), and 12 (Security Measures) for the deployment specification.
+Read `docs/phases/phase-4.md` for the payment backend spec and `docs/ARCHITECTURE.md` section 1.1 for the PaymentProvider interface.
 
 ## Deliverables
 
-1. **End-to-end test suite** (tests/):
-   - **Auth flow**: register → login → refresh → logout → verify tokens invalidated
-   - **Product flow**: create product → add variants → upload images → verify listing
-   - **Cart flow**: add to cart (guest) → login → cart merge → apply discount → verify totals
-   - **Checkout flow**: cart → checkout → Stripe payment (test mode) → order created → inventory decremented
-   - **GDPR flow**: grant consent → request export → verify data collected → request deletion → verify anonymization
-   - **Analytics flow**: page view → event → verify tracking records created (with consent)
-   - **SEO flow**: verify sitemap contains products → verify meta tags → verify JSON-LD
-   - **RBAC flow**: customer blocked from admin endpoints → admin can access all
-   - **M2M flow**: create API key → authenticate → access scoped endpoint → rate limit hit
-   - Test framework: pytest + httpx (async) for backend, Jest/Playwright for frontend
-   - CI integration: tests run in GitHub Actions pipeline
+1. **CSRF token handling fix** (frontend/lib/):
+   - [x] Store CSRF token from login/register/refresh responses
+   - [x] Auto-attach `X-CSRF-Token` header on POST/PUT/DELETE/PATCH requests
+   - [x] Clear token on logout
 
-2. **SSL/TLS configuration** (docker/):
-   - Let's Encrypt / Certbot integration for automatic SSL certificates
-   - Nginx SSL configuration: TLS 1.2+, strong cipher suites, HSTS header
-   - Auto-renewal cron job or Certbot container
-   - HTTP → HTTPS redirect in Nginx
-   - Certificate volume mount for persistence across container restarts
-   - Development mode: self-signed certificates or HTTP-only option
+2. **Stripe.js setup** (frontend/lib/ + docker/):
+   - [x] Install `@stripe/stripe-js` and `@stripe/react-stripe-js`
+   - [x] Create `stripe.ts` singleton loader using `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`
+   - [x] Add `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` as Docker build arg
+   - [x] Pass build arg in `docker-compose.yml`
 
-3. **Production hardening** (backend/ + docker/):
-   - Security headers middleware:
-     - `Strict-Transport-Security` (HSTS)
-     - `X-Content-Type-Options: nosniff`
-     - `X-Frame-Options: DENY`
-     - `X-XSS-Protection: 1; mode=block`
-     - `Content-Security-Policy` (configurable)
-     - `Referrer-Policy: strict-origin-when-cross-origin`
-   - Environment validation: startup check that all required env vars are set
-   - Log management:
-     - Structured JSON logging (not plain text)
-     - Log levels configurable via .env (DEBUG/INFO/WARNING/ERROR)
-     - Log rotation: size-based or time-based via Docker logging driver
-     - Sensitive data scrubbing (no passwords, tokens, or PII in logs)
-   - Error handling: global exception handler with consistent error format
-   - Health check improvements: deep health check (DB + Redis + disk space)
+3. **Checkout page rewrite** (frontend/app/checkout/):
+   - [x] Replace mock checkout with real Stripe Elements (PaymentElement)
+   - [x] 3-step flow: Shipping -> Review -> Payment
+   - [x] Call `POST /api/payments/checkout` (not mock endpoint)
+   - [x] Map frontend address fields to backend AddressSchema
+   - [x] Clear cart after checkout API succeeds
+   - [x] Dark theme Stripe Elements appearance
 
-4. **Nginx production configuration** (docker/nginx.conf):
-   - SSL termination with optimized TLS settings
-   - Gzip compression for static assets and JSON responses
-   - Static asset caching headers (Cache-Control, ETag)
-   - Rate limiting at Nginx level (backup to application-level)
-   - Request size limits (prevent large payload attacks)
-   - Proxy timeout configuration
-   - Access logging with request timing
-   - Security: hide server version, block suspicious paths
+4. **Order confirmation rewrite** (frontend/app/orders/[id]/confirmation/):
+   - [x] Read `redirect_status` from Stripe redirect URL params
+   - [x] Three visual states: succeeded (green), processing (yellow), failed (red)
+   - [x] Poll `GET /api/payments/orders/{id}/payment` every 3s
+   - [x] Link to retry page on failure
 
-5. **Docker Compose production profile** (docker/):
-   - `docker-compose.prod.yml` — production overrides:
-     - Restart policies: `always` for all services
-     - Resource limits: memory and CPU constraints
-     - Log driver configuration
-     - Volume backup strategy
-     - No port exposure except Nginx 80/443
-   - `docker-compose.scale.yml` — already exists, verify replica configs work:
-     - Multiple FastAPI replicas (2-4) with Nginx upstream
-     - Multiple Next.js replicas (2-3)
-     - Health-check-based load balancing
+5. **Stock reservation timeout + stale order reaper** (modules/payments/services/):
+   - [x] Create `order_reaper.py` background task (runs every 5 minutes)
+   - [x] Find orders in 'processing' older than `CHECKOUT_TIMEOUT` (default 60 min)
+   - [x] Release inventory, expire order/payment, cancel payment via provider
+   - [x] Register as startup background task in `main.py`
+   - [x] Add `checkout_timeout` to Settings
 
-6. **Database backup strategy** (scripts/):
-   - `scripts/backup.sh` — PostgreSQL backup script (pg_dump)
-   - Scheduled backups: daily full, configurable retention (default 7 days)
-   - Backup storage: local volume + optional remote (S3/SFTP — placeholder)
-   - `scripts/restore.sh` — restore from backup file
-   - Backup verification: restore to temp DB and validate
+6. **Payment retry page** (frontend/app/orders/[id]/pay/):
+   - [x] Render Stripe Elements with existing `client_secret` for failed payments
+   - [x] Add `client_secret` to `PaymentStatus` dataclass and `PaymentStatusResponse` schema
+   - [x] Backend fetches fresh status + client_secret from provider for retryable payments
 
-7. **Setup script updates** (scripts/setup.sh):
-   - Update interactive setup to include all new modules:
-     - Template selection (ecommerce/saas)
-     - OAuth provider configuration prompts
-     - Stripe key configuration
-     - Email provider selection
-     - Module toggle selections
-   - Post-setup: run migrations → seed → health check → show summary
-   - First-run guide: print next steps after setup completes
+7. **Merchant self-signup flow** (modules/auth/ + frontend/app/merchant/):
+   - [x] `POST /api/auth/upgrade-to-merchant` endpoint (customer -> merchant role)
+   - [x] `frontend/app/merchant/register/page.tsx` — upgrade CTA page
+   - [x] `frontend/app/merchant/onboard/page.tsx` — Stripe Connect onboarding form
+   - [x] `frontend/app/merchant/dashboard/page.tsx` — merchant status + dashboard link
+   - [x] Merchant/customer links in Header dropdown and Dashboard page
 
-8. **Deployment documentation** (docs/):
-   - `docs/DEPLOYMENT.md` — complete deployment guide:
-     - VPS requirements (RAM, CPU, disk, OS)
-     - Docker + Compose installation
-     - Clone, configure, deploy steps
-     - SSL setup (Certbot)
-     - DNS configuration
-     - Monitoring recommendations
-     - Scaling guide (when and how to scale up)
-   - `docs/TROUBLESHOOTING.md` — common issues and fixes:
-     - Container won't start
-     - Database connection issues
-     - SSL certificate problems
-     - Memory/disk issues
-     - Migration failures
-   - `docs/API.md` — API reference (auto-generated from FastAPI OpenAPI spec or manual)
+8. **Charge tracking** (modules/payments/):
+   - [x] `charge.succeeded` webhook handler stores charge_id for audit trail
+   - [x] Migration `008_payment_charge_id.sql`: add `charge_id` column, `expired` status
 
-9. **CI/CD pipeline updates** (.github/workflows/ci.yml):
-   - Add e2e test job that runs full integration tests
-   - Add security scanning step (dependency audit)
-   - Add Docker image build verification
-   - Deployment job: SSH to VPS, pull, rebuild, restart, health check
-   - Rollback capability: if health check fails after deploy, revert to previous version
-   - Environment-specific configs: staging vs production
+9. **Provider swapability** (modules/payments/adapters/ + interfaces/):
+   - [x] Central `get_payment_provider()` factory reads `settings.payment_provider`
+   - [x] All services use factory instead of direct `get_stripe_provider()` import
+   - [x] `cancel_payment()` method on PaymentProvider interface
+   - [x] `verify_webhook()` method on PaymentProvider interface
+   - [x] `create_account_link()` and `create_login_link()` methods
+   - [x] No `import stripe` outside of `stripe_provider.py`
 
-10. **Monitoring and observability** (backend/):
-    - `GET /api/health` — enhanced health check (DB, Redis, disk, memory)
-    - Request logging: structured logs with request_id, duration, status
-    - Error alerting: configurable webhook for critical errors (placeholder)
-    - Uptime endpoint: lightweight ping for external monitoring services
+10. **Documentation**:
+    - [x] `docs/guides/stripe-setup.md` — comprehensive setup guide
+    - [x] Test cards, webhook setup, going-live checklist, provider swapping guide
 
 ## Acceptance Criteria
-- [ ] E2E auth flow passes: register → login → refresh → logout
-- [ ] E2E checkout flow passes: cart → checkout → payment → order confirmed
-- [ ] E2E GDPR flow passes: consent → export → deletion
-- [ ] SSL works: HTTPS serves valid certificate, HTTP redirects to HTTPS
-- [ ] Security headers present on all responses
-- [ ] Environment validation catches missing required vars on startup
-- [ ] Structured JSON logging enabled with configurable log level
-- [ ] Nginx gzip compression active for JSON and static assets
-- [ ] Docker Compose production profile works with resource limits
-- [ ] Database backup script creates valid backup
-- [ ] Database restore script restores successfully
-- [ ] Setup script runs end-to-end on fresh clone
-- [ ] Deployment documentation covers full VPS setup
-- [ ] CI pipeline runs e2e tests and reports results
-- [ ] Health check endpoint reports all service statuses
-- [ ] No sensitive data (passwords, tokens) in logs
-- [ ] All 10 phases verified working together as integrated system
+- [x] CSRF tokens captured from auth responses and sent on state-changing requests
+- [x] Stripe.js loads via `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` build arg
+- [x] Checkout calls `POST /api/payments/checkout` and renders PaymentElement
+- [x] Confirmation page reads Stripe redirect params and polls for status
+- [x] Stale order reaper runs as background task, releases stock after timeout
+- [x] Payment retry page renders Elements with existing client_secret
+- [x] Customers can upgrade to merchant role via `/merchant/register`
+- [x] Merchants can start Stripe Connect onboarding via `/merchant/onboard`
+- [x] charge.succeeded webhook stores charge_id in payment_records
+- [x] `import stripe` only appears in `stripe_provider.py` — all services use provider factory
+- [x] TypeScript compiles clean, all Python files parse without error
+- [x] Stripe setup guide covers: keys, webhooks, Connect, test cards, going live, provider swapping
 
-## Implementation Notes
-- E2E tests: use pytest + httpx AsyncClient against a running test stack (Docker Compose with test DB)
-- Frontend e2e: Playwright or Cypress for browser-based testing (optional, can defer)
-- SSL: Let's Encrypt with `certbot/certbot` Docker image or manual certbot install on VPS
-- Structured logging: use Python `structlog` or `python-json-logger`
-- Backup timing: cron job inside a dedicated backup container or host cron
-- CI secrets: Stripe test keys, OAuth test credentials stored in GitHub Secrets
-- Rollback: use git tags (phase-N-complete) — deploy = checkout tag + rebuild
-- Monitor: recommend external uptime services (UptimeRobot, Hetrix) — not built-in
+## Files Created
+- `frontend/lib/stripe.ts`
+- `frontend/app/checkout/page.tsx` (rewritten)
+- `frontend/app/orders/[id]/confirmation/page.tsx` (rewritten)
+- `frontend/app/orders/[id]/pay/page.tsx`
+- `frontend/app/merchant/register/page.tsx`
+- `frontend/app/merchant/onboard/page.tsx`
+- `frontend/app/merchant/dashboard/page.tsx`
+- `modules/payments/adapters/__init__.py` (provider factory)
+- `modules/payments/services/order_reaper.py`
+- `migrations/008_payment_charge_id.sql`
+- `docs/guides/stripe-setup.md`
 
-## Files to Create
-- `tests/e2e/test_auth_flow.py` — Auth integration tests
-- `tests/e2e/test_checkout_flow.py` — Checkout integration tests
-- `tests/e2e/test_gdpr_flow.py` — GDPR integration tests
-- `tests/e2e/test_analytics_flow.py` — Analytics integration tests
-- `tests/e2e/test_seo_flow.py` — SEO integration tests
-- `tests/e2e/conftest.py` — Test fixtures and setup
-- `docker/nginx-ssl.conf` — Production Nginx config with SSL
-- `docker/docker-compose.prod.yml` — Production overrides
-- `scripts/backup.sh` — Database backup script
-- `scripts/restore.sh` — Database restore script
-- `backend/core/security_headers.py` — Security headers middleware
-- `backend/core/logging_config.py` — Structured logging setup
-- `backend/core/startup_checks.py` — Environment validation on startup
-- `docs/DEPLOYMENT.md` — Deployment guide
-- `docs/TROUBLESHOOTING.md` — Troubleshooting guide
-- `docs/API.md` — API reference
-- Modified: `scripts/setup.sh` — Updated interactive setup
-- Modified: `.github/workflows/ci.yml` — E2E tests, security scanning
-- Modified: `docker/nginx.conf` — Production hardening
-- Modified: `backend/main.py` — Security headers, structured logging, startup checks
+## Files Modified
+- `frontend/lib/api.ts` — CSRF token storage + auto-header
+- `frontend/lib/auth-context.tsx` — capture csrf_token from responses
+- `frontend/components/Header.tsx` — merchant/customer nav links
+- `frontend/app/dashboard/page.tsx` — merchant CTA card
+- `frontend/package.json` — Stripe JS dependencies
+- `.env.template` — NEXT_PUBLIC key + CHECKOUT_TIMEOUT
+- `docker/frontend.Dockerfile` — build arg for NEXT_PUBLIC key
+- `docker-compose.yml` — pass build arg
+- `backend/core/config.py` — checkout_timeout setting
+- `backend/main.py` — register reaper background task
+- `modules/auth/routes/auth_routes.py` — upgrade-to-merchant endpoint
+- `modules/payments/interfaces/payment_provider.py` — cancel_payment, verify_webhook, create_account_link, create_login_link
+- `modules/payments/adapters/stripe_provider.py` — implement new methods, return client_secret
+- `modules/payments/models/schemas.py` — client_secret on PaymentStatusResponse
+- `modules/payments/routes/checkout_routes.py` — use factory, expose client_secret
+- `modules/payments/services/checkout_service.py` — use factory
+- `modules/payments/services/webhook_service.py` — use factory for verify_webhook, add charge.succeeded
+- `modules/payments/services/merchant_service.py` — use factory for all provider calls
+- `modules/payments/services/order_reaper.py` — use factory for cancel_payment

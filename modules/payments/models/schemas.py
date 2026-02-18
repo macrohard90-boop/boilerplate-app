@@ -42,6 +42,7 @@ class PaymentStatusResponse(BaseModel):
     payment_status: str | None = None
     provider: str | None = None
     provider_payment_id: str | None = None
+    client_secret: str | None = None
     amount: int = 0
     currency: str = "USD"
     created_at: datetime | None = None

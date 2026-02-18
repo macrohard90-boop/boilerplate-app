@@ -2,6 +2,12 @@
 
 Any payment gateway (Stripe, PayPal, etc.) implements this interface.
 Swap by implementing the ABC and setting PAYMENT_PROVIDER in .env.
+
+To add a new provider:
+1. Create ``modules/payments/adapters/your_provider.py``
+2. Implement all abstract methods of ``PaymentProvider``
+3. Add a branch in ``modules/payments/adapters/__init__.py``
+4. Set ``PAYMENT_PROVIDER=your_provider`` in ``.env``
 """
 
 from abc import ABC, abstractmethod
@@ -39,6 +45,7 @@ class PaymentStatus:
     status: str = "unknown"
     amount: int = 0
     currency: str = "USD"
+    client_secret: str | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
 
 
@@ -106,6 +113,45 @@ class PaymentProvider(ABC):
         self, merchant_data: dict[str, Any]
     ) -> MerchantAccount:
         """Create a merchant/connected account for payouts."""
+        ...
+
+    @abstractmethod
+    async def cancel_payment(self, payment_id: str) -> None:
+        """Cancel/void a pending payment."""
+        ...
+
+    @abstractmethod
+    async def verify_webhook(
+        self, payload: bytes, signature: str
+    ) -> dict[str, Any]:
+        """Verify webhook signature and return parsed event.
+
+        Returns dict with keys: ``id`` (event ID), ``type`` (event type),
+        ``data`` (provider-specific event payload, already unwrapped).
+        Raises ``ValueError`` on invalid signature.
+        """
+        ...
+
+    @abstractmethod
+    async def create_account_link(
+        self,
+        account_id: str,
+        *,
+        refresh_url: str,
+        return_url: str,
+    ) -> str:
+        """Generate an onboarding/update link for an existing merchant account.
+
+        Returns the onboarding URL string.
+        """
+        ...
+
+    @abstractmethod
+    async def create_login_link(self, account_id: str) -> str:
+        """Generate a dashboard login link for a merchant account.
+
+        Returns the login URL string.
+        """
         ...
 
     @abstractmethod

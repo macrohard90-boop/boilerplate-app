@@ -108,6 +108,7 @@ class StripeProvider(PaymentProvider):
             status=_STRIPE_STATUS_MAP.get(pi.status, "unknown"),
             amount=pi.amount,
             currency=pi.currency.upper(),
+            client_secret=pi.client_secret,
             metadata=pi.metadata or {},
         )
 
@@ -144,6 +145,46 @@ class StripeProvider(PaymentProvider):
             charges_enabled=account.charges_enabled or False,
             payouts_enabled=account.payouts_enabled or False,
         )
+
+    async def cancel_payment(self, payment_id: str) -> None:
+        stripe.PaymentIntent.cancel(payment_id)
+
+    async def verify_webhook(
+        self, payload: bytes, signature: str
+    ) -> dict[str, Any]:
+        try:
+            event = stripe.Webhook.construct_event(
+                payload, signature, settings.stripe_webhook_secret
+            )
+        except stripe.SignatureVerificationError as e:
+            raise ValueError("Invalid signature") from e
+        except Exception as e:
+            raise ValueError("Webhook verification failed") from e
+
+        return {
+            "id": event["id"],
+            "type": event["type"],
+            "data": event["data"]["object"],
+        }
+
+    async def create_account_link(
+        self,
+        account_id: str,
+        *,
+        refresh_url: str,
+        return_url: str,
+    ) -> str:
+        link = stripe.AccountLink.create(
+            account=account_id,
+            refresh_url=refresh_url,
+            return_url=return_url,
+            type="account_onboarding",
+        )
+        return link.url
+
+    async def create_login_link(self, account_id: str) -> str:
+        link = stripe.Account.create_login_link(account_id)
+        return link.url
 
     async def list_transactions(
         self, filters: dict[str, Any] | None = None

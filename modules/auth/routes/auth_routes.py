@@ -370,3 +370,46 @@ async def get_me(
         amr=user.get("amr", []),
         consent=user.get("consent", []),
     )
+
+
+# -----------------------------------------------------------------------
+# POST /upgrade-to-merchant  — customer → merchant role upgrade
+# -----------------------------------------------------------------------
+@router.post("/upgrade-to-merchant", response_model=MessageResponse)
+async def upgrade_to_merchant(
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    redis: Redis = Depends(get_redis),
+    user: dict = Depends(get_current_user),
+) -> Any:
+    """Upgrade the current customer account to merchant role.
+
+    After upgrade, the user must refresh their token to get the new role in the JWT.
+    """
+    user_id = str(user["user_id"])
+    full_user = await auth_service.get_user_by_id(db, user_id)
+    if not full_user:
+        raise HTTPException(status_code=404, detail={"error": "not_found", "message": "User not found", "details": None})
+
+    current_role = full_user["role"]
+    if current_role == "merchant":
+        raise HTTPException(status_code=400, detail={"error": "already_merchant", "message": "Account is already a merchant", "details": None})
+    if current_role == "admin":
+        raise HTTPException(status_code=400, detail={"error": "invalid_role", "message": "Admin accounts cannot be converted to merchant", "details": None})
+    if current_role != "customer":
+        raise HTTPException(status_code=400, detail={"error": "invalid_role", "message": f"Cannot upgrade role '{current_role}' to merchant", "details": None})
+
+    await db.execute(
+        text("UPDATE core.users SET role_id = (SELECT id FROM core.roles WHERE name = 'merchant') WHERE id = :uid"),
+        {"uid": user_id},
+    )
+    await db.commit()
+
+    ip = _client_ip(request)
+    await audit_service.log_audit(
+        db, user_id=user_id, action="user.upgrade_to_merchant", resource="user",
+        resource_id=user_id, ip_address=ip,
+    )
+
+    logger.info("User %s upgraded to merchant role", user_id)
+    return MessageResponse(message="Account upgraded to merchant. Please refresh your session to get updated permissions.")

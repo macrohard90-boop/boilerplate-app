@@ -88,6 +88,16 @@ export default function Header() {
                       <Link href="/dashboard/wishlists" className="block px-4 py-2 text-sm text-text-secondary hover:text-text-primary hover:bg-glass-hover transition-colors" onClick={() => setUserMenuOpen(false)}>
                         Wishlists
                       </Link>
+                      {user?.role === "merchant" && (
+                        <Link href="/merchant/dashboard" className="block px-4 py-2 text-sm text-accent-blue hover:bg-glass-hover transition-colors" onClick={() => setUserMenuOpen(false)}>
+                          Merchant Dashboard
+                        </Link>
+                      )}
+                      {user?.role === "customer" && (
+                        <Link href="/merchant/register" className="block px-4 py-2 text-sm text-accent-purple hover:bg-glass-hover transition-colors" onClick={() => setUserMenuOpen(false)}>
+                          Become a Merchant
+                        </Link>
+                      )}
                       {user?.role === "admin" && (
                         <Link href="/admin" className="block px-4 py-2 text-sm text-accent-pink hover:bg-glass-hover transition-colors" onClick={() => setUserMenuOpen(false)}>
                           Admin Panel

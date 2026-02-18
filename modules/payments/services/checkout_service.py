@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.core.config import settings
 from modules.ecommerce.services import order_service
-from modules.payments.adapters.stripe_provider import get_stripe_provider
+from modules.payments.adapters import get_payment_provider
 from modules.payments.services import payment_service
 
 logger = logging.getLogger(__name__)
@@ -60,7 +60,7 @@ async def checkout(
     await db.commit()
 
     # 4. Create Stripe PaymentIntent
-    provider = get_stripe_provider()
+    provider = get_payment_provider()
     try:
         result = await provider.create_payment(
             order_id=order_id,

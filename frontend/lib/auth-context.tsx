@@ -1,7 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
-import { apiFetch, setAccessToken, getAccessToken, type ApiError } from "./api";
+import { apiFetch, setAccessToken, getAccessToken, setCsrfToken, type ApiError } from "./api";
 
 interface User {
   id: string;
@@ -91,6 +91,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           if (res.ok) {
             const data = await res.json();
             setAccessToken(data.access_token);
+            if (data.csrf_token) setCsrfToken(data.csrf_token);
           }
         } catch {
           // No valid refresh token
@@ -108,11 +109,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const login = useCallback(async (email: string, password: string) => {
     setError(null);
     try {
-      const data = await apiFetch<{ access_token: string }>("/auth/login", {
+      const data = await apiFetch<{ access_token: string; csrf_token?: string }>("/auth/login", {
         method: "POST",
         body: JSON.stringify({ email, password }),
       });
       setAccessToken(data.access_token);
+      if (data.csrf_token) setCsrfToken(data.csrf_token);
       await fetchMe();
     } catch (e) {
       const err = e as ApiError;
@@ -125,7 +127,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     async (email: string, password: string, firstName: string, lastName: string) => {
       setError(null);
       try {
-        const data = await apiFetch<{ access_token: string }>("/auth/register", {
+        const data = await apiFetch<{ access_token: string; csrf_token?: string }>("/auth/register", {
           method: "POST",
           body: JSON.stringify({
             email,
@@ -135,6 +137,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           }),
         });
         setAccessToken(data.access_token);
+        if (data.csrf_token) setCsrfToken(data.csrf_token);
         await fetchMe();
       } catch (e) {
         const err = e as ApiError;
@@ -152,6 +155,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Ignore errors on logout
     }
     setAccessToken(null);
+    setCsrfToken(null);
     setUser(null);
     setSession(null);
   }, []);

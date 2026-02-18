@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.core.database import get_db
 from backend.core.dependencies import get_current_user, require_role, validate_csrf
-from modules.payments.adapters.stripe_provider import get_stripe_provider
+from modules.payments.adapters import get_payment_provider
 from modules.payments.models.schemas import (
     CheckoutRequest,
     CheckoutResponse,
@@ -72,12 +72,25 @@ async def get_payment_status(
 
     payment = await payment_service.get_payment_by_order(db, order_id)
 
+    # For retryable payments, fetch fresh status + client_secret from Stripe
+    client_secret = None
+    payment_status = payment["status"] if payment else None
+    if payment and payment_status in ("pending", "failed"):
+        try:
+            provider = get_payment_provider()
+            live_status = await provider.get_status(payment["provider_payment_id"])
+            client_secret = live_status.client_secret
+            payment_status = live_status.status
+        except Exception:
+            pass  # Fall back to DB status
+
     return PaymentStatusResponse(
         order_id=order_id,
         order_status=order["status"],
-        payment_status=payment["status"] if payment else None,
+        payment_status=payment_status,
         provider=payment["provider"] if payment else None,
         provider_payment_id=payment.get("provider_payment_id") if payment else None,
+        client_secret=client_secret,
         amount=payment["amount"] if payment else order["total"],
         currency=payment["currency"] if payment else order.get("currency", "USD"),
         created_at=payment["created_at"] if payment else None,
@@ -130,7 +143,7 @@ async def refund_order(
         )
 
     # Process refund via Stripe
-    provider = get_stripe_provider()
+    provider = get_payment_provider()
     try:
         result = await provider.refund(
             payment_id=payment["provider_payment_id"],

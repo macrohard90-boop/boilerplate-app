@@ -5,6 +5,7 @@
 const API_BASE = "/api";
 
 let accessToken: string | null = null;
+let csrfToken: string | null = null;
 let refreshPromise: Promise<boolean> | null = null;
 
 export function setAccessToken(token: string | null) {
@@ -13,6 +14,14 @@ export function setAccessToken(token: string | null) {
 
 export function getAccessToken(): string | null {
   return accessToken;
+}
+
+export function setCsrfToken(token: string | null) {
+  csrfToken = token;
+}
+
+export function getCsrfToken(): string | null {
+  return csrfToken;
 }
 
 async function refreshTokens(): Promise<boolean> {
@@ -24,6 +33,7 @@ async function refreshTokens(): Promise<boolean> {
     if (!res.ok) return false;
     const data = await res.json();
     accessToken = data.access_token;
+    if (data.csrf_token) csrfToken = data.csrf_token;
     return true;
   } catch {
     return false;
@@ -47,6 +57,12 @@ export async function apiFetch<T = unknown>(
 
   if (accessToken) {
     headers["Authorization"] = `Bearer ${accessToken}`;
+  }
+
+  // Attach CSRF token on state-changing requests
+  const method = (options.method || "GET").toUpperCase();
+  if (csrfToken && ["POST", "PUT", "DELETE", "PATCH"].includes(method)) {
+    headers["X-CSRF-Token"] = csrfToken;
   }
 
   let res = await fetch(`${API_BASE}${path}`, {
