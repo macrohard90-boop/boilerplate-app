@@ -9,6 +9,55 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Claude Code shou
 ## [Unreleased]
 _Changes staged but not yet tagged._
 
+## [2026-02-18] - Image Upload, Synced Provider, Catalog Webhooks & 5-Product Test
+
+### Added
+- **File upload infrastructure** — Docker `upload_data` volume shared between FastAPI (read/write) and Nginx (read-only static serving at `/uploads/`)
+- **StorageProvider interface** (`modules/ecommerce/interfaces/storage_provider.py`) — abstract file storage with `upload()` and `delete()` methods
+- **LocalStorageProvider** (`modules/ecommerce/adapters/local_storage.py`) — stores files on Docker volume with UUID-prefixed filenames
+- **Image upload endpoint** — `POST /api/ecommerce/products/{id}/images/upload` accepts multipart file upload (JPEG, PNG, WebP, GIF, max 5 MB)
+- **Image sync to Stripe** — product images are passed to Stripe Products API during catalog sync (requires `public_url` config for publicly accessible URLs)
+- **`synced_provider` column** — tracks which payment provider a product is synced with (e.g. "stripe"), displayed in admin UI as "Synced to Stripe"
+- **Product catalog webhooks** — handles `product.updated`, `product.deleted`, `price.updated`, `price.deleted` from Stripe so changes on Stripe side reflect locally (archiving, name changes, price removal)
+- **ImageUploader component** (`frontend/components/admin/ImageUploader.tsx`) — drag-and-drop image upload with thumbnail grid and delete buttons
+- **`apiUpload` helper** (`frontend/lib/api.ts`) — separate upload function for FormData (no Content-Type header, browser sets multipart boundary)
+- **5-product test script** (`scripts/test_5_products.py`) — creates 5 diverse products with images and variants, activates them, verifies Stripe sync
+- **`public_url` config** (`backend/core/config.py`) — configurable base URL for assets; when empty, images are omitted from Stripe API calls
+
+### Schema Changes
+- Migration `010_synced_provider_and_images.sql`: adds `synced_provider VARCHAR(50)` to `ecommerce.products`; adds `storage_path VARCHAR(500)` to `ecommerce.product_images`
+
+### Files Created
+- `migrations/010_synced_provider_and_images.sql`
+- `modules/ecommerce/interfaces/storage_provider.py`
+- `modules/ecommerce/adapters/local_storage.py`
+- `frontend/components/admin/ImageUploader.tsx`
+- `scripts/test_5_products.py`
+
+### Files Modified
+- `docker-compose.yml` — added `upload_data` volume to fastapi and nginx
+- `docker/nginx.conf` — added `/uploads/` location block with cache headers
+- `docker/backend.Dockerfile` — added uploads directory creation
+- `modules/ecommerce/adapters/__init__.py` — added storage provider factory
+- `modules/ecommerce/services/image_service.py` — storage_path support + file cleanup on delete
+- `modules/ecommerce/services/catalog_sync_service.py` — image URL fetching, synced_provider tracking
+- `modules/ecommerce/routes/product_routes.py` — upload endpoint
+- `modules/ecommerce/models/schemas.py` — synced_provider + storage_path fields
+- `modules/payments/interfaces/catalog_provider.py` — images param on create/update
+- `modules/payments/adapters/stripe_provider.py` — passes images to Stripe API
+- `modules/payments/services/webhook_service.py` — 4 new catalog event handlers
+- `backend/core/config.py` — public_url setting
+- `frontend/lib/api.ts` — apiUpload helper
+- `frontend/components/admin/SyncStatusBadge.tsx` — provider display
+- `frontend/app/admin/products/page.tsx` — synced_provider passed to badge
+- `frontend/app/admin/products/[id]/page.tsx` — ImageUploader + synced_provider
+
+### Test Results
+- 5/5 products created, images uploaded, and synced to Stripe successfully
+- Products: Basic T-Shirt (3 variants), Premium Hoodie (2 variants w/ price overrides), Digital Wallpaper Pack (no variants), Gift Card (4 denomination variants), Limited Edition Sneakers (2 size variants)
+
+---
+
 ## [2026-02-18] - Product Catalog Sync + Admin Product Management
 
 ### Added

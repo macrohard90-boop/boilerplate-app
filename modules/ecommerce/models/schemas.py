@@ -115,6 +115,7 @@ class ProductResponse(BaseModel):
     stripe_price_id: str | None = None
     stripe_sync_status: str = "unsynced"
     stripe_sync_error: str | None = None
+    synced_provider: str | None = None
     created_at: datetime
     updated_at: datetime
 
@@ -196,6 +197,7 @@ class ImageResponse(BaseModel):
     alt_text: str | None
     sort_order: int
     is_primary: bool
+    storage_path: str | None = None
     created_at: datetime
 
 

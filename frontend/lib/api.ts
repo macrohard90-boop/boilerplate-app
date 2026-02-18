@@ -108,3 +108,40 @@ export async function apiFetch<T = unknown>(
 
   return res.json();
 }
+
+/**
+ * Upload a file via FormData. Does NOT set Content-Type (browser sets multipart boundary).
+ */
+export async function apiUpload<T = unknown>(
+  path: string,
+  formData: FormData,
+): Promise<T> {
+  const headers: Record<string, string> = {};
+
+  if (accessToken) {
+    headers["Authorization"] = `Bearer ${accessToken}`;
+  }
+  if (csrfToken) {
+    headers["X-CSRF-Token"] = csrfToken;
+  }
+
+  const res = await fetch(`${API_BASE}${path}`, {
+    method: "POST",
+    headers,
+    body: formData,
+    credentials: "include",
+  });
+
+  if (!res.ok) {
+    let err: ApiError;
+    try {
+      const body = await res.json();
+      err = body.detail || body;
+    } catch {
+      err = { error: "unknown", message: res.statusText };
+    }
+    throw err;
+  }
+
+  return res.json();
+}

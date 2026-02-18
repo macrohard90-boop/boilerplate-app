@@ -23,6 +23,7 @@ interface Product {
   stripe_product_id: string | null;
   stripe_sync_status: string;
   stripe_sync_error: string | null;
+  synced_provider: string | null;
   created_at: string;
 }
 
@@ -160,6 +161,7 @@ export default function AdminProductsPage() {
                       <SyncStatusBadge
                         status={p.stripe_sync_status}
                         error={p.stripe_sync_error}
+                        provider={p.synced_provider}
                         onRetry={
                           p.stripe_sync_status === "error"
                             ? () => handleRetrySync(p.id)

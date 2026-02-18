@@ -14,6 +14,7 @@ class Settings(BaseSettings):
     domain: str = "localhost"
     frontend_url: str = "http://localhost:3000"
     backend_url: str = "http://localhost:8000"
+    public_url: str = ""  # Public-facing URL for assets (e.g. https://mysite.com). When empty, image URLs are not sent to payment providers.
 
     # Database
     database_url: str = "postgresql+asyncpg://boilerplate:change-me@postgres:5432/boilerplate_db"

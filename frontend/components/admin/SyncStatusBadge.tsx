@@ -3,12 +3,20 @@
 interface SyncStatusBadgeProps {
   status: string;
   error?: string | null;
+  provider?: string | null;
   onRetry?: () => void;
 }
 
-export default function SyncStatusBadge({ status, error, onRetry }: SyncStatusBadgeProps) {
+const PROVIDER_LABELS: Record<string, string> = {
+  stripe: "Stripe",
+};
+
+export default function SyncStatusBadge({ status, error, provider, onRetry }: SyncStatusBadgeProps) {
   if (status === "synced") {
-    return <span className="badge-green text-xs">Synced</span>;
+    const label = provider
+      ? `Synced to ${PROVIDER_LABELS[provider] || provider}`
+      : "Synced";
+    return <span className="badge-green text-xs">{label}</span>;
   }
 
   if (status === "error") {

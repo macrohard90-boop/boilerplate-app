@@ -8,6 +8,7 @@ import LoadingSpinner from "../../../../components/LoadingSpinner";
 import ProductForm, { type ProductFormData } from "../../../../components/admin/ProductForm";
 import VariantManager from "../../../../components/admin/VariantManager";
 import SyncStatusBadge from "../../../../components/admin/SyncStatusBadge";
+import ImageUploader from "../../../../components/admin/ImageUploader";
 
 interface Product {
   id: string;
@@ -23,6 +24,7 @@ interface Product {
   stripe_price_id: string | null;
   stripe_sync_status: string;
   stripe_sync_error: string | null;
+  synced_provider: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -126,6 +128,7 @@ export default function AdminProductEditPage() {
             <SyncStatusBadge
               status={product.stripe_sync_status}
               error={product.stripe_sync_error}
+              provider={product.synced_provider}
               onRetry={product.stripe_sync_status === "error" ? handleRetrySync : undefined}
             />
           </div>
@@ -171,6 +174,11 @@ export default function AdminProductEditPage() {
           loading={saving}
           submitLabel="Update Product"
         />
+      </div>
+
+      {/* Images */}
+      <div className="glass rounded-xl p-6 mb-6">
+        <ImageUploader productId={productId} />
       </div>
 
       {/* Variant Manager */}

@@ -49,6 +49,7 @@ class CatalogProvider(ABC):
         name: str,
         description: str | None = None,
         *,
+        images: list[str] | None = None,
         metadata: dict[str, Any] | None = None,
     ) -> CatalogProduct:
         """Create a product in the provider's catalog."""
@@ -62,6 +63,7 @@ class CatalogProvider(ABC):
         name: str | None = None,
         description: str | None = None,
         active: bool | None = None,
+        images: list[str] | None = None,
         metadata: dict[str, Any] | None = None,
     ) -> CatalogProduct:
         """Update a product in the provider's catalog."""

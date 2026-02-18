@@ -38,8 +38,8 @@ async def create_image(db: AsyncSession, product_id: str, data: dict[str, Any]) 
         await db.execute(
             text(
                 "INSERT INTO ecommerce.product_images "
-                "(product_id, variant_id, url, alt_text, sort_order, is_primary) "
-                "VALUES (:pid, :vid, :url, :alt_text, :sort_order, :is_primary) "
+                "(product_id, variant_id, url, alt_text, sort_order, is_primary, storage_path) "
+                "VALUES (:pid, :vid, :url, :alt_text, :sort_order, :is_primary, :storage_path) "
                 "RETURNING *"
             ),
             {
@@ -49,6 +49,7 @@ async def create_image(db: AsyncSession, product_id: str, data: dict[str, Any]) 
                 "alt_text": data.get("alt_text"),
                 "sort_order": data.get("sort_order", 0),
                 "is_primary": data.get("is_primary", False),
+                "storage_path": data.get("storage_path"),
             },
         )
     ).mappings().first()
@@ -93,13 +94,25 @@ async def update_image(db: AsyncSession, image_id: str, data: dict[str, Any]) ->
 
 
 async def delete_image(db: AsyncSession, image_id: str) -> None:
-    result = await db.execute(
+    # Fetch first to get storage_path for file cleanup
+    existing = await get_image(db, image_id)
+    if not existing:
+        raise ValueError("Image not found")
+
+    await db.execute(
         text("DELETE FROM ecommerce.product_images WHERE id = :id"),
         {"id": image_id},
     )
-    if result.rowcount == 0:
-        raise ValueError("Image not found")
     await db.commit()
+
+    # Clean up stored file if one exists
+    if existing.get("storage_path"):
+        try:
+            from modules.ecommerce.adapters import get_storage_provider
+            storage = get_storage_provider()
+            await storage.delete(existing["storage_path"])
+        except Exception:
+            pass  # File cleanup is best-effort
 
 
 async def _clear_primary(db: AsyncSession, product_id: str) -> None:

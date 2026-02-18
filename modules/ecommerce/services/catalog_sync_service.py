@@ -12,9 +12,13 @@ from typing import Any
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from backend.core.config import settings
 from modules.payments.adapters import get_catalog_provider
 
 logger = logging.getLogger(__name__)
+
+# Provider name for synced_provider column
+_PROVIDER_NAME = settings.payment_provider  # e.g. "stripe"
 
 
 # ---------------------------------------------------------------------------
@@ -41,6 +45,9 @@ async def sync_product_to_catalog(
 
     product_id = str(product["id"])
 
+    # Build image URLs for provider if public_url is configured
+    image_urls = await _get_product_image_urls(db, product_id)
+
     try:
         if product.get("stripe_product_id"):
             # Update existing catalog product
@@ -49,6 +56,7 @@ async def sync_product_to_catalog(
                 name=product["name"],
                 description=product.get("description"),
                 active=product["status"] == "active",
+                images=image_urls or None,
                 metadata={"local_product_id": product_id},
             )
 
@@ -77,6 +85,7 @@ async def sync_product_to_catalog(
             catalog_product = await provider.create_product(
                 name=product["name"],
                 description=product.get("description"),
+                images=image_urls or None,
                 metadata={"local_product_id": product_id},
             )
             catalog_price = await provider.create_price(
@@ -215,7 +224,17 @@ async def archive_product_in_catalog(
 
     try:
         await provider.archive_product(product["stripe_product_id"])
-        await _mark_product_synced(db, str(product["id"]))
+        # Clear synced_provider since product is no longer active in catalog
+        await db.execute(
+            text(
+                "UPDATE ecommerce.products "
+                "SET stripe_sync_status = 'synced', stripe_sync_error = NULL, "
+                "    synced_provider = NULL "
+                "WHERE id = :id"
+            ),
+            {"id": str(product["id"])},
+        )
+        await db.commit()
     except Exception as e:
         logger.error(
             "Catalog archive failed for product %s: %s", product["id"], e
@@ -275,10 +294,11 @@ async def _mark_product_synced(db: AsyncSession, product_id: str) -> None:
     await db.execute(
         text(
             "UPDATE ecommerce.products "
-            "SET stripe_sync_status = 'synced', stripe_sync_error = NULL "
+            "SET stripe_sync_status = 'synced', stripe_sync_error = NULL, "
+            "    synced_provider = :provider "
             "WHERE id = :id"
         ),
-        {"id": product_id},
+        {"id": product_id, "provider": _PROVIDER_NAME},
     )
     await db.commit()
 
@@ -289,9 +309,43 @@ async def _mark_product_error(
     await db.execute(
         text(
             "UPDATE ecommerce.products "
-            "SET stripe_sync_status = 'error', stripe_sync_error = :err "
+            "SET stripe_sync_status = 'error', stripe_sync_error = :err, "
+            "    synced_provider = NULL "
             "WHERE id = :id"
         ),
         {"id": product_id, "err": error_msg},
     )
     await db.commit()
+
+
+async def _get_product_image_urls(
+    db: AsyncSession, product_id: str
+) -> list[str]:
+    """Build public image URLs for a product.
+
+    Only returns URLs when ``public_url`` is configured (Stripe needs
+    publicly accessible URLs to fetch images).
+    """
+    if not settings.public_url:
+        return []
+
+    rows = (
+        await db.execute(
+            text(
+                "SELECT url FROM ecommerce.product_images "
+                "WHERE product_id = :pid ORDER BY sort_order, created_at "
+                "LIMIT 8"
+            ),
+            {"pid": product_id},
+        )
+    ).mappings().all()
+
+    base = settings.public_url.rstrip("/")
+    urls: list[str] = []
+    for r in rows:
+        url = r["url"]
+        if url.startswith("/"):
+            urls.append(f"{base}{url}")
+        else:
+            urls.append(url)
+    return urls

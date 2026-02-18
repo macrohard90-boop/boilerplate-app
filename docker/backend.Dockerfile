@@ -26,8 +26,10 @@ COPY --from=deps /usr/local/bin /usr/local/bin
 COPY backend/ /app/backend/
 COPY modules/ /app/modules/
 
-# Create non-root user
-RUN useradd --create-home appuser
+# Create uploads directory and non-root user
+RUN mkdir -p /app/uploads/images && \
+    useradd --create-home appuser && \
+    chown -R appuser:appuser /app/uploads
 USER appuser
 
 EXPOSE 8000

@@ -2,7 +2,7 @@
 
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.core.database import get_db
@@ -227,3 +227,42 @@ async def delete_image(
         await image_service.delete_image(db, image_id)
     except ValueError as e:
         raise HTTPException(status_code=404, detail={"error": "not_found", "message": str(e), "details": None})
+
+
+ALLOWED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp", "image/gif"}
+MAX_IMAGE_SIZE = 5 * 1024 * 1024  # 5 MB
+
+
+@router.post("/{product_id}/images/upload", response_model=ImageResponse, status_code=201)
+async def upload_image(
+    product_id: str,
+    file: UploadFile = File(...),
+    user: dict = Depends(require_role("merchant")),
+    db: AsyncSession = Depends(get_db),
+) -> Any:
+    """Upload an image file for a product."""
+    product = await product_service.get_product_by_id(db, product_id)
+    if not product:
+        raise HTTPException(status_code=404, detail={"error": "not_found", "message": "Product not found", "details": None})
+
+    if file.content_type not in ALLOWED_IMAGE_TYPES:
+        raise HTTPException(status_code=400, detail={
+            "error": "invalid_file", "message": f"File type {file.content_type} not allowed. Use JPEG, PNG, WebP, or GIF.", "details": None,
+        })
+
+    file_bytes = await file.read()
+    if len(file_bytes) > MAX_IMAGE_SIZE:
+        raise HTTPException(status_code=400, detail={
+            "error": "file_too_large", "message": "File exceeds 5 MB limit.", "details": None,
+        })
+
+    from modules.ecommerce.adapters import get_storage_provider
+    storage = get_storage_provider()
+    result = await storage.upload(file_bytes, file.filename or "image.jpg", file.content_type)
+
+    return await image_service.create_image(db, product_id, {
+        "url": result.public_url,
+        "storage_path": result.storage_path,
+        "alt_text": file.filename,
+        "is_primary": False,
+    })

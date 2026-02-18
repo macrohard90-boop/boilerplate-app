@@ -225,13 +225,17 @@ class StripeProvider(PaymentProvider, CatalogProvider):
         name: str,
         description: str | None = None,
         *,
+        images: list[str] | None = None,
         metadata: dict[str, Any] | None = None,
     ) -> CatalogProduct:
-        product = stripe.Product.create(
-            name=name,
-            description=description or "",
-            metadata=metadata or {},
-        )
+        params: dict[str, Any] = {
+            "name": name,
+            "description": description or "",
+            "metadata": metadata or {},
+        }
+        if images:
+            params["images"] = images[:8]  # Stripe allows max 8 images
+        product = stripe.Product.create(**params)
         return CatalogProduct(
             provider_product_id=product.id,
             name=product.name,
@@ -246,6 +250,7 @@ class StripeProvider(PaymentProvider, CatalogProvider):
         name: str | None = None,
         description: str | None = None,
         active: bool | None = None,
+        images: list[str] | None = None,
         metadata: dict[str, Any] | None = None,
     ) -> CatalogProduct:
         params: dict[str, Any] = {}
@@ -255,6 +260,8 @@ class StripeProvider(PaymentProvider, CatalogProvider):
             params["description"] = description
         if active is not None:
             params["active"] = active
+        if images is not None:
+            params["images"] = images[:8]
         if metadata is not None:
             params["metadata"] = metadata
         product = stripe.Product.modify(provider_product_id, **params)

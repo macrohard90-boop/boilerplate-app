@@ -72,6 +72,14 @@ async def verify_and_process_webhook(
             await _handle_charge_refunded(db, data)
         elif event_type == "account.updated":
             await _handle_account_updated(db, data)
+        elif event_type == "product.updated":
+            await _handle_product_updated(db, data)
+        elif event_type == "product.deleted":
+            await _handle_product_deleted(db, data)
+        elif event_type == "price.updated":
+            await _handle_price_updated(db, data)
+        elif event_type == "price.deleted":
+            await _handle_price_deleted(db, data)
         else:
             logger.info("Unhandled webhook event type: %s", event_type)
     except Exception:
@@ -212,5 +220,130 @@ async def _handle_account_updated(
             "ce": charges_enabled,
             "pe": payouts_enabled,
         },
+    )
+    await db.commit()
+
+
+# ---------------------------------------------------------------------------
+# Product catalog webhook handlers
+# ---------------------------------------------------------------------------
+
+
+async def _handle_product_updated(
+    db: AsyncSession, product_data: dict[str, Any]
+) -> None:
+    """product.updated -> sync name/description/active status from Stripe."""
+    stripe_product_id = product_data.get("id")
+    if not stripe_product_id:
+        return
+
+    logger.info("Product updated in Stripe: %s", stripe_product_id)
+
+    row = (
+        await db.execute(
+            text("SELECT id, status FROM ecommerce.products WHERE stripe_product_id = :spid"),
+            {"spid": stripe_product_id},
+        )
+    ).mappings().first()
+
+    if not row:
+        logger.warning("No local product for Stripe product %s", stripe_product_id)
+        return
+
+    product_id = str(row["id"])
+    is_active_in_stripe = product_data.get("active", True)
+    new_name = product_data.get("name")
+
+    updates: dict[str, Any] = {"id": product_id}
+    set_parts: list[str] = ["updated_at = NOW()"]
+
+    if new_name:
+        set_parts.append("name = :name")
+        updates["name"] = new_name
+
+    if product_data.get("description") is not None:
+        set_parts.append("description = :description")
+        updates["description"] = product_data["description"]
+
+    # If archived on Stripe side, archive locally
+    if not is_active_in_stripe and row["status"] == "active":
+        set_parts.append("status = 'archived'")
+        set_parts.append("synced_provider = NULL")
+        logger.info("Product %s archived via Stripe webhook", product_id)
+
+    await db.execute(
+        text(f"UPDATE ecommerce.products SET {', '.join(set_parts)} WHERE id = :id"),
+        updates,
+    )
+    await db.commit()
+
+
+async def _handle_product_deleted(
+    db: AsyncSession, product_data: dict[str, Any]
+) -> None:
+    """product.deleted -> archive the local product and clear sync fields."""
+    stripe_product_id = product_data.get("id")
+    if not stripe_product_id:
+        return
+
+    logger.info("Product deleted in Stripe: %s", stripe_product_id)
+
+    await db.execute(
+        text(
+            "UPDATE ecommerce.products "
+            "SET status = 'archived', stripe_sync_status = 'unsynced', "
+            "    synced_provider = NULL, updated_at = NOW() "
+            "WHERE stripe_product_id = :spid"
+        ),
+        {"spid": stripe_product_id},
+    )
+    await db.commit()
+
+
+async def _handle_price_updated(
+    db: AsyncSession, price_data: dict[str, Any]
+) -> None:
+    """price.updated -> log the change. Prices are immutable so mainly tracks active status."""
+    stripe_price_id = price_data.get("id")
+    is_active = price_data.get("active", True)
+
+    logger.info("Price updated in Stripe: %s active=%s", stripe_price_id, is_active)
+
+    if not is_active:
+        await _clear_stripe_price(db, stripe_price_id)
+
+
+async def _handle_price_deleted(
+    db: AsyncSession, price_data: dict[str, Any]
+) -> None:
+    """price.deleted -> clear stripe_price_id from product/variant."""
+    stripe_price_id = price_data.get("id")
+    logger.info("Price deleted in Stripe: %s", stripe_price_id)
+    await _clear_stripe_price(db, stripe_price_id)
+
+
+async def _clear_stripe_price(db: AsyncSession, stripe_price_id: str | None) -> None:
+    """Clear a Stripe price ID from products and variants tables."""
+    if not stripe_price_id:
+        return
+
+    await db.execute(
+        text(
+            "UPDATE ecommerce.products "
+            "SET stripe_price_id = NULL, stripe_sync_status = 'error', "
+            "    stripe_sync_error = 'Price removed in Stripe' "
+            "WHERE stripe_price_id = :sprice"
+        ),
+        {"sprice": stripe_price_id},
+    )
+
+    await db.execute(
+        text(
+            "UPDATE ecommerce.product_variants "
+            "SET stripe_price_id = NULL, stripe_sync_status = 'error', "
+            "    stripe_sync_error = 'Price removed in Stripe' "
+            "WHERE stripe_price_id = :sprice"
+        ),
+        {"sprice": stripe_price_id},
     )
     await db.commit()
