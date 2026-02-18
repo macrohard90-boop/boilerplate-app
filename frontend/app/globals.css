@@ -40,10 +40,21 @@
 }
 
 /* Base styles */
+:root {
+  color-scheme: dark;
+}
+
 body {
   background: var(--color-base);
   color: var(--color-text-primary);
   font-family: var(--font-sans);
+}
+
+/* Native select option styling for dark theme */
+select.input-glass option,
+select option {
+  background: #12123a;
+  color: #f0f0f8;
 }
 
 ::selection {

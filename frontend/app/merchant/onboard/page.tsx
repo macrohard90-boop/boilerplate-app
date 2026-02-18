@@ -76,7 +76,7 @@ export default function MerchantOnboardPage() {
               type="text"
               value={businessName}
               onChange={(e) => setBusinessName(e.target.value)}
-              className="input-field w-full"
+              className="input-glass w-full"
               placeholder="Your business name"
             />
           </div>
@@ -89,7 +89,7 @@ export default function MerchantOnboardPage() {
               id="businessType"
               value={businessType}
               onChange={(e) => setBusinessType(e.target.value)}
-              className="input-field w-full"
+              className="input-glass w-full"
             >
               <option value="individual">Individual / Sole Proprietor</option>
               <option value="company">Company</option>
@@ -105,7 +105,7 @@ export default function MerchantOnboardPage() {
               id="country"
               value={country}
               onChange={(e) => setCountry(e.target.value)}
-              className="input-field w-full"
+              className="input-glass w-full"
             >
               <option value="US">United States</option>
               <option value="CA">Canada</option>

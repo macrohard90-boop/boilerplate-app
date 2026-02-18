@@ -227,7 +227,7 @@ export default function AdminUsersPage() {
           placeholder="Search by email or name..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="flex-1 min-w-[200px] px-3 py-2 rounded-lg bg-bg-secondary border border-border text-text-primary placeholder:text-text-muted text-sm focus:outline-none focus:ring-1 focus:ring-accent"
+          className="input-glass flex-1 min-w-[200px] text-sm !py-2"
         />
         <select
           value={roleFilter}
@@ -235,7 +235,7 @@ export default function AdminUsersPage() {
             setRoleFilter(e.target.value);
             setPage(1);
           }}
-          className="px-3 py-2 rounded-lg bg-bg-secondary border border-border text-text-primary text-sm focus:outline-none focus:ring-1 focus:ring-accent"
+          className="input-glass text-sm !w-auto !py-2"
         >
           <option value="">All Roles</option>
           {AVAILABLE_ROLES.map((r) => (
@@ -250,7 +250,7 @@ export default function AdminUsersPage() {
             setStatusFilter(e.target.value);
             setPage(1);
           }}
-          className="px-3 py-2 rounded-lg bg-bg-secondary border border-border text-text-primary text-sm focus:outline-none focus:ring-1 focus:ring-accent"
+          className="input-glass text-sm !w-auto !py-2"
         >
           <option value="">All Statuses</option>
           <option value="active">Active</option>
@@ -273,7 +273,7 @@ export default function AdminUsersPage() {
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-border text-left text-text-muted">
+                <tr className="border-b border-glass-border text-left text-text-muted">
                   <th className="px-4 py-3 font-medium">Email</th>
                   <th className="px-4 py-3 font-medium">Name</th>
                   <th className="px-4 py-3 font-medium">Role</th>
@@ -288,8 +288,8 @@ export default function AdminUsersPage() {
                   <>
                     <tr
                       key={u.id}
-                      className={`border-b border-border/50 hover:bg-bg-secondary/50 transition-colors ${
-                        expandedId === u.id ? "bg-bg-secondary/30" : ""
+                      className={`border-b border-glass-border/50 hover:bg-base-100/50 transition-colors ${
+                        expandedId === u.id ? "bg-base-100/30" : ""
                       }`}
                     >
                       <td className="px-4 py-3 text-text-primary font-mono text-xs">
@@ -339,7 +339,7 @@ export default function AdminUsersPage() {
                     {/* Expanded detail row */}
                     {expandedId === u.id && (
                       <tr key={`${u.id}-detail`}>
-                        <td colSpan={7} className="px-4 py-4 bg-bg-secondary/20">
+                        <td colSpan={7} className="px-4 py-4 bg-base-100/20">
                           {detailLoading ? (
                             <div className="flex justify-center py-4">
                               <LoadingSpinner />
@@ -371,7 +371,7 @@ export default function AdminUsersPage() {
 
           {/* Pagination */}
           {totalPages > 1 && (
-            <div className="flex items-center justify-between px-4 py-3 border-t border-border">
+            <div className="flex items-center justify-between px-4 py-3 border-t border-glass-border">
               <p className="text-xs text-text-muted">
                 Page {page} of {totalPages} ({total} users)
               </p>
@@ -379,14 +379,14 @@ export default function AdminUsersPage() {
                 <button
                   disabled={page <= 1}
                   onClick={() => setPage((p) => p - 1)}
-                  className="px-3 py-1 text-xs rounded bg-bg-secondary text-text-secondary hover:bg-bg-secondary/80 disabled:opacity-40"
+                  className="px-3 py-1 text-xs rounded bg-base-100 text-text-secondary hover:bg-base-100/80 disabled:opacity-40"
                 >
                   Prev
                 </button>
                 <button
                   disabled={page >= totalPages}
                   onClick={() => setPage((p) => p + 1)}
-                  className="px-3 py-1 text-xs rounded bg-bg-secondary text-text-secondary hover:bg-bg-secondary/80 disabled:opacity-40"
+                  className="px-3 py-1 text-xs rounded bg-base-100 text-text-secondary hover:bg-base-100/80 disabled:opacity-40"
                 >
                   Next
                 </button>
@@ -446,7 +446,7 @@ function UserActions({
                   onRoleChange(user.id, e.target.value);
                 }
               }}
-              className="px-2 py-1 rounded bg-bg-primary border border-border text-text-primary text-xs focus:outline-none focus:ring-1 focus:ring-accent"
+              className="input-glass text-xs !py-1 !px-2 !w-auto"
             >
               {AVAILABLE_ROLES.filter((r) => r !== "merchant").map((r) => (
                 <option key={r} value={r}>
@@ -502,7 +502,7 @@ function UserActions({
             </button>
             <button
               onClick={() => onConfirmDelete(null)}
-              className="px-3 py-1 rounded text-xs font-medium bg-bg-secondary text-text-secondary hover:bg-bg-secondary/80"
+              className="px-3 py-1 rounded text-xs font-medium bg-base-100 text-text-secondary hover:bg-base-100/80"
             >
               Cancel
             </button>

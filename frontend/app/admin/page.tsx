@@ -86,7 +86,7 @@ export default function AdminDashboardPage() {
           </p>
         </div>
         <div
-          className="glass rounded-xl p-5 cursor-pointer hover:bg-bg-secondary/30 transition-colors"
+          className="glass rounded-xl p-5 cursor-pointer hover:bg-base-100/30 transition-colors"
           onClick={() => setStatusExpanded(!statusExpanded)}
         >
           <p className="text-xs text-text-muted mb-1">Status</p>
@@ -106,7 +106,7 @@ export default function AdminDashboardPage() {
             </p>
           )}
           {statusExpanded && (
-            <div className="mt-3 space-y-1.5 border-t border-border/50 pt-3">
+            <div className="mt-3 space-y-1.5 border-t border-glass-border/50 pt-3">
               {services.map((s) => (
                 <div key={s.name} className="flex items-center justify-between text-xs">
                   <span className="text-text-secondary">{SERVICE_LABELS[s.name] ?? s.name}</span>
