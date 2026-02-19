@@ -8,7 +8,7 @@ from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.core.database import get_db
-from modules.auth.services.auth_service import require_role
+from backend.core.dependencies import require_role
 from modules.payments.services import payment_settings_service
 from modules.payments.services.payment_settings_service import SUPPORTED_METHODS
 
@@ -61,3 +61,16 @@ async def update_payment_methods(
     await payment_settings_service.upsert_setting(db, "payment_methods", cleaned)
 
     return {"methods": cleaned, "customized": True}
+
+
+@router.delete("/payment-methods")
+async def reset_payment_methods(
+    _user: dict[str, Any] = Depends(require_role("admin")),
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, Any]:
+    """Reset payment methods to automatic mode by removing the customization."""
+    await payment_settings_service.delete_setting(db, "payment_methods")
+
+    # Return default state: all enabled, not customized
+    methods: dict[str, bool] = {m: True for m in SUPPORTED_METHODS}
+    return {"methods": methods, "customized": False}

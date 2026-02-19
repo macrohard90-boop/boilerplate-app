@@ -3,7 +3,7 @@
 **Phase:** 10 — Stripe Integration & Payment Frontend
 **Created:** 2026-02-18
 **Last executed:** 2026-02-18
-**Status:** Partially executed (6/69 passed — L1-L6 infra + UI verified; full suite requires Stripe keys + webhook forwarding)
+**Status:** Partially executed (6/69 core + 14/14 catalog/subs/coupons passed; full core suite requires Stripe keys + webhook forwarding)
 
 ---
 
@@ -22,7 +22,10 @@
 11. [Section J: Stripe Test Cards](#section-j-stripe-test-cards)
 12. [Section K: Frontend Integration](#section-k-frontend-integration)
 13. [Section L: Admin Payment Method Toggles](#section-l-admin-payment-method-toggles)
-14. [Test Summary](#test-summary)
+14. [Section M: Product Catalog & Coupons UI](#section-m-product-catalog--coupons-ui)
+15. [Section N: Subscriptions Lifecycle](#section-n-subscriptions-lifecycle)
+16. [Section O: Stripe Coupon Sync](#section-o-stripe-coupon-sync)
+17. [Test Summary](#test-summary)
 
 ---
 
@@ -211,6 +214,47 @@ All passwords: `Test1234!`
 
 ---
 
+## Section M: Product Catalog & Coupons UI
+
+| # | Test | Steps | Expected | Status |
+|---|------|-------|----------|--------|
+| M1 | Catalog layout renders sub-tabs | Navigate to `/admin/catalog` | Horizontal tabs: All Products, Coupons, Shipping Rates, Tax Rates | [x] |
+| M2 | Products page with status filters | Navigate to `/admin/catalog/products` | Status filter pills (All/Active/Archived) visible, products listed | [x] |
+| M3 | Coupons page loads | Navigate to `/admin/catalog/coupons` | Coupons table with status filters, create button | [x] |
+| M4 | Shipping/Tax placeholders | Navigate to `/admin/catalog/shipping` and `/admin/catalog/tax` | "Coming soon" placeholder pages | [x] |
+| M5 | Subscriptions sidebar link | View admin sidebar | "Subscriptions" link between Product Catalog and Orders | [x] |
+
+---
+
+## Section N: Subscriptions Lifecycle
+
+**Requires:** Stripe API keys configured
+
+| # | Test | Steps | Expected | Status |
+|---|------|-------|----------|--------|
+| N1 | Create recurring product | POST `/api/ecommerce/products` with `pricing_type: "recurring"`, `status: "active"` | Product created, Stripe product + recurring price synced | [x] |
+| N2 | Create subscription | Login as customer, POST `/api/ecommerce/subscriptions` with product_id | 201, returns `stripe_subscription_id`, `client_secret`, status `incomplete` | [x] |
+| N3 | List customer subscriptions | GET `/api/ecommerce/subscriptions` as customer | Returns list with product_name, status | [x] |
+| N4 | Admin list subscriptions | GET `/api/ecommerce/admin/subscriptions` as admin | Returns paginated list with user_email, product_name, status | [x] |
+| N5 | Admin filter by status | GET `/api/ecommerce/admin/subscriptions?status=incomplete` | Filtered results returned | [x] |
+| N6 | Cancel subscription | POST `/api/ecommerce/subscriptions/{id}/cancel` as customer | `cancel_at_period_end: true`, `canceled_at` set | [x] |
+| N7 | Non-recurring product rejected | POST subscription for a `pricing_type: "one_time"` product | 400 "Product is not a recurring subscription product" | [x] |
+
+---
+
+## Section O: Stripe Coupon Sync
+
+**Requires:** Stripe API keys configured
+
+| # | Test | Steps | Expected | Status |
+|---|------|-------|----------|--------|
+| O1 | Create coupon syncs to Stripe | POST `/api/ecommerce/admin/discounts` with percentage coupon | Stripe Coupon + Promotion Code created, IDs stored | [x] |
+| O2 | Subscribe with coupon | POST subscription with `discount_code` | Subscription created with discount applied | [x] |
+| O3 | One-time coupon rejected on subscription | Create coupon with `applies_to: "one_time"`, use on subscription | 400 "This coupon cannot be applied to recurring subscriptions" | [x] |
+| O4 | Recurring coupon rejected on one-time checkout | Create coupon with `applies_to: "recurring"`, use on cart checkout | 400 "This coupon can only be used on recurring subscriptions" | [x] |
+
+---
+
 ## Test Summary
 
 | Section | Tests | Description |
@@ -227,11 +271,17 @@ All passwords: `Test1234!`
 | J | 6 | Stripe Test Cards |
 | K | 5 | Frontend Integration |
 | L | 15 | Admin Payment Method Toggles |
-| **Total** | **69** | |
+| M | 5 | Product Catalog & Coupons UI |
+| N | 7 | Subscriptions Lifecycle |
+| O | 4 | Stripe Coupon Sync |
+| **Total** | **85** | |
 
 ### Tests by Stripe dependency:
-- **Without Stripe keys (28 tests):** A1-A4, C1-C5, G1-G4, I1-I3, F1, L1-L10, L13, L15
-- **With Stripe test keys (41 tests):** B1-B6, D1-D4, E1-E4, F2-F5, G5-G6, H1-H6, J1-J6, K1-K5, L11-L12, L14
+- **Without Stripe keys (33 tests):** A1-A4, C1-C5, G1-G4, I1-I3, F1, L1-L10, L13, L15, M1-M5
+- **With Stripe test keys (52 tests):** B1-B6, D1-D4, E1-E4, F2-F5, G5-G6, H1-H6, J1-J6, K1-K5, L11-L12, L14, N1-N7, O1-O4
 
 ### Executed tests:
 - **2026-02-18:** L1-L6 passed (migration, API health, frontend build, container start, nav link visible, payments page loads)
+- **2026-02-19:** M1-M5 passed (catalog layout, products with filters, coupons page, placeholders, subscriptions sidebar)
+- **2026-02-19:** N1-N7 passed (recurring product creation, subscription create/list/admin list/filter/cancel, non-recurring rejection)
+- **2026-02-19:** O1-O4 passed (coupon Stripe sync, subscribe with coupon, one-time coupon rejected on subscription, recurring coupon rejected on checkout)

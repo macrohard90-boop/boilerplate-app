@@ -88,11 +88,17 @@ async def sync_product_to_catalog(
                 images=image_urls or None,
                 metadata={"local_product_id": product_id},
             )
+            price_kwargs: dict[str, Any] = {
+                "metadata": {"local_product_id": product_id, "type": "base_price"},
+            }
+            if product.get("pricing_type") == "recurring" and product.get("recurring_interval"):
+                price_kwargs["recurring_interval"] = product["recurring_interval"]
+                price_kwargs["recurring_interval_count"] = product.get("recurring_interval_count", 1)
             catalog_price = await provider.create_price(
                 catalog_product.provider_product_id,
                 product["base_price"],
                 product.get("currency", "USD"),
-                metadata={"local_product_id": product_id, "type": "base_price"},
+                **price_kwargs,
             )
             await db.execute(
                 text(

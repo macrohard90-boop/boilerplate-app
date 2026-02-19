@@ -36,6 +36,7 @@ from modules.ecommerce.services import (
     inventory_service,
     order_service,
     review_service,
+    subscription_service,
 )
 
 router = APIRouter(prefix="/admin", tags=["admin"])
@@ -106,6 +107,22 @@ async def admin_low_stock(
 
 
 # ---------------------------------------------------------------------------
+# Admin Subscriptions
+# ---------------------------------------------------------------------------
+
+
+@router.get("/subscriptions")
+async def admin_list_subscriptions(
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=20, ge=1, le=100),
+    status: str | None = Query(default=None),
+    user: dict = Depends(require_role("admin")),
+    db: AsyncSession = Depends(get_db),
+) -> Any:
+    return await subscription_service.list_all_subscriptions(db, page=page, page_size=page_size, status=status)
+
+
+# ---------------------------------------------------------------------------
 # Admin Discounts
 # ---------------------------------------------------------------------------
 
@@ -114,10 +131,11 @@ async def admin_low_stock(
 async def admin_list_discounts(
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=20, ge=1, le=100),
+    status: str | None = Query(default=None),
     user: dict = Depends(require_role("admin")),
     db: AsyncSession = Depends(get_db),
 ) -> Any:
-    return await discount_service.list_discounts(db, page=page, page_size=page_size)
+    return await discount_service.list_discounts(db, page=page, page_size=page_size, status=status)
 
 
 @router.post("/discounts", response_model=DiscountResponse, status_code=201)

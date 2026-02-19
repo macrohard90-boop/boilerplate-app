@@ -72,6 +72,26 @@ class Transaction:
     metadata: dict[str, Any] = field(default_factory=dict)
 
 
+@dataclass
+class CustomerResult:
+    """Returned by create_customer."""
+
+    provider_customer_id: str
+    email: str | None = None
+
+
+@dataclass
+class SubscriptionResult:
+    """Returned by create_subscription."""
+
+    provider_subscription_id: str
+    client_secret: str | None = None
+    status: str = "pending"
+    current_period_start: str | None = None
+    current_period_end: str | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+
 class PaymentProvider(ABC):
     """Abstract payment provider interface.
 
@@ -165,3 +185,35 @@ class PaymentProvider(ABC):
     ) -> list[Transaction]:
         """List transactions matching filters."""
         ...
+
+    # ------------------------------------------------------------------
+    # Customer & Subscription (optional — providers that support recurring)
+    # ------------------------------------------------------------------
+
+    async def create_customer(
+        self, email: str, *, metadata: dict[str, Any] | None = None
+    ) -> CustomerResult:
+        """Create a customer record in the provider."""
+        raise NotImplementedError
+
+    async def create_subscription(
+        self,
+        customer_id: str,
+        price_id: str,
+        *,
+        coupon_id: str | None = None,
+        trial_period_days: int | None = None,
+        metadata: dict[str, Any] | None = None,
+    ) -> SubscriptionResult:
+        """Create a subscription for a customer."""
+        raise NotImplementedError
+
+    async def cancel_subscription(
+        self, subscription_id: str, *, at_period_end: bool = True
+    ) -> None:
+        """Cancel a subscription."""
+        raise NotImplementedError
+
+    async def get_subscription(self, subscription_id: str) -> SubscriptionResult:
+        """Get current status of a subscription."""
+        raise NotImplementedError

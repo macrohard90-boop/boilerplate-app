@@ -2,13 +2,13 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { apiFetch } from "../../../../lib/api";
-import { useToast } from "../../../../components/Toast";
-import LoadingSpinner from "../../../../components/LoadingSpinner";
-import ProductForm, { type ProductFormData } from "../../../../components/admin/ProductForm";
-import VariantManager from "../../../../components/admin/VariantManager";
-import SyncStatusBadge from "../../../../components/admin/SyncStatusBadge";
-import ImageUploader from "../../../../components/admin/ImageUploader";
+import { apiFetch } from "../../../../../lib/api";
+import { useToast } from "../../../../../components/Toast";
+import LoadingSpinner from "../../../../../components/LoadingSpinner";
+import ProductForm, { type ProductFormData } from "../../../../../components/admin/ProductForm";
+import VariantManager from "../../../../../components/admin/VariantManager";
+import SyncStatusBadge from "../../../../../components/admin/SyncStatusBadge";
+import ImageUploader from "../../../../../components/admin/ImageUploader";
 
 interface Product {
   id: string;
@@ -42,18 +42,6 @@ export default function AdminProductEditPage() {
 
   const fetchProduct = useCallback(async () => {
     try {
-      // The GET endpoint uses slug, but we have an ID. Use the list endpoint with a filter
-      // or fetch by slug. The detail endpoint expects a slug, so we'll fetch from list.
-      const data = await apiFetch<{ items: Product[] }>(
-        `/ecommerce/products?page=1&page_size=1&search=`
-      );
-      // Actually, we need to fetch by ID. Let's try using the products list and find ours,
-      // or use a direct query. The API doesn't have a get-by-id endpoint exposed,
-      // so we'll use the slug approach after fetching from admin context.
-      // For now, let's just use the admin products list and find our product.
-
-      // Better approach: fetch all and filter client-side, or we add an endpoint.
-      // Simplest: use the existing list with a large page and find by id.
       const allData = await apiFetch<{ items: Product[] }>(
         `/ecommerce/products?page=1&page_size=100`
       );
@@ -62,11 +50,11 @@ export default function AdminProductEditPage() {
         setProduct(found);
       } else {
         showToast("Product not found", "error");
-        router.push("/admin/products");
+        router.push("/admin/catalog/products");
       }
     } catch {
       showToast("Failed to load product", "error");
-      router.push("/admin/products");
+      router.push("/admin/catalog/products");
     }
     setLoading(false);
   }, [productId, router, showToast]);
@@ -108,7 +96,7 @@ export default function AdminProductEditPage() {
       {/* Header */}
       <div className="flex items-center gap-3 mb-6">
         <button
-          onClick={() => router.push("/admin/products")}
+          onClick={() => router.push("/admin/catalog/products")}
           className="text-text-muted hover:text-text-primary transition-colors"
         >
           <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -170,7 +158,7 @@ export default function AdminProductEditPage() {
             type: product.type,
           }}
           onSubmit={handleUpdate}
-          onCancel={() => router.push("/admin/products")}
+          onCancel={() => router.push("/admin/catalog/products")}
           loading={saving}
           submitLabel="Update Product"
         />

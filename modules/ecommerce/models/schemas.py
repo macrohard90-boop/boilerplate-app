@@ -71,8 +71,27 @@ class ProductCreate(BaseModel):
     @field_validator("type")
     @classmethod
     def valid_type(cls, v: str) -> str:
-        if v not in ("physical", "digital"):
-            raise ValueError("type must be physical or digital")
+        if v not in ("physical", "digital", "subscription"):
+            raise ValueError("type must be physical, digital, or subscription")
+        return v
+
+    pricing_type: str = "one_time"
+    recurring_interval: str | None = None
+    recurring_interval_count: int = 1
+    trial_period_days: int | None = None
+
+    @field_validator("pricing_type")
+    @classmethod
+    def valid_pricing_type(cls, v: str) -> str:
+        if v not in ("one_time", "recurring"):
+            raise ValueError("pricing_type must be one_time or recurring")
+        return v
+
+    @field_validator("recurring_interval")
+    @classmethod
+    def valid_interval(cls, v: str | None) -> str | None:
+        if v is not None and v not in ("day", "week", "month", "year"):
+            raise ValueError("recurring_interval must be day, week, month, or year")
         return v
 
 
@@ -96,9 +115,14 @@ class ProductUpdate(BaseModel):
     @field_validator("type")
     @classmethod
     def valid_type(cls, v: str | None) -> str | None:
-        if v is not None and v not in ("physical", "digital"):
-            raise ValueError("type must be physical or digital")
+        if v is not None and v not in ("physical", "digital", "subscription"):
+            raise ValueError("type must be physical, digital, or subscription")
         return v
+
+    pricing_type: str | None = None
+    recurring_interval: str | None = None
+    recurring_interval_count: int | None = None
+    trial_period_days: int | None = None
 
 
 class ProductResponse(BaseModel):
@@ -116,6 +140,10 @@ class ProductResponse(BaseModel):
     stripe_sync_status: str = "unsynced"
     stripe_sync_error: str | None = None
     synced_provider: str | None = None
+    pricing_type: str = "one_time"
+    recurring_interval: str | None = None
+    recurring_interval_count: int = 1
+    trial_period_days: int | None = None
     created_at: datetime
     updated_at: datetime
 
@@ -310,12 +338,29 @@ class DiscountCreate(BaseModel):
     max_uses: int | None = None
     valid_from: datetime | None = None
     valid_until: datetime | None = None
+    applies_to: str = Field(default="all")
+    stripe_duration: str = Field(default="once")
+    stripe_duration_in_months: int | None = None
 
     @field_validator("type")
     @classmethod
     def valid_type(cls, v: str) -> str:
         if v not in ("percentage", "fixed", "free_shipping"):
             raise ValueError("type must be percentage, fixed, or free_shipping")
+        return v
+
+    @field_validator("applies_to")
+    @classmethod
+    def valid_applies_to(cls, v: str) -> str:
+        if v not in ("all", "one_time", "recurring"):
+            raise ValueError("applies_to must be all, one_time, or recurring")
+        return v
+
+    @field_validator("stripe_duration")
+    @classmethod
+    def valid_stripe_duration(cls, v: str) -> str:
+        if v not in ("once", "repeating", "forever"):
+            raise ValueError("stripe_duration must be once, repeating, or forever")
         return v
 
 
@@ -327,12 +372,29 @@ class DiscountUpdate(BaseModel):
     max_uses: int | None = None
     valid_until: datetime | None = None
     active: bool | None = None
+    applies_to: str | None = None
+    stripe_duration: str | None = None
+    stripe_duration_in_months: int | None = None
 
     @field_validator("type")
     @classmethod
     def valid_type(cls, v: str | None) -> str | None:
         if v is not None and v not in ("percentage", "fixed", "free_shipping"):
             raise ValueError("type must be percentage, fixed, or free_shipping")
+        return v
+
+    @field_validator("applies_to")
+    @classmethod
+    def valid_applies_to(cls, v: str | None) -> str | None:
+        if v is not None and v not in ("all", "one_time", "recurring"):
+            raise ValueError("applies_to must be all, one_time, or recurring")
+        return v
+
+    @field_validator("stripe_duration")
+    @classmethod
+    def valid_stripe_duration(cls, v: str | None) -> str | None:
+        if v is not None and v not in ("once", "repeating", "forever"):
+            raise ValueError("stripe_duration must be once, repeating, or forever")
         return v
 
 
@@ -349,6 +411,11 @@ class DiscountResponse(BaseModel):
     valid_until: datetime | None
     active: bool
     created_at: datetime
+    applies_to: str = "all"
+    stripe_duration: str = "once"
+    stripe_duration_in_months: int | None = None
+    stripe_coupon_id: str | None = None
+    stripe_promotion_code_id: str | None = None
 
 
 class DiscountListResponse(BaseModel):
@@ -488,6 +555,40 @@ class DigitalAssetResponse(BaseModel):
 class DownloadUrlResponse(BaseModel):
     url: str
     expires_in: int
+
+
+# ---------------------------------------------------------------------------
+# Subscription
+# ---------------------------------------------------------------------------
+
+class SubscriptionCreate(BaseModel):
+    product_id: UUID
+    variant_id: UUID | None = None
+    discount_code: str | None = None
+
+
+class SubscriptionResponse(BaseModel):
+    id: UUID
+    user_id: UUID
+    product_id: UUID
+    variant_id: UUID | None
+    stripe_subscription_id: str | None
+    status: str
+    current_period_start: datetime | None
+    current_period_end: datetime | None
+    cancel_at_period_end: bool
+    canceled_at: datetime | None = None
+    created_at: datetime
+    client_secret: str | None = None
+    product_name: str | None = None
+
+
+class SubscriptionListResponse(BaseModel):
+    items: list[SubscriptionResponse]
+    total: int
+    page: int
+    page_size: int
+    total_pages: int
 
 
 # ---------------------------------------------------------------------------

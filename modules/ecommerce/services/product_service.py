@@ -112,8 +112,11 @@ async def create_product(db: AsyncSession, data: dict[str, Any]) -> dict[str, An
     row = (
         await db.execute(
             text(
-                "INSERT INTO ecommerce.products (name, slug, description, sku, base_price, currency, status, type) "
-                "VALUES (:name, :slug, :description, :sku, :base_price, :currency, :status, :type) "
+                "INSERT INTO ecommerce.products "
+                "(name, slug, description, sku, base_price, currency, status, type, "
+                " pricing_type, recurring_interval, recurring_interval_count, trial_period_days) "
+                "VALUES (:name, :slug, :description, :sku, :base_price, :currency, :status, :type, "
+                " :pricing_type, :recurring_interval, :recurring_interval_count, :trial_period_days) "
                 "RETURNING *"
             ),
             {
@@ -125,6 +128,10 @@ async def create_product(db: AsyncSession, data: dict[str, Any]) -> dict[str, An
                 "currency": data.get("currency", "USD"),
                 "status": data.get("status", "draft"),
                 "type": data.get("type", "physical"),
+                "pricing_type": data.get("pricing_type", "one_time"),
+                "recurring_interval": data.get("recurring_interval"),
+                "recurring_interval_count": data.get("recurring_interval_count", 1),
+                "trial_period_days": data.get("trial_period_days"),
             },
         )
     ).mappings().first()

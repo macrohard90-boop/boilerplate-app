@@ -15,8 +15,17 @@ class PaymentProvider(ABC):
     async def get_status(payment_id) -> PaymentStatus
     async def create_merchant(merchant_data) -> MerchantAccount
     async def list_transactions(filters) -> list[Transaction]
+    # Subscription methods (non-abstract, raise NotImplementedError by default)
+    async def create_customer(email, *, metadata=None) -> CustomerResult
+    async def create_subscription(customer_id, price_id, *, coupon_id=None, trial_period_days=None) -> SubscriptionResult
+    async def cancel_subscription(subscription_id, *, at_period_end=True) -> None
+    async def get_subscription(subscription_id) -> SubscriptionResult
+    # Coupon methods
+    async def create_coupon(*, coupon_type, value, currency, duration, ...) -> dict
+    async def create_promotion_code(coupon_id, code) -> dict
+    async def delete_coupon(coupon_id) -> None
 ```
-Default implementation: Stripe (Express + Connect accounts)
+Default implementation: Stripe (Express + Connect + Subscriptions + Coupons)
 Swap by: implementing PaymentProvider ABC, updating PAYMENT_PROVIDER in .env
 
 ### 1.2 AuthProvider (modules/auth/interfaces/)

@@ -81,9 +81,14 @@ class CatalogProvider(ABC):
         unit_amount: int,
         currency: str,
         *,
+        recurring_interval: str | None = None,
+        recurring_interval_count: int = 1,
         metadata: dict[str, Any] | None = None,
     ) -> CatalogPrice:
-        """Create a price for a product. Prices are immutable in most providers."""
+        """Create a price for a product. Prices are immutable in most providers.
+
+        For recurring prices, set recurring_interval to 'day', 'week', 'month', or 'year'.
+        """
         ...
 
     @abstractmethod

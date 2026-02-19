@@ -117,6 +117,9 @@ async def _apply_discount_to_cart(
     if not discount:
         raise ValueError("Invalid or expired discount code")
 
+    if discount.get("applies_to") == "recurring":
+        raise ValueError("This coupon can only be used on recurring subscriptions")
+
     await db.execute(
         text(
             "UPDATE ecommerce.cart SET discount_code_id = :did "

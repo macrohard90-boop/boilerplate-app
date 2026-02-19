@@ -19,8 +19,14 @@ const PAYMENT_METHODS: MethodInfo[] = [
   { key: "paypal", label: "PayPal", description: "Pay with PayPal account" },
 ];
 
+function defaultMethods(): Record<string, boolean> {
+  const m: Record<string, boolean> = {};
+  PAYMENT_METHODS.forEach((pm) => (m[pm.key] = true));
+  return m;
+}
+
 export default function AdminPaymentsPage() {
-  const [methods, setMethods] = useState<Record<string, boolean>>({});
+  const [methods, setMethods] = useState<Record<string, boolean>>(defaultMethods);
   const [customized, setCustomized] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -69,13 +75,23 @@ export default function AdminPaymentsPage() {
     }
   }
 
-  function handleReset() {
-    // Reset to all enabled (automatic mode)
-    const allEnabled: Record<string, boolean> = {};
-    PAYMENT_METHODS.forEach((m) => (allEnabled[m.key] = true));
-    setMethods(allEnabled);
-    setDirty(true);
+  async function handleReset() {
+    setSaving(true);
     setMessage(null);
+    try {
+      const data = await apiFetch<{ methods: Record<string, boolean>; customized: boolean }>(
+        "/payments/settings/payment-methods",
+        { method: "DELETE" }
+      );
+      setMethods(data.methods);
+      setCustomized(data.customized);
+      setDirty(false);
+      setMessage({ type: "success", text: "Reset to automatic mode." });
+    } catch {
+      setMessage({ type: "error", text: "Failed to reset payment settings." });
+    } finally {
+      setSaving(false);
+    }
   }
 
   const enabledCount = Object.values(methods).filter(Boolean).length;
@@ -144,7 +160,7 @@ export default function AdminPaymentsPage() {
         <>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
             {PAYMENT_METHODS.map((method) => {
-              const enabled = methods[method.key] ?? true;
+              const enabled = !!methods[method.key];
               return (
                 <div
                   key={method.key}

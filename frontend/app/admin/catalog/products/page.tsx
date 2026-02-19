@@ -2,14 +2,14 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { apiFetch } from "../../../lib/api";
-import { formatPrice, formatDate } from "../../../lib/format";
-import Pagination from "../../../components/Pagination";
-import LoadingSpinner from "../../../components/LoadingSpinner";
-import Modal from "../../../components/Modal";
-import { useToast } from "../../../components/Toast";
-import ProductForm, { type ProductFormData } from "../../../components/admin/ProductForm";
-import SyncStatusBadge from "../../../components/admin/SyncStatusBadge";
+import { apiFetch } from "../../../../lib/api";
+import { formatPrice, formatDate } from "../../../../lib/format";
+import Pagination from "../../../../components/Pagination";
+import LoadingSpinner from "../../../../components/LoadingSpinner";
+import Modal from "../../../../components/Modal";
+import { useToast } from "../../../../components/Toast";
+import ProductForm, { type ProductFormData } from "../../../../components/admin/ProductForm";
+import SyncStatusBadge from "../../../../components/admin/SyncStatusBadge";
 
 interface Product {
   id: string;
@@ -35,12 +35,19 @@ interface ProductResponse {
   total_pages: number;
 }
 
+const STATUS_FILTERS = [
+  { value: "all", label: "All" },
+  { value: "active", label: "Active" },
+  { value: "archived", label: "Archived" },
+];
+
 export default function AdminProductsPage() {
   const router = useRouter();
   const { showToast } = useToast();
   const [data, setData] = useState<ProductResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
+  const [statusFilter, setStatusFilter] = useState("all");
   const [showCreate, setShowCreate] = useState(false);
   const [creating, setCreating] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -49,13 +56,19 @@ export default function AdminProductsPage() {
 
   const fetchProducts = useCallback(() => {
     setLoading(true);
-    apiFetch<ProductResponse>(`/ecommerce/products?page=${page}&page_size=20`)
+    const statusParam = statusFilter !== "all" ? `&status=${statusFilter}` : "";
+    apiFetch<ProductResponse>(`/ecommerce/products?page=${page}&page_size=20${statusParam}`)
       .then(setData)
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, [page]);
+  }, [page, statusFilter]);
 
   useEffect(() => { fetchProducts(); }, [fetchProducts]);
+
+  const handleStatusFilterChange = (value: string) => {
+    setStatusFilter(value);
+    setPage(1);
+  };
 
   const handleCreate = async (formData: ProductFormData) => {
     setCreating(true);
@@ -109,11 +122,23 @@ export default function AdminProductsPage() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="font-serif text-2xl font-bold">
-          <span className="gradient-text">Products</span>
-          {data && <span className="text-text-muted font-normal text-lg ml-2">({data.total})</span>}
-        </h1>
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-2">
+          {STATUS_FILTERS.map((f) => (
+            <button
+              key={f.value}
+              onClick={() => handleStatusFilterChange(f.value)}
+              className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                statusFilter === f.value
+                  ? "bg-accent-pink/10 text-accent-pink border border-accent-pink/30"
+                  : "text-text-muted hover:text-text-primary border border-transparent"
+              }`}
+            >
+              {f.label}
+            </button>
+          ))}
+          {data && <span className="text-text-muted text-xs ml-2">({data.total})</span>}
+        </div>
         <button
           onClick={() => setShowCreate(true)}
           className="btn-primary px-4 py-2 rounded-lg text-sm font-medium"
@@ -175,7 +200,7 @@ export default function AdminProductsPage() {
                     <td className="p-4 text-text-muted">{formatDate(p.created_at)}</td>
                     <td className="p-4 text-right whitespace-nowrap">
                       <button
-                        onClick={() => router.push(`/admin/products/${p.id}`)}
+                        onClick={() => router.push(`/admin/catalog/products/${p.id}`)}
                         className="text-xs text-accent-blue hover:text-accent-blue/80 mr-3"
                       >
                         Edit

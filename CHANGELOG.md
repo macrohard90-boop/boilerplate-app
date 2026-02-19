@@ -9,6 +9,93 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Claude Code shou
 ## [Unreleased]
 _Changes staged but not yet tagged._
 
+## [2026-02-19] - Product Catalog Restructure, Subscriptions & Stripe Coupon Sync
+
+### Added
+
+**Phase A — Product Catalog Layout + Coupons UI:**
+- **Admin catalog layout** (`frontend/app/admin/catalog/layout.tsx`) — horizontal sub-tab navigation (All Products, Coupons, Shipping Rates, Tax Rates) mirroring Stripe's dashboard structure
+- **Coupons admin page** (`frontend/app/admin/catalog/coupons/page.tsx`) — full CRUD list with glass table, status filter pills (All/Active/Archived), create/edit modals, deactivate confirmation
+- **CouponForm component** (`frontend/components/admin/CouponForm.tsx`) — reusable form with code, type (percentage/fixed/free_shipping), value, currency, min order, max uses, validity dates, applies_to, Stripe duration fields
+- **Status filter pills** on products and coupons pages (All / Active / Archived)
+- **Placeholder pages** for Shipping Rates and Tax Rates (Coming Soon)
+
+**Phase B — Subscription/Recurring Products Backend:**
+- **Subscriptions table** (`ecommerce.subscriptions`) — full lifecycle tracking: status, billing periods, trial dates, Stripe IDs, cancellation
+- **Stripe customers table** (`ecommerce.stripe_customers`) — lazy user-to-Stripe-customer mapping
+- **Subscription service** (`modules/ecommerce/services/subscription_service.py`) — create, cancel, list (user + admin), webhook updates
+- **Subscription routes** (`modules/ecommerce/routes/subscription_routes.py`) — POST create, GET list, POST cancel (customer-facing)
+- **Admin subscriptions page** (`frontend/app/admin/subscriptions/page.tsx`) — glass table with customer email, product name, status badges, billing period, status filter pills
+- **Recurring product support** — products can be `pricing_type: recurring` with interval, interval count, trial days
+- **Subscription webhook handlers** — `customer.subscription.created/updated/deleted`, `invoice.payment_failed`
+
+**Phase C — Stripe Coupon Sync:**
+- **Stripe coupon sync** — creating a discount code automatically creates a Stripe Coupon + Promotion Code; deactivating deletes from Stripe; value/type changes recreate (Stripe coupons are immutable)
+- **Coupon applicability** — `applies_to` field (all/one_time/recurring) enforced at checkout and subscription creation
+- **Stripe duration** — coupons support `once`, `repeating` (with month count), and `forever` durations for subscription discounts
+
+### Fixed
+- **Payment settings import error** — `settings_routes.py` imported `require_role` from wrong module path, causing entire settings router to fail to load ("Failed to load payment settings" error)
+- **Payment toggle state initialization** — `methods` initialized as empty `{}` causing counter to show "0 of 7" while cards appeared enabled; fixed with `defaultMethods()` helper
+- **Reset to Auto** — button only reset local state; added DELETE endpoint and async backend call
+- **Stripe API 2025-03-31 breaking changes:**
+  - `Invoice.payment_intent` → `Invoice.confirmation_secret` for subscription payment confirmation
+  - `Subscription.current_period_start/end` → moved to subscription items level
+  - `PromotionCode.create(coupon=...)` → `promotion={type: "coupon", coupon: ...}`
+  - `Subscription.create(coupon=...)` → `discounts=[{coupon: ...}]`
+
+### Changed
+- **Admin sidebar** — "Products" renamed to "Product Catalog" (href `/admin/catalog`), added "Subscriptions" item
+- **Products pages** moved from `/admin/products/` to `/admin/catalog/products/`
+- **ProductForm** — added pricing_type (one-time/recurring), recurring interval, trial days fields
+- **PaymentProvider interface** — added `create_customer()`, `create_subscription()`, `cancel_subscription()`, `get_subscription()` methods with `NotImplementedError` defaults
+- **CatalogProvider interface** — `create_price()` now accepts optional `recurring_interval` and `recurring_interval_count`
+- **StripeProvider** — implemented subscription, customer, coupon, and recurring price methods
+- **Discount service** — `list_discounts()` supports `status` filter; create/update/deactivate trigger Stripe coupon sync
+- **Checkout service** — rejects `applies_to='recurring'` coupons on one-time checkout
+
+### Schema Changes
+- Migration `012_subscriptions.sql`: adds recurring fields to products, creates `ecommerce.subscriptions` and `ecommerce.stripe_customers` tables
+- Migration `013_coupon_stripe_sync.sql`: adds `stripe_coupon_id`, `stripe_promotion_code_id`, `applies_to`, `stripe_duration`, `stripe_duration_in_months` to `ecommerce.discount_codes`
+
+### Files Created
+- `frontend/app/admin/catalog/layout.tsx`
+- `frontend/app/admin/catalog/page.tsx`
+- `frontend/app/admin/catalog/products/page.tsx`
+- `frontend/app/admin/catalog/products/[id]/page.tsx`
+- `frontend/app/admin/catalog/coupons/page.tsx`
+- `frontend/app/admin/catalog/shipping/page.tsx`
+- `frontend/app/admin/catalog/tax/page.tsx`
+- `frontend/app/admin/subscriptions/page.tsx`
+- `frontend/components/admin/CouponForm.tsx`
+- `migrations/012_subscriptions.sql`
+- `migrations/013_coupon_stripe_sync.sql`
+- `modules/ecommerce/services/subscription_service.py`
+- `modules/ecommerce/routes/subscription_routes.py`
+
+### Files Modified
+- `frontend/app/admin/layout.tsx` — sidebar restructure
+- `frontend/app/admin/payments/page.tsx` — bug fixes (state init, reset, import)
+- `frontend/components/admin/ProductForm.tsx` — recurring product fields
+- `modules/ecommerce/models/schemas.py` — subscription + discount schemas with new fields
+- `modules/ecommerce/routes/__init__.py` — registered subscription routes
+- `modules/ecommerce/routes/admin_routes.py` — admin subscriptions + discount status filter
+- `modules/ecommerce/services/catalog_sync_service.py` — recurring price sync
+- `modules/ecommerce/services/discount_service.py` — Stripe coupon sync
+- `modules/ecommerce/services/product_service.py` — recurring fields in INSERT
+- `modules/payments/adapters/stripe_provider.py` — subscription, coupon, Stripe API fixes
+- `modules/payments/interfaces/catalog_provider.py` — recurring price params
+- `modules/payments/interfaces/payment_provider.py` — subscription methods
+- `modules/payments/routes/settings_routes.py` — import fix + DELETE endpoint
+- `modules/payments/services/checkout_service.py` — coupon applicability check
+- `modules/payments/services/payment_settings_service.py` — delete_setting()
+- `modules/payments/services/webhook_service.py` — subscription event handlers
+
+### Test Results
+- Full subscription lifecycle verified: create product (recurring) -> Stripe sync -> create subscription -> list (customer + admin) -> cancel -> verify
+- Coupon sync verified: create coupon -> Stripe Coupon + Promotion Code created -> apply to subscription -> applicability guards enforced
+- Payment settings bug fixes verified: page loads, toggles work, counter accurate, reset calls backend
+
 ## [2026-02-18] - Admin Payment Method Toggles
 
 ### Added

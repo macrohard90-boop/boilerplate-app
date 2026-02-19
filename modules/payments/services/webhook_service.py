@@ -10,7 +10,7 @@ from typing import Any
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from modules.ecommerce.services import inventory_service, order_service
+from modules.ecommerce.services import inventory_service, order_service, subscription_service
 from modules.payments.adapters import get_payment_provider
 from modules.payments.services import payment_service
 
@@ -80,6 +80,14 @@ async def verify_and_process_webhook(
             await _handle_price_updated(db, data)
         elif event_type == "price.deleted":
             await _handle_price_deleted(db, data)
+        elif event_type in (
+            "customer.subscription.created",
+            "customer.subscription.updated",
+            "customer.subscription.deleted",
+        ):
+            await _handle_subscription_event(db, data)
+        elif event_type == "invoice.payment_failed":
+            await _handle_invoice_payment_failed(db, data)
         else:
             logger.info("Unhandled webhook event type: %s", event_type)
     except Exception:
@@ -347,3 +355,41 @@ async def _clear_stripe_price(db: AsyncSession, stripe_price_id: str | None) -> 
         {"sprice": stripe_price_id},
     )
     await db.commit()
+
+
+# ---------------------------------------------------------------------------
+# Subscription webhook handlers
+# ---------------------------------------------------------------------------
+
+
+async def _handle_subscription_event(
+    db: AsyncSession, sub_data: dict[str, Any]
+) -> None:
+    """Handle customer.subscription.created/updated/deleted events."""
+    stripe_sub_id = sub_data.get("id")
+    status = sub_data.get("status", "unknown")
+    period_start = sub_data.get("current_period_start")
+    period_end = sub_data.get("current_period_end")
+
+    logger.info("Subscription event: %s -> %s", stripe_sub_id, status)
+
+    if stripe_sub_id:
+        await subscription_service.update_subscription_from_webhook(
+            db, stripe_sub_id, status,
+            current_period_start=period_start,
+            current_period_end=period_end,
+        )
+
+
+async def _handle_invoice_payment_failed(
+    db: AsyncSession, invoice_data: dict[str, Any]
+) -> None:
+    """Handle invoice.payment_failed — mark subscription as past_due."""
+    stripe_sub_id = invoice_data.get("subscription")
+    if not stripe_sub_id:
+        return
+
+    logger.info("Invoice payment failed for subscription: %s", stripe_sub_id)
+    await subscription_service.update_subscription_from_webhook(
+        db, stripe_sub_id, "past_due",
+    )

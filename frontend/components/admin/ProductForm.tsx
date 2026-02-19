@@ -10,6 +10,10 @@ export interface ProductFormData {
   currency: string;
   status: string;
   type: string;
+  pricing_type: string;
+  recurring_interval: string | null;
+  recurring_interval_count: number;
+  trial_period_days: number | null;
 }
 
 interface ProductFormProps {
@@ -36,6 +40,14 @@ export default function ProductForm({
   const [currency, setCurrency] = useState(initial?.currency || "USD");
   const [status, setStatus] = useState(initial?.status || "draft");
   const [type, setType] = useState(initial?.type || "physical");
+  const [pricingType, setPricingType] = useState(initial?.pricing_type || "one_time");
+  const [recurringInterval, setRecurringInterval] = useState(initial?.recurring_interval || "month");
+  const [recurringIntervalCount, setRecurringIntervalCount] = useState(
+    initial?.recurring_interval_count ?? 1
+  );
+  const [trialDays, setTrialDays] = useState(
+    initial?.trial_period_days != null ? String(initial.trial_period_days) : ""
+  );
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const validate = (): boolean => {
@@ -45,6 +57,15 @@ export default function ProductForm({
     if (isNaN(cents) || cents < 0) errs.base_price = "Valid price required";
     setErrors(errs);
     return Object.keys(errs).length === 0;
+  };
+
+  const handlePricingTypeChange = (value: string) => {
+    setPricingType(value);
+    if (value === "recurring") {
+      setType("subscription");
+    } else if (type === "subscription") {
+      setType("physical");
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -58,7 +79,11 @@ export default function ProductForm({
       base_price: Math.round(parseFloat(priceDisplay) * 100),
       currency,
       status,
-      type,
+      type: pricingType === "recurring" ? "subscription" : type,
+      pricing_type: pricingType,
+      recurring_interval: pricingType === "recurring" ? recurringInterval : null,
+      recurring_interval_count: pricingType === "recurring" ? recurringIntervalCount : 1,
+      trial_period_days: pricingType === "recurring" && trialDays ? parseInt(trialDays, 10) : null,
     });
   };
 
@@ -122,8 +147,20 @@ export default function ProductForm({
         </div>
       </div>
 
-      {/* Currency + Type + Status row */}
-      <div className="grid grid-cols-3 gap-4">
+      {/* Pricing Type + Currency row */}
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <label className="block text-sm text-text-muted mb-1">Pricing</label>
+          <select
+            value={pricingType}
+            onChange={(e) => handlePricingTypeChange(e.target.value)}
+            className="input-glass w-full"
+            disabled={loading}
+          >
+            <option value="one_time">One-time</option>
+            <option value="recurring">Recurring</option>
+          </select>
+        </div>
         <div>
           <label className="block text-sm text-text-muted mb-1">Currency</label>
           <select
@@ -138,18 +175,71 @@ export default function ProductForm({
             <option value="CAD">CAD</option>
           </select>
         </div>
-        <div>
-          <label className="block text-sm text-text-muted mb-1">Type</label>
-          <select
-            value={type}
-            onChange={(e) => setType(e.target.value)}
-            className="input-glass w-full"
-            disabled={loading}
-          >
-            <option value="physical">Physical</option>
-            <option value="digital">Digital</option>
-          </select>
+      </div>
+
+      {/* Recurring options */}
+      {pricingType === "recurring" && (
+        <div className="glass rounded-lg p-4 space-y-3">
+          <p className="text-xs text-accent-blue font-medium">Recurring Billing</p>
+          <div className="grid grid-cols-3 gap-4">
+            <div>
+              <label className="block text-sm text-text-muted mb-1">Interval</label>
+              <select
+                value={recurringInterval}
+                onChange={(e) => setRecurringInterval(e.target.value)}
+                className="input-glass w-full"
+                disabled={loading}
+              >
+                <option value="month">Monthly</option>
+                <option value="year">Yearly</option>
+                <option value="week">Weekly</option>
+                <option value="day">Daily</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm text-text-muted mb-1">Every X intervals</label>
+              <input
+                type="number"
+                min="1"
+                max="365"
+                value={recurringIntervalCount}
+                onChange={(e) => setRecurringIntervalCount(parseInt(e.target.value, 10) || 1)}
+                className="input-glass w-full"
+                disabled={loading}
+              />
+            </div>
+            <div>
+              <label className="block text-sm text-text-muted mb-1">Trial days</label>
+              <input
+                type="number"
+                min="0"
+                value={trialDays}
+                onChange={(e) => setTrialDays(e.target.value)}
+                className="input-glass w-full"
+                placeholder="0"
+                disabled={loading}
+              />
+            </div>
+          </div>
         </div>
+      )}
+
+      {/* Type + Status row */}
+      <div className="grid grid-cols-2 gap-4">
+        {pricingType !== "recurring" && (
+          <div>
+            <label className="block text-sm text-text-muted mb-1">Type</label>
+            <select
+              value={type}
+              onChange={(e) => setType(e.target.value)}
+              className="input-glass w-full"
+              disabled={loading}
+            >
+              <option value="physical">Physical</option>
+              <option value="digital">Digital</option>
+            </select>
+          </div>
+        )}
         <div>
           <label className="block text-sm text-text-muted mb-1">Status</label>
           <select

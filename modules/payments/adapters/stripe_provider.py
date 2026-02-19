@@ -16,11 +16,13 @@ from modules.payments.interfaces.catalog_provider import (
     CatalogProvider,
 )
 from modules.payments.interfaces.payment_provider import (
+    CustomerResult,
     MerchantAccount,
     PaymentProvider,
     PaymentResult,
     PaymentStatus,
     RefundResult,
+    SubscriptionResult,
     Transaction,
 )
 
@@ -223,6 +225,137 @@ class StripeProvider(PaymentProvider, CatalogProvider):
 
 
     # -----------------------------------------------------------------------
+    # Customer & Subscription methods
+    # -----------------------------------------------------------------------
+
+    async def create_customer(
+        self, email: str, *, metadata: dict[str, Any] | None = None
+    ) -> CustomerResult:
+        customer = stripe.Customer.create(email=email, metadata=metadata or {})
+        return CustomerResult(provider_customer_id=customer.id, email=email)
+
+    async def create_subscription(
+        self,
+        customer_id: str,
+        price_id: str,
+        *,
+        coupon_id: str | None = None,
+        trial_period_days: int | None = None,
+        metadata: dict[str, Any] | None = None,
+    ) -> SubscriptionResult:
+        params: dict[str, Any] = {
+            "customer": customer_id,
+            "items": [{"price": price_id}],
+            "payment_behavior": "default_incomplete",
+            "payment_settings": {"save_default_payment_method": "on_subscription"},
+            "expand": ["latest_invoice.confirmation_secret"],
+            "metadata": metadata or {},
+        }
+        if coupon_id:
+            params["discounts"] = [{"coupon": coupon_id}]
+        if trial_period_days:
+            params["trial_period_days"] = trial_period_days
+
+        sub = stripe.Subscription.create(**params)
+
+        client_secret = None
+        if sub.latest_invoice:
+            cs = getattr(sub.latest_invoice, "confirmation_secret", None)
+            if cs:
+                client_secret = cs.client_secret
+
+        # Period info moved to subscription items in Stripe API 2025-03-31+
+        period_start = ""
+        period_end = ""
+        try:
+            sub_items = sub["items"]["data"]
+            if sub_items:
+                period_start = str(sub_items[0].get("current_period_start", ""))
+                period_end = str(sub_items[0].get("current_period_end", ""))
+        except (KeyError, TypeError, IndexError):
+            pass
+
+        return SubscriptionResult(
+            provider_subscription_id=sub.id,
+            client_secret=client_secret,
+            status=sub.status,
+            current_period_start=period_start,
+            current_period_end=period_end,
+        )
+
+    async def cancel_subscription(
+        self, subscription_id: str, *, at_period_end: bool = True
+    ) -> None:
+        if at_period_end:
+            stripe.Subscription.modify(subscription_id, cancel_at_period_end=True)
+        else:
+            stripe.Subscription.cancel(subscription_id)
+
+    async def get_subscription(self, subscription_id: str) -> SubscriptionResult:
+        sub = stripe.Subscription.retrieve(subscription_id)
+        period_start = ""
+        period_end = ""
+        try:
+            sub_items = sub["items"]["data"]
+            if sub_items:
+                period_start = str(sub_items[0].get("current_period_start", ""))
+                period_end = str(sub_items[0].get("current_period_end", ""))
+        except (KeyError, TypeError, IndexError):
+            pass
+        return SubscriptionResult(
+            provider_subscription_id=sub.id,
+            status=sub.status,
+            current_period_start=period_start,
+            current_period_end=period_end,
+        )
+
+    # -----------------------------------------------------------------------
+    # Coupon methods (for subscription discounts)
+    # -----------------------------------------------------------------------
+
+    async def create_coupon(
+        self,
+        *,
+        coupon_type: str,
+        value: int,
+        currency: str = "USD",
+        duration: str = "once",
+        duration_in_months: int | None = None,
+        max_redemptions: int | None = None,
+        metadata: dict[str, Any] | None = None,
+    ) -> dict[str, str]:
+        """Create a Stripe Coupon. Returns dict with stripe_coupon_id."""
+        params: dict[str, Any] = {"duration": duration, "metadata": metadata or {}}
+        if coupon_type == "percentage":
+            params["percent_off"] = value
+        elif coupon_type == "fixed":
+            params["amount_off"] = value
+            params["currency"] = currency.lower()
+        if duration == "repeating" and duration_in_months:
+            params["duration_in_months"] = duration_in_months
+        if max_redemptions:
+            params["max_redemptions"] = max_redemptions
+        coupon = stripe.Coupon.create(**params)
+        return {"stripe_coupon_id": coupon.id}
+
+    async def create_promotion_code(
+        self, coupon_id: str, code: str
+    ) -> dict[str, str]:
+        """Create a Stripe Promotion Code linked to a coupon."""
+        promo = stripe.PromotionCode.create(
+            promotion={"type": "coupon", "coupon": coupon_id},
+            code=code,
+        )
+        return {"stripe_promotion_code_id": promo.id}
+
+    async def delete_coupon(self, coupon_id: str) -> None:
+        """Delete a Stripe Coupon."""
+        try:
+            stripe.Coupon.delete(coupon_id)
+        except Exception as e:
+            logger.warning("Failed to delete Stripe coupon %s: %s", coupon_id, e)
+
+    # -----------------------------------------------------------------------
     # CatalogProvider methods
     # -----------------------------------------------------------------------
 
@@ -287,14 +420,22 @@ class StripeProvider(PaymentProvider, CatalogProvider):
         unit_amount: int,
         currency: str,
         *,
+        recurring_interval: str | None = None,
+        recurring_interval_count: int = 1,
         metadata: dict[str, Any] | None = None,
     ) -> CatalogPrice:
-        price = stripe.Price.create(
-            product=provider_product_id,
-            unit_amount=unit_amount,
-            currency=currency.lower(),
-            metadata=metadata or {},
-        )
+        params: dict[str, Any] = {
+            "product": provider_product_id,
+            "unit_amount": unit_amount,
+            "currency": currency.lower(),
+            "metadata": metadata or {},
+        }
+        if recurring_interval:
+            params["recurring"] = {
+                "interval": recurring_interval,
+                "interval_count": recurring_interval_count,
+            }
+        price = stripe.Price.create(**params)
         return CatalogPrice(
             provider_price_id=price.id,
             provider_product_id=provider_product_id,

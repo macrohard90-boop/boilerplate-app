@@ -49,6 +49,15 @@ async def upsert_setting(
     return value
 
 
+async def delete_setting(db: AsyncSession, key: str) -> None:
+    """Delete a payment setting by key."""
+    await db.execute(
+        text("DELETE FROM ecommerce.payment_settings WHERE key = :key"),
+        {"key": key},
+    )
+    await db.commit()
+
+
 async def get_enabled_payment_methods(db: AsyncSession) -> list[str] | None:
     """Return list of enabled payment method type strings, or None if no customization.
 
