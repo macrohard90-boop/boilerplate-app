@@ -14,6 +14,7 @@ export interface CartItem {
   unit_price: number; // cents
   total_price: number; // cents
   currency: string;
+  pricing_type: string; // "one_time" | "recurring"
 }
 
 /** Composite key used by the backend: product_id + "_" + variant_id */

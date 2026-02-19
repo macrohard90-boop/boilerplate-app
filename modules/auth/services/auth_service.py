@@ -1,5 +1,6 @@
 """Core authentication business logic — registration, login, password reset."""
 
+import logging
 import secrets
 from typing import Any
 
@@ -9,6 +10,8 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.core.config import settings
+
+logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
@@ -120,7 +123,17 @@ async def register_user(
     )
     row = result.mappings().first()
     await db.commit()
-    return {**dict(row), "role": _DEFAULT_ROLE}  # type: ignore[union-attr]
+
+    user = {**dict(row), "role": _DEFAULT_ROLE}  # type: ignore[union-attr]
+
+    # Sync new user to Stripe as a customer
+    try:
+        from modules.ecommerce.services.subscription_service import get_or_create_stripe_customer
+        await get_or_create_stripe_customer(db, str(user["id"]), email)
+    except Exception as e:
+        logger.warning("Failed to sync Stripe customer for user %s: %s", user["id"], e)
+
+    return user
 
 
 # ---------------------------------------------------------------------------

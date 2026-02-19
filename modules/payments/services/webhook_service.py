@@ -88,6 +88,8 @@ async def verify_and_process_webhook(
             await _handle_subscription_event(db, data)
         elif event_type == "invoice.payment_failed":
             await _handle_invoice_payment_failed(db, data)
+        elif event_type == "checkout.session.completed":
+            await _handle_checkout_session_completed(db, data)
         else:
             logger.info("Unhandled webhook event type: %s", event_type)
     except Exception:
@@ -393,3 +395,37 @@ async def _handle_invoice_payment_failed(
     await subscription_service.update_subscription_from_webhook(
         db, stripe_sub_id, "past_due",
     )
+
+
+async def _handle_checkout_session_completed(
+    db: AsyncSession, session: dict[str, Any]
+) -> None:
+    """checkout.session.completed -> create subscription records from Checkout Session.
+
+    When a Stripe Checkout Session completes in subscription mode,
+    we receive the subscription ID. The subscription.created webhook
+    will handle the actual subscription record creation, but we log
+    the session completion and can clear the user's cart here.
+    """
+    session_id = session.get("id")
+    mode = session.get("mode")
+    subscription_id = session.get("subscription")
+    customer_id = session.get("customer")
+    user_id = (session.get("metadata") or {}).get("user_id")
+
+    logger.info(
+        "Checkout session completed: %s mode=%s subscription=%s customer=%s",
+        session_id, mode, subscription_id, customer_id,
+    )
+
+    # For subscription mode, the customer.subscription.created event handles
+    # the subscription record creation. We just ensure the cart is cleared.
+    if user_id:
+        await db.execute(
+            text(
+                "UPDATE ecommerce.cart SET status = 'converted' "
+                "WHERE user_id = :uid AND status = 'active'"
+            ),
+            {"uid": user_id},
+        )
+        await db.commit()

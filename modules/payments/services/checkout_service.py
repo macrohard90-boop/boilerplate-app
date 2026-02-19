@@ -40,26 +40,54 @@ async def checkout(
     order = await order_service.create_order_from_cart(db, user_id)
     order_id = str(order["id"])
 
-    # 3. Store addresses on the order
-    if billing_address is None:
-        billing_address = shipping_address
+    # 3. Store addresses on the order (shipping optional for subscriptions)
+    if shipping_address:
+        if billing_address is None:
+            billing_address = shipping_address
 
-    await db.execute(
-        text(
-            "UPDATE ecommerce.orders "
-            "SET shipping_address = CAST(:ship AS jsonb), "
-            "billing_address = CAST(:bill AS jsonb) "
-            "WHERE id = :oid"
-        ),
-        {
-            "oid": order_id,
-            "ship": json.dumps(shipping_address),
-            "bill": json.dumps(billing_address),
-        },
-    )
-    await db.commit()
+        await db.execute(
+            text(
+                "UPDATE ecommerce.orders "
+                "SET shipping_address = CAST(:ship AS jsonb), "
+                "billing_address = CAST(:bill AS jsonb) "
+                "WHERE id = :oid"
+            ),
+            {
+                "oid": order_id,
+                "ship": json.dumps(shipping_address),
+                "bill": json.dumps(billing_address),
+            },
+        )
+        await db.commit()
+    elif billing_address:
+        await db.execute(
+            text(
+                "UPDATE ecommerce.orders "
+                "SET billing_address = CAST(:bill AS jsonb) "
+                "WHERE id = :oid"
+            ),
+            {
+                "oid": order_id,
+                "bill": json.dumps(billing_address),
+            },
+        )
+        await db.commit()
 
-    # 4. Create Stripe PaymentIntent
+    # 4. Handle zero-cost orders (e.g. 100% discount)
+    if order["total"] <= 0:
+        await order_service.update_order_status(db, order_id, "completed")
+        return {
+            "order_id": order_id,
+            "order_number": order["order_number"],
+            "client_secret": None,
+            "subtotal": order["subtotal"],
+            "discount_amount": order.get("discount_amount", 0),
+            "tax_amount": order.get("tax_amount", 0),
+            "total": 0,
+            "currency": order.get("currency", "USD"),
+        }
+
+    # 5. Create Stripe PaymentIntent
     from modules.payments.services import payment_settings_service
 
     provider = get_payment_provider()
@@ -80,7 +108,7 @@ async def checkout(
         await order_service.update_order_status(db, order_id, "rejected")
         raise ValueError(f"Payment creation failed: {e}") from e
 
-    # 5. Insert payment record
+    # 6. Insert payment record
     await payment_service.create_payment_record(
         db,
         order_id=order_id,
@@ -91,10 +119,10 @@ async def checkout(
         status="pending",
     )
 
-    # 6. Update order status to processing
+    # 7. Update order status to processing
     await order_service.update_order_status(db, order_id, "processing")
 
-    # 7. Return checkout response
+    # 8. Return checkout response
     return {
         "order_id": order_id,
         "order_number": order["order_number"],

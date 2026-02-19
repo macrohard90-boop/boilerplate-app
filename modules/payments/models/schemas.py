@@ -18,7 +18,7 @@ class AddressSchema(BaseModel):
 
 
 class CheckoutRequest(BaseModel):
-    shipping_address: AddressSchema
+    shipping_address: AddressSchema | None = None
     billing_address: AddressSchema | None = None
     discount_code: str | None = None
 
@@ -26,12 +26,23 @@ class CheckoutRequest(BaseModel):
 class CheckoutResponse(BaseModel):
     order_id: str
     order_number: str
-    client_secret: str
+    client_secret: str | None = None
     subtotal: int
     discount_amount: int = 0
     tax_amount: int = 0
     total: int
     currency: str = "USD"
+
+
+# ── Checkout Session (subscriptions / mixed carts) ───────
+
+class CheckoutSessionRequest(BaseModel):
+    discount_code: str | None = None
+
+
+class CheckoutSessionResponse(BaseModel):
+    session_url: str
+    session_id: str
 
 
 # ── Payment Status ───────────────────────────────────────

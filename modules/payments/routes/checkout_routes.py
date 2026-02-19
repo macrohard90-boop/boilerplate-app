@@ -9,12 +9,14 @@ from modules.payments.adapters import get_payment_provider
 from modules.payments.models.schemas import (
     CheckoutRequest,
     CheckoutResponse,
+    CheckoutSessionRequest,
+    CheckoutSessionResponse,
     ErrorResponse,
     PaymentStatusResponse,
     RefundRequest,
     RefundResponse,
 )
-from modules.payments.services import checkout_service, payment_service
+from modules.payments.services import checkout_service, payment_service, subscription_checkout_service
 from modules.ecommerce.services import order_service
 
 router = APIRouter()
@@ -40,7 +42,7 @@ async def create_checkout(
         result = await checkout_service.checkout(
             db,
             user_id=str(user["user_id"]),
-            shipping_address=data.shipping_address.model_dump(),
+            shipping_address=data.shipping_address.model_dump() if data.shipping_address else None,
             billing_address=data.billing_address.model_dump() if data.billing_address else None,
             discount_code=data.discount_code,
         )
@@ -49,6 +51,37 @@ async def create_checkout(
         raise HTTPException(
             status_code=400,
             detail={"error": "checkout_failed", "message": str(e), "details": None},
+        )
+
+
+@router.post(
+    "/checkout/session",
+    response_model=CheckoutSessionResponse,
+    responses={400: {"model": ErrorResponse}},
+)
+async def create_checkout_session(
+    data: CheckoutSessionRequest,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    user: dict = Depends(get_current_user),
+    _csrf: None = Depends(validate_csrf),
+):
+    """Create a Stripe Checkout Session for carts with subscription items.
+
+    Returns a session URL to redirect the user to Stripe-hosted checkout.
+    """
+    try:
+        result = await subscription_checkout_service.create_subscription_checkout_session(
+            db,
+            user_id=str(user["user_id"]),
+            email=user.get("email", ""),
+            discount_code=data.discount_code,
+        )
+        return result
+    except ValueError as e:
+        raise HTTPException(
+            status_code=400,
+            detail={"error": "checkout_session_failed", "message": str(e), "details": None},
         )
 
 

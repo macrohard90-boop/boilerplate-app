@@ -55,6 +55,7 @@ class StripeProvider(PaymentProvider, CatalogProvider):
         customer_id: str,
         *,
         merchant_account_id: str | None = None,
+        fee_amount: int | None = None,
         metadata: dict[str, Any] | None = None,
         payment_method_types: list[str] | None = None,
     ) -> PaymentResult:
@@ -76,8 +77,9 @@ class StripeProvider(PaymentProvider, CatalogProvider):
 
         # If merchant account, use Connect with platform fee
         if merchant_account_id:
-            fee = int(amount * self._platform_fee_percent / 100)
-            intent_params["application_fee_amount"] = fee
+            fee = fee_amount if fee_amount is not None else int(amount * self._platform_fee_percent / 100)
+            if fee > 0:
+                intent_params["application_fee_amount"] = fee
             intent_params["stripe_account"] = merchant_account_id
 
         pi = stripe.PaymentIntent.create(**intent_params)
@@ -446,6 +448,32 @@ class StripeProvider(PaymentProvider, CatalogProvider):
 
     async def archive_price(self, provider_price_id: str) -> None:
         stripe.Price.modify(provider_price_id, active=False)
+
+    # -----------------------------------------------------------------------
+    # Checkout Session (for subscriptions and mixed carts)
+    # -----------------------------------------------------------------------
+
+    async def create_checkout_session(
+        self,
+        line_items: list[dict[str, Any]],
+        *,
+        mode: str = "subscription",
+        customer_id: str | None = None,
+        success_url: str,
+        cancel_url: str,
+        metadata: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        params: dict[str, Any] = {
+            "line_items": line_items,
+            "mode": mode,
+            "success_url": success_url,
+            "cancel_url": cancel_url,
+            "metadata": metadata or {},
+        }
+        if customer_id:
+            params["customer"] = customer_id
+        session = stripe.checkout.Session.create(**params)
+        return {"session_id": session.id, "url": session.url}
 
 
 def get_stripe_provider() -> StripeProvider:

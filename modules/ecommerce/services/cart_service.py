@@ -25,7 +25,7 @@ async def _get_variant_info(db: AsyncSession, variant_id: str) -> dict[str, Any]
             text(
                 "SELECT v.id AS variant_id, v.product_id, v.name AS variant_name, "
                 "v.price_override, v.stock_quantity, v.sku, "
-                "p.name AS product_name, p.base_price, p.currency, p.status "
+                "p.name AS product_name, p.base_price, p.currency, p.status, p.pricing_type "
                 "FROM ecommerce.product_variants v "
                 "JOIN ecommerce.products p ON p.id = v.product_id "
                 "WHERE v.id = :vid AND p.deleted_at IS NULL"
@@ -100,7 +100,8 @@ async def _get_auth_cart_items(db: AsyncSession, cart_id: str) -> list[dict[str,
     rows = (
         await db.execute(
             text(
-                "SELECT ci.*, p.name AS product_name, v.name AS variant_name, p.currency "
+                "SELECT ci.*, p.name AS product_name, v.name AS variant_name, "
+                "p.currency, p.pricing_type "
                 "FROM ecommerce.cart_items ci "
                 "JOIN ecommerce.products p ON p.id = ci.product_id "
                 "JOIN ecommerce.product_variants v ON v.id = ci.variant_id "
@@ -387,6 +388,7 @@ async def _get_auth_cart_response(db: AsyncSession, user_id: str) -> dict[str, A
             "product_name": item["product_name"],
             "variant_name": item["variant_name"],
             "currency": item.get("currency", "USD"),
+            "pricing_type": item.get("pricing_type", "one_time"),
         })
 
     discount_amount = 0
@@ -435,6 +437,7 @@ async def _get_guest_cart_response(
             "product_name": i.get("product_name", ""),
             "variant_name": i.get("variant_name", ""),
             "currency": i.get("currency", "USD"),
+            "pricing_type": i.get("pricing_type", "one_time"),
         })
 
     return {
@@ -533,5 +536,6 @@ async def _add_guest_item(
         "product_name": info["product_name"],
         "variant_name": info["variant_name"],
         "currency": info.get("currency", "USD"),
+        "pricing_type": info.get("pricing_type", "one_time"),
     })
     await _save_guest_cart(redis, session_id, guest_cart)

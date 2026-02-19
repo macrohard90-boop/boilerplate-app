@@ -9,6 +9,92 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Claude Code shou
 ## [Unreleased]
 _Changes staged but not yet tagged._
 
+## [2026-02-19] - Stripe Integration Improvements: Fee Tiers, Mixed Checkout, Zero-Cost Orders
+
+### Added
+
+**Subscription Plans Management Hub:**
+- **Admin subscriptions layout** (`frontend/app/admin/subscriptions/layout.tsx`) — horizontal sub-tabs (Plans / Subscribers)
+- **Subscription plans page** (`frontend/app/admin/subscriptions/plans/page.tsx`) — full CRUD for recurring products with subscriber count, status filters, create/edit/archive modals
+- **Subscribers page** (`frontend/app/admin/subscriptions/subscribers/page.tsx`) — moved from parent page, admin cancel with confirmation modal
+- **Admin cancel subscription endpoint** — `POST /admin/subscriptions/{id}/cancel`
+- **`pricing_type` filter** on product list endpoint — `GET /products?pricing_type=recurring`
+- **`subscriber_count`** field on ProductResponse
+
+**Phase 1 — Auto-Sync Customers to Stripe at Signup:**
+- New users are automatically synced to Stripe via `get_or_create_stripe_customer()` at registration
+- Non-blocking: if Stripe call fails, user registration still succeeds (logged as warning)
+
+**Phase 2 — Volume-Based Merchant Fee Tiers:**
+- **Fee tiers migration** (`migrations/014_merchant_fee_tiers.sql`) — `ecommerce.fee_tiers` (global schedule) + `ecommerce.merchant_fee_overrides` (per-merchant) + `total_sales_volume` column on merchant_accounts
+- **Fee tier service** (`modules/ecommerce/services/fee_tier_service.py`) — full CRUD for global tiers, per-merchant override management, `calculate_fee()` (looks up merchant volume, finds matching tier), `increment_merchant_volume()`
+- **Fee tier schemas** — `FeeTierCreate`, `FeeTierUpdate`, `FeeTierResponse`, `MerchantFeeOverrideRequest`, `MerchantFeeOverrideResponse`
+- **7 admin endpoints**: `GET/POST/PUT/DELETE /admin/fee-tiers`, `GET/PUT/DELETE /admin/merchants/{id}/fee-overrides`
+- **Admin fee tiers page** (`frontend/app/admin/payments/fees/page.tsx`) — glass table with volume ranges, fee %, flat fee, create/edit modal, delete confirmation
+- **Payments layout** (`frontend/app/admin/payments/layout.tsx`) — sub-tabs (Methods / Fee Tiers)
+- **3 seed tiers**: Starter (15% + $0.30, up to $10K), Growth (12% + $0.25, $10K-$50K), Enterprise (10% + $0.20, $50K+)
+
+**Phase 3 — Zero-Cost Order Support:**
+- Orders with `total <= 0` (e.g. 100% discount) skip PaymentIntent creation, complete immediately
+- Frontend redirects to confirmation page for free orders instead of showing Stripe payment form
+
+**Phase 4 — Mixed Cart / Stripe Checkout Sessions:**
+- **`create_checkout_session()`** on PaymentProvider interface + Stripe adapter — creates Stripe Checkout Sessions for subscription/mixed carts
+- **Subscription checkout service** (`modules/payments/services/subscription_checkout_service.py`) — builds Checkout Session from cart items with `stripe_price_id`
+- **`POST /checkout/session`** endpoint — returns `session_url` for redirect to Stripe-hosted checkout
+- **`checkout.session.completed`** webhook handler — marks cart as converted
+- Frontend detects subscription items and redirects to Stripe Checkout instead of embedded PaymentElement
+
+**Phase 5 — Optional Shipping for Subscriptions:**
+- `shipping_address` made optional in `CheckoutRequest`
+- Checkout service only stores addresses when provided
+- Frontend skips shipping step for subscription-only carts, shows "Digital subscription — no shipping required"
+- Subscription items labeled with "(subscription)" badge in order review
+
+**Phase 6 — Application Fee Guard:**
+- `application_fee_amount` only sent to Stripe when `fee > 0` (prevents API error on very small orders)
+
+### Changed
+- **PaymentProvider interface** — `create_payment()` now accepts `fee_amount: int | None` parameter for pre-calculated fees; added `create_checkout_session()` method
+- **StripeProvider** — uses `fee_amount` when provided, falls back to `platform_fee_percent` calculation
+- **CartItem** — includes `pricing_type` field throughout backend (cart service queries, schemas) and frontend (CartItem interface, cart-context)
+- **Checkout page** — cart type detection (`hasSubscription`, `hasOneTime`, `subscriptionOnly`) drives flow routing
+
+### Schema Changes
+- Migration `014_merchant_fee_tiers.sql`: creates `ecommerce.fee_tiers`, `ecommerce.merchant_fee_overrides`, adds `total_sales_volume BIGINT` to `ecommerce.merchant_accounts`
+
+### Files Created
+- `migrations/014_merchant_fee_tiers.sql`
+- `modules/ecommerce/services/fee_tier_service.py`
+- `modules/payments/services/subscription_checkout_service.py`
+- `frontend/app/admin/payments/layout.tsx`
+- `frontend/app/admin/payments/fees/page.tsx`
+- `frontend/app/admin/subscriptions/layout.tsx`
+- `frontend/app/admin/subscriptions/plans/page.tsx`
+- `frontend/app/admin/subscriptions/subscribers/page.tsx`
+
+### Files Modified
+- `modules/auth/services/auth_service.py` — Stripe customer sync at signup
+- `modules/ecommerce/models/schemas.py` — fee tier schemas, `pricing_type` on CartItemResponse, `subscriber_count` on ProductResponse
+- `modules/ecommerce/routes/admin_routes.py` — fee tier + merchant override + cancel subscription endpoints
+- `modules/ecommerce/routes/product_routes.py` — `pricing_type` query param
+- `modules/ecommerce/services/cart_service.py` — `pricing_type` in cart item queries and serialization
+- `modules/ecommerce/services/product_service.py` — `pricing_type` filter, subscriber count JOIN
+- `modules/ecommerce/services/subscription_service.py` — `admin_cancel_subscription()`
+- `modules/payments/adapters/stripe_provider.py` — `fee_amount` param, `create_checkout_session()`, fee guard
+- `modules/payments/interfaces/payment_provider.py` — `fee_amount` param, `create_checkout_session()` method
+- `modules/payments/models/schemas.py` — optional `shipping_address`/`client_secret`, checkout session schemas
+- `modules/payments/routes/checkout_routes.py` — `/checkout/session` endpoint, optional shipping
+- `modules/payments/services/checkout_service.py` — zero-cost guard, conditional address storage
+- `modules/payments/services/webhook_service.py` — `checkout.session.completed` handler
+- `frontend/app/admin/catalog/products/[id]/page.tsx` — subscription fields on Product interface
+- `frontend/app/admin/subscriptions/page.tsx` — redirect to plans sub-tab
+- `frontend/app/checkout/page.tsx` — cart type routing, subscription checkout, skip shipping, free orders
+- `frontend/lib/cart-context.tsx` — `pricing_type` on CartItem
+- `docs/ARCHITECTURE.md` — new tables, updated PaymentProvider interface
+
+---
+
 ## [2026-02-19] - Product Catalog Restructure, Subscriptions & Stripe Coupon Sync
 
 ### Added

@@ -107,6 +107,7 @@ class PaymentProvider(ABC):
         customer_id: str,
         *,
         merchant_account_id: str | None = None,
+        fee_amount: int | None = None,
         metadata: dict[str, Any] | None = None,
         payment_method_types: list[str] | None = None,
     ) -> PaymentResult:
@@ -216,4 +217,20 @@ class PaymentProvider(ABC):
 
     async def get_subscription(self, subscription_id: str) -> SubscriptionResult:
         """Get current status of a subscription."""
+        raise NotImplementedError
+
+    async def create_checkout_session(
+        self,
+        line_items: list[dict[str, Any]],
+        *,
+        mode: str = "subscription",
+        customer_id: str | None = None,
+        success_url: str,
+        cancel_url: str,
+        metadata: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Create a hosted checkout session (e.g. Stripe Checkout).
+
+        Returns dict with ``session_id`` and ``url``.
+        """
         raise NotImplementedError

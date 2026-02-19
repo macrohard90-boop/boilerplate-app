@@ -10,7 +10,9 @@
 ### 1.1 PaymentProvider (modules/payments/interfaces/)
 ```python
 class PaymentProvider(ABC):
-    async def create_payment(order_id, amount, currency, customer_id, *, payment_method_types=None) -> PaymentResult
+    async def create_payment(order_id, amount, currency, customer_id, *,
+                             merchant_account_id=None, fee_amount=None,
+                             payment_method_types=None) -> PaymentResult
     async def refund(payment_id, amount) -> RefundResult
     async def get_status(payment_id) -> PaymentStatus
     async def create_merchant(merchant_data) -> MerchantAccount
@@ -20,6 +22,8 @@ class PaymentProvider(ABC):
     async def create_subscription(customer_id, price_id, *, coupon_id=None, trial_period_days=None) -> SubscriptionResult
     async def cancel_subscription(subscription_id, *, at_period_end=True) -> None
     async def get_subscription(subscription_id) -> SubscriptionResult
+    # Checkout Session (for subscriptions / mixed carts)
+    async def create_checkout_session(line_items, *, mode, customer_id, success_url, cancel_url, metadata) -> dict
     # Coupon methods
     async def create_coupon(*, coupon_type, value, currency, duration, ...) -> dict
     async def create_promotion_code(coupon_id, code) -> dict
@@ -164,6 +168,25 @@ abandoned_cart_events  id, cart_id (FK), user_id (FK), abandoned_at, reminder_co
 product_associations   id, product_a_id (FK), product_b_id (FK),
                     rule_type (frequently_bought_together/category_affinity/sequential),
                     support, confidence, lift, sample_size, computed_at
+merchant_accounts   id, user_id (FK), stripe_account_id, business_name, business_type,
+                    country, status, charges_enabled, payouts_enabled,
+                    total_sales_volume (BIGINT, cents), created_at, updated_at
+webhook_events      id, event_id (UNIQUE), event_type, created_at
+                    — idempotency guard for Stripe webhooks
+subscriptions       id, user_id (FK), product_id (FK), variant_id (nullable FK),
+                    stripe_subscription_id, status, current_period_start, current_period_end,
+                    cancel_at_period_end, canceled_at, trial_start, trial_end, created_at
+stripe_customers    id, user_id (FK UNIQUE), stripe_customer_id, created_at
+                    — maps platform users to Stripe Customer objects
+fee_tiers           id, name, min_volume (INT cents), max_volume (INT, nullable),
+                    fee_percent NUMERIC(5,2), fee_flat (INT cents), sort_order,
+                    is_default, created_at, updated_at
+                    — global volume-based platform fee schedule
+merchant_fee_overrides  id, merchant_account_id (FK), fee_percent NUMERIC(5,2),
+                    fee_flat (INT cents), min_volume, max_volume, sort_order, created_at
+                    — per-merchant fee tier overrides, UNIQUE(merchant_account_id, sort_order)
+refund_records      id, order_id (FK), provider, provider_refund_id, amount (INT cents),
+                    currency CHAR(3), created_at
 ```
 
 ### 2.3 SaaS Schema (6 tables — alternative template)

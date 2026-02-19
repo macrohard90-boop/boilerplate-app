@@ -19,9 +19,14 @@ from modules.ecommerce.models.schemas import (
     DiscountResponse,
     DiscountUpdate,
     DownloadUrlResponse,
+    FeeTierCreate,
+    FeeTierResponse,
+    FeeTierUpdate,
     InventoryAdjust,
     InventoryRecordResponse,
     LowStockResponse,
+    MerchantFeeOverrideRequest,
+    MerchantFeeOverrideResponse,
     OrderDetailResponse,
     OrderListResponse,
     OrderResponse,
@@ -33,6 +38,7 @@ from backend.core.dependencies import get_current_user
 from modules.ecommerce.services import (
     digital_asset_service,
     discount_service,
+    fee_tier_service,
     inventory_service,
     order_service,
     review_service,
@@ -120,6 +126,18 @@ async def admin_list_subscriptions(
     db: AsyncSession = Depends(get_db),
 ) -> Any:
     return await subscription_service.list_all_subscriptions(db, page=page, page_size=page_size, status=status)
+
+
+@router.post("/subscriptions/{subscription_id}/cancel")
+async def admin_cancel_subscription(
+    subscription_id: str,
+    user: dict = Depends(require_role("admin")),
+    db: AsyncSession = Depends(get_db),
+) -> Any:
+    try:
+        return await subscription_service.admin_cancel_subscription(db, subscription_id)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail={"error": "bad_request", "message": str(e), "details": None})
 
 
 # ---------------------------------------------------------------------------
@@ -259,3 +277,85 @@ async def download_file(
 
     from fastapi.responses import RedirectResponse
     return RedirectResponse(url=asset["file_url"])
+
+
+# ---------------------------------------------------------------------------
+# Admin Fee Tiers
+# ---------------------------------------------------------------------------
+
+
+@router.get("/fee-tiers", response_model=list[FeeTierResponse])
+async def admin_list_fee_tiers(
+    user: dict = Depends(require_role("admin")),
+    db: AsyncSession = Depends(get_db),
+) -> Any:
+    return await fee_tier_service.list_default_tiers(db)
+
+
+@router.post("/fee-tiers", response_model=FeeTierResponse, status_code=201)
+async def admin_create_fee_tier(
+    body: FeeTierCreate,
+    user: dict = Depends(require_role("admin")),
+    db: AsyncSession = Depends(get_db),
+) -> Any:
+    return await fee_tier_service.create_tier(db, body.model_dump())
+
+
+@router.put("/fee-tiers/{tier_id}", response_model=FeeTierResponse)
+async def admin_update_fee_tier(
+    tier_id: str,
+    body: FeeTierUpdate,
+    user: dict = Depends(require_role("admin")),
+    db: AsyncSession = Depends(get_db),
+) -> Any:
+    try:
+        return await fee_tier_service.update_tier(db, tier_id, body.model_dump(exclude_unset=True))
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail={"error": "not_found", "message": str(e), "details": None})
+
+
+@router.delete("/fee-tiers/{tier_id}", status_code=204)
+async def admin_delete_fee_tier(
+    tier_id: str,
+    user: dict = Depends(require_role("admin")),
+    db: AsyncSession = Depends(get_db),
+) -> None:
+    try:
+        await fee_tier_service.delete_tier(db, tier_id)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail={"error": "not_found", "message": str(e), "details": None})
+
+
+# ---------------------------------------------------------------------------
+# Merchant Fee Overrides
+# ---------------------------------------------------------------------------
+
+
+@router.get("/merchants/{merchant_id}/fee-overrides", response_model=list[MerchantFeeOverrideResponse])
+async def admin_get_merchant_fee_overrides(
+    merchant_id: str,
+    user: dict = Depends(require_role("admin")),
+    db: AsyncSession = Depends(get_db),
+) -> Any:
+    return await fee_tier_service.get_merchant_overrides(db, merchant_id)
+
+
+@router.put("/merchants/{merchant_id}/fee-overrides", response_model=list[MerchantFeeOverrideResponse])
+async def admin_set_merchant_fee_overrides(
+    merchant_id: str,
+    body: MerchantFeeOverrideRequest,
+    user: dict = Depends(require_role("admin")),
+    db: AsyncSession = Depends(get_db),
+) -> Any:
+    return await fee_tier_service.set_merchant_overrides(
+        db, merchant_id, [t.model_dump() for t in body.tiers]
+    )
+
+
+@router.delete("/merchants/{merchant_id}/fee-overrides", status_code=204)
+async def admin_clear_merchant_fee_overrides(
+    merchant_id: str,
+    user: dict = Depends(require_role("admin")),
+    db: AsyncSession = Depends(get_db),
+) -> None:
+    await fee_tier_service.clear_merchant_overrides(db, merchant_id)

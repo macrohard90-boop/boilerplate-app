@@ -144,6 +144,7 @@ class ProductResponse(BaseModel):
     recurring_interval: str | None = None
     recurring_interval_count: int = 1
     trial_period_days: int | None = None
+    subscriber_count: int = 0
     created_at: datetime
     updated_at: datetime
 
@@ -252,6 +253,7 @@ class CartItemResponse(BaseModel):
     product_name: str
     variant_name: str
     currency: str = "USD"
+    pricing_type: str = "one_time"
 
 
 class CartResponse(BaseModel):
@@ -589,6 +591,56 @@ class SubscriptionListResponse(BaseModel):
     page: int
     page_size: int
     total_pages: int
+
+
+# ---------------------------------------------------------------------------
+# Fee Tiers
+# ---------------------------------------------------------------------------
+
+class FeeTierCreate(BaseModel):
+    name: str = Field(..., min_length=1, max_length=100)
+    min_volume: int = Field(default=0, ge=0)
+    max_volume: int | None = None
+    fee_percent: float = Field(..., ge=0, le=100)
+    fee_flat: int = Field(default=0, ge=0)
+    sort_order: int = Field(default=0, ge=0)
+
+
+class FeeTierUpdate(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=100)
+    min_volume: int | None = Field(default=None, ge=0)
+    max_volume: int | None = None
+    fee_percent: float | None = Field(default=None, ge=0, le=100)
+    fee_flat: int | None = Field(default=None, ge=0)
+    sort_order: int | None = Field(default=None, ge=0)
+
+
+class FeeTierResponse(BaseModel):
+    id: UUID
+    name: str
+    min_volume: int
+    max_volume: int | None
+    fee_percent: float
+    fee_flat: int
+    sort_order: int
+    is_default: bool
+    created_at: datetime
+    updated_at: datetime
+
+
+class MerchantFeeOverrideRequest(BaseModel):
+    tiers: list[FeeTierCreate]
+
+
+class MerchantFeeOverrideResponse(BaseModel):
+    id: UUID
+    merchant_account_id: UUID
+    fee_percent: float
+    fee_flat: int
+    min_volume: int
+    max_volume: int | None
+    sort_order: int
+    created_at: datetime
 
 
 # ---------------------------------------------------------------------------

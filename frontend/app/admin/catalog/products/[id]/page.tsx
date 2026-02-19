@@ -20,6 +20,10 @@ interface Product {
   currency: string;
   status: string;
   type: string;
+  pricing_type: string;
+  recurring_interval: string | null;
+  recurring_interval_count: number;
+  trial_period_days: number | null;
   stripe_product_id: string | null;
   stripe_price_id: string | null;
   stripe_sync_status: string;
@@ -156,6 +160,10 @@ export default function AdminProductEditPage() {
             currency: product.currency,
             status: product.status,
             type: product.type,
+            pricing_type: product.pricing_type || "one_time",
+            recurring_interval: product.recurring_interval || null,
+            recurring_interval_count: product.recurring_interval_count || 1,
+            trial_period_days: product.trial_period_days || null,
           }}
           onSubmit={handleUpdate}
           onCancel={() => router.push("/admin/catalog/products")}

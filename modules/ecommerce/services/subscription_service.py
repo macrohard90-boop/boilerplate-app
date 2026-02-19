@@ -210,6 +210,45 @@ async def cancel_subscription(
     return dict(updated)
 
 
+async def admin_cancel_subscription(
+    db: AsyncSession, subscription_id: str
+) -> dict[str, Any]:
+    """Cancel a subscription at period end (admin — no user_id check)."""
+    row = (
+        await db.execute(
+            text(
+                "SELECT * FROM ecommerce.subscriptions "
+                "WHERE id = :sid"
+            ),
+            {"sid": subscription_id},
+        )
+    ).mappings().first()
+
+    if not row:
+        raise ValueError("Subscription not found")
+
+    sub = dict(row)
+    if sub["status"] in ("canceled",):
+        raise ValueError("Subscription is already canceled")
+
+    provider = get_payment_provider()
+    await provider.cancel_subscription(sub["stripe_subscription_id"], at_period_end=True)
+
+    updated = (
+        await db.execute(
+            text(
+                "UPDATE ecommerce.subscriptions "
+                "SET cancel_at_period_end = TRUE, canceled_at = NOW() "
+                "WHERE id = :sid RETURNING *"
+            ),
+            {"sid": subscription_id},
+        )
+    ).mappings().first()
+    await db.commit()
+
+    return dict(updated)
+
+
 async def list_user_subscriptions(
     db: AsyncSession, user_id: str
 ) -> list[dict[str, Any]]:

@@ -26,7 +26,7 @@ interface AddressForm {
 interface CheckoutResponse {
   order_id: string;
   order_number: string;
-  client_secret: string;
+  client_secret: string | null;
   subtotal: number;
   discount_amount: number;
   tax_amount: number;
@@ -129,6 +129,11 @@ export default function CheckoutPage() {
     );
   }
 
+  // Cart type detection — subscriptions don't need shipping
+  const hasSubscription = cart.items.some(item => item.pricing_type === "recurring");
+  const hasOneTime = cart.items.some(item => item.pricing_type !== "recurring");
+  const subscriptionOnly = hasSubscription && !hasOneTime;
+
   function updateField(setter: (v: AddressForm) => void, state: AddressForm, field: keyof AddressForm, value: string) {
     setter({ ...state, [field]: value });
   }
@@ -147,6 +152,24 @@ export default function CheckoutPage() {
   async function handleCreatePaymentIntent() {
     setProcessing(true);
     try {
+      // Subscription or mixed carts use Stripe Checkout Sessions
+      if (hasSubscription) {
+        const session = await apiFetch<{ session_url: string; session_id: string }>(
+          "/payments/checkout/session",
+          {
+            method: "POST",
+            body: JSON.stringify({
+              discount_code: cart.discount_code || null,
+            }),
+          }
+        );
+        // Redirect to Stripe-hosted checkout
+        await clearCart();
+        window.location.href = session.session_url;
+        return;
+      }
+
+      // One-time only: use embedded PaymentElement flow
       const result = await apiFetch<CheckoutResponse>("/payments/checkout", {
         method: "POST",
         body: JSON.stringify({
@@ -155,10 +178,17 @@ export default function CheckoutPage() {
           discount_code: cart.discount_code || null,
         }),
       });
-      setClientSecret(result.client_secret);
-      setOrderId(result.order_id);
       // Cart is consumed when order is created — clear it now
       await clearCart();
+
+      if (!result.client_secret) {
+        // Free order — no payment needed, redirect to confirmation
+        router.push(`/orders/${result.order_id}/confirmation?free=1`);
+        return;
+      }
+
+      setClientSecret(result.client_secret);
+      setOrderId(result.order_id);
       setStep(3);
     } catch (e: unknown) {
       const err = e as { message?: string };
@@ -203,7 +233,8 @@ export default function CheckoutPage() {
     );
   }
 
-  const stepLabels = ["Shipping", "Review", "Payment"];
+  const stepLabels = subscriptionOnly ? ["Review", "Payment"] : ["Shipping", "Review", "Payment"];
+  const steps = subscriptionOnly ? [2, 3] : [1, 2, 3];
 
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -213,17 +244,17 @@ export default function CheckoutPage() {
 
       {/* Steps indicator */}
       <div className="flex items-center gap-4 mb-10">
-        {[1, 2, 3].map((s) => (
+        {steps.map((s, idx) => (
           <div key={s} className="flex items-center gap-2">
             <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium transition-all ${
               step >= s ? "bg-accent-purple/20 text-accent-purple border border-accent-purple/40" : "glass text-text-muted"
             }`}>
-              {s}
+              {idx + 1}
             </div>
             <span className={`text-sm hidden sm:inline ${step >= s ? "text-text-primary" : "text-text-muted"}`}>
-              {stepLabels[s - 1]}
+              {stepLabels[idx]}
             </span>
-            {s < 3 && <div className={`w-10 h-px ${step > s ? "bg-accent-purple/40" : "bg-glass-border"}`} />}
+            {idx < steps.length - 1 && <div className={`w-10 h-px ${step > s ? "bg-accent-purple/40" : "bg-glass-border"}`} />}
           </div>
         ))}
       </div>
@@ -231,8 +262,8 @@ export default function CheckoutPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Form */}
         <div className="lg:col-span-2">
-          {/* Step 1: Shipping */}
-          {step === 1 && (
+          {/* Step 1: Shipping (skipped for subscription-only carts) */}
+          {step === 1 && !subscriptionOnly && (
             <div className="glass rounded-2xl p-6">
               <h2 className="text-lg font-semibold text-text-primary mb-4">Shipping Address</h2>
               <AddressFields data={shipping} onChange={(field, val) => updateField(setShipping, shipping, field, val)} />
@@ -254,8 +285,8 @@ export default function CheckoutPage() {
             </div>
           )}
 
-          {/* Step 2: Review & Create Payment */}
-          {step === 2 && (
+          {/* Step 2: Review & Create Payment (also shown as step 1 for subscription-only) */}
+          {(step === 2 || (step === 1 && subscriptionOnly)) && (
             <div className="glass rounded-2xl p-6">
               <h2 className="text-lg font-semibold text-text-primary mb-4">Order Review</h2>
               <div className="space-y-3 mb-6">
@@ -263,6 +294,9 @@ export default function CheckoutPage() {
                   <div key={cartItemKey(item)} className="flex justify-between text-sm">
                     <span className="text-text-secondary">
                       {item.product_name} {item.variant_name ? `(${item.variant_name})` : ""} x{item.quantity}
+                      {item.pricing_type === "recurring" && (
+                        <span className="ml-1 text-accent-blue text-xs">(subscription)</span>
+                      )}
                     </span>
                     <span className="text-text-primary">{formatPrice(item.total_price)}</span>
                   </div>
@@ -284,11 +318,20 @@ export default function CheckoutPage() {
                   <span className="gradient-text">{formatPrice(cart.total)}</span>
                 </div>
               </div>
-              <div className="text-sm text-text-secondary mb-6">
-                <p><strong>Ship to:</strong> {shipping.first_name} {shipping.last_name}, {shipping.address_line1}, {shipping.city}, {shipping.state} {shipping.postal_code}</p>
-              </div>
+              {!subscriptionOnly && (
+                <div className="text-sm text-text-secondary mb-6">
+                  <p><strong>Ship to:</strong> {shipping.first_name} {shipping.last_name}, {shipping.address_line1}, {shipping.city}, {shipping.state} {shipping.postal_code}</p>
+                </div>
+              )}
+              {subscriptionOnly && (
+                <div className="text-sm text-text-muted mb-6">
+                  <p>Digital subscription — no shipping required.</p>
+                </div>
+              )}
               <div className="flex gap-3">
-                <button onClick={() => setStep(1)} className="btn-secondary text-sm flex-1">Back</button>
+                {!subscriptionOnly && (
+                  <button onClick={() => setStep(1)} className="btn-secondary text-sm flex-1">Back</button>
+                )}
                 <button
                   onClick={handleCreatePaymentIntent}
                   disabled={processing}

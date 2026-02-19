@@ -42,11 +42,13 @@ async def list_products(
     category_id: str | None = None,
     search: str | None = None,
     type: str | None = None,
+    pricing_type: str | None = None,
     db: AsyncSession = Depends(get_db),
 ) -> Any:
     return await product_service.list_products(
         db, page=page, page_size=page_size, status=status,
         category_id=category_id, search=search, product_type=type,
+        pricing_type=pricing_type,
     )
 
 

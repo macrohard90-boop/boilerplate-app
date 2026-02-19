@@ -38,6 +38,7 @@ async def list_products(
     category_id: str | None = None,
     search: str | None = None,
     product_type: str | None = None,
+    pricing_type: str | None = None,
 ) -> dict[str, Any]:
     """List products with pagination, filtering, and search."""
     where_clauses = ["p.deleted_at IS NULL"]
@@ -49,6 +50,9 @@ async def list_products(
     if product_type:
         where_clauses.append("p.type = :ptype")
         params["ptype"] = product_type
+    if pricing_type:
+        where_clauses.append("p.pricing_type = :pricing_type")
+        params["pricing_type"] = pricing_type
     if search:
         where_clauses.append("(p.name ILIKE :search OR p.description ILIKE :search)")
         params["search"] = f"%{search}%"
@@ -69,7 +73,15 @@ async def list_products(
     params["offset"] = offset
 
     items_q = (
-        f"SELECT p.* FROM ecommerce.products p WHERE {where} "
+        f"SELECT p.*, COALESCE(sc.subscriber_count, 0) AS subscriber_count "
+        f"FROM ecommerce.products p "
+        f"LEFT JOIN ("
+        f"  SELECT product_id, COUNT(*) AS subscriber_count "
+        f"  FROM ecommerce.subscriptions "
+        f"  WHERE status IN ('active', 'trialing') "
+        f"  GROUP BY product_id"
+        f") sc ON sc.product_id = p.id "
+        f"WHERE {where} "
         f"ORDER BY p.created_at DESC LIMIT :limit OFFSET :offset"
     )
     rows = (await db.execute(text(items_q), params)).mappings().all()
