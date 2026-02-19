@@ -99,7 +99,73 @@ Read `docs/phases/phase-4.md` for the payment backend spec and `docs/ARCHITECTUR
 - `migrations/008_payment_charge_id.sql`
 - `docs/guides/stripe-setup.md`
 
-## Files Modified
+## Post-Build Stripe Integration Improvements
+
+11. **Auto-sync customers to Stripe at signup** (modules/auth/):
+    - [x] `register_user()` calls `get_or_create_stripe_customer()` after user creation
+    - [x] Non-blocking: Stripe failure doesn't break registration
+
+12. **Volume-based merchant fee tiers** (modules/ecommerce/ + frontend/):
+    - [x] Migration `014_merchant_fee_tiers.sql` — `fee_tiers`, `merchant_fee_overrides` tables, `total_sales_volume` column
+    - [x] `fee_tier_service.py` — CRUD for global tiers, per-merchant overrides, `calculate_fee()`, `increment_merchant_volume()`
+    - [x] 7 admin endpoints: CRUD for fee tiers + merchant override management
+    - [x] Fee tier schemas: `FeeTierCreate`, `FeeTierUpdate`, `FeeTierResponse`, `MerchantFeeOverrideRequest`
+    - [x] Admin UI: `frontend/app/admin/payments/fees/page.tsx` — glass table with create/edit modal
+    - [x] Payments layout with sub-tabs (Methods / Fee Tiers)
+    - [x] `create_payment()` accepts `fee_amount` parameter for pre-calculated fees
+
+13. **Zero-cost order support** (modules/payments/):
+    - [x] Orders with `total <= 0` skip PaymentIntent, complete immediately
+    - [x] `client_secret` made optional in `CheckoutResponse`
+    - [x] Frontend redirects to confirmation for free orders
+
+14. **Mixed cart / Stripe Checkout Sessions** (modules/payments/ + frontend/):
+    - [x] `create_checkout_session()` on PaymentProvider interface + Stripe adapter
+    - [x] `subscription_checkout_service.py` — builds Checkout Session from cart
+    - [x] `POST /checkout/session` endpoint returns `session_url` for redirect
+    - [x] `checkout.session.completed` webhook handler
+    - [x] Frontend detects subscription items, redirects to Stripe-hosted checkout
+
+15. **Optional shipping for subscriptions** (modules/payments/ + frontend/):
+    - [x] `shipping_address` made optional in `CheckoutRequest`
+    - [x] Checkout service conditionally stores addresses
+    - [x] `pricing_type` tracked through cart pipeline (backend queries + schemas + frontend)
+    - [x] Checkout page skips shipping step for subscription-only carts
+
+16. **Application fee guard** (modules/payments/adapters/):
+    - [x] `application_fee_amount` only sent when `fee > 0`
+
+17. **Subscription Plans Management Hub** (frontend/app/admin/subscriptions/):
+    - [x] Layout with Plans / Subscribers sub-tabs
+    - [x] Plans page: full CRUD for recurring products with subscriber count
+    - [x] Subscribers page: admin cancel with confirmation modal
+    - [x] `pricing_type` filter on product list endpoint
+    - [x] `subscriber_count` field on ProductResponse
+
+## Files Created (original)
+- `frontend/lib/stripe.ts`
+- `frontend/app/checkout/page.tsx` (rewritten)
+- `frontend/app/orders/[id]/confirmation/page.tsx` (rewritten)
+- `frontend/app/orders/[id]/pay/page.tsx`
+- `frontend/app/merchant/register/page.tsx`
+- `frontend/app/merchant/onboard/page.tsx`
+- `frontend/app/merchant/dashboard/page.tsx`
+- `modules/payments/adapters/__init__.py` (provider factory)
+- `modules/payments/services/order_reaper.py`
+- `migrations/008_payment_charge_id.sql`
+- `docs/guides/stripe-setup.md`
+
+## Files Created (post-build improvements)
+- `migrations/014_merchant_fee_tiers.sql`
+- `modules/ecommerce/services/fee_tier_service.py`
+- `modules/payments/services/subscription_checkout_service.py`
+- `frontend/app/admin/payments/layout.tsx`
+- `frontend/app/admin/payments/fees/page.tsx`
+- `frontend/app/admin/subscriptions/layout.tsx`
+- `frontend/app/admin/subscriptions/plans/page.tsx`
+- `frontend/app/admin/subscriptions/subscribers/page.tsx`
+
+## Files Modified (original)
 - `frontend/lib/api.ts` — CSRF token storage + auto-header
 - `frontend/lib/auth-context.tsx` — capture csrf_token from responses
 - `frontend/components/Header.tsx` — merchant/customer nav links
@@ -119,3 +185,20 @@ Read `docs/phases/phase-4.md` for the payment backend spec and `docs/ARCHITECTUR
 - `modules/payments/services/webhook_service.py` — use factory for verify_webhook, add charge.succeeded
 - `modules/payments/services/merchant_service.py` — use factory for all provider calls
 - `modules/payments/services/order_reaper.py` — use factory for cancel_payment
+
+## Files Modified (post-build improvements)
+- `modules/auth/services/auth_service.py` — Stripe customer sync at signup
+- `modules/ecommerce/models/schemas.py` — fee tier schemas, pricing_type on CartItemResponse
+- `modules/ecommerce/routes/admin_routes.py` — fee tier + merchant override + cancel subscription endpoints
+- `modules/ecommerce/routes/product_routes.py` — pricing_type query param
+- `modules/ecommerce/services/cart_service.py` — pricing_type in cart item queries
+- `modules/ecommerce/services/product_service.py` — pricing_type filter, subscriber count JOIN
+- `modules/ecommerce/services/subscription_service.py` — admin_cancel_subscription()
+- `modules/payments/adapters/stripe_provider.py` — fee_amount param, create_checkout_session(), fee guard
+- `modules/payments/interfaces/payment_provider.py` — fee_amount param, create_checkout_session()
+- `modules/payments/models/schemas.py` — optional shipping/client_secret, checkout session schemas
+- `modules/payments/routes/checkout_routes.py` — /checkout/session endpoint, optional shipping
+- `modules/payments/services/checkout_service.py` — zero-cost guard, conditional address storage
+- `modules/payments/services/webhook_service.py` — checkout.session.completed handler
+- `frontend/app/checkout/page.tsx` — cart type routing, subscription checkout, skip shipping
+- `frontend/lib/cart-context.tsx` — pricing_type on CartItem

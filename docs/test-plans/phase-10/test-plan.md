@@ -25,7 +25,13 @@
 14. [Section M: Product Catalog & Coupons UI](#section-m-product-catalog--coupons-ui)
 15. [Section N: Subscriptions Lifecycle](#section-n-subscriptions-lifecycle)
 16. [Section O: Stripe Coupon Sync](#section-o-stripe-coupon-sync)
-17. [Test Summary](#test-summary)
+17. [Section P: Customer Auto-Sync to Stripe](#section-p-customer-auto-sync-to-stripe)
+18. [Section Q: Volume-Based Fee Tiers](#section-q-volume-based-fee-tiers)
+19. [Section R: Zero-Cost Orders](#section-r-zero-cost-orders)
+20. [Section S: Subscription Plans Management Hub](#section-s-subscription-plans-management-hub)
+21. [Section T: Mixed Cart / Checkout Sessions](#section-t-mixed-cart--checkout-sessions)
+22. [Section U: Optional Shipping for Subscriptions](#section-u-optional-shipping-for-subscriptions)
+23. [Test Summary](#test-summary)
 
 ---
 
@@ -255,6 +261,95 @@ All passwords: `Test1234!`
 
 ---
 
+---
+
+## Section P: Customer Auto-Sync to Stripe
+
+| # | Test | Steps | Expected | Status |
+|---|------|-------|----------|--------|
+| P1 | New user gets Stripe customer | POST `/api/auth/register` with new email | User created, `ecommerce.stripe_customers` row exists | [ ] |
+| P2 | Stripe sync failure doesn't break registration | Register with Stripe key missing/invalid | User created successfully, warning logged | [ ] |
+| P3 | Existing user has Stripe customer | Login as existing user, check `stripe_customers` table | Row exists with `stripe_customer_id` | [ ] |
+
+---
+
+## Section Q: Volume-Based Fee Tiers
+
+| # | Test | Steps | Expected | Status |
+|---|------|-------|----------|--------|
+| Q1 | Migration 014 applies | Check `ecommerce.fee_tiers` table exists | Table exists with 3 seed rows (Starter, Growth, Enterprise) | [ ] |
+| Q2 | Merchant fee overrides table exists | Check `ecommerce.merchant_fee_overrides` table | Table exists with UNIQUE constraint on (merchant_account_id, sort_order) | [ ] |
+| Q3 | List default fee tiers | GET `/api/ecommerce/admin/fee-tiers` as admin | Returns 3 tiers sorted by sort_order | [ ] |
+| Q4 | Create fee tier | POST `/api/ecommerce/admin/fee-tiers` with name, fee_percent, min/max volume | 201, tier created with correct values | [ ] |
+| Q5 | Update fee tier | PUT `/api/ecommerce/admin/fee-tiers/{id}` with new fee_percent | Tier updated, updated_at changed | [ ] |
+| Q6 | Delete fee tier | DELETE `/api/ecommerce/admin/fee-tiers/{id}` | 204, tier removed from list | [ ] |
+| Q7 | Non-admin rejected | GET `/api/ecommerce/admin/fee-tiers` as customer | 403 Forbidden | [ ] |
+| Q8 | Set merchant overrides | PUT `/api/ecommerce/admin/merchants/{id}/fee-overrides` with custom tiers | Returns new override list | [ ] |
+| Q9 | Get merchant overrides | GET `/api/ecommerce/admin/merchants/{id}/fee-overrides` | Returns previously set overrides | [ ] |
+| Q10 | Clear merchant overrides | DELETE `/api/ecommerce/admin/merchants/{id}/fee-overrides` | 204, overrides cleared | [ ] |
+| Q11 | Fee tier admin page loads | Navigate to `/admin/payments/fees` | Glass table with 3 default tiers, "Add Tier" button | [ ] |
+| Q12 | Payments layout has sub-tabs | Navigate to `/admin/payments` | Sub-tabs: Methods, Fee Tiers | [ ] |
+| Q13 | Create tier via admin UI | Click "Add Tier", fill form, save | New tier appears in table | [ ] |
+| Q14 | Edit tier via admin UI | Click "Edit" on tier, change fee_percent, save | Tier updated in table | [ ] |
+| Q15 | Delete tier via admin UI | Click "Delete", confirm | Tier removed from table | [ ] |
+| Q16 | Fee calculation with default tiers | Call `calculate_fee()` with merchant volume=0, amount=10000 | Returns Starter tier rates (15% + $0.30) | [ ] |
+| Q17 | Fee calculation with custom overrides | Set merchant override, call `calculate_fee()` | Returns custom tier rates | [ ] |
+| Q18 | Application fee guard | Create payment with amount where fee rounds to 0 | No `application_fee_amount` sent to Stripe | [ ] |
+
+---
+
+## Section R: Zero-Cost Orders
+
+| # | Test | Steps | Expected | Status |
+|---|------|-------|----------|--------|
+| R1 | 100% discount checkout | Apply 100% discount code, POST `/api/payments/checkout` | `client_secret: null`, `total: 0`, order status "completed" | [ ] |
+| R2 | Free order skips PaymentIntent | After R1, check `ecommerce.payment_records` | No payment record for the order | [ ] |
+| R3 | Frontend handles free order | Complete checkout with 100% discount | Redirects to `/orders/{id}/confirmation?free=1` (no Stripe form) | [ ] |
+| R4 | Non-zero order still creates PaymentIntent | Checkout with partial/no discount | `client_secret` present, normal payment flow | [ ] |
+
+---
+
+## Section S: Subscription Plans Management Hub
+
+| # | Test | Steps | Expected | Status |
+|---|------|-------|----------|--------|
+| S1 | Subscriptions layout renders tabs | Navigate to `/admin/subscriptions` | Redirects to `/admin/subscriptions/plans` | [ ] |
+| S2 | Plans tab shows recurring products | Navigate to `/admin/subscriptions/plans` | Lists products with `pricing_type=recurring`, subscriber count column | [ ] |
+| S3 | Subscribers tab shows subscriptions | Navigate to `/admin/subscriptions/subscribers` | Lists subscriptions with customer email, status, cancel button | [ ] |
+| S4 | Admin cancel subscription | Click cancel on subscriber, confirm | Subscription canceled, status updated | [ ] |
+| S5 | Filter products by pricing_type | GET `/api/ecommerce/products?pricing_type=recurring` | Only recurring products returned | [ ] |
+| S6 | Subscriber count in response | GET `/api/ecommerce/products?pricing_type=recurring` | `subscriber_count` field present (integer) | [ ] |
+
+---
+
+## Section T: Mixed Cart / Checkout Sessions
+
+**Requires:** Stripe API keys configured, products synced to Stripe with `stripe_price_id`
+
+| # | Test | Steps | Expected | Status |
+|---|------|-------|----------|--------|
+| T1 | Checkout session endpoint exists | POST `/api/payments/checkout/session` with auth + CSRF | Returns response (or meaningful error) | [ ] |
+| T2 | Subscription cart creates Checkout Session | Add recurring product to cart, POST `/checkout/session` | Returns `session_url` pointing to Stripe | [ ] |
+| T3 | Mixed cart creates Checkout Session | Add recurring + one-time product, POST `/checkout/session` | Returns `session_url` with both items | [ ] |
+| T4 | One-time-only cart uses PaymentElement | Cart with only one-time items, checkout | Uses embedded PaymentElement flow (not redirect) | [ ] |
+| T5 | Unsynced product rejected | Add product without `stripe_price_id`, POST `/checkout/session` | 400 "not synced to Stripe" | [ ] |
+| T6 | checkout.session.completed webhook | Send `checkout.session.completed` event | Cart marked as "converted" | [ ] |
+| T7 | Frontend detects subscription items | Add recurring item to cart, navigate to `/checkout` | Skips shipping step, shows "Proceed to Payment" | [ ] |
+
+---
+
+## Section U: Optional Shipping for Subscriptions
+
+| # | Test | Steps | Expected | Status |
+|---|------|-------|----------|--------|
+| U1 | Checkout without shipping_address | POST `/api/payments/checkout` with `shipping_address: null` | Request accepted (no 422 validation error) | [ ] |
+| U2 | Subscription-only skips shipping step | Cart with only recurring items, go to checkout | Shipping step skipped, shows Review directly | [ ] |
+| U3 | One-time cart requires shipping | Cart with one-time items, go to checkout | Shipping step shown as first step | [ ] |
+| U4 | Cart items show pricing_type | GET `/api/ecommerce/cart` with mixed items | Each item has `pricing_type` field | [ ] |
+| U5 | Subscription items labeled in review | Subscription item in order review step | Shows "(subscription)" label | [ ] |
+
+---
+
 ## Test Summary
 
 | Section | Tests | Description |
@@ -274,11 +369,17 @@ All passwords: `Test1234!`
 | M | 5 | Product Catalog & Coupons UI |
 | N | 7 | Subscriptions Lifecycle |
 | O | 4 | Stripe Coupon Sync |
-| **Total** | **85** | |
+| P | 3 | Customer Auto-Sync to Stripe |
+| Q | 18 | Volume-Based Fee Tiers |
+| R | 4 | Zero-Cost Orders |
+| S | 6 | Subscription Plans Management Hub |
+| T | 7 | Mixed Cart / Checkout Sessions |
+| U | 5 | Optional Shipping for Subscriptions |
+| **Total** | **128** | |
 
 ### Tests by Stripe dependency:
-- **Without Stripe keys (33 tests):** A1-A4, C1-C5, G1-G4, I1-I3, F1, L1-L10, L13, L15, M1-M5
-- **With Stripe test keys (52 tests):** B1-B6, D1-D4, E1-E4, F2-F5, G5-G6, H1-H6, J1-J6, K1-K5, L11-L12, L14, N1-N7, O1-O4
+- **Without Stripe keys (62 tests):** A1-A4, C1-C5, G1-G4, I1-I3, F1, L1-L10, L13, L15, M1-M5, P2, Q1-Q7, Q11-Q15, R2, S1-S6, U1-U5
+- **With Stripe test keys (66 tests):** B1-B6, D1-D4, E1-E4, F2-F5, G5-G6, H1-H6, J1-J6, K1-K5, L11-L12, L14, N1-N7, O1-O4, P1, P3, Q8-Q10, Q16-Q18, R1, R3-R4, T1-T7
 
 ### Executed tests:
 - **2026-02-18:** L1-L6 passed (migration, API health, frontend build, container start, nav link visible, payments page loads)
