@@ -105,6 +105,10 @@ async def create_subscription_checkout_session(
         "metadata": {"user_id": user_id},
     }
 
+    # Apply discount coupon to checkout session
+    if stripe_coupon_id:
+        session_params["discounts"] = [{"coupon": stripe_coupon_id}]
+
     result = await provider.create_checkout_session(**session_params)
 
     return {

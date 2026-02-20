@@ -141,7 +141,25 @@ async def _apply_discount_to_cart(
     """Apply a discount code to the user's active cart before checkout."""
     from modules.ecommerce.services import discount_service
 
-    discount = await discount_service.validate_discount(db, discount_code, 0)
+    # Calculate actual cart subtotal for min_order_amount validation
+    cart_subtotal_row = (
+        await db.execute(
+            text(
+                "SELECT COALESCE(SUM("
+                "  ci.quantity * COALESCE(v.price_override, p.base_price)"
+                "), 0) AS subtotal "
+                "FROM ecommerce.cart c "
+                "JOIN ecommerce.cart_items ci ON ci.cart_id = c.id "
+                "JOIN ecommerce.products p ON p.id = ci.product_id "
+                "JOIN ecommerce.product_variants v ON v.id = ci.variant_id "
+                "WHERE c.user_id = :uid AND c.status = 'active'"
+            ),
+            {"uid": user_id},
+        )
+    ).mappings().first()
+    cart_subtotal = int(cart_subtotal_row["subtotal"]) if cart_subtotal_row else 0
+
+    discount = await discount_service.validate_discount(db, discount_code, cart_subtotal)
     if not discount:
         raise ValueError("Invalid or expired discount code")
 

@@ -228,6 +228,7 @@ class PaymentProvider(ABC):
         success_url: str,
         cancel_url: str,
         metadata: dict[str, Any] | None = None,
+        discounts: list[dict[str, str]] | None = None,
     ) -> dict[str, Any]:
         """Create a hosted checkout session (e.g. Stripe Checkout).
 

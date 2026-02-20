@@ -462,6 +462,7 @@ class StripeProvider(PaymentProvider, CatalogProvider):
         success_url: str,
         cancel_url: str,
         metadata: dict[str, Any] | None = None,
+        discounts: list[dict[str, str]] | None = None,
     ) -> dict[str, Any]:
         params: dict[str, Any] = {
             "line_items": line_items,
@@ -472,6 +473,8 @@ class StripeProvider(PaymentProvider, CatalogProvider):
         }
         if customer_id:
             params["customer"] = customer_id
+        if discounts:
+            params["discounts"] = discounts
         session = stripe.checkout.Session.create(**params)
         return {"session_id": session.id, "url": session.url}
 
