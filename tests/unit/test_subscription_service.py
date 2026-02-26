@@ -37,7 +37,7 @@ class TestGetOrCreateStripeCustomer:
             result = await get_or_create_stripe_customer(db, mock_user["user_id"], mock_user["email"])
 
         assert result == "cus_new"
-        mock_prov.create_customer.assert_called_once_with(mock_user["email"], metadata={"user_id": mock_user["user_id"]})
+        mock_prov.create_customer.assert_called_once_with(mock_user["email"], name=None, metadata={"user_id": mock_user["user_id"]})
 
         row = (await db.execute(text("SELECT stripe_customer_id FROM ecommerce.stripe_customers WHERE user_id = :uid"), {"uid": mock_user["user_id"]})).mappings().first()
         assert row["stripe_customer_id"] == "cus_new"

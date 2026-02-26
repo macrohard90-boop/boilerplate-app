@@ -44,10 +44,11 @@ async def add_item(
 ) -> Any:
     if not user and not session_id:
         raise HTTPException(status_code=400, detail={"error": "bad_request", "message": "Provide X-Session-ID header or authenticate", "details": None})
+    variant_id = str(body.variant_id) if body.variant_id else None
     try:
         return await cart_service.add_item(
             db, redis, user, session_id,
-            str(body.product_id), str(body.variant_id), body.quantity,
+            str(body.product_id), variant_id, body.quantity,
         )
     except ValueError as e:
         raise HTTPException(status_code=400, detail={"error": "bad_request", "message": str(e), "details": None})
@@ -107,6 +108,19 @@ async def remove_discount(
 ) -> Any:
     try:
         return await cart_service.remove_discount(db, redis, user, session_id)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail={"error": "bad_request", "message": str(e), "details": None})
+
+
+@router.delete("", response_model=CartResponse)
+async def clear_cart(
+    user: dict | None = Depends(get_optional_user),
+    session_id: str | None = Depends(_get_session_id),
+    db: AsyncSession = Depends(get_db),
+    redis: Redis = Depends(get_redis),
+) -> Any:
+    try:
+        return await cart_service.clear_cart(db, redis, user, session_id)
     except ValueError as e:
         raise HTTPException(status_code=400, detail={"error": "bad_request", "message": str(e), "details": None})
 

@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 
 async def get_or_create_stripe_customer(
-    db: AsyncSession, user_id: str, email: str
+    db: AsyncSession, user_id: str, email: str, *, name: str | None = None
 ) -> str:
     """Return the Stripe customer ID for a user, creating one if needed."""
     row = (
@@ -27,7 +27,7 @@ async def get_or_create_stripe_customer(
         return str(row["stripe_customer_id"])
 
     provider = get_payment_provider()
-    result = await provider.create_customer(email, metadata={"user_id": user_id})
+    result = await provider.create_customer(email, name=name, metadata={"user_id": user_id})
 
     await db.execute(
         text(

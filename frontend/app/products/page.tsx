@@ -14,6 +14,9 @@ interface Product {
   base_price: number;
   currency: string;
   description: string;
+  pricing_type?: string;
+  recurring_interval?: string | null;
+  type?: string;
   images?: { url: string; is_primary: boolean }[];
   categories?: { name: string }[];
 }
@@ -33,6 +36,13 @@ const SORT_OPTIONS = [
   { value: "name", label: "Name" },
 ];
 
+const TABS = [
+  { key: "one_time", label: "Products" },
+  { key: "recurring", label: "Subscriptions" },
+] as const;
+
+type TabKey = (typeof TABS)[number]["key"];
+
 function ProductsContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -42,12 +52,17 @@ function ProductsContent() {
   const [sort, setSort] = useState(searchParams.get("sort") || "newest");
   const [page, setPage] = useState(Number(searchParams.get("page")) || 1);
   const [view, setView] = useState<"grid" | "list">("grid");
+  const [tab, setTab] = useState<TabKey>(
+    (searchParams.get("tab") as TabKey) || "one_time"
+  );
 
   const fetchProducts = useCallback(async () => {
     setLoading(true);
     const params = new URLSearchParams();
     params.set("page", String(page));
     params.set("page_size", "12");
+    params.set("pricing_type", tab);
+    params.set("status", "active");
     if (sort) params.set("sort", sort);
     if (search) params.set("q", search);
 
@@ -62,7 +77,7 @@ function ProductsContent() {
     } finally {
       setLoading(false);
     }
-  }, [page, sort, search]);
+  }, [page, sort, search, tab]);
 
   useEffect(() => {
     fetchProducts();
@@ -78,20 +93,50 @@ function ProductsContent() {
     setPage(1);
   };
 
+  const handleTab = (t: TabKey) => {
+    setTab(t);
+    setPage(1);
+    setSearch("");
+  };
+
+  const activeTab = TABS.find((t) => t.key === tab)!;
+  const isSubscriptions = tab === "recurring";
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       {/* Header */}
       <div className="mb-8">
         <h1 className="font-serif text-3xl sm:text-4xl font-bold mb-2">
-          <span className="gradient-text">Products</span>
+          <span className="gradient-text">{activeTab.label}</span>
         </h1>
-        <p className="text-text-secondary">Browse our full catalog</p>
+        <p className="text-text-secondary">
+          {isSubscriptions
+            ? "Plans and recurring subscriptions"
+            : "Browse our full catalog"}
+        </p>
+      </div>
+
+      {/* Tabs */}
+      <div className="flex gap-1 mb-6 glass rounded-lg p-1 w-fit">
+        {TABS.map((t) => (
+          <button
+            key={t.key}
+            onClick={() => handleTab(t.key)}
+            className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+              tab === t.key
+                ? "bg-accent-purple/20 text-accent-purple"
+                : "text-text-muted hover:text-text-primary"
+            }`}
+          >
+            {t.label}
+          </button>
+        ))}
       </div>
 
       {/* Controls */}
       <div className="flex flex-col sm:flex-row gap-4 mb-8">
         <SearchBar
-          placeholder="Search products..."
+          placeholder={isSubscriptions ? "Search subscriptions..." : "Search products..."}
           onSearch={handleSearch}
           className="flex-1"
         />
@@ -135,7 +180,9 @@ function ProductsContent() {
         <LoadingSpinner size="lg" className="py-20" />
       ) : !data || data.items.length === 0 ? (
         <div className="text-center py-20">
-          <p className="text-text-secondary text-lg">No products found</p>
+          <p className="text-text-secondary text-lg">
+            {isSubscriptions ? "No subscriptions found" : "No products found"}
+          </p>
           {search && (
             <button onClick={() => handleSearch("")} className="btn-secondary text-sm mt-4">
               Clear search
@@ -144,7 +191,9 @@ function ProductsContent() {
         </div>
       ) : (
         <>
-          <p className="text-sm text-text-muted mb-6">{data.total} product{data.total !== 1 ? "s" : ""}</p>
+          <p className="text-sm text-text-muted mb-6">
+            {data.total} {isSubscriptions ? "plan" : "product"}{data.total !== 1 ? "s" : ""}
+          </p>
           <div className={view === "grid"
             ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"
             : "space-y-4"
@@ -159,6 +208,8 @@ function ProductsContent() {
                   currency={product.currency}
                   image_url={product.images?.find((i) => i.is_primary)?.url || product.images?.[0]?.url}
                   category_name={product.categories?.[0]?.name}
+                  pricing_type={product.pricing_type}
+                  recurring_interval={product.recurring_interval}
                 />
               ) : (
                 <a key={product.id} href={`/products/${product.slug}`} className="glass rounded-xl p-4 flex gap-4 group hover:border-accent-purple/30 transition-all block">
@@ -173,6 +224,11 @@ function ProductsContent() {
                   </div>
                   <div className="text-lg font-semibold text-text-primary shrink-0">
                     {(product.base_price / 100).toLocaleString("en-US", { style: "currency", currency: product.currency })}
+                    {product.pricing_type === "recurring" && product.recurring_interval && (
+                      <span className="text-sm font-normal text-text-muted">
+                        /{product.recurring_interval === "month" ? "mo" : product.recurring_interval === "year" ? "yr" : product.recurring_interval}
+                      </span>
+                    )}
                   </div>
                 </a>
               )

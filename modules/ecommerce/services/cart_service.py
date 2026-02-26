@@ -133,16 +133,57 @@ async def get_cart(
         return _empty_cart()
 
 
+async def clear_cart(
+    db: AsyncSession,
+    redis: Redis,
+    user: dict[str, Any] | None,
+    session_id: str | None,
+) -> dict[str, Any]:
+    """Remove all items from the cart."""
+    if user:
+        cart = await _get_or_create_auth_cart(db, user["user_id"])
+        await db.execute(
+            text("DELETE FROM ecommerce.cart_items WHERE cart_id = :cid"),
+            {"cid": str(cart["id"])},
+        )
+        await db.commit()
+        return _empty_cart()
+    elif session_id:
+        await _save_guest_cart(redis, session_id, {
+            "items": [], "discount_code_id": None, "discount_code": None,
+        })
+        return _empty_cart()
+    else:
+        return _empty_cart()
+
+
 async def add_item(
     db: AsyncSession,
     redis: Redis,
     user: dict[str, Any] | None,
     session_id: str | None,
     product_id: str,
-    variant_id: str,
+    variant_id: str | None,
     quantity: int,
 ) -> dict[str, Any]:
     """Add item to cart (or update quantity if already present)."""
+    # Resolve default variant if none specified
+    if not variant_id:
+        row = (
+            await db.execute(
+                text(
+                    "SELECT v.id FROM ecommerce.product_variants v "
+                    "JOIN ecommerce.products p ON p.id = v.product_id "
+                    "WHERE v.product_id = :pid AND p.deleted_at IS NULL "
+                    "ORDER BY v.created_at LIMIT 1"
+                ),
+                {"pid": product_id},
+            )
+        ).mappings().first()
+        if not row:
+            raise ValueError("Product/variant not found")
+        variant_id = str(row["id"])
+
     info = await _get_variant_info(db, variant_id)
     if not info or str(info["product_id"]) != product_id:
         raise ValueError("Product/variant not found")

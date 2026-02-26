@@ -129,7 +129,8 @@ async def register_user(
     # Sync new user to Stripe as a customer
     try:
         from modules.ecommerce.services.subscription_service import get_or_create_stripe_customer
-        await get_or_create_stripe_customer(db, str(user["id"]), email)
+        full_name = f"{first_name or ''} {last_name or ''}".strip() or None
+        await get_or_create_stripe_customer(db, str(user["id"]), email, name=full_name)
     except Exception as e:
         logger.warning("Failed to sync Stripe customer for user %s: %s", user["id"], e)
 

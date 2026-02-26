@@ -80,6 +80,7 @@ async def sync_product_to_catalog(
                         ),
                         {"id": product_id, "sprice": new_price.provider_price_id},
                     )
+                    product["stripe_price_id"] = new_price.provider_price_id
         else:
             # Create new catalog product + base price
             catalog_product = await provider.create_product(
@@ -115,10 +116,19 @@ async def sync_product_to_catalog(
             )
             await db.commit()
 
-        # Mark synced
+        # Mark synced and update in-memory dict
         await _mark_product_synced(db, product_id)
         product["stripe_sync_status"] = "synced"
         product["stripe_sync_error"] = None
+        if not product.get("stripe_product_id"):
+            # Re-read from DB to get stripe_product_id and stripe_price_id
+            row = (await db.execute(
+                text("SELECT stripe_product_id, stripe_price_id FROM ecommerce.products WHERE id = :id"),
+                {"id": product_id},
+            )).mappings().first()
+            if row:
+                product["stripe_product_id"] = row["stripe_product_id"]
+                product["stripe_price_id"] = row["stripe_price_id"]
 
     except Exception as e:
         logger.error("Catalog sync failed for product %s: %s", product_id, e)
@@ -176,16 +186,23 @@ async def sync_variant_to_catalog(
                     ),
                     {"id": variant_id, "sprice": new_price.provider_price_id},
                 )
+                variant["stripe_price_id"] = new_price.provider_price_id
         else:
-            catalog_price = await provider.create_price(
-                stripe_product_id,
-                effective_price,
-                product.get("currency", "USD"),
-                metadata={
+            price_kwargs: dict[str, Any] = {
+                "metadata": {
                     "local_variant_id": variant_id,
                     "local_product_id": str(product["id"]),
                     "type": "variant_price",
                 },
+            }
+            if product.get("pricing_type") == "recurring" and product.get("recurring_interval"):
+                price_kwargs["recurring_interval"] = product["recurring_interval"]
+                price_kwargs["recurring_interval_count"] = product.get("recurring_interval_count", 1)
+            catalog_price = await provider.create_price(
+                stripe_product_id,
+                effective_price,
+                product.get("currency", "USD"),
+                **price_kwargs,
             )
             await db.execute(
                 text(
@@ -196,6 +213,7 @@ async def sync_variant_to_catalog(
                 ),
                 {"id": variant_id, "sprice": catalog_price.provider_price_id},
             )
+            variant["stripe_price_id"] = catalog_price.provider_price_id
 
         await db.commit()
         variant["stripe_sync_status"] = "synced"

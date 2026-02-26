@@ -81,6 +81,9 @@ export async function apiFetch<T = unknown>(
 
     if (refreshed) {
       headers["Authorization"] = `Bearer ${accessToken}`;
+      if (csrfToken && ["POST", "PUT", "DELETE", "PATCH"].includes(method)) {
+        headers["X-CSRF-Token"] = csrfToken;
+      }
       res = await fetch(`${API_BASE}${path}`, {
         ...options,
         headers,
@@ -92,6 +95,28 @@ export async function apiFetch<T = unknown>(
         window.location.href = "/auth/login";
       }
       throw new Error("Session expired");
+    }
+  }
+
+  // On 403 with CSRF error, try to refresh tokens to get a new CSRF token
+  if (res.status === 403 && ["POST", "PUT", "DELETE", "PATCH"].includes(method)) {
+    try {
+      const body = await res.clone().json();
+      const msg = body?.detail?.message || body?.message || "";
+      if (msg.toLowerCase().includes("csrf")) {
+        const refreshed = await refreshTokens();
+        if (refreshed && csrfToken) {
+          headers["X-CSRF-Token"] = csrfToken;
+          if (accessToken) headers["Authorization"] = `Bearer ${accessToken}`;
+          res = await fetch(`${API_BASE}${path}`, {
+            ...options,
+            headers,
+            credentials: "include",
+          });
+        }
+      }
+    } catch {
+      // Fall through to normal error handling
     }
   }
 

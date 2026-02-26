@@ -202,6 +202,12 @@ async def update_product(db: AsyncSession, product_id: str, data: dict[str, Any]
 
     if is_active and (not was_active or sync_fields_changed):
         product = await catalog_sync_service.sync_product_to_catalog(db, product)
+        # When product first becomes active, also sync all existing variants
+        if not was_active and product.get("stripe_product_id"):
+            from modules.ecommerce.services import variant_service
+            variants = await variant_service.list_variants(db, product_id)
+            for v in variants:
+                await catalog_sync_service.sync_variant_to_catalog(db, v, product)
     elif was_active and not is_active:
         await catalog_sync_service.archive_product_in_catalog(db, product)
 

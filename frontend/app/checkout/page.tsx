@@ -92,6 +92,43 @@ function PaymentForm({ orderId }: { orderId: string }) {
   );
 }
 
+/* ── Address Form Fields ── */
+function AddressFields({ data, onChange }: { data: AddressForm; onChange: (field: keyof AddressForm, value: string) => void }) {
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="block text-sm text-text-secondary mb-1">First name</label>
+          <input value={data.first_name} onChange={(e) => onChange("first_name", e.target.value)} required className="input-glass text-sm" />
+        </div>
+        <div>
+          <label className="block text-sm text-text-secondary mb-1">Last name</label>
+          <input value={data.last_name} onChange={(e) => onChange("last_name", e.target.value)} required className="input-glass text-sm" />
+        </div>
+      </div>
+      <div>
+        <label className="block text-sm text-text-secondary mb-1">Address</label>
+        <input value={data.address_line1} onChange={(e) => onChange("address_line1", e.target.value)} required className="input-glass text-sm" placeholder="Street address" />
+      </div>
+      <input value={data.address_line2} onChange={(e) => onChange("address_line2", e.target.value)} className="input-glass text-sm" placeholder="Apt, suite, etc. (optional)" />
+      <div className="grid grid-cols-3 gap-3">
+        <div>
+          <label className="block text-sm text-text-secondary mb-1">City</label>
+          <input value={data.city} onChange={(e) => onChange("city", e.target.value)} required className="input-glass text-sm" />
+        </div>
+        <div>
+          <label className="block text-sm text-text-secondary mb-1">State</label>
+          <input value={data.state} onChange={(e) => onChange("state", e.target.value)} required className="input-glass text-sm" />
+        </div>
+        <div>
+          <label className="block text-sm text-text-secondary mb-1">ZIP</label>
+          <input value={data.postal_code} onChange={(e) => onChange("postal_code", e.target.value)} required className="input-glass text-sm" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ── Main Checkout Page ── */
 export default function CheckoutPage() {
   const router = useRouter();
@@ -195,42 +232,6 @@ export default function CheckoutPage() {
       showToast(err?.message || "Checkout failed", "error");
     }
     setProcessing(false);
-  }
-
-  function AddressFields({ data, onChange }: { data: AddressForm; onChange: (field: keyof AddressForm, value: string) => void }) {
-    return (
-      <div className="space-y-4">
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="block text-sm text-text-secondary mb-1">First name</label>
-            <input value={data.first_name} onChange={(e) => onChange("first_name", e.target.value)} required className="input-glass text-sm" />
-          </div>
-          <div>
-            <label className="block text-sm text-text-secondary mb-1">Last name</label>
-            <input value={data.last_name} onChange={(e) => onChange("last_name", e.target.value)} required className="input-glass text-sm" />
-          </div>
-        </div>
-        <div>
-          <label className="block text-sm text-text-secondary mb-1">Address</label>
-          <input value={data.address_line1} onChange={(e) => onChange("address_line1", e.target.value)} required className="input-glass text-sm" placeholder="Street address" />
-        </div>
-        <input value={data.address_line2} onChange={(e) => onChange("address_line2", e.target.value)} className="input-glass text-sm" placeholder="Apt, suite, etc. (optional)" />
-        <div className="grid grid-cols-3 gap-3">
-          <div>
-            <label className="block text-sm text-text-secondary mb-1">City</label>
-            <input value={data.city} onChange={(e) => onChange("city", e.target.value)} required className="input-glass text-sm" />
-          </div>
-          <div>
-            <label className="block text-sm text-text-secondary mb-1">State</label>
-            <input value={data.state} onChange={(e) => onChange("state", e.target.value)} required className="input-glass text-sm" />
-          </div>
-          <div>
-            <label className="block text-sm text-text-secondary mb-1">ZIP</label>
-            <input value={data.postal_code} onChange={(e) => onChange("postal_code", e.target.value)} required className="input-glass text-sm" />
-          </div>
-        </div>
-      </div>
-    );
   }
 
   const stepLabels = subscriptionOnly ? ["Review", "Payment"] : ["Shipping", "Review", "Payment"];

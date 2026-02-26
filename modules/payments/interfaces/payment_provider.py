@@ -192,7 +192,7 @@ class PaymentProvider(ABC):
     # ------------------------------------------------------------------
 
     async def create_customer(
-        self, email: str, *, metadata: dict[str, Any] | None = None
+        self, email: str, *, name: str | None = None, metadata: dict[str, Any] | None = None
     ) -> CustomerResult:
         """Create a customer record in the provider."""
         raise NotImplementedError

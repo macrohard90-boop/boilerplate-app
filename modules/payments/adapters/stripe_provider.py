@@ -231,9 +231,12 @@ class StripeProvider(PaymentProvider, CatalogProvider):
     # -----------------------------------------------------------------------
 
     async def create_customer(
-        self, email: str, *, metadata: dict[str, Any] | None = None
+        self, email: str, *, name: str | None = None, metadata: dict[str, Any] | None = None
     ) -> CustomerResult:
-        customer = stripe.Customer.create(email=email, metadata=metadata or {})
+        params: dict[str, Any] = {"email": email, "metadata": metadata or {}}
+        if name:
+            params["name"] = name
+        customer = stripe.Customer.create(**params)
         return CustomerResult(provider_customer_id=customer.id, email=email)
 
     async def create_subscription(
@@ -371,9 +374,10 @@ class StripeProvider(PaymentProvider, CatalogProvider):
     ) -> CatalogProduct:
         params: dict[str, Any] = {
             "name": name,
-            "description": description or "",
             "metadata": metadata or {},
         }
+        if description:
+            params["description"] = description
         if images:
             params["images"] = images[:8]  # Stripe allows max 8 images
         product = stripe.Product.create(**params)
@@ -397,7 +401,7 @@ class StripeProvider(PaymentProvider, CatalogProvider):
         params: dict[str, Any] = {}
         if name is not None:
             params["name"] = name
-        if description is not None:
+        if description:
             params["description"] = description
         if active is not None:
             params["active"] = active

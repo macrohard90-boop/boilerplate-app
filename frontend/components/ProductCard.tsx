@@ -2,6 +2,13 @@ import Link from "next/link";
 import { formatPrice } from "../lib/format";
 import StarRating from "./StarRating";
 
+const INTERVAL_LABELS: Record<string, string> = {
+  day: "/day",
+  week: "/wk",
+  month: "/mo",
+  year: "/yr",
+};
+
 interface ProductCardProps {
   slug: string;
   name: string;
@@ -11,6 +18,8 @@ interface ProductCardProps {
   rating?: number;
   review_count?: number;
   category_name?: string;
+  pricing_type?: string;
+  recurring_interval?: string | null;
 }
 
 export default function ProductCard({
@@ -22,6 +31,8 @@ export default function ProductCard({
   rating,
   review_count,
   category_name,
+  pricing_type,
+  recurring_interval,
 }: ProductCardProps) {
   return (
     <Link href={`/products/${slug}`} className="group block">
@@ -56,6 +67,11 @@ export default function ProductCard({
           <div className="mt-2 flex items-center justify-between">
             <span className="text-lg font-semibold text-text-primary">
               {formatPrice(price, currency)}
+              {pricing_type === "recurring" && recurring_interval && (
+                <span className="text-sm font-normal text-text-muted">
+                  {INTERVAL_LABELS[recurring_interval] || `/${recurring_interval}`}
+                </span>
+              )}
             </span>
             {rating !== undefined && (
               <div className="flex items-center gap-1">

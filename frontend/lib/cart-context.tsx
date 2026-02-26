@@ -155,10 +155,10 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const clearCart = useCallback(async () => {
     try {
       await apiFetch("/ecommerce/cart", { method: "DELETE" });
-      setCart(emptyCart);
-    } catch (e) {
-      throw e;
+    } catch {
+      // Cart may already be consumed by checkout — ignore API errors
     }
+    setCart(emptyCart);
   }, []);
 
   return (

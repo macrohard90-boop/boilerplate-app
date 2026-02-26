@@ -46,7 +46,12 @@ async def oauth_redirect(
             detail={"error": "not_found", "message": f"OAuth provider '{provider}' not configured", "details": None},
         )
 
-    state = await oauth_service.create_state_token(redis)
+    # Capture returnTo from query params (default to /)
+    return_to = request.query_params.get("returnTo", "/")
+    if return_to.startswith("/auth"):
+        return_to = "/"
+
+    state = await oauth_service.create_state_token(redis, return_to=return_to)
 
     # Build callback URL
     callback_url = f"{settings.backend_url}/api/auth/oauth/{provider}/callback"
@@ -65,8 +70,9 @@ async def oauth_callback(
     redis: Redis = Depends(get_redis),
 ) -> Any:
     """Handle OAuth callback: exchange code, create/link user, issue tokens."""
-    # Validate state
-    if not await oauth_service.validate_state_token(redis, state):
+    # Validate state and retrieve returnTo
+    return_to = await oauth_service.validate_state_token(redis, state)
+    if return_to is None:
         raise HTTPException(
             status_code=400,
             detail={"error": "bad_request", "message": "Invalid or expired OAuth state", "details": None},
@@ -122,7 +128,8 @@ async def oauth_callback(
     # Redirect to frontend with access token
     # Refresh token is set as httpOnly cookie
     frontend_url = settings.frontend_url
-    response = RedirectResponse(url=f"{frontend_url}/protected?token={access}")
+    redirect_path = return_to if return_to and return_to.startswith("/") else "/"
+    response = RedirectResponse(url=f"{frontend_url}{redirect_path}?token={access}")
 
     secure = settings.app_env != "development"
     response.set_cookie(

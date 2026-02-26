@@ -219,6 +219,97 @@ Read `docs/ARCHITECTURE.md` sections 3 (Session & Auth Architecture), 4 (Redis K
 - `frontend/lib/api.ts` — API client with token handling and 401 refresh interceptor
 - Modified: `frontend/app/layout.tsx` — Wrap with AuthProvider, add AuthNav
 
+## OAuth Provider Setup Guide
+
+### How OAuth Works (What "Create an App" Means)
+
+Creating an OAuth app in a provider's developer console is **purely a registration step**. It does NOT mean:
+- Deploying on their infrastructure — your app stays on your own VPS
+- Giving them access to your data — your database, user activity, orders, and payments remain private
+- Paying for hosting — it's free for Google, GitHub, and Microsoft
+
+What it DOES mean:
+- You register your app's name and callback URL with the provider
+- They give you a **Client ID** (public identifier) and **Client Secret** (private key)
+- You store these in your `.env` file
+- When a user clicks "Sign in with Google," they're redirected to Google's login page, enter THEIR password on GOOGLE's site (you never see it), and Google redirects back to your server with a one-time code you exchange for the user's name and email
+
+### Data Flow Summary
+
+| Data | Where it lives | Who sees it |
+|------|---------------|-------------|
+| User's Google/GitHub/MS password | Provider only | **NOT you** |
+| User's name + email from OAuth | Provider sends to you | You store in your DB |
+| User's activity on your site | Your DB only | **NOT the provider** |
+| User's orders, cart, payments | Your DB only | **NOT the provider** |
+| Client ID + Client Secret | Your `.env` file | You + the provider |
+
+The provider only knows that a user signed into your app (basic analytics on their end) and your app's domain name. They get no access to your business data.
+
+### Provider Cost & Requirements
+
+| Provider | Cost | Account Needed | Local Testing |
+|----------|------|---------------|---------------|
+| Google | Free | Google Cloud account (free tier) | Works on `http://localhost` |
+| GitHub | Free | GitHub account | Works on `http://localhost` |
+| Microsoft | Free | Azure account (free tier) | Works on `http://localhost` |
+| Apple | $99/year | Apple Developer Program | Requires HTTPS (harder locally) |
+
+Apple is deprioritized due to cost and HTTPS requirement.
+
+### Setup Steps Per Provider
+
+For each provider:
+1. Go to their developer portal (links below)
+2. Create a new OAuth app / application registration
+3. Set your app name (e.g., your product name)
+4. Set redirect URI: `http://localhost/api/auth/oauth/{provider}/callback` (local) or `https://yourdomain.com/api/auth/oauth/{provider}/callback` (production)
+5. Copy Client ID and Client Secret into `.env`
+6. Restart the FastAPI container
+
+**Portal Links:**
+- Google: https://console.cloud.google.com/apis/credentials
+- GitHub: https://github.com/settings/developers
+- Microsoft: https://portal.azure.com/#view/Microsoft_AAD_RegisteredApplications
+
+### Environment Variables
+
+```env
+# Google OAuth
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
+
+# GitHub OAuth
+GITHUB_CLIENT_ID=
+GITHUB_CLIENT_SECRET=
+
+# Microsoft OAuth
+MICROSOFT_CLIENT_ID=
+MICROSOFT_CLIENT_SECRET=
+
+# Apple OAuth (deprioritized)
+APPLE_CLIENT_ID=
+APPLE_CLIENT_SECRET=
+APPLE_TEAM_ID=
+APPLE_KEY_ID=
+```
+
+Providers are automatically enabled when their `*_CLIENT_ID` env var is non-empty. No code changes needed.
+
+### Stripe Customer Sync
+
+When a user signs up via OAuth, they must also be created as a Stripe customer (with name and email) so they can make purchases. This sync happens automatically during the OAuth account creation flow.
+
+### Edge Case: OAuth User + Forgot Password
+
+If a user signed up via OAuth (no password set), then clicks "Forgot Password":
+- The system should indicate that the user signed up via an OAuth provider
+- Optionally allow them to set a password (enabling both login methods)
+
+See implementation notes in the auth lifecycle plan for the chosen approach.
+
+---
+
 ## Post-Build Fix (2026-02-17)
 
 ### Admin user management endpoints

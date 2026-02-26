@@ -236,7 +236,7 @@ class ImageResponse(BaseModel):
 
 class CartItemAdd(BaseModel):
     product_id: UUID
-    variant_id: UUID
+    variant_id: UUID | None = None
     quantity: int = Field(default=1, ge=1)
 
 
@@ -580,9 +580,15 @@ class SubscriptionResponse(BaseModel):
     current_period_end: datetime | None
     cancel_at_period_end: bool
     canceled_at: datetime | None = None
+    trial_start: datetime | None = None
+    trial_end: datetime | None = None
     created_at: datetime
     client_secret: str | None = None
     product_name: str | None = None
+    base_price: int | None = None
+    currency: str | None = None
+    recurring_interval: str | None = None
+    recurring_interval_count: int | None = None
 
 
 class SubscriptionListResponse(BaseModel):

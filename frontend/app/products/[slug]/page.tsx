@@ -42,10 +42,28 @@ interface Product {
   currency: string;
   status: string;
   type: string;
+  pricing_type?: string;
+  recurring_interval?: string | null;
+  recurring_interval_count?: number;
+  trial_period_days?: number | null;
   images: ProductImage[];
   variants: ProductVariant[];
   categories: ProductCategory[];
 }
+
+const INTERVAL_LABELS: Record<string, string> = {
+  day: "daily",
+  week: "weekly",
+  month: "monthly",
+  year: "yearly",
+};
+
+const INTERVAL_SHORT: Record<string, string> = {
+  day: "/day",
+  week: "/wk",
+  month: "/mo",
+  year: "/yr",
+};
 
 interface Review {
   id: string;
@@ -200,9 +218,31 @@ export default function ProductDetailPage() {
             </div>
           )}
 
-          <div className="text-3xl font-bold gradient-text mb-6">
+          <div className="text-3xl font-bold gradient-text mb-2">
             {formatPrice(currentPrice, product.currency)}
+            {product.pricing_type === "recurring" && product.recurring_interval && (
+              <span className="text-lg font-normal text-text-muted">
+                {INTERVAL_SHORT[product.recurring_interval] || `/${product.recurring_interval}`}
+              </span>
+            )}
           </div>
+
+          {product.pricing_type === "recurring" && (
+            <div className="flex flex-wrap gap-2 mb-4">
+              {product.recurring_interval && (
+                <span className="text-sm text-text-secondary">
+                  Billed {product.recurring_interval_count && product.recurring_interval_count > 1
+                    ? `every ${product.recurring_interval_count} ${product.recurring_interval}s`
+                    : INTERVAL_LABELS[product.recurring_interval] || product.recurring_interval}
+                </span>
+              )}
+              {product.trial_period_days && product.trial_period_days > 0 && (
+                <span className="text-sm text-accent-blue font-medium ml-2">
+                  {product.trial_period_days}-day free trial
+                </span>
+              )}
+            </div>
+          )}
 
           <p className="text-text-secondary mb-8 leading-relaxed">{product.description}</p>
 
@@ -251,7 +291,7 @@ export default function ProductDetailPage() {
               disabled={!inStock || adding}
               className="btn-primary flex-1 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {adding ? "Adding..." : !inStock ? "Out of Stock" : "Add to Cart"}
+              {adding ? "Adding..." : !inStock ? "Out of Stock" : product.pricing_type === "recurring" ? "Subscribe" : "Add to Cart"}
             </button>
           </div>
 
