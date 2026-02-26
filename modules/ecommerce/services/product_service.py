@@ -152,6 +152,16 @@ async def create_product(db: AsyncSession, data: dict[str, Any]) -> dict[str, An
     if category_ids:
         await _set_categories(db, str(product["id"]), category_ids)
 
+    # Auto-create default variant so product is always purchasable
+    await db.execute(
+        text(
+            "INSERT INTO ecommerce.product_variants "
+            "(product_id, name, stock_quantity, attributes) "
+            "VALUES (:pid, 'Default', 0, '{}')"
+        ),
+        {"pid": str(product["id"])},
+    )
+
     await db.commit()
 
     # Sync to catalog if product is active
@@ -159,6 +169,13 @@ async def create_product(db: AsyncSession, data: dict[str, Any]) -> dict[str, An
         from modules.ecommerce.services import catalog_sync_service
 
         product = await catalog_sync_service.sync_product_to_catalog(db, product)
+        # Sync the auto-created default variant too
+        if product.get("stripe_product_id"):
+            from modules.ecommerce.services import variant_service
+
+            variants = await variant_service.list_variants(db, str(product["id"]))
+            for v in variants:
+                await catalog_sync_service.sync_variant_to_catalog(db, v, product)
 
     return product
 

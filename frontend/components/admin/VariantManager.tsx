@@ -191,6 +191,13 @@ export default function VariantManager({ productId, productBasePrice, currency }
         </div>
       )}
 
+      {/* Info note for auto-created default variant */}
+      {!loading && variants.length === 1 && variants[0].name === "Default" && (
+        <p className="text-text-secondary text-sm glass rounded-xl p-4 mb-4">
+          A default variant was created automatically. You can rename it, adjust stock, or add more variants (e.g., sizes, colors).
+        </p>
+      )}
+
       {/* Variants table */}
       {loading ? (
         <p className="text-text-muted text-sm">Loading variants...</p>
