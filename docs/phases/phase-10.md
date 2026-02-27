@@ -202,3 +202,42 @@ Read `docs/phases/phase-4.md` for the payment backend spec and `docs/ARCHITECTUR
 - `modules/payments/services/webhook_service.py` — checkout.session.completed handler
 - `frontend/app/checkout/page.tsx` — cart type routing, subscription checkout, skip shipping
 - `frontend/lib/cart-context.tsx` — pricing_type on CartItem
+
+## Post-Build: Variant-Level Images & Admin UX Improvements (2026-02-26)
+
+18. **Variant-level image support** (backend + frontend):
+    - [x] `CartItemResponse` schema gains `image_url: str | None` field
+    - [x] `_get_auth_cart_items()` uses COALESCE subquery: variant image → product image fallback
+    - [x] `_get_variant_info()` includes image_url for guest cart items stored in Redis
+    - [x] Guest and auth cart response builders pass `image_url` through
+    - [x] Upload endpoint accepts optional `variant_id` form field
+    - [x] ImageUploader component: variant filter tabs, variant_id on upload, variant badges on thumbnails
+    - [x] Product edit page fetches variants and passes to ImageUploader via `onVariantsChange` callback
+    - [x] Storefront gallery swaps images when variant is selected (falls back to product images)
+    - [x] Checkout page renders cart item images instead of grey placeholder squares
+    - [x] Variant deletion cascades to associated images in DB
+    - [x] ImageUploader re-fetches images when variants change (no stale orphan images)
+
+19. **Admin catalog UX improvements** (frontend):
+    - [x] Variant delete uses styled confirmation modal instead of `window.confirm()`
+    - [x] Recurring pricing option hidden from product catalog create and edit forms (`allowRecurring` prop)
+    - [x] Archived status hidden from product create form (only Draft/Active for new products)
+    - [x] VariantManager notifies parent via `onVariantsChange` callback for live tab sync
+    - [x] VariantManager accepts `refreshKey` prop — sync status updates immediately after product update
+    - [x] Duplicate SKU returns user-friendly error message ("SKU 'X' already exists")
+
+## Files Modified (variant images & admin UX)
+- `modules/ecommerce/models/schemas.py` — image_url on CartItemResponse
+- `modules/ecommerce/services/cart_service.py` — COALESCE image subqueries, image_url in all response paths
+- `modules/ecommerce/services/variant_service.py` — cascade delete variant images
+- `modules/ecommerce/services/product_service.py` — duplicate SKU check before insert
+- `modules/ecommerce/routes/product_routes.py` — variant_id Form field on upload, ValueError handler on create
+- `modules/payments/adapters/stripe_provider.py` — (pre-existing changes in working tree)
+- `modules/payments/interfaces/catalog_provider.py` — (pre-existing changes in working tree)
+- `frontend/components/admin/ImageUploader.tsx` — variant tabs, badges, variant_id upload, re-fetch on variant change
+- `frontend/components/admin/VariantManager.tsx` — onVariantsChange callback, refreshKey prop, styled delete modal
+- `frontend/components/admin/ProductForm.tsx` — allowRecurring prop, hide Archived on create
+- `frontend/app/admin/catalog/products/[id]/page.tsx` — pass variants to ImageUploader, refreshKey to VariantManager
+- `frontend/app/admin/catalog/products/page.tsx` — allowRecurring=false, surface API error messages on create
+- `frontend/app/products/[slug]/page.tsx` — variant_id on ProductImage, variant-aware gallery with useEffect
+- `frontend/app/checkout/page.tsx` — render cart item images

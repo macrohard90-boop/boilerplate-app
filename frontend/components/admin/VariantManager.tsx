@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { apiFetch } from "../../lib/api";
 import { formatPrice } from "../../lib/format";
 import SyncStatusBadge from "./SyncStatusBadge";
+import Modal from "../Modal";
 
 interface Variant {
   id: string;
@@ -23,9 +24,11 @@ interface VariantManagerProps {
   productId: string;
   productBasePrice: number;
   currency: string;
+  onVariantsChange?: (variants: { id: string; name: string }[]) => void;
+  refreshKey?: number;
 }
 
-export default function VariantManager({ productId, productBasePrice, currency }: VariantManagerProps) {
+export default function VariantManager({ productId, productBasePrice, currency, onVariantsChange, refreshKey }: VariantManagerProps) {
   const [variants, setVariants] = useState<Variant[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -37,14 +40,18 @@ export default function VariantManager({ productId, productBasePrice, currency }
   const [formPriceOverride, setFormPriceOverride] = useState("");
   const [formStock, setFormStock] = useState("0");
   const [formSaving, setFormSaving] = useState(false);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
   const fetchVariants = useCallback(async () => {
     try {
       const data = await apiFetch<Variant[]>(`/ecommerce/products/${productId}/variants`);
       setVariants(data);
+      onVariantsChange?.(data.map((v) => ({ id: v.id, name: v.name })));
     } catch { /* ignore */ }
     setLoading(false);
-  }, [productId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [productId, onVariantsChange, refreshKey]);
 
   useEffect(() => { fetchVariants(); }, [fetchVariants]);
 
@@ -100,12 +107,15 @@ export default function VariantManager({ productId, productBasePrice, currency }
     setFormSaving(false);
   };
 
-  const handleDelete = async (variantId: string) => {
-    if (!confirm("Delete this variant?")) return;
+  const handleDelete = async () => {
+    if (!deleteId) return;
+    setDeleteLoading(true);
     try {
-      await apiFetch(`/ecommerce/products/${productId}/variants/${variantId}`, { method: "DELETE" });
+      await apiFetch(`/ecommerce/products/${productId}/variants/${deleteId}`, { method: "DELETE" });
+      setDeleteId(null);
       fetchVariants();
     } catch { /* ignore */ }
+    setDeleteLoading(false);
   };
 
   return (
@@ -246,7 +256,7 @@ export default function VariantManager({ productId, productBasePrice, currency }
                       Edit
                     </button>
                     <button
-                      onClick={() => handleDelete(v.id)}
+                      onClick={() => setDeleteId(v.id)}
                       className="text-xs text-accent-pink hover:text-accent-pink/80"
                     >
                       Delete
@@ -258,6 +268,29 @@ export default function VariantManager({ productId, productBasePrice, currency }
           </table>
         </div>
       )}
+
+      {/* Delete Confirmation Modal */}
+      <Modal isOpen={!!deleteId} onClose={() => setDeleteId(null)} title="Delete Variant" size="sm">
+        <p className="text-text-secondary text-sm mb-4">
+          This will permanently delete this variant and any images assigned to it. This action cannot be undone.
+        </p>
+        <div className="flex justify-end gap-3">
+          <button
+            onClick={() => setDeleteId(null)}
+            className="btn-secondary px-4 py-2 rounded-lg text-sm"
+            disabled={deleteLoading}
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleDelete}
+            className="bg-accent-pink/20 text-accent-pink border border-accent-pink/30 px-4 py-2 rounded-lg text-sm hover:bg-accent-pink/30 transition-colors"
+            disabled={deleteLoading}
+          >
+            {deleteLoading ? "Deleting..." : "Delete"}
+          </button>
+        </div>
+      </Modal>
     </div>
   );
 }

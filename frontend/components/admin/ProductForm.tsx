@@ -22,6 +22,7 @@ interface ProductFormProps {
   onCancel: () => void;
   loading?: boolean;
   submitLabel?: string;
+  allowRecurring?: boolean;
 }
 
 export default function ProductForm({
@@ -30,6 +31,7 @@ export default function ProductForm({
   onCancel,
   loading,
   submitLabel = "Save",
+  allowRecurring = true,
 }: ProductFormProps) {
   const [name, setName] = useState(initial?.name || "");
   const [description, setDescription] = useState(initial?.description || "");
@@ -149,18 +151,20 @@ export default function ProductForm({
 
       {/* Pricing Type + Currency row */}
       <div className="grid grid-cols-2 gap-4">
-        <div>
-          <label className="block text-sm text-text-muted mb-1">Pricing</label>
-          <select
-            value={pricingType}
-            onChange={(e) => handlePricingTypeChange(e.target.value)}
-            className="input-glass w-full"
-            disabled={loading}
-          >
-            <option value="one_time">One-time</option>
-            <option value="recurring">Recurring</option>
-          </select>
-        </div>
+        {allowRecurring && (
+          <div>
+            <label className="block text-sm text-text-muted mb-1">Pricing</label>
+            <select
+              value={pricingType}
+              onChange={(e) => handlePricingTypeChange(e.target.value)}
+              className="input-glass w-full"
+              disabled={loading}
+            >
+              <option value="one_time">One-time</option>
+              <option value="recurring">Recurring</option>
+            </select>
+          </div>
+        )}
         <div>
           <label className="block text-sm text-text-muted mb-1">Currency</label>
           <select
@@ -250,7 +254,7 @@ export default function ProductForm({
           >
             <option value="draft">Draft</option>
             <option value="active">Active</option>
-            <option value="archived">Archived</option>
+            {initial && <option value="archived">Archived</option>}
           </select>
         </div>
       </div>

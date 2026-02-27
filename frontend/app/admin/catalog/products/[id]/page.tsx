@@ -8,7 +8,7 @@ import LoadingSpinner from "../../../../../components/LoadingSpinner";
 import ProductForm, { type ProductFormData } from "../../../../../components/admin/ProductForm";
 import VariantManager from "../../../../../components/admin/VariantManager";
 import SyncStatusBadge from "../../../../../components/admin/SyncStatusBadge";
-import ImageUploader from "../../../../../components/admin/ImageUploader";
+import ImageUploader, { type ImageUploaderVariant } from "../../../../../components/admin/ImageUploader";
 
 interface Product {
   id: string;
@@ -40,9 +40,11 @@ export default function AdminProductEditPage() {
   const productId = params.id as string;
 
   const [product, setProduct] = useState<Product | null>(null);
+  const [variants, setVariants] = useState<ImageUploaderVariant[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [syncing, setSyncing] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   const fetchProduct = useCallback(async () => {
     try {
@@ -65,6 +67,10 @@ export default function AdminProductEditPage() {
 
   useEffect(() => { fetchProduct(); }, [fetchProduct]);
 
+  const handleVariantsChange = useCallback((v: { id: string; name: string }[]) => {
+    setVariants(v.map((vr) => ({ id: vr.id, name: vr.name })));
+  }, []);
+
   const handleUpdate = async (formData: ProductFormData) => {
     setSaving(true);
     try {
@@ -74,6 +80,7 @@ export default function AdminProductEditPage() {
       });
       showToast("Product updated", "success");
       fetchProduct();
+      setRefreshKey((k) => k + 1);
     } catch {
       showToast("Failed to update product", "error");
     }
@@ -86,6 +93,7 @@ export default function AdminProductEditPage() {
       await apiFetch(`/ecommerce/products/${productId}/sync`, { method: "POST" });
       showToast("Sync successful", "success");
       fetchProduct();
+      setRefreshKey((k) => k + 1);
     } catch {
       showToast("Sync failed", "error");
     }
@@ -169,21 +177,24 @@ export default function AdminProductEditPage() {
           onCancel={() => router.push("/admin/catalog/products")}
           loading={saving}
           submitLabel="Update Product"
+          allowRecurring={false}
         />
       </div>
 
-      {/* Images */}
+      {/* Variant Manager (before images so tabs are populated) */}
       <div className="glass rounded-xl p-6 mb-6">
-        <ImageUploader productId={productId} />
-      </div>
-
-      {/* Variant Manager */}
-      <div className="glass rounded-xl p-6">
         <VariantManager
           productId={productId}
           productBasePrice={product.base_price}
           currency={product.currency}
+          onVariantsChange={handleVariantsChange}
+          refreshKey={refreshKey}
         />
+      </div>
+
+      {/* Images */}
+      <div className="glass rounded-xl p-6">
+        <ImageUploader productId={productId} variants={variants} />
       </div>
     </div>
   );

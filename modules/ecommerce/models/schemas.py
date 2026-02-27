@@ -254,6 +254,7 @@ class CartItemResponse(BaseModel):
     variant_name: str
     currency: str = "USD"
     pricing_type: str = "one_time"
+    image_url: str | None = None
 
 
 class CartResponse(BaseModel):

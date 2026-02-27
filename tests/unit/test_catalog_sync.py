@@ -13,32 +13,32 @@ MODULE = "modules.ecommerce.services.catalog_sync_service"
 
 
 class TestSyncProductToCatalog:
-    async def test_new_product_creates_product_and_price(self, db):
-        """First sync: creates Stripe Product + Price, stores IDs."""
+    async def test_new_product_creates_product_only(self, db):
+        """First sync: creates Stripe Product (no Price — variants own prices)."""
         from modules.ecommerce.services.catalog_sync_service import sync_product_to_catalog
 
         product = await seed_product(db, make_product(id=tid("p-new-sync"), base_price=2999, status="active"))
 
         mock_provider = MagicMock()
         mock_provider.create_product = AsyncMock(return_value=CatalogProduct(provider_product_id="prod_stripe_1", name="Test Product"))
-        mock_provider.create_price = AsyncMock(return_value=CatalogPrice(provider_price_id="price_stripe_1", provider_product_id="prod_stripe_1", unit_amount=2999, currency="USD"))
 
         with patch(f"{MODULE}.get_catalog_provider", return_value=mock_provider):
             result = await sync_product_to_catalog(db, product)
 
         assert result["stripe_sync_status"] == "synced"
         mock_provider.create_product.assert_called_once()
-        mock_provider.create_price.assert_called_once()
+        # No base price created — variant sync handles prices
+        mock_provider.create_price.assert_not_called()
 
-        # Verify DB was updated
+        # Verify DB has stripe_product_id but no stripe_price_id yet
         row = (await db.execute(
             text(f"SELECT stripe_product_id, stripe_price_id FROM ecommerce.products WHERE id = '{tid('p-new-sync')}'")
         )).mappings().first()
         assert row["stripe_product_id"] == "prod_stripe_1"
-        assert row["stripe_price_id"] == "price_stripe_1"
+        assert row["stripe_price_id"] is None
 
     async def test_existing_product_updates(self, db):
-        """Re-sync: updates existing Stripe Product."""
+        """Re-sync: updates existing Stripe Product (no price rotation)."""
         from modules.ecommerce.services.catalog_sync_service import sync_product_to_catalog
 
         product = await seed_product(db, make_synced_product(id=tid("p-resync"), name="Updated Name"))
@@ -46,33 +46,13 @@ class TestSyncProductToCatalog:
         mock_provider = MagicMock()
         mock_provider.update_product = AsyncMock(return_value=CatalogProduct(provider_product_id=product["stripe_product_id"], name="Updated Name"))
 
-        with patch(f"{MODULE}.get_catalog_provider", return_value=mock_provider), \
-             patch(f"{MODULE}._rotate_price", new_callable=AsyncMock, return_value=None):
+        with patch(f"{MODULE}.get_catalog_provider", return_value=mock_provider):
             result = await sync_product_to_catalog(db, product)
 
         assert result["stripe_sync_status"] == "synced"
         mock_provider.update_product.assert_called_once()
-
-    async def test_recurring_product_creates_recurring_price(self, db):
-        """Recurring product gets a recurring Price with interval."""
-        from modules.ecommerce.services.catalog_sync_service import sync_product_to_catalog
-
-        product = await seed_product(db, make_product(
-            id=tid("p-rec-sync"), pricing_type="recurring",
-            recurring_interval="month", recurring_interval_count=1,
-            base_price=999, status="active",
-        ))
-
-        mock_provider = MagicMock()
-        mock_provider.create_product = AsyncMock(return_value=CatalogProduct(provider_product_id="prod_rec", name="Recurring Product"))
-        mock_provider.create_price = AsyncMock(return_value=CatalogPrice(provider_price_id="price_rec", provider_product_id="prod_rec", unit_amount=999, currency="USD"))
-
-        with patch(f"{MODULE}.get_catalog_provider", return_value=mock_provider):
-            await sync_product_to_catalog(db, product)
-
-        call_kwargs = mock_provider.create_price.call_args[1]
-        assert call_kwargs["recurring_interval"] == "month"
-        assert call_kwargs["recurring_interval_count"] == 1
+        # No price rotation in product sync — variants handle prices
+        mock_provider.create_price.assert_not_called()
 
     async def test_no_catalog_provider_skips(self, db):
         """When no catalog provider configured, skip sync gracefully."""

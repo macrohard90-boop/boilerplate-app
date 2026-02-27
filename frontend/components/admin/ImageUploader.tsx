@@ -6,21 +6,31 @@ import { apiFetch, apiUpload } from "../../lib/api";
 interface ProductImage {
   id: string;
   product_id: string;
+  variant_id: string | null;
   url: string;
   alt_text: string | null;
   sort_order: number;
   is_primary: boolean;
 }
 
-interface ImageUploaderProps {
-  productId: string;
+export interface ImageUploaderVariant {
+  id: string;
+  name: string;
 }
 
-export default function ImageUploader({ productId }: ImageUploaderProps) {
+interface ImageUploaderProps {
+  productId: string;
+  variants?: ImageUploaderVariant[];
+}
+
+type FilterTab = "all" | "product" | string; // string = variant id
+
+export default function ImageUploader({ productId, variants = [] }: ImageUploaderProps) {
   const [images, setImages] = useState<ProductImage[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [dragOver, setDragOver] = useState(false);
+  const [activeTab, setActiveTab] = useState<FilterTab>("all");
 
   const fetchImages = useCallback(async () => {
     try {
@@ -38,6 +48,21 @@ export default function ImageUploader({ productId }: ImageUploaderProps) {
     fetchImages();
   }, [fetchImages]);
 
+  // Re-fetch images and reset tab when variants change (e.g. variant deleted removes its images)
+  useEffect(() => {
+    fetchImages();
+    if (activeTab !== "all" && activeTab !== "product") {
+      const stillExists = variants.some((v) => v.id === activeTab);
+      if (!stillExists) setActiveTab("all");
+    }
+  }, [variants, activeTab, fetchImages]);
+
+  const filteredImages = images.filter((img) => {
+    if (activeTab === "all") return true;
+    if (activeTab === "product") return !img.variant_id;
+    return img.variant_id === activeTab;
+  });
+
   const handleUpload = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
     if (images.length + files.length > 8) {
@@ -49,6 +74,10 @@ export default function ImageUploader({ productId }: ImageUploaderProps) {
     for (const file of Array.from(files)) {
       const formData = new FormData();
       formData.append("file", file);
+      // Attach variant_id when uploading under a variant tab
+      if (activeTab !== "all" && activeTab !== "product") {
+        formData.append("variant_id", activeTab);
+      }
       try {
         await apiUpload(
           `/ecommerce/products/${productId}/images/upload`,
@@ -79,6 +108,22 @@ export default function ImageUploader({ productId }: ImageUploaderProps) {
     handleUpload(e.dataTransfer.files);
   };
 
+  // Only show variant tabs when there are real (non-default-only) variants
+  const hasRealVariants =
+    variants.length > 1 || (variants.length === 1 && variants[0].name !== "Default");
+
+  const variantName = (variantId: string | null): string => {
+    if (!variantId) return "Product";
+    const v = variants.find((vr) => vr.id === variantId);
+    return v ? v.name : "Variant";
+  };
+
+  const tabs: { key: FilterTab; label: string }[] = [
+    { key: "all", label: "All" },
+    { key: "product", label: "Product" },
+    ...variants.map((v) => ({ key: v.id, label: v.name })),
+  ];
+
   return (
     <div>
       <div className="flex items-center justify-between mb-4">
@@ -89,6 +134,25 @@ export default function ImageUploader({ productId }: ImageUploaderProps) {
           </span>
         </h3>
       </div>
+
+      {/* Filter tabs */}
+      {hasRealVariants && (
+        <div className="flex gap-1 mb-4 overflow-x-auto pb-1">
+          {tabs.map((tab) => (
+            <button
+              key={tab.key}
+              onClick={() => setActiveTab(tab.key)}
+              className={`px-3 py-1 rounded-lg text-xs whitespace-nowrap transition-all ${
+                activeTab === tab.key
+                  ? "bg-accent-purple/20 border border-accent-purple/40 text-accent-purple"
+                  : "glass text-text-secondary hover:text-text-primary"
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* Upload area */}
       <div
@@ -132,6 +196,11 @@ export default function ImageUploader({ productId }: ImageUploaderProps) {
             </svg>
             <p className="text-text-muted text-sm">
               Drop images here or click to upload
+              {activeTab !== "all" && activeTab !== "product" && (
+                <span className="block text-accent-purple text-xs mt-0.5">
+                  Uploading to: {variantName(activeTab)}
+                </span>
+              )}
             </p>
             <p className="text-text-muted text-xs mt-1">
               JPEG, PNG, WebP, or GIF. Max 5 MB each.
@@ -143,13 +212,13 @@ export default function ImageUploader({ productId }: ImageUploaderProps) {
       {/* Image grid */}
       {loading ? (
         <p className="text-text-muted text-sm">Loading images...</p>
-      ) : images.length === 0 ? (
+      ) : filteredImages.length === 0 ? (
         <p className="text-text-secondary text-sm text-center">
-          No images uploaded yet.
+          No images{activeTab !== "all" ? " in this category" : " uploaded"} yet.
         </p>
       ) : (
         <div className="grid grid-cols-4 gap-3">
-          {images.map((img) => (
+          {filteredImages.map((img) => (
             <div
               key={img.id}
               className="relative group glass rounded-lg overflow-hidden aspect-square"
@@ -171,6 +240,11 @@ export default function ImageUploader({ productId }: ImageUploaderProps) {
               {img.is_primary && (
                 <span className="absolute bottom-1 left-1 bg-accent-blue/80 text-white text-xs px-1.5 py-0.5 rounded">
                   Primary
+                </span>
+              )}
+              {hasRealVariants && (
+                <span className="absolute bottom-1 right-1 bg-black/60 text-white text-xs px-1.5 py-0.5 rounded">
+                  {variantName(img.variant_id)}
                 </span>
               )}
             </div>

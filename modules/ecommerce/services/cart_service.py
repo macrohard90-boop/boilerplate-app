@@ -25,7 +25,11 @@ async def _get_variant_info(db: AsyncSession, variant_id: str) -> dict[str, Any]
             text(
                 "SELECT v.id AS variant_id, v.product_id, v.name AS variant_name, "
                 "v.price_override, v.stock_quantity, v.sku, "
-                "p.name AS product_name, p.base_price, p.currency, p.status, p.pricing_type "
+                "p.name AS product_name, p.base_price, p.currency, p.status, p.pricing_type, "
+                "COALESCE("
+                "  (SELECT url FROM ecommerce.product_images WHERE variant_id = v.id ORDER BY is_primary DESC, sort_order LIMIT 1),"
+                "  (SELECT url FROM ecommerce.product_images WHERE product_id = v.product_id AND variant_id IS NULL ORDER BY is_primary DESC, sort_order LIMIT 1)"
+                ") AS image_url "
                 "FROM ecommerce.product_variants v "
                 "JOIN ecommerce.products p ON p.id = v.product_id "
                 "WHERE v.id = :vid AND p.deleted_at IS NULL"
@@ -101,7 +105,11 @@ async def _get_auth_cart_items(db: AsyncSession, cart_id: str) -> list[dict[str,
         await db.execute(
             text(
                 "SELECT ci.*, p.name AS product_name, v.name AS variant_name, "
-                "p.currency, p.pricing_type "
+                "p.currency, p.pricing_type, "
+                "COALESCE("
+                "  (SELECT url FROM ecommerce.product_images WHERE variant_id = ci.variant_id ORDER BY is_primary DESC, sort_order LIMIT 1),"
+                "  (SELECT url FROM ecommerce.product_images WHERE product_id = ci.product_id AND variant_id IS NULL ORDER BY is_primary DESC, sort_order LIMIT 1)"
+                ") AS image_url "
                 "FROM ecommerce.cart_items ci "
                 "JOIN ecommerce.products p ON p.id = ci.product_id "
                 "JOIN ecommerce.product_variants v ON v.id = ci.variant_id "
@@ -430,6 +438,7 @@ async def _get_auth_cart_response(db: AsyncSession, user_id: str) -> dict[str, A
             "variant_name": item["variant_name"],
             "currency": item.get("currency", "USD"),
             "pricing_type": item.get("pricing_type", "one_time"),
+            "image_url": item.get("image_url"),
         })
 
     discount_amount = 0
@@ -479,6 +488,7 @@ async def _get_guest_cart_response(
             "variant_name": i.get("variant_name", ""),
             "currency": i.get("currency", "USD"),
             "pricing_type": i.get("pricing_type", "one_time"),
+            "image_url": i.get("image_url"),
         })
 
     return {
@@ -578,5 +588,6 @@ async def _add_guest_item(
         "variant_name": info["variant_name"],
         "currency": info.get("currency", "USD"),
         "pricing_type": info.get("pricing_type", "one_time"),
+        "image_url": info.get("image_url"),
     })
     await _save_guest_cart(redis, session_id, guest_cart)

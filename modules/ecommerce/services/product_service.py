@@ -121,6 +121,18 @@ async def create_product(db: AsyncSession, data: dict[str, Any]) -> dict[str, An
     slug = await _unique_slug(db, _slugify(data["name"]))
     category_ids = data.pop("category_ids", [])
 
+    # Check for duplicate SKU before insert (constraint is global, includes soft-deleted)
+    sku = data.get("sku")
+    if sku:
+        existing_sku = (
+            await db.execute(
+                text("SELECT id FROM ecommerce.products WHERE sku = :sku"),
+                {"sku": sku},
+            )
+        ).first()
+        if existing_sku:
+            raise ValueError(f"SKU '{sku}' already exists")
+
     row = (
         await db.execute(
             text(
@@ -166,16 +178,15 @@ async def create_product(db: AsyncSession, data: dict[str, Any]) -> dict[str, An
 
     # Sync to catalog if product is active
     if product.get("status") == "active":
-        from modules.ecommerce.services import catalog_sync_service
+        from modules.ecommerce.services import catalog_sync_service, variant_service
 
         product = await catalog_sync_service.sync_product_to_catalog(db, product)
         # Sync the auto-created default variant too
         if product.get("stripe_product_id"):
-            from modules.ecommerce.services import variant_service
-
             variants = await variant_service.list_variants(db, str(product["id"]))
             for v in variants:
                 await catalog_sync_service.sync_variant_to_catalog(db, v, product)
+            product = await catalog_sync_service.copy_default_variant_price(db, product)
 
     return product
 
@@ -211,7 +222,7 @@ async def update_product(db: AsyncSession, product_id: str, data: dict[str, Any]
     await db.commit()
 
     # Catalog sync logic
-    from modules.ecommerce.services import catalog_sync_service
+    from modules.ecommerce.services import catalog_sync_service, variant_service
 
     was_active = existing.get("status") == "active"
     is_active = product.get("status") == "active"
@@ -219,12 +230,12 @@ async def update_product(db: AsyncSession, product_id: str, data: dict[str, Any]
 
     if is_active and (not was_active or sync_fields_changed):
         product = await catalog_sync_service.sync_product_to_catalog(db, product)
-        # When product first becomes active, also sync all existing variants
-        if not was_active and product.get("stripe_product_id"):
-            from modules.ecommerce.services import variant_service
+        # Sync variants when first activated OR when base_price changes
+        if product.get("stripe_product_id") and (not was_active or "base_price" in fields):
             variants = await variant_service.list_variants(db, product_id)
             for v in variants:
                 await catalog_sync_service.sync_variant_to_catalog(db, v, product)
+            product = await catalog_sync_service.copy_default_variant_price(db, product)
     elif was_active and not is_active:
         await catalog_sync_service.archive_product_in_catalog(db, product)
 
@@ -232,10 +243,30 @@ async def update_product(db: AsyncSession, product_id: str, data: dict[str, Any]
 
 
 async def delete_product(db: AsyncSession, product_id: str) -> None:
-    """Soft-delete a product and archive in catalog provider."""
+    """Soft-delete a product and archive in catalog provider.
+
+    Blocks deletion if the product has active/trialing subscriptions.
+    """
     product = await get_product_by_id(db, product_id)
     if not product:
         raise ValueError("Product not found")
+
+    # Block if product has active subscriptions
+    active_sub_count = (
+        await db.execute(
+            text(
+                "SELECT COUNT(*) FROM ecommerce.subscriptions "
+                "WHERE product_id = :pid AND status IN ('active', 'trialing')"
+            ),
+            {"pid": product_id},
+        )
+    ).scalar() or 0
+    if active_sub_count > 0:
+        raise ValueError(
+            f"Cannot delete: product has {active_sub_count} active "
+            f"subscription{'s' if active_sub_count != 1 else ''}. "
+            "Cancel all subscriptions first."
+        )
 
     result = await db.execute(
         text("UPDATE ecommerce.products SET deleted_at = NOW() WHERE id = :id AND deleted_at IS NULL"),

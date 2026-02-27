@@ -193,6 +193,31 @@
 - **Fix**: Added `discounts` parameter to session creation; updated provider interface
 - **Test**: `test_subscription_checkout.py::test_discount_passes_coupon_to_session`
 
+### Variant-Level Images & Admin UX — Manual Test Results (2026-02-26)
+
+**All 180 automated tests passing** (3 skipped, 10 xfailed — all pre-existing).
+
+Manual verification performed:
+
+| Test Case | Result |
+|-----------|--------|
+| Admin: Upload product-level image (no variant tab) → no variant badge | Pass |
+| Admin: Select variant tab, upload → variant badge shown | Pass |
+| Admin: Variant images show under correct tab, product images under "Product" | Pass |
+| Admin: Only "Default" variant → no variant tabs shown | Pass |
+| Admin: Add new variants → tabs appear immediately (onVariantsChange callback) | Pass |
+| Admin: Delete variant → variant images removed from grid without refresh | Pass |
+| Admin: Delete variant → styled confirmation modal (not window.confirm) | Pass |
+| Admin: Product update → variant sync status badges refresh immediately | Pass |
+| Admin: Create product → no "Recurring" pricing option | Pass |
+| Admin: Create product → no "Archived" status option | Pass |
+| Admin: Create product with duplicate SKU → toast shows "SKU 'X' already exists" | Pass |
+| Storefront: Select variant with images → gallery swaps to variant images | Pass |
+| Storefront: Select variant without images → falls back to product-level images | Pass |
+| Cart API: `GET /ecommerce/cart` returns `image_url` per item (variant preferred, product fallback) | Pass |
+| Checkout page: Images appear next to line items instead of grey squares | Pass |
+| Guest cart: `image_url` included in Redis-stored cart items | Pass |
+
 ---
 
 ## Test File Index

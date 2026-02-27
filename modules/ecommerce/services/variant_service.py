@@ -82,6 +82,7 @@ async def create_variant(db: AsyncSession, product_id: str, data: dict[str, Any]
         variant = await catalog_sync_service.sync_variant_to_catalog(
             db, variant, dict(product)
         )
+        await catalog_sync_service.copy_default_variant_price(db, dict(product))
 
     return variant
 
@@ -150,11 +151,17 @@ async def update_variant(db: AsyncSession, variant_id: str, data: dict[str, Any]
             variant = await catalog_sync_service.sync_variant_to_catalog(
                 db, variant, dict(product)
             )
+            await catalog_sync_service.copy_default_variant_price(db, dict(product))
 
     return variant
 
 
 async def delete_variant(db: AsyncSession, variant_id: str) -> None:
+    # Clean up images linked to this variant
+    await db.execute(
+        text("DELETE FROM ecommerce.product_images WHERE variant_id = :vid"),
+        {"vid": variant_id},
+    )
     result = await db.execute(
         text("DELETE FROM ecommerce.product_variants WHERE id = :id"),
         {"id": variant_id},

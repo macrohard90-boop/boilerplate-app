@@ -131,6 +131,11 @@ export async function apiFetch<T = unknown>(
     throw err;
   }
 
+  // 204 No Content — nothing to parse
+  if (res.status === 204) {
+    return undefined as T;
+  }
+
   return res.json();
 }
 

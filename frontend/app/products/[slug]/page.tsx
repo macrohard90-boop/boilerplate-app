@@ -14,6 +14,7 @@ interface ProductImage {
   url: string;
   alt_text: string | null;
   is_primary: boolean;
+  variant_id: string | null;
 }
 
 interface ProductVariant {
@@ -116,6 +117,20 @@ export default function ProductDetailPage() {
     if (slug) load();
   }, [slug]);
 
+  // Swap gallery when variant changes
+  useEffect(() => {
+    if (!product) return;
+    const variantImages = selectedVariant
+      ? product.images.filter((i) => i.variant_id === selectedVariant.id)
+      : [];
+    const displayImages =
+      variantImages.length > 0
+        ? variantImages
+        : product.images.filter((i) => !i.variant_id);
+    const primary = displayImages.find((i) => i.is_primary);
+    setSelectedImage(primary?.url || displayImages[0]?.url || null);
+  }, [selectedVariant, product]);
+
   if (loading) {
     return <LoadingSpinner size="lg" className="py-40" />;
   }
@@ -128,6 +143,14 @@ export default function ProductDetailPage() {
       </div>
     );
   }
+
+  const variantImgs = selectedVariant
+    ? product.images.filter((i) => i.variant_id === selectedVariant.id)
+    : [];
+  const displayImages =
+    variantImgs.length > 0
+      ? variantImgs
+      : product.images.filter((i) => !i.variant_id);
 
   const currentPrice = selectedVariant?.effective_price || product.base_price;
   const inStock = selectedVariant ? selectedVariant.stock_quantity > 0 : true;
@@ -178,9 +201,9 @@ export default function ProductDetailPage() {
               </div>
             )}
           </div>
-          {product.images.length > 1 && (
+          {displayImages.length > 1 && (
             <div className="flex gap-3 overflow-x-auto pb-2">
-              {product.images.map((img) => (
+              {displayImages.map((img) => (
                 <button
                   key={img.id}
                   onClick={() => setSelectedImage(img.url)}

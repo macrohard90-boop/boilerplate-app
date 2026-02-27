@@ -287,3 +287,20 @@ Read `docs/ARCHITECTURE.md` sections 3 (Session & Auth), 6 (Payment Lifecycle), 
 - `frontend/app/admin/page.tsx` — real health status card with expandable detail
 - `frontend/app/layout.tsx` — removed stack names from meta description
 - `frontend/components/Footer.tsx` — removed stack names from footer text
+
+### Variant-aware storefront gallery + admin image uploader (2026-02-26)
+
+**Changes:**
+- Storefront product detail page filters gallery images by selected variant (falls back to product-level images when variant has none)
+- Admin ImageUploader gains variant filter tabs, variant badges on thumbnails, and variant_id upload targeting
+- Admin product edit page layout reordered: Variants section above Images for natural workflow
+- VariantManager emits `onVariantsChange` callback so ImageUploader tabs stay in sync
+- Variant delete modal replaces native `window.confirm()` with styled Modal component
+
+**Files modified:**
+- `frontend/app/products/[slug]/page.tsx` — variant_id on ProductImage interface, displayImages computed from selectedVariant, useEffect to swap gallery
+- `frontend/components/admin/ImageUploader.tsx` — variant tabs, badges, re-fetch on variant change
+- `frontend/components/admin/VariantManager.tsx` — onVariantsChange callback, refreshKey prop, styled delete modal
+- `frontend/components/admin/ProductForm.tsx` — allowRecurring prop, hide Archived status on create
+- `frontend/app/admin/catalog/products/[id]/page.tsx` — pass variants + refreshKey, reorder layout
+- `frontend/app/admin/catalog/products/page.tsx` — allowRecurring=false, show API error messages

@@ -30,7 +30,12 @@ async def sync_product_to_catalog(
     db: AsyncSession,
     product: dict[str, Any],
 ) -> dict[str, Any]:
-    """Sync a product (and its base price) to the catalog provider.
+    """Sync a product to the catalog provider (Stripe Product only, no Price).
+
+    Prices are created per-variant via ``sync_variant_to_catalog()``.
+    After all variants are synced the caller should call
+    ``_copy_default_variant_price()`` to set the product-level
+    ``stripe_price_id`` for backward compatibility.
 
     Called when:
     - Product status transitions to ``active``
@@ -50,7 +55,7 @@ async def sync_product_to_catalog(
 
     try:
         if product.get("stripe_product_id"):
-            # Update existing catalog product
+            # Update existing catalog product (metadata only, no price)
             await provider.update_product(
                 product["stripe_product_id"],
                 name=product["name"],
@@ -59,59 +64,24 @@ async def sync_product_to_catalog(
                 images=image_urls or None,
                 metadata={"local_product_id": product_id},
             )
-
-            # Check if base_price changed → rotate price
-            current_price_id = product.get("stripe_price_id")
-            if current_price_id:
-                new_price = await _rotate_price(
-                    provider,
-                    product["stripe_product_id"],
-                    current_price_id,
-                    product["base_price"],
-                    product.get("currency", "USD"),
-                    metadata={"local_product_id": product_id, "type": "base_price"},
-                )
-                if new_price:
-                    await db.execute(
-                        text(
-                            "UPDATE ecommerce.products "
-                            "SET stripe_price_id = :sprice "
-                            "WHERE id = :id"
-                        ),
-                        {"id": product_id, "sprice": new_price.provider_price_id},
-                    )
-                    product["stripe_price_id"] = new_price.provider_price_id
         else:
-            # Create new catalog product + base price
+            # Create new catalog product (no price — variants own the prices)
             catalog_product = await provider.create_product(
                 name=product["name"],
                 description=product.get("description"),
                 images=image_urls or None,
                 metadata={"local_product_id": product_id},
             )
-            price_kwargs: dict[str, Any] = {
-                "metadata": {"local_product_id": product_id, "type": "base_price"},
-            }
-            if product.get("pricing_type") == "recurring" and product.get("recurring_interval"):
-                price_kwargs["recurring_interval"] = product["recurring_interval"]
-                price_kwargs["recurring_interval_count"] = product.get("recurring_interval_count", 1)
-            catalog_price = await provider.create_price(
-                catalog_product.provider_product_id,
-                product["base_price"],
-                product.get("currency", "USD"),
-                **price_kwargs,
-            )
             await db.execute(
                 text(
                     "UPDATE ecommerce.products "
-                    "SET stripe_product_id = :spid, stripe_price_id = :sprice, "
+                    "SET stripe_product_id = :spid, "
                     "    stripe_sync_status = 'synced', stripe_sync_error = NULL "
                     "WHERE id = :id"
                 ),
                 {
                     "id": product_id,
                     "spid": catalog_product.provider_product_id,
-                    "sprice": catalog_price.provider_price_id,
                 },
             )
             await db.commit()
@@ -121,14 +91,12 @@ async def sync_product_to_catalog(
         product["stripe_sync_status"] = "synced"
         product["stripe_sync_error"] = None
         if not product.get("stripe_product_id"):
-            # Re-read from DB to get stripe_product_id and stripe_price_id
             row = (await db.execute(
-                text("SELECT stripe_product_id, stripe_price_id FROM ecommerce.products WHERE id = :id"),
+                text("SELECT stripe_product_id FROM ecommerce.products WHERE id = :id"),
                 {"id": product_id},
             )).mappings().first()
             if row:
                 product["stripe_product_id"] = row["stripe_product_id"]
-                product["stripe_price_id"] = row["stripe_price_id"]
 
     except Exception as e:
         logger.error("Catalog sync failed for product %s: %s", product_id, e)
@@ -136,6 +104,36 @@ async def sync_product_to_catalog(
         product["stripe_sync_status"] = "error"
         product["stripe_sync_error"] = str(e)
 
+    return product
+
+
+async def copy_default_variant_price(
+    db: AsyncSession,
+    product: dict[str, Any],
+) -> dict[str, Any]:
+    """Copy the first variant's stripe_price_id to the product row.
+
+    This keeps ``product.stripe_price_id`` populated for backward compat
+    (subscription service uses it as the default price).
+    """
+    product_id = str(product["id"])
+    row = (await db.execute(
+        text(
+            "SELECT stripe_price_id FROM ecommerce.product_variants "
+            "WHERE product_id = :pid AND stripe_price_id IS NOT NULL "
+            "ORDER BY created_at LIMIT 1"
+        ),
+        {"pid": product_id},
+    )).mappings().first()
+    if row and row["stripe_price_id"]:
+        await db.execute(
+            text(
+                "UPDATE ecommerce.products SET stripe_price_id = :sprice WHERE id = :id"
+            ),
+            {"id": product_id, "sprice": row["stripe_price_id"]},
+        )
+        await db.commit()
+        product["stripe_price_id"] = row["stripe_price_id"]
     return product
 
 
@@ -160,7 +158,15 @@ async def sync_variant_to_catalog(
         return variant
 
     variant_id = str(variant["id"])
+    variant_name = variant.get("name", "Variant")
     effective_price = variant.get("price_override") or product["base_price"]
+    price_metadata = {
+        "local_variant_id": variant_id,
+        "local_product_id": str(product["id"]),
+        "variant_name": variant_name,
+        "type": "variant_price",
+    }
+    price_nickname = f"{product.get('name', 'Product')} — {variant_name}"
 
     try:
         if variant.get("stripe_price_id"):
@@ -170,11 +176,8 @@ async def sync_variant_to_catalog(
                 variant["stripe_price_id"],
                 effective_price,
                 product.get("currency", "USD"),
-                metadata={
-                    "local_variant_id": variant_id,
-                    "local_product_id": str(product["id"]),
-                    "type": "variant_price",
-                },
+                nickname=price_nickname,
+                metadata=price_metadata,
             )
             if new_price:
                 await db.execute(
@@ -189,11 +192,8 @@ async def sync_variant_to_catalog(
                 variant["stripe_price_id"] = new_price.provider_price_id
         else:
             price_kwargs: dict[str, Any] = {
-                "metadata": {
-                    "local_variant_id": variant_id,
-                    "local_product_id": str(product["id"]),
-                    "type": "variant_price",
-                },
+                "nickname": price_nickname,
+                "metadata": price_metadata,
             }
             if product.get("pricing_type") == "recurring" and product.get("recurring_interval"):
                 price_kwargs["recurring_interval"] = product["recurring_interval"]
@@ -286,6 +286,7 @@ async def retry_sync(db: AsyncSession, product_id: str) -> dict[str, Any]:
     for v in variants:
         await sync_variant_to_catalog(db, v, product)
 
+    product = await copy_default_variant_price(db, product)
     return product
 
 
@@ -296,7 +297,8 @@ async def retry_sync(db: AsyncSession, product_id: str) -> dict[str, Any]:
 
 async def _rotate_price(
     provider, stripe_product_id: str, old_price_id: str | None,
-    amount: int, currency: str, *, metadata: dict | None = None,
+    amount: int, currency: str, *,
+    nickname: str | None = None, metadata: dict | None = None,
 ):
     """Archive old price and create a new one.
 
@@ -310,7 +312,8 @@ async def _rotate_price(
             logger.warning("Failed to archive old price %s: %s", old_price_id, e)
 
     return await provider.create_price(
-        stripe_product_id, amount, currency, metadata=metadata,
+        stripe_product_id, amount, currency,
+        nickname=nickname, metadata=metadata,
     )
 
 

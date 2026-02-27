@@ -426,6 +426,7 @@ class StripeProvider(PaymentProvider, CatalogProvider):
         unit_amount: int,
         currency: str,
         *,
+        nickname: str | None = None,
         recurring_interval: str | None = None,
         recurring_interval_count: int = 1,
         metadata: dict[str, Any] | None = None,
@@ -436,6 +437,8 @@ class StripeProvider(PaymentProvider, CatalogProvider):
             "currency": currency.lower(),
             "metadata": metadata or {},
         }
+        if nickname:
+            params["nickname"] = nickname
         if recurring_interval:
             params["recurring"] = {
                 "interval": recurring_interval,

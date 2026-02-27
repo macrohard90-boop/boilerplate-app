@@ -2,7 +2,7 @@
 
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File
+from fastapi import APIRouter, Depends, Form, HTTPException, Query, UploadFile, File
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.core.database import get_db
@@ -71,7 +71,10 @@ async def create_product(
     user: dict = Depends(require_role("merchant")),
     db: AsyncSession = Depends(get_db),
 ) -> Any:
-    return await product_service.create_product(db, body.model_dump())
+    try:
+        return await product_service.create_product(db, body.model_dump())
+    except ValueError as e:
+        raise HTTPException(status_code=409, detail={"error": "conflict", "message": str(e), "details": None})
 
 
 @router.put("/{product_id}", response_model=ProductResponse)
@@ -114,7 +117,10 @@ async def delete_product(
     try:
         await product_service.delete_product(db, product_id)
     except ValueError as e:
-        raise HTTPException(status_code=404, detail={"error": "not_found", "message": str(e), "details": None})
+        msg = str(e)
+        if "Cannot delete" in msg:
+            raise HTTPException(status_code=409, detail={"error": "conflict", "message": msg, "details": None})
+        raise HTTPException(status_code=404, detail={"error": "not_found", "message": msg, "details": None})
 
 
 # ---------------------------------------------------------------------------
@@ -239,10 +245,11 @@ MAX_IMAGE_SIZE = 5 * 1024 * 1024  # 5 MB
 async def upload_image(
     product_id: str,
     file: UploadFile = File(...),
+    variant_id: str | None = Form(None),
     user: dict = Depends(require_role("merchant")),
     db: AsyncSession = Depends(get_db),
 ) -> Any:
-    """Upload an image file for a product."""
+    """Upload an image file for a product (optionally linked to a variant)."""
     product = await product_service.get_product_by_id(db, product_id)
     if not product:
         raise HTTPException(status_code=404, detail={"error": "not_found", "message": "Product not found", "details": None})
@@ -267,4 +274,5 @@ async def upload_image(
         "storage_path": result.storage_path,
         "alt_text": file.filename,
         "is_primary": False,
+        "variant_id": variant_id,
     })

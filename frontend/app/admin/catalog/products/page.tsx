@@ -80,8 +80,9 @@ export default function AdminProductsPage() {
       showToast("Product created", "success");
       setShowCreate(false);
       fetchProducts();
-    } catch {
-      showToast("Failed to create product", "error");
+    } catch (err: unknown) {
+      const msg = (err as { message?: string })?.message || "Failed to create product";
+      showToast(msg, "error");
     }
     setCreating(false);
   };
@@ -91,11 +92,12 @@ export default function AdminProductsPage() {
     setDeleting(true);
     try {
       await apiFetch(`/ecommerce/products/${deleteId}`, { method: "DELETE" });
-      showToast("Product deleted", "success");
+      showToast("Product archived successfully", "success");
       setDeleteId(null);
       fetchProducts();
-    } catch {
-      showToast("Failed to delete product", "error");
+    } catch (err: unknown) {
+      const msg = (err as { message?: string })?.message || "Failed to delete product";
+      showToast(msg, "error");
     }
     setDeleting(false);
   };
@@ -232,13 +234,14 @@ export default function AdminProductsPage() {
           onCancel={() => setShowCreate(false)}
           loading={creating}
           submitLabel="Create"
+          allowRecurring={false}
         />
       </Modal>
 
       {/* Delete Confirmation Modal */}
-      <Modal isOpen={!!deleteId} onClose={() => setDeleteId(null)} title="Delete Product" size="sm">
+      <Modal isOpen={!!deleteId} onClose={() => setDeleteId(null)} title="Archive Product" size="sm">
         <p className="text-text-secondary text-sm mb-4">
-          Are you sure you want to delete this product? This action will archive it in Stripe if synced.
+          This will remove the product from your store and archive it in Stripe. Existing orders are unaffected. Products with active subscriptions cannot be deleted.
         </p>
         <div className="flex justify-end gap-3">
           <button

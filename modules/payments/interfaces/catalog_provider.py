@@ -81,6 +81,7 @@ class CatalogProvider(ABC):
         unit_amount: int,
         currency: str,
         *,
+        nickname: str | None = None,
         recurring_interval: str | None = None,
         recurring_interval_count: int = 1,
         metadata: dict[str, Any] | None = None,

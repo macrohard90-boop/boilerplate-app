@@ -9,6 +9,42 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Claude Code shou
 ## [Unreleased]
 _Changes staged but not yet tagged._
 
+## [2026-02-26] - Variant-Level Images & Admin UX Improvements
+
+### Added
+- **Variant-level image support** — images can be assigned to specific variants via `variant_id` on the upload endpoint and admin ImageUploader
+- **Cart item images** — `image_url` field on `CartItemResponse` with variant→product fallback via COALESCE subquery (works for both auth and guest carts)
+- **Variant-aware storefront gallery** — selecting a variant with images swaps the gallery; falls back to product-level images
+- **Checkout item images** — cart items in checkout sidebar show product/variant images instead of grey placeholders
+- **Styled variant delete modal** — replaces native `window.confirm()` with themed Modal component matching product delete UX
+- **Duplicate SKU validation** — product creation checks for existing SKU and returns user-friendly error ("SKU 'X' already exists")
+
+### Changed
+- **ImageUploader** — gains variant filter tabs (All / Product / per-variant), variant badges on thumbnails, and re-fetches images when variants change
+- **Product edit page layout** — Variants section moved above Images for natural workflow (create variants first, then assign images)
+- **VariantManager** — emits `onVariantsChange` callback so parent components stay in sync; accepts `refreshKey` for post-update sync status refresh
+- **ProductForm** — `allowRecurring` prop hides recurring pricing option in catalog context; `Archived` status hidden on create (only Draft/Active)
+- **Variant deletion** — now cascades to delete associated images from DB
+
+### Fixed
+- **Stale variant sync badges** — VariantManager now re-fetches after product update/sync via `refreshKey` prop
+- **Orphan images after variant delete** — variant images are deleted from DB when variant is deleted
+- **ImageUploader stale state** — re-fetches images when variants change (no orphan thumbnails after variant delete)
+
+### Files Modified
+- `modules/ecommerce/models/schemas.py` — image_url on CartItemResponse
+- `modules/ecommerce/services/cart_service.py` — COALESCE image subqueries in auth + guest paths
+- `modules/ecommerce/services/variant_service.py` — cascade delete variant images
+- `modules/ecommerce/services/product_service.py` — duplicate SKU check
+- `modules/ecommerce/routes/product_routes.py` — variant_id on upload, ValueError on create
+- `frontend/components/admin/ImageUploader.tsx` — variant tabs, badges, re-fetch
+- `frontend/components/admin/VariantManager.tsx` — onVariantsChange, refreshKey, delete modal
+- `frontend/components/admin/ProductForm.tsx` — allowRecurring, hide Archived on create
+- `frontend/app/admin/catalog/products/[id]/page.tsx` — wire variants + refreshKey
+- `frontend/app/admin/catalog/products/page.tsx` — allowRecurring=false, error messages
+- `frontend/app/products/[slug]/page.tsx` — variant-aware gallery
+- `frontend/app/checkout/page.tsx` — render cart item images
+
 ## [2026-02-19] - Stripe Integration Improvements: Fee Tiers, Mixed Checkout, Zero-Cost Orders
 
 ### Added
