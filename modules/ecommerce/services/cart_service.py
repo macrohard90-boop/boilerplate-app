@@ -197,7 +197,7 @@ async def add_item(
         raise ValueError("Product/variant not found")
     if info["status"] != "active":
         raise ValueError("Product is not available")
-    if info["stock_quantity"] < quantity:
+    if info["pricing_type"] != "recurring" and info["stock_quantity"] < quantity:
         raise ValueError("Insufficient stock")
 
     unit_price = info["effective_price"]

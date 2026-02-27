@@ -251,6 +251,30 @@ Manual verification performed:
 | Checkout page: Images appear next to line items instead of grey squares | Pass |
 | Guest cart: `image_url` included in Redis-stored cart items | Pass |
 
+### Subscription Plan UX & PlanCard — Manual Test Results (2026-02-27)
+
+**All 180 automated tests passing** (3 skipped, 10 xfailed — all pre-existing).
+
+Manual verification performed:
+
+| Test Case | Result |
+|-----------|--------|
+| Storefront: Subscriptions tab shows PlanCard (pricing card style, not ProductCard) | Pass |
+| Storefront: PlanCard shows plan name, price, and interval (/mo, /yr) | Pass |
+| Storefront: PlanCard "Get Access" button adds subscription to cart | Pass |
+| Storefront: Plan with description → lines render as checkmark benefits | Pass |
+| Storefront: Plan without description → clean card, no empty bullets | Pass |
+| Storefront: Trial days → blue "X-day free trial" badge shown | Pass |
+| Storefront: Subscriptions tab uses 3-column grid (not 4-column) | Pass |
+| Storefront: Products tab still uses ProductCard with images (unchanged) | Pass |
+| Storefront: Category filter pills hidden on Subscriptions tab | Pass |
+| Admin: Create plan → no Pricing Type dropdown (always recurring) | Pass |
+| Admin: Create plan → no Archived status option | Pass |
+| Admin: Edit plan → dedicated page with back arrow, sync banner, Stripe IDs | Pass |
+| Admin: Edit plan → description and SKU fields save correctly | Pass |
+| Admin: Plan list → Edit button navigates to dedicated page (not modal) | Pass |
+| Cart: Recurring products bypass stock check (stock_quantity=0 allowed) | Pass |
+
 ---
 
 ## Test File Index

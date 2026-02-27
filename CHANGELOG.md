@@ -9,6 +9,22 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Claude Code shou
 ## [Unreleased]
 _Changes staged but not yet tagged._
 
+## [2026-02-27b] - Subscription Plan UX & PlanCard Component
+
+### Added
+- **PlanCard component** — pricing-card layout for subscription plans with plan name, large price/interval, optional trial badge, description lines as green checkmark benefits, and "Get Access" button that adds directly to cart
+- **Dedicated subscription plan edit page** — `/admin/subscriptions/plans/[id]` with back navigation, sync status banner showing Stripe Product/Price IDs, and full plan form (replaces edit modal)
+
+### Changed
+- **Subscriptions tab** — uses PlanCard (3-column grid) instead of ProductCard (4-column); list view omits image thumbnail since plans are not image-centric
+- **Plan create modal** — hides Pricing Type dropdown (`allowRecurring={false}`) since plans are always recurring; hides Archived status option on creation
+- **ProductForm** — Archived status option only shown when editing an existing product (`initial?.status` guard)
+- **Category filters** — hidden on Subscriptions tab (irrelevant to plans)
+
+### Fixed
+- **Subscription plan description/SKU not saving** — `Plan` interface was missing `description`, `sku`, and `stripe_price_id` fields; edit page wasn't passing them to form
+- **"Failed to add plan" on Get Access** — cart service rejected recurring products due to `stock_quantity = 0`; now skips stock check for `pricing_type = "recurring"`
+
 ## [2026-02-27] - Category Management, Product Images & Storefront Fixes
 
 ### Added

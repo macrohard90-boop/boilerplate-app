@@ -3,6 +3,7 @@
 import { Suspense, useEffect, useState, useCallback } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import ProductCard from "../../components/ProductCard";
+import PlanCard from "../../components/PlanCard";
 import SearchBar from "../../components/SearchBar";
 import Pagination from "../../components/Pagination";
 import LoadingSpinner from "../../components/LoadingSpinner";
@@ -16,7 +17,7 @@ interface Product {
   description: string;
   pricing_type?: string;
   recurring_interval?: string | null;
-  type?: string;
+  trial_period_days?: number | null;
   images?: { url: string; is_primary: boolean }[];
   categories?: { name: string }[];
 }
@@ -163,8 +164,8 @@ function ProductsContent() {
         ))}
       </div>
 
-      {/* Category Filter */}
-      {categories.length > 0 && (
+      {/* Category Filter — only for products, not subscriptions */}
+      {categories.length > 0 && !isSubscriptions && (
         <div className="flex gap-2 mb-6 overflow-x-auto pb-1">
           <button
             onClick={() => handleCategoryFilter(null)}
@@ -258,22 +259,52 @@ function ProductsContent() {
             {activeCategoryName && ` in ${activeCategoryName}`}
           </p>
           <div className={view === "grid"
-            ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"
+            ? isSubscriptions
+              ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6"
+              : "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"
             : "space-y-4"
           }>
             {data.items.map((product) => (
               view === "grid" ? (
-                <ProductCard
-                  key={product.id}
-                  slug={product.slug}
-                  name={product.name}
-                  price={product.base_price}
-                  currency={product.currency}
-                  image_url={product.images?.find((i) => i.is_primary)?.url || product.images?.[0]?.url}
-                  category_name={product.categories?.[0]?.name}
-                  pricing_type={product.pricing_type}
-                  recurring_interval={product.recurring_interval}
-                />
+                isSubscriptions ? (
+                  <PlanCard
+                    key={product.id}
+                    id={product.id}
+                    name={product.name}
+                    price={product.base_price}
+                    currency={product.currency}
+                    description={product.description}
+                    recurring_interval={product.recurring_interval}
+                    trial_period_days={product.trial_period_days}
+                  />
+                ) : (
+                  <ProductCard
+                    key={product.id}
+                    slug={product.slug}
+                    name={product.name}
+                    price={product.base_price}
+                    currency={product.currency}
+                    image_url={product.images?.find((i) => i.is_primary)?.url || product.images?.[0]?.url}
+                    category_name={product.categories?.[0]?.name}
+                    pricing_type={product.pricing_type}
+                    recurring_interval={product.recurring_interval}
+                  />
+                )
+              ) : isSubscriptions ? (
+                <a key={product.id} href={`/products/${product.slug}`} className="glass rounded-xl p-4 flex items-center gap-4 group hover:border-accent-purple/30 transition-all block">
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-text-primary font-medium group-hover:text-accent-blue transition-colors">{product.name}</h3>
+                    <p className="text-sm text-text-muted truncate mt-1">{product.description}</p>
+                  </div>
+                  <div className="text-lg font-semibold text-text-primary shrink-0">
+                    {(product.base_price / 100).toLocaleString("en-US", { style: "currency", currency: product.currency })}
+                    {product.recurring_interval && (
+                      <span className="text-sm font-normal text-text-muted">
+                        /{product.recurring_interval === "month" ? "mo" : product.recurring_interval === "year" ? "yr" : product.recurring_interval}
+                      </span>
+                    )}
+                  </div>
+                </a>
               ) : (
                 <a key={product.id} href={`/products/${product.slug}`} className="glass rounded-xl p-4 flex gap-4 group hover:border-accent-purple/30 transition-all block">
                   <div className="w-20 h-20 bg-base-100 rounded-lg shrink-0 overflow-hidden">

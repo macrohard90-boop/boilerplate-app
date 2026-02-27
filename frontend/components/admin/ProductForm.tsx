@@ -300,7 +300,7 @@ export default function ProductForm({
         >
           <option value="draft">Draft</option>
           <option value="active">Active</option>
-          {initial && <option value="archived">Archived</option>}
+          {initial?.status && <option value="archived">Archived</option>}
         </select>
       </div>
 

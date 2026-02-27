@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { apiFetch } from "../../../../lib/api";
-import { formatPrice, formatDate } from "../../../../lib/format";
+import { formatPrice } from "../../../../lib/format";
 import Pagination from "../../../../components/Pagination";
 import LoadingSpinner from "../../../../components/LoadingSpinner";
 import Modal from "../../../../components/Modal";
@@ -14,6 +15,8 @@ interface Plan {
   id: string;
   name: string;
   slug: string;
+  description: string | null;
+  sku: string | null;
   base_price: number;
   currency: string;
   status: string;
@@ -22,6 +25,7 @@ interface Plan {
   recurring_interval_count: number;
   trial_period_days: number | null;
   stripe_product_id: string | null;
+  stripe_price_id: string | null;
   stripe_sync_status: string;
   stripe_sync_error: string | null;
   synced_provider: string | null;
@@ -57,6 +61,7 @@ function formatInterval(interval: string | null, count: number): string {
 }
 
 export default function SubscriptionPlansPage() {
+  const router = useRouter();
   const { showToast } = useToast();
   const [data, setData] = useState<PlanListResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -64,8 +69,6 @@ export default function SubscriptionPlansPage() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [showCreate, setShowCreate] = useState(false);
   const [creating, setCreating] = useState(false);
-  const [editItem, setEditItem] = useState<Plan | null>(null);
-  const [saving, setSaving] = useState(false);
   const [archiveId, setArchiveId] = useState<string | null>(null);
   const [archiving, setArchiving] = useState(false);
   const [syncingId, setSyncingId] = useState<string | null>(null);
@@ -110,23 +113,6 @@ export default function SubscriptionPlansPage() {
       showToast("Failed to create plan", "error");
     }
     setCreating(false);
-  };
-
-  const handleEdit = async (formData: ProductFormData) => {
-    if (!editItem) return;
-    setSaving(true);
-    try {
-      await apiFetch(`/ecommerce/products/${editItem.id}`, {
-        method: "PUT",
-        body: JSON.stringify(formData),
-      });
-      showToast("Plan updated", "success");
-      setEditItem(null);
-      fetchPlans();
-    } catch {
-      showToast("Failed to update plan", "error");
-    }
-    setSaving(false);
   };
 
   const handleArchive = async () => {
@@ -256,7 +242,7 @@ export default function SubscriptionPlansPage() {
                     </td>
                     <td className="p-4 text-right whitespace-nowrap">
                       <button
-                        onClick={() => setEditItem(plan)}
+                        onClick={() => router.push(`/admin/subscriptions/plans/${plan.id}`)}
                         className="text-xs text-accent-blue hover:text-accent-blue/80 mr-3"
                       >
                         Edit
@@ -295,29 +281,8 @@ export default function SubscriptionPlansPage() {
           onCancel={() => setShowCreate(false)}
           loading={creating}
           submitLabel="Create Plan"
+          allowRecurring={false}
         />
-      </Modal>
-
-      {/* Edit Plan Modal */}
-      <Modal isOpen={!!editItem} onClose={() => setEditItem(null)} title="Edit Subscription Plan" size="lg">
-        {editItem && (
-          <ProductForm
-            initial={{
-              name: editItem.name,
-              base_price: editItem.base_price,
-              currency: editItem.currency,
-              status: editItem.status,
-              pricing_type: "recurring",
-              recurring_interval: editItem.recurring_interval,
-              recurring_interval_count: editItem.recurring_interval_count,
-              trial_period_days: editItem.trial_period_days,
-            }}
-            onSubmit={handleEdit}
-            onCancel={() => setEditItem(null)}
-            loading={saving}
-            submitLabel="Update Plan"
-          />
-        )}
       </Modal>
 
       {/* Archive Confirmation Modal */}
