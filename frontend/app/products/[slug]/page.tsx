@@ -95,6 +95,11 @@ export default function ProductDetailPage() {
         const res = await fetch(`/api/ecommerce/products/${slug}`);
         if (res.ok) {
           const data = await res.json();
+          if (data.status !== "active") {
+            setProduct(null);
+            setLoading(false);
+            return;
+          }
           setProduct(data);
           if (data.variants?.length > 0) {
             setSelectedVariant(data.variants[0]);

@@ -9,6 +9,33 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Claude Code shou
 ## [Unreleased]
 _Changes staged but not yet tagged._
 
+## [2026-02-27] - Category Management, Product Images & Storefront Fixes
+
+### Added
+- **Admin category management** — full CRUD under Product Catalog > Categories tab with tree-indented table, create/edit/delete modals, product count display
+- **Safe category deletion** — blocks delete if category has products or subcategories (409 Conflict), with descriptive error messages
+- **Category picker in ProductForm** — pill-style toggle buttons grouped by parent/child; selecting a subcategory auto-selects its parent
+- **Product images in list API** — `ProductResponse` now includes `images` (product-level) and `categories` via batch subqueries (no N+1)
+- **Category filter on products browse page** — horizontal pill bar (All + root categories) filters products by `category_id`
+- **Dynamic header navigation** — replaces hardcoded category links with live data from API (root categories, max 5)
+
+### Changed
+- **ProductCard category badge** — moved from image overlay (poor contrast on light images) to info section as uppercase purple text above product name
+- **ProductForm** — removed `type` dropdown (Physical/Digital); field drove zero behavior, `pricing_type` handles all real logic. Backend defaults to `"physical"`
+- **Status full-width** — Status dropdown now takes full row width since Type was removed
+
+### Fixed
+- **Search bar icon overlap** — `.input-glass` padding overrode Tailwind's `pl-10`; fixed with `!pl-10` important modifier
+- **Products page search broken** — frontend sent `q` param but backend expects `search`; corrected to `params.set("search", search)`
+- **Draft products visible on storefront** — category page (`/categories/[slug]`) missing `status=active` filter; product detail page now returns "not found" for non-active products
+- **Category products missing images** — `get_category_products()` now calls `_attach_images_and_categories()` like the main product list
+
+### Technical Details
+- `ProductImageSummary` (url + is_primary) and `ProductCategorySummary` (id + name + slug) lightweight schemas for list endpoints
+- `_attach_images_and_categories()` in product_service.py batch-fetches via `ANY(:pids)` — single query per data type for entire page
+- Category delete checks both `product_categories` junction table and `categories` self-reference before allowing deletion
+- `CategoryForm.tsx` prevents circular parent references via `getDescendantIds()` exclusion in parent dropdown
+
 ## [2026-02-26] - Variant-Level Images & Admin UX Improvements
 
 ### Added

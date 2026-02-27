@@ -193,6 +193,39 @@
 - **Fix**: Added `discounts` parameter to session creation; updated provider interface
 - **Test**: `test_subscription_checkout.py::test_discount_passes_coupon_to_session`
 
+### Category Management & Storefront Fixes — Test Results (2026-02-27)
+
+**180 automated tests passing** (3 skipped, 10 xfailed, 1 xpassed — all pre-existing).
+
+Manual verification performed:
+
+| Test Case | Result |
+|-----------|--------|
+| Admin: Categories tab appears under Product Catalog | Pass |
+| Admin: Create category with name, parent, description, sort order | Pass |
+| Admin: Edit category — name, parent, sort order update correctly | Pass |
+| Admin: Delete empty category (no products, no children) → 204 | Pass |
+| Admin: Delete category with products → 409 with descriptive message | Pass |
+| Admin: Delete category with subcategories → 409 with descriptive message | Pass |
+| Admin: Category parent dropdown excludes self and descendants (no circular refs) | Pass |
+| Admin: Product count displays correctly per category | Pass |
+| Admin: ProductForm shows category pills; selecting child auto-selects parent | Pass |
+| Admin: Deselecting parent category removes its children | Pass |
+| Admin: Edit product → categories pre-selected; change and save → persists | Pass |
+| Admin: Create product → no Type dropdown (removed) | Pass |
+| Storefront: Header shows dynamic categories from API (max 5 root) | Pass |
+| Storefront: Products page has category filter pills (All + root categories) | Pass |
+| Storefront: Category filter resets on tab switch (Products ↔ Subscriptions) | Pass |
+| Storefront: Search works (fixed `q` → `search` param) | Pass |
+| Storefront: Product cards show images from API | Pass |
+| Storefront: Category badge readable below image (not overlaid) | Pass |
+| Storefront: Draft products hidden on category pages (`status=active` filter) | Pass |
+| Storefront: Navigating directly to draft product slug → "Product Not Found" | Pass |
+| API: `GET /products?page_size=2` returns `images` and `categories` per item | Pass |
+| API: `GET /categories/home-garden/products` returns images (when active products exist) | Pass |
+| API: `DELETE /categories/{id}` with products → 409 Conflict | Pass |
+| API: `DELETE /categories/{id}` empty → 204 No Content | Pass |
+
 ### Variant-Level Images & Admin UX — Manual Test Results (2026-02-26)
 
 **All 180 automated tests passing** (3 skipped, 10 xfailed — all pre-existing).

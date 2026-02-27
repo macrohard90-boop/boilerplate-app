@@ -30,7 +30,7 @@ export default function SearchBar({ placeholder = "Search...", onSearch, debounc
         value={value}
         onChange={(e) => setValue(e.target.value)}
         placeholder={placeholder}
-        className="input-glass pl-10"
+        className="input-glass w-full !pl-10"
       />
       {value && (
         <button

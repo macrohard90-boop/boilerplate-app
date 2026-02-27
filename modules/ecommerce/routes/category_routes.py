@@ -68,4 +68,7 @@ async def delete_category(
     try:
         await category_service.delete_category(db, category_id)
     except ValueError as e:
-        raise HTTPException(status_code=404, detail={"error": "not_found", "message": str(e), "details": None})
+        msg = str(e)
+        if "not found" in msg.lower():
+            raise HTTPException(status_code=404, detail={"error": "not_found", "message": msg, "details": None})
+        raise HTTPException(status_code=409, detail={"error": "conflict", "message": msg, "details": None})

@@ -101,7 +101,6 @@ export default function SubscriptionPlansPage() {
         body: JSON.stringify({
           ...formData,
           pricing_type: "recurring",
-          type: "subscription",
         }),
       });
       showToast("Plan created", "success");
@@ -289,7 +288,6 @@ export default function SubscriptionPlansPage() {
         <ProductForm
           initial={{
             pricing_type: "recurring",
-            type: "subscription",
             recurring_interval: "month",
             recurring_interval_count: 1,
           }}
@@ -309,7 +307,6 @@ export default function SubscriptionPlansPage() {
               base_price: editItem.base_price,
               currency: editItem.currency,
               status: editItem.status,
-              type: "subscription",
               pricing_type: "recurring",
               recurring_interval: editItem.recurring_interval,
               recurring_interval_count: editItem.recurring_interval_count,

@@ -29,10 +29,19 @@ async def _unique_slug(db: AsyncSession, base_slug: str, exclude_id: str | None 
 
 
 async def list_categories_tree(db: AsyncSession) -> list[dict[str, Any]]:
-    """Return all categories as a nested tree."""
+    """Return all categories as a nested tree with product counts."""
     rows = (
         await db.execute(
-            text("SELECT * FROM ecommerce.categories ORDER BY sort_order, name")
+            text(
+                "SELECT c.*, COALESCE(pc.cnt, 0) AS product_count "
+                "FROM ecommerce.categories c "
+                "LEFT JOIN ("
+                "  SELECT category_id, COUNT(*) AS cnt "
+                "  FROM ecommerce.product_categories "
+                "  GROUP BY category_id"
+                ") pc ON pc.category_id = c.id "
+                "ORDER BY c.sort_order, c.name"
+            )
         )
     ).mappings().all()
     categories = [dict(r) for r in rows]
@@ -126,12 +135,43 @@ async def update_category(db: AsyncSession, category_id: str, data: dict[str, An
 
 
 async def delete_category(db: AsyncSession, category_id: str) -> None:
-    result = await db.execute(
+    # Verify exists
+    existing = await get_category_by_id(db, category_id)
+    if not existing:
+        raise ValueError("Category not found")
+
+    # Block if products are assigned
+    product_count = (
+        await db.execute(
+            text("SELECT COUNT(*) FROM ecommerce.product_categories WHERE category_id = :cid"),
+            {"cid": category_id},
+        )
+    ).scalar() or 0
+    if product_count > 0:
+        raise ValueError(
+            f"Cannot delete category with {product_count} assigned "
+            f"product{'s' if product_count != 1 else ''}. "
+            "Unassign products first."
+        )
+
+    # Block if has child categories
+    child_count = (
+        await db.execute(
+            text("SELECT COUNT(*) FROM ecommerce.categories WHERE parent_id = :cid"),
+            {"cid": category_id},
+        )
+    ).scalar() or 0
+    if child_count > 0:
+        raise ValueError(
+            f"Cannot delete category with {child_count} "
+            f"subcategor{'ies' if child_count != 1 else 'y'}. "
+            "Delete or reparent subcategories first."
+        )
+
+    await db.execute(
         text("DELETE FROM ecommerce.categories WHERE id = :id"),
         {"id": category_id},
     )
-    if result.rowcount == 0:
-        raise ValueError("Category not found")
     await db.commit()
 
 
@@ -160,9 +200,16 @@ async def get_category_products(
     rows = (
         await db.execute(text(items_q), {"cid": category_id, "limit": page_size, "offset": offset})
     ).mappings().all()
+    items = [dict(r) for r in rows]
+
+    # Attach images and categories for each product
+    if items:
+        from modules.ecommerce.services.product_service import _attach_images_and_categories
+
+        items = await _attach_images_and_categories(db, items)
 
     return {
-        "items": [dict(r) for r in rows],
+        "items": items,
         "total": total,
         "page": page,
         "page_size": page_size,

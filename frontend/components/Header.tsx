@@ -1,15 +1,32 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "../lib/auth-context";
 import { useCart } from "../lib/cart-context";
+
+interface NavCategory {
+  name: string;
+  slug: string;
+  parent_id: string | null;
+}
 
 export default function Header() {
   const { user, isAuthenticated, logout, isLoading } = useAuth();
   const { cart } = useCart();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [navCategories, setNavCategories] = useState<NavCategory[]>([]);
+
+  useEffect(() => {
+    fetch("/api/ecommerce/categories")
+      .then((r) => r.ok ? r.json() : [])
+      .then((data: NavCategory[]) => {
+        // Only root categories (no parent), max 5
+        setNavCategories(data.filter((c) => !c.parent_id).slice(0, 5));
+      })
+      .catch(() => {});
+  }, []);
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50 glass">
@@ -25,12 +42,11 @@ export default function Header() {
             <Link href="/products" className="text-text-secondary hover:text-text-primary transition-colors text-sm">
               Products
             </Link>
-            <Link href="/categories/electronics" className="text-text-secondary hover:text-text-primary transition-colors text-sm">
-              Electronics
-            </Link>
-            <Link href="/categories/clothing" className="text-text-secondary hover:text-text-primary transition-colors text-sm">
-              Clothing
-            </Link>
+            {navCategories.map((cat) => (
+              <Link key={cat.slug} href={`/categories/${cat.slug}`} className="text-text-secondary hover:text-text-primary transition-colors text-sm">
+                {cat.name}
+              </Link>
+            ))}
           </div>
 
           {/* Right side */}
@@ -149,12 +165,11 @@ export default function Header() {
               <Link href="/products" className="text-text-secondary hover:text-text-primary transition-colors text-sm py-2" onClick={() => setMobileOpen(false)}>
                 Products
               </Link>
-              <Link href="/categories/electronics" className="text-text-secondary hover:text-text-primary transition-colors text-sm py-2" onClick={() => setMobileOpen(false)}>
-                Electronics
-              </Link>
-              <Link href="/categories/clothing" className="text-text-secondary hover:text-text-primary transition-colors text-sm py-2" onClick={() => setMobileOpen(false)}>
-                Clothing
-              </Link>
+              {navCategories.map((cat) => (
+                <Link key={cat.slug} href={`/categories/${cat.slug}`} className="text-text-secondary hover:text-text-primary transition-colors text-sm py-2" onClick={() => setMobileOpen(false)}>
+                  {cat.name}
+                </Link>
+              ))}
             </div>
           </div>
         )}

@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 
 const CATALOG_TABS = [
   { href: "/admin/catalog/products", label: "All Products" },
+  { href: "/admin/catalog/categories", label: "Categories" },
   { href: "/admin/catalog/coupons", label: "Coupons" },
   { href: "/admin/catalog/shipping", label: "Shipping Rates" },
   { href: "/admin/catalog/tax", label: "Tax Rates" },

@@ -61,7 +61,7 @@ export default function CategoryPage() {
         setCategory(cat);
 
         if (cat) {
-          const prodRes = await fetch(`/api/ecommerce/products?category_id=${cat.id}&page=${page}&page_size=12`);
+          const prodRes = await fetch(`/api/ecommerce/products?category_id=${cat.id}&status=active&page=${page}&page_size=12`);
           if (prodRes.ok) {
             setProducts(await prodRes.json());
           }

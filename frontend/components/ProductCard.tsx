@@ -52,15 +52,15 @@ export default function ProductCard({
               </svg>
             </div>
           )}
-          {category_name && (
-            <span className="absolute top-3 left-3 badge-purple text-[10px]">
-              {category_name}
-            </span>
-          )}
         </div>
 
         {/* Info */}
         <div className="p-4">
+          {category_name && (
+            <span className="text-[10px] text-accent-purple font-medium uppercase tracking-wider">
+              {category_name}
+            </span>
+          )}
           <h3 className="text-sm font-medium text-text-primary group-hover:text-accent-blue transition-colors truncate">
             {name}
           </h3>

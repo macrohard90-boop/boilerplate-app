@@ -40,6 +40,7 @@ class CategoryResponse(BaseModel):
     parent_id: UUID | None
     description: str | None
     sort_order: int
+    product_count: int = 0
     created_at: datetime
 
 
@@ -125,6 +126,17 @@ class ProductUpdate(BaseModel):
     trial_period_days: int | None = None
 
 
+class ProductImageSummary(BaseModel):
+    url: str
+    is_primary: bool
+
+
+class ProductCategorySummary(BaseModel):
+    id: UUID
+    name: str
+    slug: str
+
+
 class ProductResponse(BaseModel):
     id: UUID
     name: str
@@ -145,14 +157,16 @@ class ProductResponse(BaseModel):
     recurring_interval_count: int = 1
     trial_period_days: int | None = None
     subscriber_count: int = 0
+    images: list[ProductImageSummary] = Field(default_factory=list)
+    categories: list[ProductCategorySummary] = Field(default_factory=list)
     created_at: datetime
     updated_at: datetime
 
 
 class ProductDetailResponse(ProductResponse):
-    categories: list[CategoryResponse] = Field(default_factory=list)
+    categories: list[CategoryResponse] = Field(default_factory=list)  # type: ignore[assignment]
     variants: list["VariantResponse"] = Field(default_factory=list)
-    images: list["ImageResponse"] = Field(default_factory=list)
+    images: list["ImageResponse"] = Field(default_factory=list)  # type: ignore[assignment]
 
 
 class ProductListResponse(BaseModel):

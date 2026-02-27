@@ -8,7 +8,7 @@ import Pagination from "../../../../components/Pagination";
 import LoadingSpinner from "../../../../components/LoadingSpinner";
 import Modal from "../../../../components/Modal";
 import { useToast } from "../../../../components/Toast";
-import ProductForm, { type ProductFormData } from "../../../../components/admin/ProductForm";
+import ProductForm, { type ProductFormData, type CategoryOption } from "../../../../components/admin/ProductForm";
 import SyncStatusBadge from "../../../../components/admin/SyncStatusBadge";
 
 interface Product {
@@ -53,6 +53,7 @@ export default function AdminProductsPage() {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [syncingId, setSyncingId] = useState<string | null>(null);
+  const [categories, setCategories] = useState<CategoryOption[]>([]);
 
   const fetchProducts = useCallback(() => {
     setLoading(true);
@@ -64,6 +65,12 @@ export default function AdminProductsPage() {
   }, [page, statusFilter]);
 
   useEffect(() => { fetchProducts(); }, [fetchProducts]);
+
+  useEffect(() => {
+    apiFetch<CategoryOption[]>("/ecommerce/categories")
+      .then(setCategories)
+      .catch(() => {});
+  }, []);
 
   const handleStatusFilterChange = (value: string) => {
     setStatusFilter(value);
@@ -235,6 +242,7 @@ export default function AdminProductsPage() {
           loading={creating}
           submitLabel="Create"
           allowRecurring={false}
+          categories={categories}
         />
       </Modal>
 

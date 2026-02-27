@@ -29,6 +29,13 @@ interface ProductResponse {
   total_pages: number;
 }
 
+interface Category {
+  id: string;
+  name: string;
+  slug: string;
+  parent_id: string | null;
+}
+
 const SORT_OPTIONS = [
   { value: "newest", label: "Newest" },
   { value: "price_asc", label: "Price: Low to High" },
@@ -55,6 +62,19 @@ function ProductsContent() {
   const [tab, setTab] = useState<TabKey>(
     (searchParams.get("tab") as TabKey) || "one_time"
   );
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [categoryId, setCategoryId] = useState<string | null>(null);
+
+  // Fetch categories once
+  useEffect(() => {
+    fetch("/api/ecommerce/categories")
+      .then((r) => r.ok ? r.json() : [])
+      .then((data: Category[]) => {
+        // Only root categories for filter pills
+        setCategories(data.filter((c) => !c.parent_id));
+      })
+      .catch(() => {});
+  }, []);
 
   const fetchProducts = useCallback(async () => {
     setLoading(true);
@@ -64,7 +84,8 @@ function ProductsContent() {
     params.set("pricing_type", tab);
     params.set("status", "active");
     if (sort) params.set("sort", sort);
-    if (search) params.set("q", search);
+    if (search) params.set("search", search);
+    if (categoryId) params.set("category_id", categoryId);
 
     try {
       const res = await fetch(`/api/ecommerce/products?${params}`);
@@ -77,7 +98,7 @@ function ProductsContent() {
     } finally {
       setLoading(false);
     }
-  }, [page, sort, search, tab]);
+  }, [page, sort, search, tab, categoryId]);
 
   useEffect(() => {
     fetchProducts();
@@ -97,10 +118,19 @@ function ProductsContent() {
     setTab(t);
     setPage(1);
     setSearch("");
+    setCategoryId(null);
+  };
+
+  const handleCategoryFilter = (id: string | null) => {
+    setCategoryId(id);
+    setPage(1);
   };
 
   const activeTab = TABS.find((t) => t.key === tab)!;
   const isSubscriptions = tab === "recurring";
+  const activeCategoryName = categoryId
+    ? categories.find((c) => c.id === categoryId)?.name
+    : null;
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -132,6 +162,35 @@ function ProductsContent() {
           </button>
         ))}
       </div>
+
+      {/* Category Filter */}
+      {categories.length > 0 && (
+        <div className="flex gap-2 mb-6 overflow-x-auto pb-1">
+          <button
+            onClick={() => handleCategoryFilter(null)}
+            className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors whitespace-nowrap ${
+              !categoryId
+                ? "bg-accent-purple/10 text-accent-purple border border-accent-purple/30"
+                : "text-text-muted hover:text-text-primary border border-transparent"
+            }`}
+          >
+            All
+          </button>
+          {categories.map((cat) => (
+            <button
+              key={cat.id}
+              onClick={() => handleCategoryFilter(cat.id)}
+              className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors whitespace-nowrap ${
+                categoryId === cat.id
+                  ? "bg-accent-purple/10 text-accent-purple border border-accent-purple/30"
+                  : "text-text-muted hover:text-text-primary border border-transparent"
+              }`}
+            >
+              {cat.name}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* Controls */}
       <div className="flex flex-col sm:flex-row gap-4 mb-8">
@@ -183,9 +242,12 @@ function ProductsContent() {
           <p className="text-text-secondary text-lg">
             {isSubscriptions ? "No subscriptions found" : "No products found"}
           </p>
-          {search && (
-            <button onClick={() => handleSearch("")} className="btn-secondary text-sm mt-4">
-              Clear search
+          {(search || categoryId) && (
+            <button
+              onClick={() => { handleSearch(""); handleCategoryFilter(null); }}
+              className="btn-secondary text-sm mt-4"
+            >
+              Clear filters
             </button>
           )}
         </div>
@@ -193,6 +255,7 @@ function ProductsContent() {
         <>
           <p className="text-sm text-text-muted mb-6">
             {data.total} {isSubscriptions ? "plan" : "product"}{data.total !== 1 ? "s" : ""}
+            {activeCategoryName && ` in ${activeCategoryName}`}
           </p>
           <div className={view === "grid"
             ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"

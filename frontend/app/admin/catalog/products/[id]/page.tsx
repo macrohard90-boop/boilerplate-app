@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { apiFetch } from "../../../../../lib/api";
 import { useToast } from "../../../../../components/Toast";
 import LoadingSpinner from "../../../../../components/LoadingSpinner";
-import ProductForm, { type ProductFormData } from "../../../../../components/admin/ProductForm";
+import ProductForm, { type ProductFormData, type CategoryOption } from "../../../../../components/admin/ProductForm";
 import VariantManager from "../../../../../components/admin/VariantManager";
 import SyncStatusBadge from "../../../../../components/admin/SyncStatusBadge";
 import ImageUploader, { type ImageUploaderVariant } from "../../../../../components/admin/ImageUploader";
@@ -41,6 +41,8 @@ export default function AdminProductEditPage() {
 
   const [product, setProduct] = useState<Product | null>(null);
   const [variants, setVariants] = useState<ImageUploaderVariant[]>([]);
+  const [categories, setCategories] = useState<CategoryOption[]>([]);
+  const [productCategoryIds, setProductCategoryIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [syncing, setSyncing] = useState(false);
@@ -54,6 +56,15 @@ export default function AdminProductEditPage() {
       const found = allData.items.find((p) => p.id === productId);
       if (found) {
         setProduct(found);
+        // Fetch product detail by slug to get categories
+        try {
+          const detail = await apiFetch<{ categories?: { id: string }[] }>(
+            `/ecommerce/products/${found.slug}`
+          );
+          setProductCategoryIds((detail.categories || []).map((c) => c.id));
+        } catch {
+          // Non-critical: categories just won't be pre-selected
+        }
       } else {
         showToast("Product not found", "error");
         router.push("/admin/catalog/products");
@@ -66,6 +77,12 @@ export default function AdminProductEditPage() {
   }, [productId, router, showToast]);
 
   useEffect(() => { fetchProduct(); }, [fetchProduct]);
+
+  useEffect(() => {
+    apiFetch<CategoryOption[]>("/ecommerce/categories")
+      .then(setCategories)
+      .catch(() => {});
+  }, []);
 
   const handleVariantsChange = useCallback((v: { id: string; name: string }[]) => {
     setVariants(v.map((vr) => ({ id: vr.id, name: vr.name })));
@@ -167,7 +184,6 @@ export default function AdminProductEditPage() {
             base_price: product.base_price,
             currency: product.currency,
             status: product.status,
-            type: product.type,
             pricing_type: product.pricing_type || "one_time",
             recurring_interval: product.recurring_interval || null,
             recurring_interval_count: product.recurring_interval_count || 1,
@@ -178,6 +194,8 @@ export default function AdminProductEditPage() {
           loading={saving}
           submitLabel="Update Product"
           allowRecurring={false}
+          categories={categories}
+          initialCategoryIds={productCategoryIds}
         />
       </div>
 

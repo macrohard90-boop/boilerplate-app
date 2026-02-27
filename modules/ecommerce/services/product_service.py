@@ -12,6 +12,59 @@ def _slugify(name: str) -> str:
     return re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")
 
 
+async def _attach_images_and_categories(
+    db: AsyncSession, items: list[dict[str, Any]]
+) -> list[dict[str, Any]]:
+    """Batch-fetch product-level images and categories for a list of products."""
+    pids = [str(item["id"]) for item in items]
+    # Use ANY(:pids) with array cast for batch lookup
+    img_rows = (
+        await db.execute(
+            text(
+                "SELECT product_id, url, is_primary "
+                "FROM ecommerce.product_images "
+                "WHERE product_id = ANY(:pids) AND variant_id IS NULL "
+                "ORDER BY is_primary DESC, sort_order, created_at"
+            ),
+            {"pids": pids},
+        )
+    ).mappings().all()
+
+    img_map: dict[str, list[dict[str, Any]]] = {}
+    for row in img_rows:
+        pid = str(row["product_id"])
+        img_map.setdefault(pid, []).append({"url": row["url"], "is_primary": row["is_primary"]})
+
+    cat_rows = (
+        await db.execute(
+            text(
+                "SELECT pc.product_id, c.id, c.name, c.slug "
+                "FROM ecommerce.product_categories pc "
+                "JOIN ecommerce.categories c ON c.id = pc.category_id "
+                "WHERE pc.product_id = ANY(:pids) "
+                "ORDER BY c.sort_order, c.name"
+            ),
+            {"pids": pids},
+        )
+    ).mappings().all()
+
+    cat_map: dict[str, list[dict[str, Any]]] = {}
+    for row in cat_rows:
+        pid = str(row["product_id"])
+        cat_map.setdefault(pid, []).append({
+            "id": row["id"],
+            "name": row["name"],
+            "slug": row["slug"],
+        })
+
+    for item in items:
+        pid = str(item["id"])
+        item["images"] = img_map.get(pid, [])
+        item["categories"] = cat_map.get(pid, [])
+
+    return items
+
+
 async def _unique_slug(db: AsyncSession, base_slug: str, exclude_id: str | None = None) -> str:
     """Generate a unique slug, appending -2, -3, etc. if taken."""
     slug = base_slug
@@ -85,9 +138,14 @@ async def list_products(
         f"ORDER BY p.created_at DESC LIMIT :limit OFFSET :offset"
     )
     rows = (await db.execute(text(items_q), params)).mappings().all()
+    items = [dict(r) for r in rows]
+
+    # Attach images and categories for each product
+    if items:
+        items = await _attach_images_and_categories(db, items)
 
     return {
-        "items": [dict(r) for r in rows],
+        "items": items,
         "total": total,
         "page": page,
         "page_size": page_size,
