@@ -137,6 +137,36 @@ async def copy_default_variant_price(
     return product
 
 
+async def sync_product_images_to_catalog(
+    db: AsyncSession,
+    product_id: str,
+) -> None:
+    """Sync a product's images to the catalog provider (e.g. Stripe).
+
+    Called after image upload or deletion.  No-op if the product isn't
+    synced yet or ``public_url`` is not configured.
+    """
+    provider = get_catalog_provider()
+    if provider is None:
+        return
+
+    row = (await db.execute(
+        text("SELECT stripe_product_id FROM ecommerce.products WHERE id = :id"),
+        {"id": product_id},
+    )).mappings().first()
+    if not row or not row["stripe_product_id"]:
+        return
+
+    image_urls = await _get_product_image_urls(db, product_id)
+    try:
+        await provider.update_product(
+            row["stripe_product_id"],
+            images=image_urls if image_urls else [],
+        )
+    except Exception as e:
+        logger.warning("Failed to sync images for product %s: %s", product_id, e)
+
+
 async def sync_variant_to_catalog(
     db: AsyncSession,
     variant: dict[str, Any],
@@ -170,14 +200,20 @@ async def sync_variant_to_catalog(
 
     try:
         if variant.get("stripe_price_id"):
+            rotate_kwargs: dict[str, Any] = {
+                "nickname": price_nickname,
+                "metadata": price_metadata,
+            }
+            if product.get("pricing_type") == "recurring" and product.get("recurring_interval"):
+                rotate_kwargs["recurring_interval"] = product["recurring_interval"]
+                rotate_kwargs["recurring_interval_count"] = product.get("recurring_interval_count", 1)
             new_price = await _rotate_price(
                 provider,
                 stripe_product_id,
                 variant["stripe_price_id"],
                 effective_price,
                 product.get("currency", "USD"),
-                nickname=price_nickname,
-                metadata=price_metadata,
+                **rotate_kwargs,
             )
             if new_price:
                 await db.execute(
@@ -299,6 +335,8 @@ async def _rotate_price(
     provider, stripe_product_id: str, old_price_id: str | None,
     amount: int, currency: str, *,
     nickname: str | None = None, metadata: dict | None = None,
+    recurring_interval: str | None = None,
+    recurring_interval_count: int = 1,
 ):
     """Archive old price and create a new one.
 
@@ -314,6 +352,8 @@ async def _rotate_price(
     return await provider.create_price(
         stripe_product_id, amount, currency,
         nickname=nickname, metadata=metadata,
+        recurring_interval=recurring_interval,
+        recurring_interval_count=recurring_interval_count,
     )
 
 

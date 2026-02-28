@@ -25,7 +25,9 @@ interface ImageUploaderProps {
 
 type FilterTab = "all" | "product" | string; // string = variant id
 
-export default function ImageUploader({ productId, variants = [] }: ImageUploaderProps) {
+const EMPTY_VARIANTS: ImageUploaderVariant[] = [];
+
+export default function ImageUploader({ productId, variants = EMPTY_VARIANTS }: ImageUploaderProps) {
   const [images, setImages] = useState<ProductImage[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);

@@ -21,6 +21,7 @@ from modules.ecommerce.models.schemas import (
     VariantUpdate,
 )
 from modules.ecommerce.services import (
+    catalog_sync_service,
     image_service,
     product_service,
     variant_service,
@@ -204,7 +205,9 @@ async def create_image(
     product = await product_service.get_product_by_id(db, product_id)
     if not product:
         raise HTTPException(status_code=404, detail={"error": "not_found", "message": "Product not found", "details": None})
-    return await image_service.create_image(db, product_id, body.model_dump())
+    result = await image_service.create_image(db, product_id, body.model_dump())
+    await catalog_sync_service.sync_product_images_to_catalog(db, product_id)
+    return result
 
 
 @router.put("/{product_id}/images/{image_id}", response_model=ImageResponse)
@@ -235,6 +238,7 @@ async def delete_image(
         await image_service.delete_image(db, image_id)
     except ValueError as e:
         raise HTTPException(status_code=404, detail={"error": "not_found", "message": str(e), "details": None})
+    await catalog_sync_service.sync_product_images_to_catalog(db, product_id)
 
 
 ALLOWED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp", "image/gif"}
@@ -269,10 +273,12 @@ async def upload_image(
     storage = get_storage_provider()
     result = await storage.upload(file_bytes, file.filename or "image.jpg", file.content_type)
 
-    return await image_service.create_image(db, product_id, {
+    img = await image_service.create_image(db, product_id, {
         "url": result.public_url,
         "storage_path": result.storage_path,
         "alt_text": file.filename,
         "is_primary": False,
         "variant_id": variant_id,
     })
+    await catalog_sync_service.sync_product_images_to_catalog(db, product_id)
+    return img

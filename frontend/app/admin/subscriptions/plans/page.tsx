@@ -99,16 +99,16 @@ export default function SubscriptionPlansPage() {
   const handleCreate = async (formData: ProductFormData) => {
     setCreating(true);
     try {
-      await apiFetch("/ecommerce/products", {
+      const created = await apiFetch<{ id: string }>("/ecommerce/products", {
         method: "POST",
         body: JSON.stringify({
           ...formData,
           pricing_type: "recurring",
         }),
       });
-      showToast("Plan created", "success");
+      showToast("Plan created — add images now", "success");
       setShowCreate(false);
-      fetchPlans();
+      router.push(`/admin/subscriptions/plans/${created.id}`);
     } catch {
       showToast("Failed to create plan", "error");
     }

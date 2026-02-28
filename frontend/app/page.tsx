@@ -5,16 +5,25 @@ import Link from "next/link";
 import ParticleCanvas from "../components/ParticleCanvas";
 import ProductCard from "../components/ProductCard";
 
+interface ProductImage {
+  url: string;
+  is_primary: boolean;
+}
+
+interface ProductCategory {
+  id: string;
+  name: string;
+  slug: string;
+}
+
 interface Product {
   id: string;
   name: string;
   slug: string;
   base_price: number;
   currency: string;
-  primary_image_url?: string;
-  average_rating?: number;
-  review_count?: number;
-  category_name?: string;
+  images?: ProductImage[];
+  categories?: ProductCategory[];
 }
 
 interface Category {
@@ -31,7 +40,7 @@ export default function HomePage() {
   const revealRefs = useRef<HTMLDivElement[]>([]);
 
   useEffect(() => {
-    fetch("/api/ecommerce/products?limit=4&sort=newest")
+    fetch("/api/ecommerce/products?page_size=4&pricing_type=one_time")
       .then((r) => r.ok ? r.json() : { items: [] })
       .then((data) => setProducts(data.items || []))
       .catch(() => {});
@@ -112,10 +121,8 @@ export default function HomePage() {
                   name={product.name}
                   price={product.base_price}
                   currency={product.currency}
-                  image_url={product.primary_image_url}
-                  rating={product.average_rating}
-                  review_count={product.review_count}
-                  category_name={product.category_name}
+                  image_url={product.images?.find((i) => i.is_primary)?.url || product.images?.[0]?.url}
+                  category_name={product.categories?.[0]?.name}
                 />
               ))}
             </div>

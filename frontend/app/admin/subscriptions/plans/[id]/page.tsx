@@ -7,6 +7,7 @@ import { useToast } from "../../../../../components/Toast";
 import LoadingSpinner from "../../../../../components/LoadingSpinner";
 import ProductForm, { type ProductFormData } from "../../../../../components/admin/ProductForm";
 import SyncStatusBadge from "../../../../../components/admin/SyncStatusBadge";
+import ImageUploader from "../../../../../components/admin/ImageUploader";
 
 interface Plan {
   id: string;
@@ -165,6 +166,11 @@ export default function EditPlanPage() {
           submitLabel="Update Plan"
           allowRecurring={false}
         />
+      </div>
+
+      {/* Plan Images */}
+      <div className="glass rounded-xl p-6 mt-6">
+        <ImageUploader productId={planId} />
       </div>
     </div>
   );
