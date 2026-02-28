@@ -300,7 +300,13 @@ async def apply_discount(
     cart_data = await get_cart(db, redis, user, session_id)
     subtotal = cart_data["subtotal"]
 
-    discount = await discount_service.validate_discount(db, code, subtotal)
+    # Extract product IDs and user_id for restriction validation
+    cart_product_ids = list({str(i["product_id"]) for i in cart_data["items"]})
+    uid = user["user_id"] if user else None
+
+    discount = await discount_service.validate_discount(
+        db, code, subtotal, user_id=uid, cart_product_ids=cart_product_ids,
+    )
 
     if user:
         cart = await _get_or_create_auth_cart(db, user["user_id"])
@@ -446,7 +452,17 @@ async def _get_auth_cart_response(db: AsyncSession, user_id: str) -> dict[str, A
     if cart.get("discount_code_id"):
         d = await discount_service.get_discount_by_id(db, str(cart["discount_code_id"]))
         if d and d["active"]:
-            discount_amount = discount_service.calculate_discount(d, subtotal)
+            # For product-restricted coupons, only apply to qualifying items
+            restricted_pids = d.get("product_ids", [])
+            if restricted_pids:
+                restricted_set = set(str(p) for p in restricted_pids)
+                applicable_subtotal = sum(
+                    ci["total_price"] for ci in cart_items
+                    if str(ci["product_id"]) in restricted_set
+                )
+            else:
+                applicable_subtotal = subtotal
+            discount_amount = discount_service.calculate_discount(d, applicable_subtotal)
             discount_code = d["code"]
 
     return {
@@ -470,11 +486,6 @@ async def _get_guest_cart_response(
 
     discount_amount = 0
     discount_code = guest_cart.get("discount_code")
-    if guest_cart.get("discount_code_id"):
-        d = await discount_service.get_discount_by_id(db, guest_cart["discount_code_id"])
-        if d and d["active"]:
-            discount_amount = discount_service.calculate_discount(d, subtotal)
-            discount_code = d["code"]
 
     cart_items = []
     for i in items:
@@ -490,6 +501,22 @@ async def _get_guest_cart_response(
             "pricing_type": i.get("pricing_type", "one_time"),
             "image_url": i.get("image_url"),
         })
+
+    if guest_cart.get("discount_code_id"):
+        d = await discount_service.get_discount_by_id(db, guest_cart["discount_code_id"])
+        if d and d["active"]:
+            # For product-restricted coupons, only apply to qualifying items
+            restricted_pids = d.get("product_ids", [])
+            if restricted_pids:
+                restricted_set = set(str(p) for p in restricted_pids)
+                applicable_subtotal = sum(
+                    ci["total_price"] for ci in cart_items
+                    if str(ci["product_id"]) in restricted_set
+                )
+            else:
+                applicable_subtotal = subtotal
+            discount_amount = discount_service.calculate_discount(d, applicable_subtotal)
+            discount_code = d["code"]
 
     return {
         "items": cart_items,

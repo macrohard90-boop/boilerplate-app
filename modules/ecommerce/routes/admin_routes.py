@@ -156,6 +156,18 @@ async def admin_list_discounts(
     return await discount_service.list_discounts(db, page=page, page_size=page_size, status=status)
 
 
+@router.get("/discounts/{discount_id}", response_model=DiscountResponse)
+async def admin_get_discount(
+    discount_id: str,
+    user: dict = Depends(require_role("admin")),
+    db: AsyncSession = Depends(get_db),
+) -> Any:
+    result = await discount_service.get_discount_by_id(db, discount_id)
+    if not result:
+        raise HTTPException(status_code=404, detail={"error": "not_found", "message": "Discount not found", "details": None})
+    return result
+
+
 @router.post("/discounts", response_model=DiscountResponse, status_code=201)
 async def admin_create_discount(
     body: DiscountCreate,

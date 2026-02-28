@@ -476,11 +476,15 @@ async def seed_discount(db: AsyncSession, discount: dict) -> dict:
                 "(id, code, type, value, currency, min_order_amount, max_uses, "
                 " uses_count, active, valid_from, valid_until, applies_to, "
                 " stripe_coupon_id, stripe_promotion_code_id, "
-                " stripe_duration, stripe_duration_in_months) "
+                " stripe_duration, stripe_duration_in_months, "
+                " stripe_sync_status, stripe_sync_error, "
+                " restricted_to_customer_id, first_time_transaction_only, max_uses_per_customer) "
                 "VALUES (:id, :code, :type, :value, :currency, :min_order_amount, :max_uses, "
                 " :uses_count, :active, :valid_from, :valid_until, :applies_to, "
                 " :stripe_coupon_id, :stripe_promotion_code_id, "
-                " :stripe_duration, :stripe_duration_in_months) "
+                " :stripe_duration, :stripe_duration_in_months, "
+                " :stripe_sync_status, :stripe_sync_error, "
+                " :restricted_to_customer_id, :first_time_transaction_only, :max_uses_per_customer) "
                 "RETURNING *"
             ),
             discount,
@@ -488,6 +492,18 @@ async def seed_discount(db: AsyncSession, discount: dict) -> dict:
     ).mappings().first()
     await db.flush()
     return dict(row)
+
+
+async def seed_discount_product_restriction(db: AsyncSession, discount_id: str, product_id: str) -> None:
+    """Insert a discount_product_restrictions row."""
+    await db.execute(
+        text(
+            "INSERT INTO ecommerce.discount_product_restrictions "
+            "(discount_code_id, product_id) VALUES (:did, :pid)"
+        ),
+        {"did": discount_id, "pid": product_id},
+    )
+    await db.flush()
 
 
 async def seed_subscription(db: AsyncSession, sub: dict) -> dict:

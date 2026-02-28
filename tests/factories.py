@@ -131,6 +131,11 @@ def make_discount(**overrides) -> dict:
         "stripe_promotion_code_id": None,
         "stripe_duration": "once",
         "stripe_duration_in_months": None,
+        "stripe_sync_status": "unsynced",
+        "stripe_sync_error": None,
+        "restricted_to_customer_id": None,
+        "first_time_transaction_only": False,
+        "max_uses_per_customer": None,
     }
     return {**defaults, **overrides}
 

@@ -159,7 +159,23 @@ async def _apply_discount_to_cart(
     ).mappings().first()
     cart_subtotal = int(cart_subtotal_row["subtotal"]) if cart_subtotal_row else 0
 
-    discount = await discount_service.validate_discount(db, discount_code, cart_subtotal)
+    # Get cart product IDs for restriction validation
+    cart_pids_rows = (
+        await db.execute(
+            text(
+                "SELECT DISTINCT ci.product_id FROM ecommerce.cart c "
+                "JOIN ecommerce.cart_items ci ON ci.cart_id = c.id "
+                "WHERE c.user_id = :uid AND c.status = 'active'"
+            ),
+            {"uid": user_id},
+        )
+    ).mappings().all()
+    cart_product_ids = [str(r["product_id"]) for r in cart_pids_rows]
+
+    discount = await discount_service.validate_discount(
+        db, discount_code, cart_subtotal,
+        user_id=user_id, cart_product_ids=cart_product_ids,
+    )
     if not discount:
         raise ValueError("Invalid or expired discount code")
 

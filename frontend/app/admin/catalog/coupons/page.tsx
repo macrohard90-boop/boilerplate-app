@@ -1,12 +1,14 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { apiFetch } from "../../../../lib/api";
 import { formatPrice, formatDate } from "../../../../lib/format";
 import Pagination from "../../../../components/Pagination";
 import LoadingSpinner from "../../../../components/LoadingSpinner";
 import Modal from "../../../../components/Modal";
 import { useToast } from "../../../../components/Toast";
+import SyncStatusBadge from "../../../../components/admin/SyncStatusBadge";
 import CouponForm, { type CouponFormData } from "../../../../components/admin/CouponForm";
 
 interface Discount {
@@ -27,6 +29,12 @@ interface Discount {
   stripe_duration_in_months: number | null;
   stripe_coupon_id: string | null;
   stripe_promotion_code_id: string | null;
+  stripe_sync_status: string;
+  stripe_sync_error: string | null;
+  product_ids: string[];
+  restricted_to_customer_id: string | null;
+  first_time_transaction_only: boolean;
+  max_uses_per_customer: number | null;
 }
 
 interface DiscountListResponse {
@@ -59,6 +67,7 @@ function getStatusInfo(d: Discount): { label: string; className: string } {
 }
 
 export default function AdminCouponsPage() {
+  const router = useRouter();
   const { showToast } = useToast();
   const [data, setData] = useState<DiscountListResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -66,8 +75,6 @@ export default function AdminCouponsPage() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [showCreate, setShowCreate] = useState(false);
   const [creating, setCreating] = useState(false);
-  const [editItem, setEditItem] = useState<Discount | null>(null);
-  const [editing, setEditing] = useState(false);
   const [deactivateId, setDeactivateId] = useState<string | null>(null);
   const [deactivating, setDeactivating] = useState(false);
 
@@ -92,34 +99,21 @@ export default function AdminCouponsPage() {
   const handleCreate = async (formData: CouponFormData) => {
     setCreating(true);
     try {
-      await apiFetch("/ecommerce/admin/discounts", {
+      const created = await apiFetch<Discount>("/ecommerce/admin/discounts", {
         method: "POST",
         body: JSON.stringify(formData),
       });
-      showToast("Coupon created", "success");
+      if (created.stripe_sync_status === "error") {
+        showToast(`Coupon created, but Stripe sync failed: ${created.stripe_sync_error}`, "error");
+      } else {
+        showToast("Coupon created", "success");
+      }
       setShowCreate(false);
       fetchCoupons();
     } catch {
       showToast("Failed to create coupon", "error");
     }
     setCreating(false);
-  };
-
-  const handleEdit = async (formData: CouponFormData) => {
-    if (!editItem) return;
-    setEditing(true);
-    try {
-      await apiFetch(`/ecommerce/admin/discounts/${editItem.id}`, {
-        method: "PUT",
-        body: JSON.stringify(formData),
-      });
-      showToast("Coupon updated", "success");
-      setEditItem(null);
-      fetchCoupons();
-    } catch {
-      showToast("Failed to update coupon", "error");
-    }
-    setEditing(false);
   };
 
   const handleDeactivate = async () => {
@@ -189,9 +183,11 @@ export default function AdminCouponsPage() {
                   <th className="text-left p-4 text-text-muted font-medium">Value</th>
                   <th className="text-left p-4 text-text-muted font-medium">Min Order</th>
                   <th className="text-left p-4 text-text-muted font-medium">Applies To</th>
+                  <th className="text-left p-4 text-text-muted font-medium">Restrictions</th>
                   <th className="text-left p-4 text-text-muted font-medium">Usage</th>
                   <th className="text-left p-4 text-text-muted font-medium">Valid Until</th>
                   <th className="text-left p-4 text-text-muted font-medium">Status</th>
+                  <th className="text-left p-4 text-text-muted font-medium">Stripe</th>
                   <th className="text-right p-4 text-text-muted font-medium">Actions</th>
                 </tr>
               </thead>
@@ -204,23 +200,57 @@ export default function AdminCouponsPage() {
                       <td className="p-4 text-text-secondary capitalize">{d.type.replace("_", " ")}</td>
                       <td className="p-4 text-text-primary">{formatValue(d)}</td>
                       <td className="p-4 text-text-muted">
-                        {d.min_order_amount > 0 ? formatPrice(d.min_order_amount, d.currency) : "—"}
+                        {d.min_order_amount > 0 ? formatPrice(d.min_order_amount, d.currency) : "\u2014"}
                       </td>
                       <td className="p-4 text-text-secondary capitalize">
                         {d.applies_to === "one_time" ? "One-time" : d.applies_to === "recurring" ? "Recurring" : "All"}
+                      </td>
+                      <td className="p-4">
+                        <div className="flex flex-wrap gap-1">
+                          {d.product_ids?.length > 0 && (
+                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-accent-blue/10 text-accent-blue">
+                              {d.product_ids.length} product{d.product_ids.length !== 1 ? "s" : ""}
+                            </span>
+                          )}
+                          {d.restricted_to_customer_id && (
+                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-accent-purple/10 text-accent-purple">
+                              Customer
+                            </span>
+                          )}
+                          {d.first_time_transaction_only && (
+                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-accent-green/10 text-accent-green">
+                              First-time
+                            </span>
+                          )}
+                          {d.max_uses_per_customer != null && (
+                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-yellow-500/10 text-yellow-400">
+                              {d.max_uses_per_customer}/customer
+                            </span>
+                          )}
+                          {!d.product_ids?.length && !d.restricted_to_customer_id && !d.first_time_transaction_only && d.max_uses_per_customer == null && (
+                            <span className="text-text-muted text-xs">None</span>
+                          )}
+                        </div>
                       </td>
                       <td className="p-4 text-text-secondary">
                         {d.uses_count} / {d.max_uses ?? "unlimited"}
                       </td>
                       <td className="p-4 text-text-muted">
-                        {d.valid_until ? formatDate(d.valid_until) : "—"}
+                        {d.valid_until ? formatDate(d.valid_until) : "\u2014"}
                       </td>
                       <td className="p-4">
                         <span className={status.className}>{status.label}</span>
                       </td>
+                      <td className="p-4">
+                        {d.type === "free_shipping" ? (
+                          <span className="text-xs text-text-muted">N/A</span>
+                        ) : (
+                          <SyncStatusBadge status={d.stripe_sync_status} error={d.stripe_sync_error} />
+                        )}
+                      </td>
                       <td className="p-4 text-right whitespace-nowrap">
                         <button
-                          onClick={() => setEditItem(d)}
+                          onClick={() => router.push(`/admin/catalog/coupons/${d.id}`)}
                           className="text-xs text-accent-blue hover:text-accent-blue/80 mr-3"
                         >
                           Edit
@@ -256,33 +286,6 @@ export default function AdminCouponsPage() {
           loading={creating}
           submitLabel="Create"
         />
-      </Modal>
-
-      {/* Edit Coupon Modal */}
-      <Modal isOpen={!!editItem} onClose={() => setEditItem(null)} title="Edit Coupon" size="lg">
-        {editItem && (
-          <CouponForm
-            initial={{
-              code: editItem.code,
-              type: editItem.type,
-              value: editItem.value,
-              currency: editItem.currency,
-              min_order_amount: editItem.min_order_amount,
-              max_uses: editItem.max_uses,
-              valid_from: editItem.valid_from,
-              valid_until: editItem.valid_until,
-              active: editItem.active,
-              applies_to: editItem.applies_to,
-              stripe_duration: editItem.stripe_duration,
-              stripe_duration_in_months: editItem.stripe_duration_in_months,
-              stripe_coupon_id: editItem.stripe_coupon_id ?? undefined,
-            }}
-            onSubmit={handleEdit}
-            onCancel={() => setEditItem(null)}
-            loading={editing}
-            submitLabel="Update"
-          />
-        )}
       </Modal>
 
       {/* Deactivate Confirmation Modal */}

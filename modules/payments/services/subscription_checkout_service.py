@@ -76,7 +76,11 @@ async def create_subscription_checkout_session(
     if discount_code:
         from modules.ecommerce.services import discount_service
 
-        discount = await discount_service.validate_discount(db, discount_code, 0)
+        cart_product_ids = [str(item["product_id"]) for item in items]
+        discount = await discount_service.validate_discount(
+            db, discount_code, 0,
+            user_id=user_id, cart_product_ids=cart_product_ids,
+        )
         if discount and discount.get("stripe_coupon_id"):
             stripe_coupon_id = discount["stripe_coupon_id"]
 

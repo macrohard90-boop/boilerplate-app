@@ -104,8 +104,19 @@ async def create_order_from_cart(
     if cart.get("discount_code_id"):
         d = await discount_service.get_discount_by_id(db, str(cart["discount_code_id"]))
         if d and d["active"]:
-            discount_amount = discount_service.calculate_discount(d, subtotal)
+            # For product-restricted coupons, only apply to qualifying items
+            restricted_pids = d.get("product_ids", [])
+            if restricted_pids:
+                restricted_set = set(str(p) for p in restricted_pids)
+                applicable_subtotal = sum(
+                    oi["total_price"] for oi in order_items_data
+                    if oi["product_id"] in restricted_set
+                )
+            else:
+                applicable_subtotal = subtotal
+            discount_amount = discount_service.calculate_discount(d, applicable_subtotal)
             await discount_service.increment_uses(db, str(d["id"]))
+            await discount_service.increment_customer_uses(db, str(d["id"]), user_id)
 
     total = max(subtotal - discount_amount, 0)
 

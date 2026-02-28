@@ -328,6 +328,7 @@ class StripeProvider(PaymentProvider, CatalogProvider):
         duration_in_months: int | None = None,
         max_redemptions: int | None = None,
         metadata: dict[str, Any] | None = None,
+        applies_to_products: list[str] | None = None,
     ) -> dict[str, str]:
         """Create a Stripe Coupon. Returns dict with stripe_coupon_id."""
         params: dict[str, Any] = {"duration": duration, "metadata": metadata or {}}
@@ -340,17 +341,32 @@ class StripeProvider(PaymentProvider, CatalogProvider):
             params["duration_in_months"] = duration_in_months
         if max_redemptions:
             params["max_redemptions"] = max_redemptions
+        if applies_to_products:
+            params["applies_to"] = {"products": applies_to_products}
         coupon = stripe.Coupon.create(**params)
         return {"stripe_coupon_id": coupon.id}
 
     async def create_promotion_code(
-        self, coupon_id: str, code: str
+        self,
+        coupon_id: str,
+        code: str,
+        *,
+        customer: str | None = None,
+        first_time_transaction: bool = False,
     ) -> dict[str, str]:
         """Create a Stripe Promotion Code linked to a coupon."""
-        promo = stripe.PromotionCode.create(
-            promotion={"type": "coupon", "coupon": coupon_id},
-            code=code,
-        )
+        params: dict[str, Any] = {
+            "promotion": {"type": "coupon", "coupon": coupon_id},
+            "code": code,
+        }
+        if customer:
+            params["customer"] = customer
+        restrictions: dict[str, Any] = {}
+        if first_time_transaction:
+            restrictions["first_time_transaction"] = True
+        if restrictions:
+            params["restrictions"] = restrictions
+        promo = stripe.PromotionCode.create(**params)
         return {"stripe_promotion_code_id": promo.id}
 
     async def delete_coupon(self, coupon_id: str) -> None:

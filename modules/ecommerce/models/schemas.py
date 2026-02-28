@@ -358,6 +358,10 @@ class DiscountCreate(BaseModel):
     applies_to: str = Field(default="all")
     stripe_duration: str = Field(default="once")
     stripe_duration_in_months: int | None = None
+    product_ids: list[UUID] = Field(default_factory=list)
+    restricted_to_customer_id: UUID | None = None
+    first_time_transaction_only: bool = False
+    max_uses_per_customer: int | None = None
 
     @field_validator("type")
     @classmethod
@@ -385,13 +389,19 @@ class DiscountUpdate(BaseModel):
     code: str | None = Field(default=None, min_length=1, max_length=50)
     type: str | None = None
     value: int | None = Field(default=None, ge=0)
+    currency: str | None = Field(default=None, min_length=3, max_length=3)
     min_order_amount: int | None = Field(default=None, ge=0)
     max_uses: int | None = None
+    valid_from: datetime | None = None
     valid_until: datetime | None = None
     active: bool | None = None
     applies_to: str | None = None
     stripe_duration: str | None = None
     stripe_duration_in_months: int | None = None
+    product_ids: list[UUID] | None = None
+    restricted_to_customer_id: UUID | None = None
+    first_time_transaction_only: bool | None = None
+    max_uses_per_customer: int | None = None
 
     @field_validator("type")
     @classmethod
@@ -433,6 +443,12 @@ class DiscountResponse(BaseModel):
     stripe_duration_in_months: int | None = None
     stripe_coupon_id: str | None = None
     stripe_promotion_code_id: str | None = None
+    stripe_sync_status: str = "unsynced"
+    stripe_sync_error: str | None = None
+    product_ids: list[UUID] = Field(default_factory=list)
+    restricted_to_customer_id: UUID | None = None
+    first_time_transaction_only: bool = False
+    max_uses_per_customer: int | None = None
 
 
 class DiscountListResponse(BaseModel):

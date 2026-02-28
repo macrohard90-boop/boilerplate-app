@@ -9,6 +9,36 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Claude Code shou
 ## [Unreleased]
 _Changes staged but not yet tagged._
 
+## [2026-02-28] - Coupon Restrictions, Stripe Sync Overhaul & Phase 12 Planning
+
+### Added
+- **Coupon restriction system** — product targeting (limit coupon to specific products), customer restriction (limit to a specific user), first-time purchase only, and per-customer usage limits
+- **Migration 015** — `discount_product_restrictions`, `discount_customer_uses` tables, and new columns on `discount_codes` (`applies_to`, `stripe_duration`, `stripe_coupon_id`, `stripe_promotion_code_id`, `restricted_to_customer_id`, `first_time_transaction_only`, `max_uses_per_customer`)
+- **Migration 016** — `stripe_sync_status` and `stripe_sync_error` columns on `discount_codes` with backfill
+- **Dedicated coupon edit page** — `/admin/catalog/coupons/[id]` with back navigation, Stripe sync status banner, and full form (replaces edit modal)
+- **SyncStatusBadge** on coupon list page — Stripe sync column showing synced/error/unsynced per coupon
+- **CouponForm restrictions UI** — customer search with debounce, product multi-select, first-time checkbox, per-customer limit input
+- **Orphan cleanup** — if Stripe coupon creates but promotion code fails, the orphaned coupon is deleted
+- **Sync retry on save** — coupons with `stripe_sync_status='error'` automatically retry sync when edited
+- **Phase 12 spec** — `docs/phases/phase-12.md` for Audit Logging & User Analytics (post-deployment)
+
+### Fixed
+- **Stripe SDK v14 breaking change** — `PromotionCode.create` now uses `promotion={"type": "coupon", "coupon": coupon_id}` instead of removed top-level `coupon` param
+- **Silent sync failures** — `_sync_coupon_to_stripe` now records errors in `stripe_sync_status`/`stripe_sync_error` instead of swallowing exceptions
+- **Nullable fields couldn't be cleared** — `update_discount` filtered out `None` values with `if v is not None`, preventing fields like `restricted_to_customer_id`, `max_uses`, `valid_until` from being set to NULL. Fixed by using `dict(data)` since `model_dump(exclude_unset=True)` already handles unset vs explicit null
+- **Restriction changes not syncing to Stripe** — changing customer, first-time, per-customer limits, or code now triggers Stripe coupon+promo recreate (both are immutable in Stripe)
+- **Customer restriction without Stripe account** — now raises clear error instead of silently creating unrestricted promo code
+- **CouponForm user search** — fixed URL (`/auth/admin/users` not `/admin/users`) and response shape (`first_name`/`last_name` combined into `full_name`)
+- **Duration/applies_to dependency** — subscription duration picker hidden for one-time coupons; backend forces `stripe_duration='once'` when `applies_to='one_time'`
+- **Currency field** — hidden for percentage/free_shipping coupons (only relevant for fixed amount)
+- **Customer restriction re-check** — unchecking and re-checking "Restrict to specific customer" now clears previous selection instead of remembering it
+- **Toast type error** — changed `"warning"` to `"error"` (ToastType only supports success/error/info)
+
+### Changed
+- **Removed manual sync button and endpoint** — sync happens automatically on create/update; `POST /discounts/{id}/sync` endpoint removed
+- **Subscription Duration labels** — renamed from "Stripe Duration" to "Subscription Duration" with clearer options ("First invoice only", "Multiple months", "Every invoice forever")
+- **Build Progress** — added Phase 12 (Audit Logging & User Analytics) to CLAUDE.md
+
 ## [2026-02-27b] - Subscription Plan UX & PlanCard Component
 
 ### Added

@@ -139,7 +139,14 @@ wishlists           id, user_id, name, is_default, created_at
 wishlist_items      wishlist_id, product_id, variant_id (nullable), added_at
 discount_codes      id, code, type (percentage/fixed/free_shipping), value (INT cents for fixed),
                     currency CHAR(3), min_order_amount (INT cents), max_uses, uses_count,
-                    valid_from, valid_until, active
+                    valid_from, valid_until, active, applies_to (all/one_time/recurring),
+                    stripe_coupon_id, stripe_promotion_code_id,
+                    stripe_duration (once/repeating/forever), stripe_duration_in_months,
+                    stripe_sync_status (unsynced/synced/error), stripe_sync_error TEXT,
+                    restricted_to_customer_id UUID (FK users), first_time_transaction_only BOOLEAN,
+                    max_uses_per_customer INT
+discount_product_restrictions  discount_code_id (FK), product_id (FK) — PK composite
+discount_customer_uses  discount_code_id (FK), user_id (FK), uses_count INT — PK composite
 digital_assets      id, product_id, file_url, file_name, file_size, download_limit, created_at
 pricing_tiers       id, product_id, variant_id (nullable), min_quantity,
                     price_per_unit (INT cents), label
