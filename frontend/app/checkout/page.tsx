@@ -129,10 +129,28 @@ function AddressFields({ data, onChange }: { data: AddressForm; onChange: (field
   );
 }
 
+/* ── Order summary snapshot (saved when checkout creates the order) ── */
+interface OrderSummaryItem {
+  product_name: string;
+  variant_name: string | null;
+  quantity: number;
+  total_price: number;
+  image_url?: string | null;
+  pricing_type: string;
+}
+
+interface OrderSummary {
+  items: OrderSummaryItem[];
+  subtotal: number;
+  discount_amount: number;
+  total: number;
+  currency: string;
+}
+
 /* ── Main Checkout Page ── */
 export default function CheckoutPage() {
   const router = useRouter();
-  const { cart, isLoading, clearCart } = useCart();
+  const { cart, isLoading } = useCart();
   const { isAuthenticated } = useAuth();
   const { showToast } = useToast();
   const [step, setStep] = useState(1);
@@ -142,6 +160,8 @@ export default function CheckoutPage() {
   const [processing, setProcessing] = useState(false);
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [orderId, setOrderId] = useState<string | null>(null);
+  const [checkoutStarted, setCheckoutStarted] = useState(false);
+  const [orderSummary, setOrderSummary] = useState<OrderSummary | null>(null);
   const [stripePromise] = useState(() => getStripe());
 
   if (!isAuthenticated) {
@@ -156,7 +176,7 @@ export default function CheckoutPage() {
 
   if (isLoading) return <LoadingSpinner size="lg" className="py-40" />;
 
-  if (!clientSecret && cart.items.length === 0) {
+  if (!clientSecret && !checkoutStarted && cart.items.length === 0) {
     return (
       <div className="max-w-md mx-auto px-4 py-20 text-center">
         <h1 className="font-serif text-2xl font-bold gradient-text mb-4">Cart is Empty</h1>
@@ -186,8 +206,31 @@ export default function CheckoutPage() {
     };
   }
 
+  /** Snapshot the current cart so we can display it at step 3 after the backend consumes it. */
+  function snapshotCart(): OrderSummary {
+    return {
+      items: cart.items.map((item) => ({
+        product_name: item.product_name,
+        variant_name: item.variant_name,
+        quantity: item.quantity,
+        total_price: item.total_price,
+        image_url: item.image_url,
+        pricing_type: item.pricing_type,
+      })),
+      subtotal: cart.subtotal,
+      discount_amount: cart.discount_amount,
+      total: cart.total,
+      currency: cart.items[0]?.currency || "USD",
+    };
+  }
+
   async function handleCreatePaymentIntent() {
     setProcessing(true);
+    setCheckoutStarted(true);
+
+    // Save cart contents before the backend consumes them
+    const snapshot = snapshotCart();
+
     try {
       // Subscription or mixed carts use Stripe Checkout Sessions
       if (hasSubscription) {
@@ -200,8 +243,7 @@ export default function CheckoutPage() {
             }),
           }
         );
-        // Redirect to Stripe-hosted checkout
-        await clearCart();
+        // Redirect to Stripe-hosted checkout — cart is cleared on confirmation page
         window.location.href = session.session_url;
         return;
       }
@@ -215,8 +257,6 @@ export default function CheckoutPage() {
           discount_code: cart.discount_code || null,
         }),
       });
-      // Cart is consumed when order is created — clear it now
-      await clearCart();
 
       if (!result.client_secret) {
         // Free order — no payment needed, redirect to confirmation
@@ -224,10 +264,13 @@ export default function CheckoutPage() {
         return;
       }
 
+      // Save the snapshot so the sidebar can show order items at step 3
+      setOrderSummary(snapshot);
       setClientSecret(result.client_secret);
       setOrderId(result.order_id);
       setStep(3);
     } catch (e: unknown) {
+      setCheckoutStarted(false);
       const err = e as { message?: string };
       showToast(err?.message || "Checkout failed", "error");
     }
@@ -373,11 +416,11 @@ export default function CheckoutPage() {
         {/* Order summary sidebar */}
         <div className="lg:col-span-1">
           <div className="glass rounded-2xl p-6 sticky top-24">
-            <h3 className="text-sm font-semibold text-text-primary mb-4">
-              {step < 3 ? `Cart (${cart.item_count} items)` : "Order created"}
-            </h3>
             {step < 3 ? (
               <>
+                <h3 className="text-sm font-semibold text-text-primary mb-4">
+                  Cart ({cart.item_count} items)
+                </h3>
                 <div className="space-y-2 max-h-[300px] overflow-y-auto">
                   {cart.items.map((item) => (
                     <div key={cartItemKey(item)} className="flex gap-3 text-sm">
@@ -399,8 +442,49 @@ export default function CheckoutPage() {
                   <span className="gradient-text">{formatPrice(cart.total)}</span>
                 </div>
               </>
+            ) : orderSummary ? (
+              <>
+                <h3 className="text-sm font-semibold text-text-primary mb-4">
+                  Order Summary
+                </h3>
+                <div className="space-y-2 max-h-[300px] overflow-y-auto">
+                  {orderSummary.items.map((item, idx) => (
+                    <div key={idx} className="flex gap-3 text-sm">
+                      <div className="w-10 h-10 bg-base-100 rounded shrink-0 overflow-hidden">
+                        {item.image_url && (
+                          <img src={item.image_url} alt={item.product_name} className="w-full h-full object-cover" />
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-text-primary truncate">{item.product_name}</p>
+                        <p className="text-text-muted">x{item.quantity}</p>
+                      </div>
+                      <p className="text-text-primary shrink-0">{formatPrice(item.total_price)}</p>
+                    </div>
+                  ))}
+                </div>
+                <div className="border-t border-glass-border mt-4 pt-4">
+                  <div className="flex justify-between text-sm mb-1">
+                    <span className="text-text-secondary">Subtotal</span>
+                    <span>{formatPrice(orderSummary.subtotal)}</span>
+                  </div>
+                  {orderSummary.discount_amount > 0 && (
+                    <div className="flex justify-between text-sm text-accent-green mb-1">
+                      <span>Discount</span>
+                      <span>-{formatPrice(orderSummary.discount_amount)}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between font-semibold mt-2">
+                    <span>Total</span>
+                    <span className="gradient-text">{formatPrice(orderSummary.total)}</span>
+                  </div>
+                </div>
+              </>
             ) : (
-              <p className="text-sm text-text-secondary">Complete payment to confirm your order.</p>
+              <>
+                <h3 className="text-sm font-semibold text-text-primary mb-4">Order</h3>
+                <p className="text-sm text-text-secondary">Complete payment to confirm your order.</p>
+              </>
             )}
           </div>
         </div>

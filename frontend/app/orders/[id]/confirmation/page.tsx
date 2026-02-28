@@ -5,6 +5,7 @@ import { useParams, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { apiFetch } from "../../../../lib/api";
 import { formatPrice, formatDate } from "../../../../lib/format";
+import { useCart } from "../../../../lib/cart-context";
 import LoadingSpinner from "../../../../components/LoadingSpinner";
 
 interface OrderItem {
@@ -40,10 +41,21 @@ export default function OrderConfirmationPage() {
   const { id } = useParams<{ id: string }>();
   const searchParams = useSearchParams();
   const redirectStatus = searchParams.get("redirect_status") as RedirectStatus | null;
+  const { clearCart } = useCart();
   const [order, setOrder] = useState<Order | null>(null);
   const [paymentStatus, setPaymentStatus] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const cartCleared = useRef(false);
+
+  // Clear the cart once when reaching the confirmation page
+  // (the backend already consumed the cart during checkout)
+  useEffect(() => {
+    if (!cartCleared.current) {
+      cartCleared.current = true;
+      clearCart();
+    }
+  }, [clearCart]);
 
   // Load order details
   useEffect(() => {
