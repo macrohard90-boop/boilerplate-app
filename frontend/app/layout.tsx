@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { AuthProvider } from "../lib/auth-context";
 import { CartProvider } from "../lib/cart-context";
+import { ConfigProvider } from "../lib/config-context";
 import { ToastProvider } from "../components/Toast";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
@@ -32,6 +33,7 @@ export default function RootLayout({
         />
       </head>
       <body className="min-h-screen flex flex-col">
+        <ConfigProvider>
         <AuthProvider>
           <CartProvider>
             <ToastProvider>
@@ -42,6 +44,7 @@ export default function RootLayout({
             </ToastProvider>
           </CartProvider>
         </AuthProvider>
+        </ConfigProvider>
       </body>
     </html>
   );

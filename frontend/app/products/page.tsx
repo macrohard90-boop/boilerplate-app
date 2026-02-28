@@ -7,6 +7,7 @@ import PlanCard from "../../components/PlanCard";
 import SearchBar from "../../components/SearchBar";
 import Pagination from "../../components/Pagination";
 import LoadingSpinner from "../../components/LoadingSpinner";
+import { useConfig } from "../../lib/config-context";
 
 interface Product {
   id: string;
@@ -44,16 +45,25 @@ const SORT_OPTIONS = [
   { value: "name", label: "Name" },
 ];
 
-const TABS = [
+const ALL_TABS = [
   { key: "one_time", label: "Products" },
   { key: "recurring", label: "Subscriptions" },
 ] as const;
 
-type TabKey = (typeof TABS)[number]["key"];
+type TabKey = (typeof ALL_TABS)[number]["key"];
 
 function ProductsContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
+  const { enable_products, enable_subscriptions } = useConfig();
+
+  const tabs = ALL_TABS.filter((t) => {
+    if (t.key === "one_time") return enable_products;
+    if (t.key === "recurring") return enable_subscriptions;
+    return true;
+  });
+
+  const defaultTab: TabKey = enable_products ? "one_time" : "recurring";
   const [data, setData] = useState<ProductResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState(searchParams.get("q") || "");
@@ -61,7 +71,7 @@ function ProductsContent() {
   const [page, setPage] = useState(Number(searchParams.get("page")) || 1);
   const [view, setView] = useState<"grid" | "list">("grid");
   const [tab, setTab] = useState<TabKey>(
-    (searchParams.get("tab") as TabKey) || "one_time"
+    (searchParams.get("tab") as TabKey) || defaultTab
   );
   const [categories, setCategories] = useState<Category[]>([]);
   const [categoryId, setCategoryId] = useState<string | null>(null);
@@ -127,7 +137,7 @@ function ProductsContent() {
     setPage(1);
   };
 
-  const activeTab = TABS.find((t) => t.key === tab)!;
+  const activeTab = tabs.find((t) => t.key === tab) || tabs[0];
   const isSubscriptions = tab === "recurring";
   const activeCategoryName = categoryId
     ? categories.find((c) => c.id === categoryId)?.name
@@ -148,8 +158,9 @@ function ProductsContent() {
       </div>
 
       {/* Tabs */}
+      {tabs.length > 1 && (
       <div className="flex gap-1 mb-6 glass rounded-lg p-1 w-fit">
-        {TABS.map((t) => (
+        {tabs.map((t) => (
           <button
             key={t.key}
             onClick={() => handleTab(t.key)}
@@ -163,6 +174,7 @@ function ProductsContent() {
           </button>
         ))}
       </div>
+      )}
 
       {/* Category Filter — only for products, not subscriptions */}
       {categories.length > 0 && !isSubscriptions && (

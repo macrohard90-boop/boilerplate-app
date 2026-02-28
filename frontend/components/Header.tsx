@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState, useEffect } from "react";
 import { useAuth } from "../lib/auth-context";
 import { useCart } from "../lib/cart-context";
+import { useConfig } from "../lib/config-context";
 
 interface NavCategory {
   name: string;
@@ -14,6 +15,8 @@ interface NavCategory {
 export default function Header() {
   const { user, isAuthenticated, logout, isLoading } = useAuth();
   const { cart } = useCart();
+  const { enable_products, enable_subscriptions } = useConfig();
+  const showShopLink = enable_products || enable_subscriptions;
   const [mobileOpen, setMobileOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [navCategories, setNavCategories] = useState<NavCategory[]>([]);
@@ -39,9 +42,11 @@ export default function Header() {
 
           {/* Desktop nav */}
           <div className="hidden md:flex items-center gap-6">
-            <Link href="/products" className="text-text-secondary hover:text-text-primary transition-colors text-sm">
-              Products
-            </Link>
+            {showShopLink && (
+              <Link href="/products" className="text-text-secondary hover:text-text-primary transition-colors text-sm">
+                Products
+              </Link>
+            )}
             {navCategories.map((cat) => (
               <Link key={cat.slug} href={`/categories/${cat.slug}`} className="text-text-secondary hover:text-text-primary transition-colors text-sm">
                 {cat.name}
@@ -162,9 +167,11 @@ export default function Header() {
         {mobileOpen && (
           <div className="md:hidden py-4 border-t border-glass-border">
             <div className="flex flex-col gap-3">
-              <Link href="/products" className="text-text-secondary hover:text-text-primary transition-colors text-sm py-2" onClick={() => setMobileOpen(false)}>
-                Products
-              </Link>
+              {showShopLink && (
+                <Link href="/products" className="text-text-secondary hover:text-text-primary transition-colors text-sm py-2" onClick={() => setMobileOpen(false)}>
+                  Products
+                </Link>
+              )}
               {navCategories.map((cat) => (
                 <Link key={cat.slug} href={`/categories/${cat.slug}`} className="text-text-secondary hover:text-text-primary transition-colors text-sm py-2" onClick={() => setMobileOpen(false)}>
                   {cat.name}

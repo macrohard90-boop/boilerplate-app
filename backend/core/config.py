@@ -62,6 +62,10 @@ class Settings(BaseSettings):
     enable_recommendations: bool = True
     app_template: str = "ecommerce"
 
+    # Feature toggles (within ecommerce module)
+    enable_products: bool = True
+    enable_subscriptions: bool = True
+
     # Tracking & Analytics
     tracking_session_timeout: int = 30  # minutes of inactivity
     geo_provider: str = "placeholder"

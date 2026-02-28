@@ -58,7 +58,7 @@ export default function AdminProductsPage() {
   const fetchProducts = useCallback(() => {
     setLoading(true);
     const statusParam = statusFilter !== "all" ? `&status=${statusFilter}` : "";
-    apiFetch<ProductResponse>(`/ecommerce/products?page=${page}&page_size=20${statusParam}`)
+    apiFetch<ProductResponse>(`/ecommerce/products?page=${page}&page_size=20&pricing_type=one_time${statusParam}`)
       .then(setData)
       .catch(() => {})
       .finally(() => setLoading(false));

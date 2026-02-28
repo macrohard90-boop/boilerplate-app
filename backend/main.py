@@ -104,6 +104,14 @@ def create_app() -> FastAPI:
     async def health_db():
         return await db_health_check()
 
+    @app.get("/api/config")
+    async def app_config():
+        """Public feature flags for frontend conditional rendering."""
+        return {
+            "enable_products": settings.enable_products,
+            "enable_subscriptions": settings.enable_subscriptions,
+        }
+
     # SEO root-level routes (sitemap.xml, robots.txt)
     from sqlalchemy.ext.asyncio import AsyncSession
 

@@ -4,6 +4,7 @@ import { useEffect, useState, useRef } from "react";
 import Link from "next/link";
 import ParticleCanvas from "../components/ParticleCanvas";
 import ProductCard from "../components/ProductCard";
+import { useConfig } from "../lib/config-context";
 
 interface ProductImage {
   url: string;
@@ -38,18 +39,21 @@ export default function HomePage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const revealRefs = useRef<HTMLDivElement[]>([]);
+  const { enable_products } = useConfig();
 
   useEffect(() => {
-    fetch("/api/ecommerce/products?page_size=4&pricing_type=one_time")
-      .then((r) => r.ok ? r.json() : { items: [] })
-      .then((data) => setProducts(data.items || []))
-      .catch(() => {});
+    if (enable_products) {
+      fetch("/api/ecommerce/products?page_size=4&pricing_type=one_time")
+        .then((r) => r.ok ? r.json() : { items: [] })
+        .then((data) => setProducts(data.items || []))
+        .catch(() => {});
+    }
 
     fetch("/api/ecommerce/categories")
       .then((r) => r.ok ? r.json() : [])
       .then((data) => setCategories(Array.isArray(data) ? data.slice(0, 4) : []))
       .catch(() => {});
-  }, []);
+  }, [enable_products]);
 
   // Scroll reveal observer
   useEffect(() => {
