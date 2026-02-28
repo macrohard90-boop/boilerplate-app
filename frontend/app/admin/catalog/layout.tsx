@@ -2,23 +2,30 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useConfig } from "../../../lib/config-context";
 
 const CATALOG_TABS = [
   { href: "/admin/catalog/products", label: "All Products" },
   { href: "/admin/catalog/categories", label: "Categories" },
-  { href: "/admin/catalog/coupons", label: "Coupons" },
+  { href: "/admin/catalog/coupons", label: "Coupons", feature: "coupons" as const },
   { href: "/admin/catalog/shipping", label: "Shipping Rates" },
   { href: "/admin/catalog/tax", label: "Tax Rates" },
 ];
 
 export default function CatalogLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const { enable_coupons } = useConfig();
+
+  const visibleTabs = CATALOG_TABS.filter((tab) => {
+    if (tab.feature === "coupons") return enable_coupons;
+    return true;
+  });
 
   return (
     <div>
       <div className="mb-6">
         <div className="flex items-center gap-1 border-b border-glass-border">
-          {CATALOG_TABS.map((tab) => {
+          {visibleTabs.map((tab) => {
             const active =
               pathname === tab.href || pathname.startsWith(tab.href + "/");
             return (

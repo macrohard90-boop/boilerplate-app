@@ -65,6 +65,7 @@ class Settings(BaseSettings):
     # Feature toggles (within ecommerce module)
     enable_products: bool = True
     enable_subscriptions: bool = True
+    enable_coupons: bool = True
 
     # Tracking & Analytics
     tracking_session_timeout: int = 30  # minutes of inactivity

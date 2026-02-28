@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useCart, type CartItem, cartItemKey } from "../../lib/cart-context";
 import { useAuth } from "../../lib/auth-context";
+import { useConfig } from "../../lib/config-context";
 import { formatPrice } from "../../lib/format";
 import { useToast } from "../../components/Toast";
 import LoadingSpinner from "../../components/LoadingSpinner";
@@ -11,6 +12,7 @@ import LoadingSpinner from "../../components/LoadingSpinner";
 export default function CartPage() {
   const { cart, isLoading, updateQuantity, removeItem, applyDiscount, removeDiscount } = useCart();
   const { isAuthenticated } = useAuth();
+  const { enable_coupons } = useConfig();
   const { showToast } = useToast();
   const [discountCode, setDiscountCode] = useState("");
   const [applyingDiscount, setApplyingDiscount] = useState(false);
@@ -83,33 +85,35 @@ export default function CartPage() {
               </div>
 
               {/* Discount code */}
-              <div className="mb-6">
-                {cart.discount_code ? (
-                  <div className="flex items-center justify-between p-3 rounded-lg bg-accent-green/10 border border-accent-green/20">
-                    <span className="text-sm text-accent-green font-medium">{cart.discount_code}</span>
-                    <button onClick={() => removeDiscount()} className="text-xs text-text-muted hover:text-accent-pink transition-colors">
-                      Remove
-                    </button>
-                  </div>
-                ) : (
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      value={discountCode}
-                      onChange={(e) => setDiscountCode(e.target.value)}
-                      placeholder="Discount code"
-                      className="input-glass text-sm flex-1"
-                    />
-                    <button
-                      onClick={handleApplyDiscount}
-                      disabled={applyingDiscount}
-                      className="btn-secondary text-sm !px-4 shrink-0"
-                    >
-                      {applyingDiscount ? "..." : "Apply"}
-                    </button>
-                  </div>
-                )}
-              </div>
+              {enable_coupons && (
+                <div className="mb-6">
+                  {cart.discount_code ? (
+                    <div className="flex items-center justify-between p-3 rounded-lg bg-accent-green/10 border border-accent-green/20">
+                      <span className="text-sm text-accent-green font-medium">{cart.discount_code}</span>
+                      <button onClick={() => removeDiscount()} className="text-xs text-text-muted hover:text-accent-pink transition-colors">
+                        Remove
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={discountCode}
+                        onChange={(e) => setDiscountCode(e.target.value)}
+                        placeholder="Discount code"
+                        className="input-glass text-sm flex-1"
+                      />
+                      <button
+                        onClick={handleApplyDiscount}
+                        disabled={applyingDiscount}
+                        className="btn-secondary text-sm !px-4 shrink-0"
+                      >
+                        {applyingDiscount ? "..." : "Apply"}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
 
               {isAuthenticated ? (
                 <Link href="/checkout" className="btn-primary w-full text-center block text-sm">

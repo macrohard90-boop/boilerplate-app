@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, Header, HTTPException
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from backend.core.config import settings
 from backend.core.database import get_db
 from backend.core.dependencies import get_current_user, get_optional_user
 from backend.core.redis import get_redis
@@ -93,6 +94,8 @@ async def apply_discount(
     db: AsyncSession = Depends(get_db),
     redis: Redis = Depends(get_redis),
 ) -> Any:
+    if not settings.enable_coupons:
+        raise HTTPException(status_code=404, detail={"error": "not_found", "message": "Coupons are not enabled", "details": None})
     try:
         return await cart_service.apply_discount(db, redis, user, session_id, body.code)
     except ValueError as e:
@@ -106,6 +109,8 @@ async def remove_discount(
     db: AsyncSession = Depends(get_db),
     redis: Redis = Depends(get_redis),
 ) -> Any:
+    if not settings.enable_coupons:
+        raise HTTPException(status_code=404, detail={"error": "not_found", "message": "Coupons are not enabled", "details": None})
     try:
         return await cart_service.remove_discount(db, redis, user, session_id)
     except ValueError as e:
