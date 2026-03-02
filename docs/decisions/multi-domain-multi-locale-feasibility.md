@@ -248,7 +248,174 @@ One FastAPI + PostgreSQL serves as the API. Multiple Next.js instances (one per 
 
 **Best for:** When domains have significantly different UIs. Overkill for the multi-locale scenario.
 
-**Verdict: Option A is the answer for the described scenario.**
+**Verdict: Option A is the answer for the described scenario — but it needs infrastructure hardening for production use.**
+
+---
+
+## Scalability, Redundancy & Uptime: Separation of Concerns
+
+### How Large-Scale Sites Actually Work
+
+Companies like Amazon don't run "separate websites" for `.com`, `.ca`, `.es`. They run **one distributed system** that renders differently based on who's asking.
+
+```
+User visits amazon.es
+        |
+        v
+CDN (300+ edge locations worldwide)
+        |
+        v
+Load Balancer (routes to nearest healthy region)
+        |
+        v
++------------------+     +------------------+     +------------------+
+|   US-East        |     |   EU-West        |     |   CA-Central     |
+|   Cluster        |     |   Cluster        |     |   Cluster        |
+|   (50+ servers)  |     |   (50+ servers)  |     |   (20+ servers)  |
++------------------+     +------------------+     +------------------+
+        |                         |                         |
+        v                         v                         v
+    Regional DB               Regional DB               Regional DB
+    (replicated)              (replicated)              (replicated)
+```
+
+Key principles that scale down to any size:
+
+1. **There is no "the server."** Multiple servers exist. Any one can die and nobody notices.
+2. **The code is identical everywhere.** Same app deployed to every server. The request context (domain, IP, cookies) determines language/currency/catalog.
+3. **Data is replicated, not shared.** Product catalog syncs across regions. Each region has its own database replica.
+4. **Separation of concern is at the service level**, not the domain level.
+
+### The Core Principle: Separate Compute from Data
+
+The real separation of concern isn't "one server per domain." It's separating your disposable compute from your persistent data:
+
+```
+        Domains are just doors
+              |
+    +---------+---------+
+    |         |         |
+ .com       .ca       .es
+    |         |         |
+    +---------+---------+
+              |
+              v
+    +-------------------+
+    |    CDN / Edge     |  <-- Cloudflare (free) handles 70%+ of requests
+    |   (static assets, |      Images, CSS, JS, cached pages never
+    |    cached pages)  |      touch your server
+    +-------------------+
+              |
+              v  (only dynamic requests pass through)
+    +-------------------+
+    |   Load Balancer   |  <-- Routes to healthy server
+    +-------------------+
+         |          |
+         v          v
+    +--------+  +--------+
+    | App 1  |  | App 2  |   <-- Identical Docker stacks
+    | (VPS)  |  | (VPS)  |       Either can serve any domain
+    +--------+  +--------+
+         |          |
+         +----+-----+
+              |
+              v
+    +-------------------+
+    |  Managed Database |  <-- NOT on either VPS
+    |   (separate)      |     DigitalOcean/Hetzner managed DB
+    +-------------------+
+```
+
+The database is NOT on the application server. The application servers are stateless and interchangeable. If App 1 dies, the load balancer sends everything to App 2. Neither server "owns" any domain.
+
+### Current Architecture vs Separated Architecture
+
+**Current (everything on one VPS — single point of failure):**
+
+```
+One VPS
+├── nginx        (reverse proxy)
+├── nextjs       (frontend)
+├── fastapi      (backend)
+├── postgres     (database)     <-- THE RISK
+└── redis        (cache/sessions) <-- and this
+```
+
+Everything lives and dies together. Server crash = all domains down + potential data loss.
+
+**Separated (compute is disposable, data is protected):**
+
+```
+VPS 1 (App Server)              VPS 2 (App Server)
+├── nginx                       ├── nginx
+├── nextjs                      ├── nextjs
+├── fastapi                     ├── fastapi
+└── redis (local cache only)    └── redis (local cache only)
+
+         Managed Services (separate infrastructure)
+         ├── PostgreSQL (managed, auto-failover, daily backups)
+         └── Redis (managed, persistent sessions)
+```
+
+App servers are disposable — blow one away and spin up a new one in minutes. Data is safe on managed infrastructure with automatic backups and failover built in.
+
+### Infrastructure Tiers
+
+#### Tier 1: Basic Resilience (~$15-20/month extra)
+
+| Component | What | Why |
+|-----------|------|-----|
+| **Cloudflare (free)** | CDN + DDoS protection in front of all domains | 70%+ of requests served from edge. Free. |
+| **Managed PostgreSQL** | DigitalOcean/Hetzner managed DB ($7-15/mo) | Automatic backups, failover replicas, data survives VPS death |
+| **Docker restart policies** | `restart: unless-stopped` on all containers | Auto-recovery from container crashes |
+| **External monitoring** | UptimeRobot (free) | Know when things break, get alerted |
+
+Solves 80% of real-world downtime causes (container crashes, DB corruption, accidental data loss). Your data is safe even if the VPS burns down.
+
+#### Tier 2: High Availability (~$40-60/month extra)
+
+| Component | What | Why |
+|-----------|------|-----|
+| **2x small VPS** | Identical Docker stacks ($5-10/mo each) | Either can serve any domain |
+| **Cloudflare load balancing** | Routes to healthy server ($5/mo) | Automatic failover if one VPS stops responding |
+| **Managed Redis** | Persistent sessions on separate infra | Sessions survive app server restarts |
+| **Rolling deploys** | Update App 1, then App 2 | Zero-downtime deployments |
+
+With this setup, if your primary VPS goes down, the load balancer routes all traffic to the standby. All three domains survive. Downtime goes from "hours" to "minutes."
+
+#### Tier 3: Full Redundancy (~$100-200/month extra)
+
+| Component | What | Why |
+|-----------|------|-----|
+| **Container orchestration** | Docker Swarm or Kubernetes across 2-3 nodes | Auto-scaling, self-healing, rolling deploys |
+| **Multi-region** | VPS in US + EU | Survives datacenter outages, lower latency, EU data residency compliance |
+| **CDN for dynamic content** | Cloudflare Workers / Vercel Edge | Even dynamic pages served from edge |
+| **Managed everything** | Managed DB, managed Redis, managed containers | Your job is code, not ops |
+
+Enterprise-grade. Overkill for most small businesses, but the answer if uptime is mission-critical.
+
+### Recommended Path
+
+**Start with Tier 1.** For ~$15/month extra you eliminate the most common failure modes. The single biggest wins:
+
+1. **Cloudflare free plan** — most traffic never touches your server
+2. **Managed database** — your data is safe regardless of what happens to the VPS
+3. **Monitoring** — know when things break before customers tell you
+
+**Upgrade to Tier 2 when** the cost of 30 minutes of downtime exceeds $60/month in lost revenue. That's your signal.
+
+**Tier 3 is for** when you have compliance requirements (EU data residency for `.es`) or when revenue demands five-nines uptime.
+
+### Risk Assessment Summary
+
+| Risk | Option A (bare) | Option A + Tier 1 | Option A + Tier 2 |
+|------|----------------|-------------------|-------------------|
+| VPS crash | All domains down, possible data loss | All domains down, **data safe** | Auto-failover, minimal downtime |
+| Bad deploy | All domains affected | All domains affected | Rolling deploy, zero downtime |
+| DDoS attack | Server overwhelmed | Cloudflare absorbs it | Cloudflare absorbs it |
+| DB corruption | Manual recovery from backups (if you have them) | Managed DB auto-recovery | Managed DB auto-recovery |
+| Traffic spike | All domains slow | All domains slow (but CDN helps) | Load balanced across servers |
+| Datacenter outage | All domains down | All domains down | Multi-region survives it (Tier 3) |
 
 ---
 
