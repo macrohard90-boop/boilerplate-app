@@ -17,6 +17,139 @@ All domains interlinked, sharing the same product catalog, admin panel, and user
 
 ---
 
+## How Multi-Domain Physically Works
+
+### What happens when someone types `example.com` in their browser
+
+```
+User types example.com
+        |
+        v
+Browser asks DNS: "What IP address is example.com?"
+        |
+        v
+DNS responds: "It's 145.23.67.89"
+        |
+        v
+Browser connects to 145.23.67.89 port 443 (HTTPS)
+        |
+        v
+Your server at that IP receives the request
+        |
+        v
+Nginx reads the Host header: "example.com"
+        |
+        v
+Routes to your Next.js app
+```
+
+A domain is just a **human-readable name that points to an IP address**. Your VPS has one IP address. You can point as many domains as you want to that same IP.
+
+### Step by step — what you'd physically do
+
+**Step 1: Buy the domains**
+
+Go to a domain registrar (Namecheap, Cloudflare, GoDaddy) and purchase:
+- `yourbrand.com` (~$12/year)
+- `yourbrand.ca` (~$15/year)
+- `yourbrand.es` (~$10/year)
+
+You now own three domain names. They don't point anywhere yet.
+
+**Step 2: Point them all to the same server**
+
+In each domain registrar's dashboard, set DNS A records:
+
+```
+yourbrand.com    A    145.23.67.89    (your VPS IP)
+yourbrand.ca     A    145.23.67.89    (same IP)
+yourbrand.es     A    145.23.67.89    (same IP)
+```
+
+Now all three domains resolve to your single VPS. This takes 5 minutes to configure and a few hours to propagate worldwide.
+
+**Step 3: Nginx accepts all three domains**
+
+Update nginx config to list the domains (or keep the existing wildcard):
+
+```nginx
+server {
+    listen 80;
+    server_name yourbrand.com yourbrand.ca yourbrand.es;
+
+    location / {
+        proxy_pass http://nextjs:3000;
+        proxy_set_header Host $host;  # Passes "yourbrand.ca" to Next.js
+    }
+}
+```
+
+When someone visits `yourbrand.ca`, nginx passes the request to Next.js with the header `Host: yourbrand.ca`. The Next.js middleware reads that header and knows "this is the Canadian site, show English + French."
+
+**Step 4: SSL certificates (HTTPS)**
+
+Each domain needs its own certificate. Let's Encrypt gives them for free:
+
+```bash
+certbot --nginx -d yourbrand.com
+certbot --nginx -d yourbrand.ca
+certbot --nginx -d yourbrand.es
+```
+
+Three commands, done. Auto-renews every 90 days.
+
+**Step 5: Next.js middleware detects which domain**
+
+```typescript
+// middleware.ts — this is where the "magic" happens
+import { NextRequest } from 'next/server';
+
+export function middleware(request: NextRequest) {
+  const host = request.headers.get('host');  // "yourbrand.ca"
+
+  // Map domain to locale
+  if (host.includes('.es')) locale = 'es';
+  else if (host.includes('.ca')) locale = 'en'; // default, /fr available
+  else locale = 'en';
+
+  // Rewrite URL to include locale
+  // yourbrand.ca/products  -> internally routes to /en/products
+  // yourbrand.es/products  -> internally routes to /es/products
+}
+```
+
+### The full picture — one VPS, three domains
+
+```
+yourbrand.com --+
+                |     +---------+     +---------+     +----------+
+yourbrand.ca  --+---->|  nginx  |---->| Next.js |---->| FastAPI  |
+                |     | (port 80|     | (reads  |     | (same DB |
+yourbrand.es --+     |  + 443) |     |  Host   |     |  for all)|
+                      +---------+     |  header)|     +----------+
+                                      +---------+
+
+All three domains hit the SAME server, SAME app, SAME database.
+The only difference is which language the UI renders in.
+```
+
+You're not "hosting three websites." You're hosting **one website** that looks at the incoming domain name and says "this person came from `.es`, show them Spanish." It's like one restaurant with three doors — the English door, the French door, and the Spanish door — but inside it's the same kitchen, same menu, same staff.
+
+### What it costs
+
+| Item | Cost | Frequency |
+|------|------|-----------|
+| `.com` domain | ~$12 | per year |
+| `.ca` domain | ~$15 | per year |
+| `.es` domain | ~$10 | per year |
+| SSL certificates | Free | Let's Encrypt |
+| Extra server resources | $0 | Same VPS, same app |
+| **Total** | **~$37/year** | Just the domain registrations |
+
+No extra servers, extra databases, or extra Docker containers needed. The multi-locale code work (52-68 hours from this document) is about teaching the app to read translations from JSON files instead of having "Shopping Cart" hardcoded. The domain part itself is just DNS records and a few lines of nginx config.
+
+---
+
 ## Current State of the App
 
 **0% multi-locale ready.** Everything is single-domain, single-language English:
