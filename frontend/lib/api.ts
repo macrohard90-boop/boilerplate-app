@@ -24,7 +24,7 @@ export function getCsrfToken(): string | null {
   return csrfToken;
 }
 
-async function refreshTokens(): Promise<boolean> {
+export async function refreshTokens(): Promise<boolean> {
   try {
     const res = await fetch(`${API_BASE}/auth/refresh`, {
       method: "POST",

@@ -1,9 +1,11 @@
 """Shopping cart endpoints supporting both guest and authenticated users."""
 
+import logging
 from typing import Any
 
 from fastapi import APIRouter, Depends, Header, HTTPException
 from redis.asyncio import Redis
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.core.config import settings
@@ -17,6 +19,8 @@ from modules.ecommerce.models.schemas import (
     CartResponse,
 )
 from modules.ecommerce.services import cart_service
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/cart", tags=["cart"])
 
@@ -47,10 +51,27 @@ async def add_item(
         raise HTTPException(status_code=400, detail={"error": "bad_request", "message": "Provide X-Session-ID header or authenticate", "details": None})
     variant_id = str(body.variant_id) if body.variant_id else None
     try:
-        return await cart_service.add_item(
+        result = await cart_service.add_item(
             db, redis, user, session_id,
             str(body.product_id), variant_id, body.quantity,
         )
+        if settings.enable_tracking and not session_id and user:
+            _row = (await db.execute(text(
+                "SELECT session_id FROM analytics.analytics_sessions "
+                "WHERE user_id = :uid ORDER BY ended_at DESC NULLS FIRST LIMIT 1"
+            ), {"uid": user["user_id"]})).mappings().first()
+            if _row:
+                session_id = _row["session_id"]
+        if settings.enable_tracking and session_id:
+            try:
+                from modules.tracking.services.event_service import record_event
+                user_id = user["user_id"] if user else None
+                await record_event(db, session_id, "add_to_cart", {
+                    "product_id": str(body.product_id), "quantity": body.quantity,
+                }, user_id=user_id)
+            except Exception:
+                logger.debug("Failed to record add_to_cart event", exc_info=True)
+        return result
     except ValueError as e:
         raise HTTPException(status_code=400, detail={"error": "bad_request", "message": str(e), "details": None})
 
@@ -81,7 +102,24 @@ async def remove_item(
     redis: Redis = Depends(get_redis),
 ) -> Any:
     try:
-        return await cart_service.remove_item(db, redis, user, session_id, product_id, variant_id)
+        result = await cart_service.remove_item(db, redis, user, session_id, product_id, variant_id)
+        if settings.enable_tracking and not session_id and user:
+            _row = (await db.execute(text(
+                "SELECT session_id FROM analytics.analytics_sessions "
+                "WHERE user_id = :uid ORDER BY ended_at DESC NULLS FIRST LIMIT 1"
+            ), {"uid": user["user_id"]})).mappings().first()
+            if _row:
+                session_id = _row["session_id"]
+        if settings.enable_tracking and session_id:
+            try:
+                from modules.tracking.services.event_service import record_event
+                user_id = user["user_id"] if user else None
+                await record_event(db, session_id, "remove_from_cart", {
+                    "product_id": product_id, "variant_id": variant_id,
+                }, user_id=user_id)
+            except Exception:
+                logger.debug("Failed to record remove_from_cart event", exc_info=True)
+        return result
     except ValueError as e:
         raise HTTPException(status_code=400, detail={"error": "bad_request", "message": str(e), "details": None})
 

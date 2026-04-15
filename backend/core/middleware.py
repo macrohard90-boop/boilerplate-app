@@ -25,6 +25,9 @@ _GENERAL_LIMIT_USER = (60, 60)  # 60 req/min per user for authenticated
 # Paths exempt from rate limiting
 _EXEMPT_PATHS = {"/api/health", "/api/health/db", "/api/health/redis", "/docs", "/openapi.json"}
 
+# Path prefixes exempt from rate limiting (admin-only read endpoints)
+_EXEMPT_PREFIXES = ("/api/tracking/admin/",)
+
 
 class RateLimitMiddleware(BaseHTTPMiddleware):
     """Fixed-window rate limiter backed by Redis."""
@@ -33,7 +36,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         path = request.url.path
 
         # Skip exempt paths
-        if path in _EXEMPT_PATHS:
+        if path in _EXEMPT_PATHS or any(path.startswith(p) for p in _EXEMPT_PREFIXES):
             return await call_next(request)
 
         try:

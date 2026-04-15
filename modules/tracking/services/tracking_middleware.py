@@ -32,6 +32,8 @@ def _load_excludes() -> None:
         ]
         # Always exclude tracking endpoints to avoid recursion
         _EXCLUDE_PREFIXES.append("/api/tracking")
+        # Exclude all API routes — only frontend pages should be tracked
+        _EXCLUDE_PREFIXES.append("/api/")
 
 
 class TrackingMiddleware(BaseHTTPMiddleware):

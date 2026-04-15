@@ -6,12 +6,14 @@ interface AppConfig {
   enable_products: boolean;
   enable_subscriptions: boolean;
   enable_coupons: boolean;
+  enable_tracking: boolean;
 }
 
 const DEFAULT_CONFIG: AppConfig = {
   enable_products: true,
   enable_subscriptions: true,
   enable_coupons: true,
+  enable_tracking: true,
 };
 
 const ConfigContext = createContext<AppConfig>(DEFAULT_CONFIG);

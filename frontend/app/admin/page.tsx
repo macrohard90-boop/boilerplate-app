@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { apiFetch } from "../../lib/api";
+import { useConfig } from "../../lib/config-context";
 
 interface Stats {
   pageviews: number;
@@ -21,6 +22,7 @@ const SERVICE_LABELS: Record<string, string> = {
 };
 
 export default function AdminDashboardPage() {
+  const { enable_tracking } = useConfig();
   const [stats, setStats] = useState<Stats>({ pageviews: 0, sessions: 0, pendingDeletions: 0 });
   const [services, setServices] = useState<ServiceHealth[]>([
     { name: "api", status: "checking" },
@@ -30,12 +32,14 @@ export default function AdminDashboardPage() {
   const [statusExpanded, setStatusExpanded] = useState(false);
 
   useEffect(() => {
-    apiFetch<{ total_views: number }>("/tracking/admin/analytics/pageviews")
-      .then((d) => setStats((s) => ({ ...s, pageviews: d.total_views || 0 })))
-      .catch(() => {});
-    apiFetch<{ total_sessions: number }>("/tracking/admin/analytics/sessions")
-      .then((d) => setStats((s) => ({ ...s, sessions: d.total_sessions || 0 })))
-      .catch(() => {});
+    if (enable_tracking) {
+      apiFetch<{ total_views: number }>("/tracking/admin/analytics/pageviews")
+        .then((d) => setStats((s) => ({ ...s, pageviews: d.total_views || 0 })))
+        .catch(() => {});
+      apiFetch<{ total_sessions: number }>("/tracking/admin/analytics/sessions")
+        .then((d) => setStats((s) => ({ ...s, sessions: d.total_sessions || 0 })))
+        .catch(() => {});
+    }
     apiFetch<{ total: number }>("/gdpr/admin/deletions?status=grace_period")
       .then((d) => setStats((s) => ({ ...s, pendingDeletions: d.total || 0 })))
       .catch(() => {});
@@ -70,15 +74,19 @@ export default function AdminDashboardPage() {
         <span className="gradient-text">Admin Dashboard</span>
       </h1>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        <div className="glass rounded-xl p-5">
-          <p className="text-xs text-text-muted mb-1">Pageviews (30d)</p>
-          <p className="text-2xl font-bold text-text-primary">{stats.pageviews}</p>
-        </div>
-        <div className="glass rounded-xl p-5">
-          <p className="text-xs text-text-muted mb-1">Sessions (30d)</p>
-          <p className="text-2xl font-bold text-text-primary">{stats.sessions}</p>
-        </div>
+      <div className={`grid grid-cols-1 sm:grid-cols-2 ${enable_tracking ? "lg:grid-cols-4" : "lg:grid-cols-2"} gap-4 mb-8`}>
+        {enable_tracking && (
+          <>
+            <div className="glass rounded-xl p-5">
+              <p className="text-xs text-text-muted mb-1">Pageviews (30d)</p>
+              <p className="text-2xl font-bold text-text-primary">{stats.pageviews}</p>
+            </div>
+            <div className="glass rounded-xl p-5">
+              <p className="text-xs text-text-muted mb-1">Sessions (30d)</p>
+              <p className="text-2xl font-bold text-text-primary">{stats.sessions}</p>
+            </div>
+          </>
+        )}
         <div className="glass rounded-xl p-5">
           <p className="text-xs text-text-muted mb-1">Pending Deletions</p>
           <p className={`text-2xl font-bold ${stats.pendingDeletions > 0 ? "text-accent-pink" : "text-text-primary"}`}>
@@ -131,7 +139,7 @@ export default function AdminDashboardPage() {
             { href: "/admin/products", label: "Manage Products" },
             { href: "/admin/orders", label: "Manage Orders" },
             { href: "/admin/users", label: "View Users" },
-            { href: "/admin/analytics", label: "Analytics" },
+            ...(enable_tracking ? [{ href: "/admin/analytics", label: "Analytics" }] : []),
             { href: "/admin/gdpr", label: "GDPR Management" },
             { href: "/admin/seo", label: "SEO Settings" },
           ].map((link) => (

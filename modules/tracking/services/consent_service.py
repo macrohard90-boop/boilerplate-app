@@ -20,6 +20,7 @@ async def has_analytics_consent(
     - No record found: default to False (opt-in)
     """
     if user_id:
+        # Check explicit consent records first
         row = (
             await db.execute(
                 text(
@@ -32,6 +33,20 @@ async def has_analytics_consent(
         ).mappings().first()
         if row:
             return bool(row["granted"])
+
+        # Fall back to cookie preferences stored by user_id
+        row = (
+            await db.execute(
+                text(
+                    "SELECT analytics FROM gdpr.cookie_preferences "
+                    "WHERE user_id = :uid "
+                    "ORDER BY created_at DESC LIMIT 1"
+                ),
+                {"uid": user_id},
+            )
+        ).mappings().first()
+        if row:
+            return bool(row["analytics"])
 
     if session_id:
         row = (

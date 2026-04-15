@@ -111,6 +111,7 @@ def create_app() -> FastAPI:
             "enable_products": settings.enable_products,
             "enable_subscriptions": settings.enable_subscriptions,
             "enable_coupons": settings.enable_coupons,
+            "enable_tracking": settings.enable_tracking,
         }
 
     # SEO root-level routes (sitemap.xml, robots.txt)

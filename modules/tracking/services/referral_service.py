@@ -63,7 +63,8 @@ async def store_referral(
         text(
             "INSERT INTO analytics.referral_sources "
             "(session_id, source, medium, campaign) "
-            "VALUES (:sid, :src, :med, :camp)"
+            "VALUES (:sid, :src, :med, :camp) "
+            "ON CONFLICT (session_id) DO NOTHING"
         ),
         {
             "sid": session_id,

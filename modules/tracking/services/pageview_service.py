@@ -1,9 +1,16 @@
 """Page view recording and aggregation queries."""
 
 from typing import Any
+from urllib.parse import urlparse
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
+
+
+def _normalize_path(path: str) -> str:
+    """Strip query params and trailing slashes for consistent aggregation."""
+    parsed = urlparse(path)
+    return parsed.path.rstrip("/") or "/"
 
 
 async def record_pageview(
@@ -13,13 +20,15 @@ async def record_pageview(
     user_id: str | None = None,
     referrer: str | None = None,
     duration_ms: int | None = None,
+    trigger: str | None = None,
 ) -> None:
     """Insert a single page view record."""
+    path = _normalize_path(path)
     await db.execute(
         text(
             "INSERT INTO analytics.page_views "
-            "(user_id, session_id, path, referrer, duration_ms) "
-            "VALUES (:uid, :sid, :path, :ref, :dur)"
+            "(user_id, session_id, path, referrer, duration_ms, trigger) "
+            "VALUES (:uid, :sid, :path, :ref, :dur, :trigger)"
         ),
         {
             "uid": user_id,
@@ -27,6 +36,7 @@ async def record_pageview(
             "path": path,
             "ref": referrer,
             "dur": duration_ms,
+            "trigger": trigger,
         },
     )
     await db.commit()
@@ -44,15 +54,16 @@ async def record_pageviews_batch(
         await db.execute(
             text(
                 "INSERT INTO analytics.page_views "
-                "(user_id, session_id, path, referrer, duration_ms) "
-                "VALUES (:uid, :sid, :path, :ref, :dur)"
+                "(user_id, session_id, path, referrer, duration_ms, trigger) "
+                "VALUES (:uid, :sid, :path, :ref, :dur, :trigger)"
             ),
             {
                 "uid": user_id,
                 "sid": session_id,
-                "path": item["path"],
+                "path": _normalize_path(item["path"]),
                 "ref": item.get("referrer"),
                 "dur": item.get("duration_ms"),
+                "trigger": item.get("trigger"),
             },
         )
         count += 1

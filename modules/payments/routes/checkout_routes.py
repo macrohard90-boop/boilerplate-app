@@ -1,10 +1,16 @@
 """Checkout and payment status endpoints."""
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+import logging
+
+from fastapi import APIRouter, Depends, Header, HTTPException, Request
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from backend.core.config import settings
 from backend.core.database import get_db
 from backend.core.dependencies import get_current_user, require_role, validate_csrf
+
+logger = logging.getLogger(__name__)
 from modules.payments.adapters import get_payment_provider
 from modules.payments.models.schemas import (
     CheckoutRequest,
@@ -33,6 +39,7 @@ async def create_checkout(
     db: AsyncSession = Depends(get_db),
     user: dict = Depends(get_current_user),
     _csrf: None = Depends(validate_csrf),
+    x_session_id: str | None = Header(default=None),
 ):
     """Convert cart to order and create payment intent.
 
@@ -46,6 +53,22 @@ async def create_checkout(
             billing_address=data.billing_address.model_dump() if data.billing_address else None,
             discount_code=data.discount_code,
         )
+        if settings.enable_tracking and not x_session_id:
+            _row = (await db.execute(text(
+                "SELECT session_id FROM analytics.analytics_sessions "
+                "WHERE user_id = :uid ORDER BY ended_at DESC NULLS FIRST LIMIT 1"
+            ), {"uid": user["user_id"]})).mappings().first()
+            if _row:
+                x_session_id = _row["session_id"]
+        if settings.enable_tracking and x_session_id:
+            try:
+                from modules.tracking.services.event_service import record_event
+                await record_event(db, x_session_id, "checkout_started", {
+                    "cart_total": float(result.get("amount", 0)) if isinstance(result, dict) else 0,
+                    "checkout_type": "one_time",
+                }, user_id=user["user_id"])
+            except Exception:
+                logger.debug("Failed to record checkout_started event", exc_info=True)
         return result
     except ValueError as e:
         raise HTTPException(
@@ -65,6 +88,7 @@ async def create_checkout_session(
     db: AsyncSession = Depends(get_db),
     user: dict = Depends(get_current_user),
     _csrf: None = Depends(validate_csrf),
+    x_session_id: str | None = Header(default=None),
 ):
     """Create a Stripe Checkout Session for carts with subscription items.
 
@@ -77,6 +101,21 @@ async def create_checkout_session(
             email=user.get("email", ""),
             discount_code=data.discount_code,
         )
+        if settings.enable_tracking and not x_session_id:
+            _row = (await db.execute(text(
+                "SELECT session_id FROM analytics.analytics_sessions "
+                "WHERE user_id = :uid ORDER BY ended_at DESC NULLS FIRST LIMIT 1"
+            ), {"uid": user["user_id"]})).mappings().first()
+            if _row:
+                x_session_id = _row["session_id"]
+        if settings.enable_tracking and x_session_id:
+            try:
+                from modules.tracking.services.event_service import record_event
+                await record_event(db, x_session_id, "checkout_started", {
+                    "checkout_type": "subscription",
+                }, user_id=user["user_id"])
+            except Exception:
+                logger.debug("Failed to record checkout_started event", exc_info=True)
         return result
     except ValueError as e:
         raise HTTPException(
