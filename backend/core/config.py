@@ -77,6 +77,9 @@ class Settings(BaseSettings):
     default_og_image: str = "/images/og-default.png"
     social_handles: str = ""
     sitemap_cache_ttl: int = 3600
+    enable_seo_scoring: bool = True
+    enable_seo_crawler: bool = False
+    seo_rescore_interval: int = 86400
 
     # GDPR
     gdpr_grace_period_days: int = 30

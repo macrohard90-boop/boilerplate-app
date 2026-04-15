@@ -7,6 +7,8 @@ interface AppConfig {
   enable_subscriptions: boolean;
   enable_coupons: boolean;
   enable_tracking: boolean;
+  enable_seo_scoring: boolean;
+  enable_seo_crawler: boolean;
 }
 
 const DEFAULT_CONFIG: AppConfig = {
@@ -14,6 +16,8 @@ const DEFAULT_CONFIG: AppConfig = {
   enable_subscriptions: true,
   enable_coupons: true,
   enable_tracking: true,
+  enable_seo_scoring: true,
+  enable_seo_crawler: false,
 };
 
 const ConfigContext = createContext<AppConfig>(DEFAULT_CONFIG);

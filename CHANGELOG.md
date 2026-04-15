@@ -9,6 +9,27 @@ Format follows [Keep a Changelog](https://keepachangelog.com/). Claude Code shou
 ## [Unreleased]
 _Changes staged but not yet tagged._
 
+## [2026-04-15] - SEO Scoring Engine, SSR Metadata, Crawler & Audit Dashboard
+
+### Added
+- **SSR metadata integration** — `generateMetadata()` on product, category, and home pages. Server components fetch SEO data via `INTERNAL_API_URL` and render proper `<title>`, `<meta>`, OG tags, Twitter cards, and JSON-LD `<script>` tags in raw HTML for search engines.
+- **Server/client component split** — Product detail, category, and homepage split into server page (metadata + data fetch) and client component (interactivity). `server-fetch.ts` utility with ISR (60s revalidate).
+- **ScoringProvider interface** — ABC adapter pattern (`modules/seo/interfaces/scoring_provider.py`) with `PageSEOData`, `ScoreResult`, `RuleResult` dataclasses. Factory in `modules/seo/adapters/` returns provider by config.
+- **Rule-based scoring engine** — 10 weighted rules: title presence/length, description presence/length, canonical URL, OG tags completeness, Twitter tags completeness, structured data beyond generic types, robots indexability, H1 presence. Score 0-100 formula: `sum(points) / sum(max_points) * 100`.
+- **Audit trail & snapshots** — `take_snapshot()` captures full SEO state, computes diff from previous snapshot. Auto-triggered on meta override create/update/delete. Triggers: manual, override_change, scheduled, crawler.
+- **Background re-scorer** — `rescorer_loop()` async task (follows `reaper_loop` pattern). Scores all known pages on configurable interval (`SEO_RESCORE_INTERVAL`, default 86400s). Takes snapshots for changes.
+- **Live HTML crawler** — Playwright headless Chromium extracts rendered meta/OG/Twitter/JSON-LD/headings from live HTML, compares to API output, stores mismatches with severity (critical/warning/info). Optional: `ENABLE_SEO_CRAWLER=false` by default.
+- **Migration 017** — `seo.page_scores`, `seo.page_snapshots`, `seo.crawl_results` tables with indexes
+- **Expanded admin SEO dashboard** — 4 tabs: Overview (KPIs, lowest scores, score-all button), Meta Editor (CRUD with SERP preview + character counters), Crawler (single/batch crawl, mismatch table), Audit & Scores (rule breakdown, trend chart, snapshot timeline with expandable diffs)
+- **SerpPreview component** — Google SERP simulation with live character counting (title 60, description 160)
+- **Toggle infrastructure** — `ENABLE_SEO_SCORING` (default true), `ENABLE_SEO_CRAWLER` (default false) with 4-layer enforcement: .env → config.py → /api/config → frontend useConfig()
+- **28 unit tests** — 18 scoring provider tests, 7 snapshot diff tests, 3 rescorer tests
+
+### Changed
+- **docker-compose.yml** — Added `INTERNAL_API_URL=http://fastapi:8000` to nextjs service; `INSTALL_CRAWLER` build arg for conditional Playwright install
+- **backend.Dockerfile** — Conditional Playwright + Chromium install via `INSTALL_CRAWLER` build arg
+- **meta_service.py** — `set_meta_override()` and `delete_meta_override()` now auto-trigger SEO snapshots
+
 ## [2026-02-28] - Coupon Restrictions, Stripe Sync Overhaul & Phase 12 Planning
 
 ### Added

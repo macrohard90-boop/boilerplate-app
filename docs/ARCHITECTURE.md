@@ -100,6 +100,15 @@ class ChatbotProvider(ABC):
 ```
 Placeholder interface. Implement per client with chosen AI provider.
 
+### 1.8 ScoringProvider (modules/seo/interfaces/)
+```python
+class ScoringProvider(ABC):
+    async def score_page(data: PageSEOData) -> ScoreResult
+```
+Dataclasses: `PageSEOData` (path, title, description, canonical_url, robots, og_tags, twitter_tags, structured_data, headings), `ScoreResult` (score 0-100, rules list, provider name), `RuleResult` (rule_id, name, passed, weight, points, max_points, recommendation).
+Default implementation: `RuleScoringProvider` — 10 weighted rules (title presence/length, description presence/length, canonical, OG tags, Twitter tags, structured data, robots indexable, H1 present).
+Swap by: implementing ScoringProvider ABC. Future adapters: Google Search Console API, Lighthouse API.
+
 ---
 
 ## 2. Database Schemas
@@ -243,24 +252,36 @@ referral_sources id, session_id, source, medium, campaign
 utm_tracking     id, session_id, utm_source, utm_medium, utm_campaign, utm_content, utm_term
 ```
 
-### 2.6 Indexing Strategy
+### 2.6 SEO Schema (3 tables — scoring & audit, always present)
+```
+page_scores      id, path, score (0-100), rule_results (JSONB), provider, scored_at, created_at
+                 — Rule-based SEO scoring per page. rule_results stores array of {rule_id, name, passed, weight, points, max_points, recommendation}.
+page_snapshots   id, path, snapshot (JSONB), trigger (manual/override_change/scheduled/crawler),
+                 changed_by (nullable FK → core.users), diff (JSONB nullable), created_at
+                 — Audit trail: full SEO state snapshot with computed diff from previous snapshot.
+crawl_results    id, path, status_code, rendered_meta (JSONB), api_meta (JSONB),
+                 mismatches (JSONB), crawled_at
+                 — Live HTML crawler results comparing rendered output vs API-generated SEO data.
+```
+
+### 2.7 Indexing Strategy
 - All foreign keys indexed
 - All user_id columns indexed
 - All created_at columns indexed (time-range queries)
 - Frequently filtered columns: status, type, active, slug, email
 - Composite indexes where queries combine user_id + status or product_id + variant_id
 
-### 2.7 Migration System
+### 2.8 Migration System
 - Numbered SQL files: 001_core_schema.sql, 002_ecommerce_schema.sql, etc.
 - Each file has UP and DOWN sections for rollback
 - Version tracking table: schema_migrations (version, applied_at)
 - Migration runner script in /scripts/
 
-### 2.8 Soft Delete
+### 2.9 Soft Delete
 All user-facing tables include deleted_at column for GDPR compliance.
 Queries default to WHERE deleted_at IS NULL.
 
-### 2.9 Money & Currency Convention
+### 2.10 Money & Currency Convention
 - All monetary amounts stored as **INTEGER cents** (e.g., $19.99 = 1999). Matches Stripe, avoids floating point.
 - Every amount column is paired with a `currency CHAR(3)` column (ISO 4217: USD, EUR, GBP, etc.)
 - `DEFAULT_CURRENCY` in .env sets the deployment default; individual records can override.
@@ -279,13 +300,13 @@ Queries default to WHERE deleted_at IS NULL.
   - Updated manually or via external API (future integration)
   - Used for display conversion only; transactions always store the original currency
 
-### 2.10 Enum Strategy
+### 2.11 Enum Strategy
 - All status/type columns use **VARCHAR + CHECK constraints** (not PostgreSQL ENUM types).
 - Rationale: CHECK constraints can be altered inside transactions; PG ENUMs cannot (`ALTER TYPE ADD VALUE` is non-transactional).
 - Pattern: `status VARCHAR(30) NOT NULL CHECK (status IN ('active', 'abandoned', 'converted', 'expired'))`
 - When adding a new value: `ALTER TABLE ... DROP CONSTRAINT ...; ALTER TABLE ... ADD CONSTRAINT ... CHECK (status IN (...))`
 
-### 2.11 Cart Status Lifecycle
+### 2.12 Cart Status Lifecycle
 ```
 active → abandoned (CART_ABANDON_TIMEOUT inactivity)
 active → converted (checkout completed, order created)
@@ -295,7 +316,7 @@ abandoned → expired (max reminders sent, no recovery)
 ```
 Valid `cart.status` values: `active`, `abandoned`, `recovered`, `converted`, `expired`
 
-### 2.12 Migration Ordering
+### 2.13 Migration Ordering
 Migrations must run in dependency order due to cross-schema foreign keys:
 ```
 000_extensions.sql      — uuid-ossp, schemas, updated_at trigger function
@@ -305,8 +326,12 @@ Migrations must run in dependency order due to cross-schema foreign keys:
 002_saas_schema.sql     — all 6 SaaS tables (references core.users) [template: saas]
 003_gdpr_schema.sql     — all 7 GDPR tables (references core.users)
 004_analytics_schema.sql — all 6 analytics tables [if ENABLE_TRACKING=true]
+...
+007_seo_schema.sql      — meta_overrides table (always present)
+...
+017_seo_scoring_and_crawler.sql — page_scores, page_snapshots, crawl_results (references core.users)
 ```
-Core always runs first. Template migration (ecommerce XOR saas) second. GDPR third. Analytics last (optional).
+Core always runs first. Template migration (ecommerce XOR saas) second. GDPR third. Analytics optional. SEO scoring/crawler tables added in migration 017.
 
 ---
 
@@ -504,7 +529,8 @@ DOMAIN | FRONTEND_URL | BACKEND_URL
 UVICORN_WORKERS=2 | NEXTJS_WORKERS=1
 
 ### SEO
-SITE_NAME | DEFAULT_OG_IMAGE | SOCIAL_HANDLES
+SITE_NAME | DEFAULT_OG_IMAGE | SOCIAL_HANDLES | SITEMAP_CACHE_TTL
+ENABLE_SEO_SCORING (default true) | ENABLE_SEO_CRAWLER (default false) | SEO_RESCORE_INTERVAL (default 86400s)
 
 ---
 

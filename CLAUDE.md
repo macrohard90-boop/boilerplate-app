@@ -82,6 +82,8 @@ Layer 4: Frontend UI                → Conditional rendering via useConfig()
 | `ENABLE_RECOMMENDATIONS` | `enable_recommendations` | Recommendation module loading | 1,2 |
 | `ENABLE_PRODUCTS` | `enable_products` | Product catalog, product-related UI | 1,2,3,4 |
 | `ENABLE_SUBSCRIPTIONS` | `enable_subscriptions` | Subscription routes, subscription UI | 1,2,3,4 |
+| `ENABLE_SEO_SCORING` | `enable_seo_scoring` | SEO scoring engine, audit dashboard tab, rescorer background task | 1,2,3,4 |
+| `ENABLE_SEO_CRAWLER` | `enable_seo_crawler` | Live HTML crawler, crawler dashboard tab, Playwright install | 1,2,3,4 |
 
 ### Rules for New Features
 

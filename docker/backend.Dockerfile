@@ -16,6 +16,8 @@ RUN pip install --no-cache-dir --upgrade pip && \
 # --- Stage 2: Runtime ---
 FROM python:3.11-slim AS runtime
 
+ARG INSTALL_CRAWLER=false
+
 WORKDIR /app
 
 # Copy installed packages from deps stage
@@ -25,6 +27,14 @@ COPY --from=deps /usr/local/bin /usr/local/bin
 # Copy application code
 COPY backend/ /app/backend/
 COPY modules/ /app/modules/
+
+# Optional: Install Playwright for SEO crawler
+RUN if [ "$INSTALL_CRAWLER" = "true" ]; then \
+        apt-get update && \
+        pip install --no-cache-dir playwright && \
+        playwright install --with-deps chromium && \
+        rm -rf /var/lib/apt/lists/*; \
+    fi
 
 # Create uploads directory and non-root user
 RUN mkdir -p /app/uploads/images && \

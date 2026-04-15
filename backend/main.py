@@ -37,6 +37,12 @@ async def lifespan(app: FastAPI):
         tasks.append(asyncio.create_task(reaper_loop()))
         logger.info("Order reaper background task started")
 
+    if settings.enable_seo_scoring:
+        from modules.seo.services.rescorer import rescorer_loop
+
+        tasks.append(asyncio.create_task(rescorer_loop()))
+        logger.info("SEO rescorer background task started")
+
     yield
 
     # Cancel background tasks
@@ -112,6 +118,8 @@ def create_app() -> FastAPI:
             "enable_subscriptions": settings.enable_subscriptions,
             "enable_coupons": settings.enable_coupons,
             "enable_tracking": settings.enable_tracking,
+            "enable_seo_scoring": settings.enable_seo_scoring,
+            "enable_seo_crawler": settings.enable_seo_crawler,
         }
 
     # SEO root-level routes (sitemap.xml, robots.txt)

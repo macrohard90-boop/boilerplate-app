@@ -1,0 +1,4 @@
+# Optional: SEO crawler dependencies
+# Install with: pip install -r requirements-crawler.txt
+# Only needed when ENABLE_SEO_CRAWLER=true
+playwright>=1.40.0

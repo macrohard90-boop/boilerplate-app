@@ -227,6 +227,20 @@ async def set_meta_override(
             },
         )
     await db.commit()
+
+    # Take audit snapshot if scoring is enabled
+    if settings.enable_seo_scoring:
+        try:
+            from modules.seo.services.snapshot_service import take_snapshot
+
+            await take_snapshot(db, path, trigger="override_change", changed_by=user_id)
+        except Exception:
+            import logging
+
+            logging.getLogger(__name__).exception(
+                "Failed to take snapshot after override set for %s", path
+            )
+
     return {"message": f"Meta override set for {path}"}
 
 
@@ -239,6 +253,20 @@ async def delete_meta_override(db: AsyncSession, path: str) -> dict[str, Any]:
     await db.commit()
     if result.rowcount == 0:
         raise ValueError(f"No override found for path: {path}")
+
+    # Take audit snapshot if scoring is enabled
+    if settings.enable_seo_scoring:
+        try:
+            from modules.seo.services.snapshot_service import take_snapshot
+
+            await take_snapshot(db, path, trigger="override_change")
+        except Exception:
+            import logging
+
+            logging.getLogger(__name__).exception(
+                "Failed to take snapshot after override delete for %s", path
+            )
+
     return {"message": f"Meta override removed for {path}"}
 
 

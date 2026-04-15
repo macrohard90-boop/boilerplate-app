@@ -3,7 +3,7 @@
 import json
 from typing import Any
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.core.config import settings
@@ -13,7 +13,10 @@ from modules.seo.models.schemas import (
     AdminMetaListResponse,
     MessageResponse,
     MetaTagsUpdate,
+    PageScoreListResponse,
+    ScoreTrendResponse,
     SEOConfigResponse,
+    SnapshotListResponse,
 )
 from modules.seo.services.meta_service import (
     delete_meta_override,
@@ -104,3 +107,142 @@ async def admin_get_config(
         domain=settings.domain,
         sitemap_cache_ttl=settings.sitemap_cache_ttl,
     )
+
+
+# ── Scoring endpoints (gated by enable_seo_scoring) ──────────
+
+if settings.enable_seo_scoring:
+    from modules.seo.services.scoring_service import (
+        get_latest_scores,
+        get_score_trend,
+        score_all_pages,
+        score_page,
+    )
+
+    @router.get("/scores", response_model=PageScoreListResponse)
+    async def admin_list_scores(
+        db: AsyncSession = Depends(get_db),
+        user: dict = Depends(require_role("admin")),
+        page: int = Query(1, ge=1),
+        page_size: int = Query(20, ge=1, le=100),
+    ):
+        """List latest SEO scores for all pages."""
+        return await get_latest_scores(db, page, page_size)
+
+    @router.post("/scores/{path:path}", response_model=MessageResponse)
+    async def admin_score_page(
+        path: str,
+        db: AsyncSession = Depends(get_db),
+        user: dict = Depends(require_role("admin")),
+    ):
+        """Score a single page's SEO quality."""
+        result = await score_page(db, path)
+        return {"message": f"Scored {path}: {result.score}/100"}
+
+    @router.post("/scores/batch", response_model=MessageResponse)
+    async def admin_score_batch(
+        db: AsyncSession = Depends(get_db),
+        user: dict = Depends(require_role("admin")),
+    ):
+        """Score all known pages."""
+        results = await score_all_pages(db)
+        return {"message": f"Scored {len(results)} pages."}
+
+    @router.get("/scores/trend", response_model=ScoreTrendResponse)
+    async def admin_score_trend(
+        path: str = Query(..., description="Page path to get trend for"),
+        days: int = Query(30, ge=1, le=365),
+        db: AsyncSession = Depends(get_db),
+        user: dict = Depends(require_role("admin")),
+    ):
+        """Get score history for a single page."""
+        return await get_score_trend(db, path, days)
+
+
+# ── Snapshot endpoints ────────────────────────────────────────
+
+if settings.enable_seo_scoring:
+    from modules.seo.services.snapshot_service import (
+        get_snapshot,
+        list_snapshots,
+    )
+
+    @router.get("/snapshots", response_model=SnapshotListResponse)
+    async def admin_list_snapshots(
+        path: str = Query(..., description="Page path"),
+        page: int = Query(1, ge=1),
+        page_size: int = Query(20, ge=1, le=100),
+        db: AsyncSession = Depends(get_db),
+        user: dict = Depends(require_role("admin")),
+    ):
+        """List snapshot history for a page."""
+        return await list_snapshots(db, path, page, page_size)
+
+    @router.get("/snapshots/{snapshot_id}")
+    async def admin_get_snapshot(
+        snapshot_id: str,
+        db: AsyncSession = Depends(get_db),
+        user: dict = Depends(require_role("admin")),
+    ):
+        """Get a single snapshot with diff."""
+        result = await get_snapshot(db, snapshot_id)
+        if not result:
+            raise HTTPException(status_code=404, detail="Snapshot not found")
+        return result
+
+
+# ── Crawler endpoints (gated by enable_seo_crawler) ──────────
+
+if settings.enable_seo_crawler:
+
+    @router.post("/crawl/{path:path}", response_model=MessageResponse)
+    async def admin_crawl_page(
+        path: str,
+        db: AsyncSession = Depends(get_db),
+        user: dict = Depends(require_role("admin")),
+    ):
+        """Crawl a single page and compare rendered HTML to API meta."""
+        from modules.seo.services.crawler_service import crawl_page
+
+        result = await crawl_page(db, path)
+        mismatch_count = len(result.get("mismatches", []))
+        return {
+            "message": f"Crawled {path}: {mismatch_count} mismatch(es) found."
+        }
+
+    @router.post("/crawl/batch", response_model=MessageResponse)
+    async def admin_crawl_batch(
+        db: AsyncSession = Depends(get_db),
+        user: dict = Depends(require_role("admin")),
+    ):
+        """Crawl all sitemap pages."""
+        from modules.seo.services.crawler_service import crawl_all_pages
+
+        results = await crawl_all_pages(db)
+        return {"message": f"Crawled {len(results)} pages."}
+
+    @router.get("/crawl/results")
+    async def admin_list_crawl_results(
+        page: int = Query(1, ge=1),
+        page_size: int = Query(20, ge=1, le=100),
+        db: AsyncSession = Depends(get_db),
+        user: dict = Depends(require_role("admin")),
+    ):
+        """List crawl results."""
+        from modules.seo.services.crawler_service import list_crawl_results
+
+        return await list_crawl_results(db, page, page_size)
+
+    @router.get("/crawl/results/{result_id}")
+    async def admin_get_crawl_result(
+        result_id: str,
+        db: AsyncSession = Depends(get_db),
+        user: dict = Depends(require_role("admin")),
+    ):
+        """Get a single crawl result with mismatches."""
+        from modules.seo.services.crawler_service import get_crawl_result
+
+        result = await get_crawl_result(db, result_id)
+        if not result:
+            raise HTTPException(status_code=404, detail="Crawl result not found")
+        return result

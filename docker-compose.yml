@@ -46,6 +46,8 @@ services:
     build:
       context: .
       dockerfile: docker/backend.Dockerfile
+      args:
+        INSTALL_CRAWLER: ${ENABLE_SEO_CRAWLER:-false}
     restart: unless-stopped
     env_file: .env
     volumes:
@@ -74,6 +76,7 @@ services:
     restart: unless-stopped
     environment:
       - NODE_ENV=production
+      - INTERNAL_API_URL=http://fastapi:8000
     depends_on:
       - fastapi
     networks:

@@ -125,3 +125,67 @@ All tested with admin token (`admin@example.com` / `Test1234!`).
 | **Total** | **45** | **45** |
 
 All 45 tests passed. No code fixes required during testing (column names and schema matched on first attempt, unlike Phase 7).
+
+---
+
+## Post-Build Enhancement: SEO Scoring, SSR, Crawler & Audit (2026-04-15)
+
+### I. Unit Tests — Scoring Provider
+
+| # | Test | File | Result |
+|---|------|------|--------|
+| I1 | Perfect page scores 100 | `test_seo_scoring.py::test_perfect_score` | PASSED |
+| I2 | Empty page scores < 30 | `test_seo_scoring.py::test_empty_page_scores_low` | PASSED |
+| I3 | Missing title fails title_present | `test_seo_scoring.py::test_title_present_rule` | PASSED |
+| I4 | Title too short fails title_length | `test_seo_scoring.py::test_title_too_short` | PASSED |
+| I5 | Title too long fails title_length | `test_seo_scoring.py::test_title_too_long` | PASSED |
+| I6 | Missing description fails desc_present | `test_seo_scoring.py::test_description_missing` | PASSED |
+| I7 | Short description fails desc_length | `test_seo_scoring.py::test_description_too_short` | PASSED |
+| I8 | Missing canonical fails canonical_set | `test_seo_scoring.py::test_canonical_missing` | PASSED |
+| I9 | Incomplete OG tags fail og_complete | `test_seo_scoring.py::test_og_incomplete` | PASSED |
+| I10 | Incomplete Twitter tags fail twitter_complete | `test_seo_scoring.py::test_twitter_incomplete` | PASSED |
+| I11 | Generic-only structured data fails | `test_seo_scoring.py::test_structured_data_generic_only` | PASSED |
+| I12 | noindex fails robots_indexable | `test_seo_scoring.py::test_noindex_fails_indexable` | PASSED |
+| I13 | H1 present passes with crawl data | `test_seo_scoring.py::test_h1_present_with_crawl_data` | PASSED |
+| I14 | H1 missing fails with crawl data | `test_seo_scoring.py::test_h1_missing_with_crawl_data` | PASSED |
+| I15 | H1 auto-passes without crawl data | `test_seo_scoring.py::test_h1_auto_passes_without_crawl_data` | PASSED |
+| I16 | Score always 0-100 | `test_seo_scoring.py::test_score_bounds` | PASSED |
+| I17 | Exactly 10 rules | `test_seo_scoring.py::test_rule_count` | PASSED |
+| I18 | All rules have required fields | `test_seo_scoring.py::test_all_rules_have_required_fields` | PASSED |
+
+### J. Unit Tests — Snapshot Diffs
+
+| # | Test | File | Result |
+|---|------|------|--------|
+| J1 | Identical snapshots = no diff | `test_seo_snapshot.py::test_no_diff_when_identical` | PASSED |
+| J2 | Title change detected | `test_seo_snapshot.py::test_diff_on_title_change` | PASSED |
+| J3 | Score change detected | `test_seo_snapshot.py::test_diff_on_score_change` | PASSED |
+| J4 | OG tags change detected | `test_seo_snapshot.py::test_diff_on_og_tags_change` | PASSED |
+| J5 | Multiple field changes | `test_seo_snapshot.py::test_diff_multiple_fields` | PASSED |
+| J6 | None to value transition | `test_seo_snapshot.py::test_diff_none_to_value` | PASSED |
+| J7 | Structured data change detected | `test_seo_snapshot.py::test_diff_structured_data_change` | PASSED |
+
+### K. Unit Tests — Background Rescorer
+
+| # | Test | File | Result |
+|---|------|------|--------|
+| K1 | Scores each collected path | `test_seo_rescorer.py::test_rescore_all_pages_scores_each_path` | PASSED |
+| K2 | Continues on per-page errors | `test_seo_rescorer.py::test_rescore_continues_on_error` | PASSED |
+| K3 | Handles empty paths gracefully | `test_seo_rescorer.py::test_rescore_empty_paths` | PASSED |
+
+### Updated Summary
+
+| Category | Tests | Passed |
+|----------|-------|--------|
+| Module loading | 3 | 3 |
+| Migration | 2 | 2 |
+| Robots.txt | 5 | 5 |
+| Sitemap.xml | 6 | 6 |
+| Meta tags (auto) | 5 | 5 |
+| OG & Twitter tags | 7 | 7 |
+| JSON-LD structured data | 10 | 10 |
+| Admin endpoints | 7 | 7 |
+| Scoring provider (unit) | 18 | 18 |
+| Snapshot diffs (unit) | 7 | 7 |
+| Background rescorer (unit) | 3 | 3 |
+| **Total** | **73** | **73** |

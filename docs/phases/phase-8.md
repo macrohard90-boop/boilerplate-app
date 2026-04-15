@@ -131,3 +131,55 @@ Read `docs/ARCHITECTURE.md` section 10 (Environment Variables — SEO section) a
 - Modified: `backend/core/config.py` — Added site_name, default_og_image, social_handles, sitemap_cache_ttl
 - Modified: `backend/main.py` — Added root-level /sitemap.xml and /robots.txt routes
 - Modified: `docker/nginx.conf` — Added location rules for /sitemap.xml and /robots.txt → FastAPI
+
+## Post-Build Enhancement: SEO Scoring, SSR, Crawler & Audit Dashboard (2026-04-15)
+
+### Additional Acceptance Criteria
+- [x] Product, category, and home pages render SEO metadata in raw HTML via `generateMetadata()`
+- [x] Server components fetch SEO data via `INTERNAL_API_URL` (container-to-container)
+- [x] Rule-based scoring engine scores pages 0-100 with 10 weighted rules
+- [x] ScoringProvider adapter interface allows future Google Search Console / Lighthouse integration
+- [x] Audit trail captures SEO snapshots on override changes with computed diffs
+- [x] Background rescorer periodically scores all pages on configurable interval
+- [x] Live HTML crawler compares rendered output vs API-generated SEO (optional, off by default)
+- [x] Admin SEO dashboard has 4 tabs: Overview, Meta Editor, Crawler, Audit & Scores
+- [x] Feature toggles: `ENABLE_SEO_SCORING` and `ENABLE_SEO_CRAWLER` with 4-layer enforcement
+- [x] 28 unit tests pass (scoring, snapshot, rescorer)
+
+### Additional Files Created
+- `migrations/017_seo_scoring_and_crawler.sql`
+- `modules/seo/interfaces/__init__.py`
+- `modules/seo/interfaces/scoring_provider.py`
+- `modules/seo/adapters/__init__.py`
+- `modules/seo/adapters/rule_scoring_provider.py`
+- `modules/seo/services/scoring_service.py`
+- `modules/seo/services/snapshot_service.py`
+- `modules/seo/services/rescorer.py`
+- `modules/seo/services/crawler_service.py`
+- `backend/requirements-crawler.txt`
+- `frontend/lib/server-fetch.ts`
+- `frontend/app/products/[slug]/ProductDetailClient.tsx`
+- `frontend/app/categories/[slug]/CategoryPageClient.tsx`
+- `frontend/app/HomePageClient.tsx`
+- `frontend/app/admin/seo/layout.tsx`
+- `frontend/app/admin/seo/overview/page.tsx`
+- `frontend/app/admin/seo/meta/page.tsx`
+- `frontend/app/admin/seo/crawler/page.tsx`
+- `frontend/app/admin/seo/audit/page.tsx`
+- `frontend/components/SerpPreview.tsx`
+- `tests/unit/test_seo_scoring.py`
+- `tests/unit/test_seo_snapshot.py`
+- `tests/unit/test_seo_rescorer.py`
+- Modified: `frontend/app/products/[slug]/page.tsx` — Rewritten as server component with generateMetadata()
+- Modified: `frontend/app/categories/[slug]/page.tsx` — Rewritten as server component with generateMetadata()
+- Modified: `frontend/app/page.tsx` — Rewritten as server component with generateMetadata()
+- Modified: `frontend/app/admin/seo/page.tsx` — Redirect to /admin/seo/overview
+- Modified: `modules/seo/models/schemas.py` — Added scoring, snapshot, crawler Pydantic models
+- Modified: `modules/seo/routes/admin_routes.py` — Added scoring, snapshot, crawler endpoints
+- Modified: `modules/seo/services/meta_service.py` — Auto-trigger snapshots on override changes
+- Modified: `.env.template` — Added ENABLE_SEO_SCORING, ENABLE_SEO_CRAWLER, SEO_RESCORE_INTERVAL
+- Modified: `backend/core/config.py` — Added seo scoring/crawler config fields
+- Modified: `backend/main.py` — Added toggle flags to /api/config, rescorer background task
+- Modified: `frontend/lib/config-context.tsx` — Added scoring/crawler flags
+- Modified: `docker-compose.yml` — INTERNAL_API_URL, INSTALL_CRAWLER build arg
+- Modified: `docker/backend.Dockerfile` — Conditional Playwright install
