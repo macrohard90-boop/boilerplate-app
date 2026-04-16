@@ -8,12 +8,24 @@ let accessToken: string | null = null;
 let csrfToken: string | null = null;
 let refreshPromise: Promise<boolean> | null = null;
 
+/** Generate a UUID v4 without requiring a secure context. */
+function uuidv4(): string {
+  const bytes = new Uint8Array(16);
+  (crypto.getRandomValues || function (b: Uint8Array) {
+    for (let i = 0; i < b.length; i++) b[i] = Math.floor(Math.random() * 256);
+  })(bytes);
+  bytes[6] = (bytes[6] & 0x0f) | 0x40;
+  bytes[8] = (bytes[8] & 0x3f) | 0x80;
+  const h = Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
+  return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20)}`;
+}
+
 /** Guest session ID — persisted in localStorage so consent and tracking work for anonymous users. */
 export function getSessionId(): string {
   if (typeof window === "undefined") return "";
   let sid = localStorage.getItem("guest_session_id");
   if (!sid) {
-    sid = crypto.randomUUID();
+    sid = uuidv4();
     localStorage.setItem("guest_session_id", sid);
   }
   return sid;
