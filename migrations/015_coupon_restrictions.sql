@@ -1,6 +1,8 @@
 -- Migration 015: Coupon restrictions — product targeting, customer limits, first-time-only
 -- Extends the discount_codes table with Stripe-parity restriction features.
 
+-- UP
+
 -- 1. New columns on discount_codes
 ALTER TABLE ecommerce.discount_codes
     ADD COLUMN restricted_to_customer_id UUID REFERENCES core.users(id) ON DELETE SET NULL,
@@ -28,3 +30,10 @@ CREATE TABLE ecommerce.discount_customer_uses (
     uses_count INTEGER NOT NULL DEFAULT 0,
     PRIMARY KEY (discount_code_id, user_id)
 );
+
+-- DOWN
+DROP TABLE IF EXISTS ecommerce.discount_customer_uses CASCADE;
+DROP TABLE IF EXISTS ecommerce.discount_product_restrictions CASCADE;
+ALTER TABLE ecommerce.discount_codes DROP COLUMN IF EXISTS max_uses_per_customer;
+ALTER TABLE ecommerce.discount_codes DROP COLUMN IF EXISTS first_time_transaction_only;
+ALTER TABLE ecommerce.discount_codes DROP COLUMN IF EXISTS restricted_to_customer_id;

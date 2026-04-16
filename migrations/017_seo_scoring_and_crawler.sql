@@ -1,6 +1,8 @@
 -- Migration 017: SEO scoring, snapshots, and crawler tables
 -- Depends on: 007_seo_schema.sql (seo schema + meta_overrides)
 
+-- UP
+
 -- SEO page scores (one per page per scoring run)
 CREATE TABLE seo.page_scores (
     id           UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -42,3 +44,8 @@ CREATE TABLE seo.crawl_results (
 
 CREATE INDEX idx_crawl_results_path ON seo.crawl_results(path);
 CREATE INDEX idx_crawl_results_crawled_at ON seo.crawl_results(crawled_at);
+
+-- DOWN
+DROP TABLE IF EXISTS seo.crawl_results CASCADE;
+DROP TABLE IF EXISTS seo.page_snapshots CASCADE;
+DROP TABLE IF EXISTS seo.page_scores CASCADE;

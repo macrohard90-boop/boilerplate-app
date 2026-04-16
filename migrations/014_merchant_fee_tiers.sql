@@ -1,6 +1,8 @@
 -- Migration 014: Merchant fee tiers (volume-based platform fees)
 -- Replaces the single PLATFORM_FEE_PERCENT env var with a tier system.
 
+-- UP
+
 BEGIN;
 
 -- Global fee tier schedule (default for all merchants)
@@ -43,3 +45,8 @@ VALUES
 ON CONFLICT DO NOTHING;
 
 COMMIT;
+
+-- DOWN
+ALTER TABLE ecommerce.merchant_accounts DROP COLUMN IF EXISTS total_sales_volume;
+DROP TABLE IF EXISTS ecommerce.merchant_fee_overrides CASCADE;
+DROP TABLE IF EXISTS ecommerce.fee_tiers CASCADE;

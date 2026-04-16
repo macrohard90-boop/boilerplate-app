@@ -1,6 +1,8 @@
 -- Migration 018: SEO site audit table
 -- Depends on: 007_seo_schema.sql (seo schema), 001_core_schema.sql (core.users)
 
+-- UP
+
 -- Full site audit reports (one per audit run)
 CREATE TABLE seo.site_audits (
     id           UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -12,3 +14,6 @@ CREATE TABLE seo.site_audits (
 );
 
 CREATE INDEX idx_site_audits_created ON seo.site_audits(created_at);
+
+-- DOWN
+DROP TABLE IF EXISTS seo.site_audits CASCADE;

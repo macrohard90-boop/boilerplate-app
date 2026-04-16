@@ -1,6 +1,8 @@
 -- Migration 016: Add Stripe sync status tracking to discount_codes
 -- Matches the pattern used by products (migration 009)
 
+-- UP
+
 ALTER TABLE ecommerce.discount_codes
     ADD COLUMN stripe_sync_status VARCHAR(20) NOT NULL DEFAULT 'unsynced'
         CHECK (stripe_sync_status IN ('unsynced', 'synced', 'error')),
@@ -15,3 +17,7 @@ WHERE stripe_coupon_id IS NOT NULL;
 UPDATE ecommerce.discount_codes
 SET stripe_sync_status = 'synced'
 WHERE type = 'free_shipping';
+
+-- DOWN
+ALTER TABLE ecommerce.discount_codes DROP COLUMN IF EXISTS stripe_sync_error;
+ALTER TABLE ecommerce.discount_codes DROP COLUMN IF EXISTS stripe_sync_status;

@@ -1,6 +1,8 @@
 -- Migration 019: SEO keyword research & tracking tables
 -- Depends on: 007_seo_schema.sql (seo schema)
 
+-- UP
+
 -- Target keywords assigned to pages (admin-managed)
 CREATE TABLE seo.target_keywords (
     id          UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -47,3 +49,8 @@ CREATE TABLE seo.keyword_rankings (
 CREATE INDEX idx_kw_rankings_keyword ON seo.keyword_rankings(keyword);
 CREATE INDEX idx_kw_rankings_date ON seo.keyword_rankings(date);
 CREATE UNIQUE INDEX idx_kw_rankings_unique ON seo.keyword_rankings(keyword, date, source);
+
+-- DOWN
+DROP TABLE IF EXISTS seo.keyword_rankings CASCADE;
+DROP TABLE IF EXISTS seo.keyword_suggestions CASCADE;
+DROP TABLE IF EXISTS seo.target_keywords CASCADE;

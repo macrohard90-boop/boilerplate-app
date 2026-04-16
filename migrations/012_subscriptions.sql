@@ -1,6 +1,8 @@
 -- Migration 012: Subscription products and recurring payments
 -- Adds recurring pricing fields to products, subscriptions table, and Stripe customer mapping
 
+-- UP
+
 -- Add recurring pricing columns to products
 ALTER TABLE ecommerce.products
     ADD COLUMN pricing_type VARCHAR(20) NOT NULL DEFAULT 'one_time'
@@ -53,12 +55,12 @@ CREATE TRIGGER set_subscriptions_updated_at BEFORE UPDATE ON ecommerce.subscript
     FOR EACH ROW EXECUTE FUNCTION core.update_timestamp();
 
 
--- ========== ROLLBACK ==========
--- ALTER TABLE ecommerce.products DROP COLUMN IF EXISTS pricing_type;
--- ALTER TABLE ecommerce.products DROP COLUMN IF EXISTS recurring_interval;
--- ALTER TABLE ecommerce.products DROP COLUMN IF EXISTS recurring_interval_count;
--- ALTER TABLE ecommerce.products DROP COLUMN IF EXISTS trial_period_days;
--- ALTER TABLE ecommerce.products DROP CONSTRAINT IF EXISTS products_type_check;
--- ALTER TABLE ecommerce.products ADD CONSTRAINT products_type_check CHECK (type IN ('physical', 'digital'));
--- DROP TABLE IF EXISTS ecommerce.subscriptions;
--- DROP TABLE IF EXISTS ecommerce.stripe_customers;
+-- DOWN
+DROP TABLE IF EXISTS ecommerce.subscriptions CASCADE;
+DROP TABLE IF EXISTS ecommerce.stripe_customers CASCADE;
+ALTER TABLE ecommerce.products DROP COLUMN IF EXISTS trial_period_days;
+ALTER TABLE ecommerce.products DROP COLUMN IF EXISTS recurring_interval_count;
+ALTER TABLE ecommerce.products DROP COLUMN IF EXISTS recurring_interval;
+ALTER TABLE ecommerce.products DROP COLUMN IF EXISTS pricing_type;
+ALTER TABLE ecommerce.products DROP CONSTRAINT IF EXISTS products_type_check;
+ALTER TABLE ecommerce.products ADD CONSTRAINT products_type_check CHECK (type IN ('physical', 'digital'));

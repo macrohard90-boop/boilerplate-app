@@ -1,6 +1,8 @@
 -- Phase 8: SEO schema — meta tag overrides
 -- Depends on: 000_extensions.sql (uuid-ossp)
 
+-- UP
+
 CREATE SCHEMA IF NOT EXISTS seo;
 
 CREATE TABLE seo.meta_overrides (
@@ -17,3 +19,7 @@ CREATE TABLE seo.meta_overrides (
 );
 
 CREATE INDEX idx_meta_overrides_path ON seo.meta_overrides(path);
+
+-- DOWN
+DROP TABLE IF EXISTS seo.meta_overrides CASCADE;
+DROP SCHEMA IF EXISTS seo CASCADE;

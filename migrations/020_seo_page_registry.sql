@@ -1,6 +1,8 @@
 -- Page registry: single source of truth for all known pages.
 -- Populated by filesystem scan + DB queries on startup / admin sync.
 
+-- UP
+
 CREATE TABLE IF NOT EXISTS seo.page_registry (
     id           UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     path         VARCHAR(500) NOT NULL UNIQUE,
@@ -16,3 +18,6 @@ CREATE TABLE IF NOT EXISTS seo.page_registry (
 
 CREATE INDEX IF NOT EXISTS idx_page_registry_path ON seo.page_registry(path);
 CREATE INDEX IF NOT EXISTS idx_page_registry_source ON seo.page_registry(source);
+
+-- DOWN
+DROP TABLE IF EXISTS seo.page_registry CASCADE;
