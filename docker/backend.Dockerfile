@@ -30,6 +30,7 @@ COPY backend/ /app/backend/
 COPY modules/ /app/modules/
 COPY scripts/ /app/scripts/
 COPY migrations/ /app/migrations/
+COPY seeds/ /app/seeds/
 
 # Optional: Install Playwright for SEO crawler
 RUN if [ "$INSTALL_CRAWLER" = "true" ]; then \
