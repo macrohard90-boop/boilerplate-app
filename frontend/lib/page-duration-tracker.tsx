@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { usePathname } from "next/navigation";
-import { getAccessToken, refreshTokens } from "./api";
+import { getAccessToken, getSessionId, refreshTokens } from "./api";
 
 const MIN_DURATION_MS = 500;
 // If no interaction for this long, assume the user walked away
@@ -24,6 +24,10 @@ function getAuthHeaders(): Record<string, string> {
   const token = getAccessToken();
   if (token) {
     headers["Authorization"] = `Bearer ${token}`;
+  }
+  const sid = getSessionId();
+  if (sid) {
+    headers["X-Session-ID"] = sid;
   }
   return headers;
 }

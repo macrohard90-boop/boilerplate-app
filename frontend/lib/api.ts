@@ -8,6 +8,17 @@ let accessToken: string | null = null;
 let csrfToken: string | null = null;
 let refreshPromise: Promise<boolean> | null = null;
 
+/** Guest session ID — persisted in localStorage so consent and tracking work for anonymous users. */
+export function getSessionId(): string {
+  if (typeof window === "undefined") return "";
+  let sid = localStorage.getItem("guest_session_id");
+  if (!sid) {
+    sid = crypto.randomUUID();
+    localStorage.setItem("guest_session_id", sid);
+  }
+  return sid;
+}
+
 export function setAccessToken(token: string | null) {
   accessToken = token;
 }
@@ -57,6 +68,12 @@ export async function apiFetch<T = unknown>(
 
   if (accessToken) {
     headers["Authorization"] = `Bearer ${accessToken}`;
+  }
+
+  // Attach guest session ID for consent/tracking when not authenticated
+  const sid = getSessionId();
+  if (sid) {
+    headers["X-Session-ID"] = sid;
   }
 
   // Attach CSRF token on state-changing requests

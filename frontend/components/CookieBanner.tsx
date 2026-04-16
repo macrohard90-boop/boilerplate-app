@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { getSessionId } from "../lib/api";
 
 const COOKIE_KEY = "cookie_consent";
 
@@ -33,7 +34,10 @@ export default function CookieBanner() {
     // Sync with backend (best effort)
     fetch("/api/gdpr/cookies", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        "X-Session-ID": getSessionId(),
+      },
       credentials: "include",
       body: JSON.stringify(consent),
     }).catch(() => {});
@@ -46,7 +50,10 @@ export default function CookieBanner() {
 
     fetch("/api/gdpr/cookies", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        "X-Session-ID": getSessionId(),
+      },
       credentials: "include",
       body: JSON.stringify(consent),
     }).catch(() => {});
