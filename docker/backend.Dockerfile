@@ -28,6 +28,8 @@ COPY --from=deps /usr/local/bin /usr/local/bin
 # Copy application code
 COPY backend/ /app/backend/
 COPY modules/ /app/modules/
+COPY scripts/ /app/scripts/
+COPY migrations/ /app/migrations/
 
 # Optional: Install Playwright for SEO crawler
 RUN if [ "$INSTALL_CRAWLER" = "true" ]; then \
