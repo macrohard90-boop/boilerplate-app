@@ -43,7 +43,7 @@ def _client_ip(request: Request) -> str:
 
 def _set_refresh_cookie(response: Response, token: str) -> None:
     """Set the refresh token as an httpOnly cookie."""
-    secure = settings.app_env != "development"
+    secure = settings.frontend_url.startswith("https://")
     response.set_cookie(
         key="refresh_token",
         value=token,

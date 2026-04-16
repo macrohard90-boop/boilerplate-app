@@ -131,7 +131,7 @@ async def oauth_callback(
     redirect_path = return_to if return_to and return_to.startswith("/") else "/"
     response = RedirectResponse(url=f"{frontend_url}{redirect_path}?token={access}")
 
-    secure = settings.app_env != "development"
+    secure = settings.frontend_url.startswith("https://")
     response.set_cookie(
         key="refresh_token",
         value=refresh,
