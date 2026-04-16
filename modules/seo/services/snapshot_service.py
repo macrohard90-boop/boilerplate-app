@@ -69,7 +69,7 @@ async def take_snapshot(
         await db.execute(
             text(
                 "INSERT INTO seo.page_snapshots (path, snapshot, trigger, changed_by, diff) "
-                "VALUES (:path, :snapshot::jsonb, :trigger, :changed_by, :diff::jsonb) "
+                "VALUES (:path, CAST(:snapshot AS jsonb), :trigger, :changed_by, CAST(:diff AS jsonb)) "
                 "RETURNING id"
             ),
             {

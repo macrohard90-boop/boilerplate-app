@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { useCart, type CartItem, cartItemKey } from "../../lib/cart-context";
 import { useAuth } from "../../lib/auth-context";
@@ -160,9 +161,9 @@ function CartItemRow({
 
   return (
     <div className="glass rounded-xl p-4 flex gap-4">
-      <div className="w-20 h-20 bg-base-100 rounded-lg shrink-0 overflow-hidden">
+      <div className="w-20 h-20 bg-base-100 rounded-lg shrink-0 overflow-hidden relative">
         {item.image_url ? (
-          <img src={item.image_url} alt={item.product_name} className="w-full h-full object-cover" />
+          <Image src={item.image_url} alt={item.product_name} fill sizes="80px" className="object-cover" />
         ) : (
           <div className="w-full h-full flex items-center justify-center text-text-muted">
             <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">

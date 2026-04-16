@@ -15,6 +15,7 @@ class RuleResult:
     weight: int  # importance: 1-10
     points: int
     max_points: int
+    category: str = "general"  # "technical", "content", "social", "performance"
     recommendation: str | None = None
 
 
@@ -44,6 +45,17 @@ class PageSEOData:
     internal_links: int = 0
     content_length: int = 0
     is_custom: bool = False
+    target_keywords: list[str] | None = None
+
+    # HTML analysis fields (populated when rendered HTML is available)
+    has_viewport: bool | None = None
+    has_lang: bool | None = None
+    has_favicon: bool | None = None
+    images_missing_dimensions: int | None = None
+    total_images: int | None = None
+    external_links: int | None = None
+    body_text: str | None = None
+    h1_text: str | None = None
 
 
 class ScoringProvider(ABC):

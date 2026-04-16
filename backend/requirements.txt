@@ -24,6 +24,10 @@ httpx==0.28.1
 # Payments
 stripe>=7.0.0
 
+# SEO Advisor (optional — only needed when ENABLE_SEO_ADVISOR=true)
+# CLI provider: uses claude CLI via subprocess (no Python SDK needed, just Node.js + CLI in container)
+anthropic>=0.76.0,<1.0            # For SEO_ADVISOR_PROVIDER=anthropic_api
+
 # Linting / Dev
 black==24.10.0
 flake8==7.1.1

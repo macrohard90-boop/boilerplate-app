@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, FormEvent } from "react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js";
@@ -424,9 +425,9 @@ export default function CheckoutPage() {
                 <div className="space-y-2 max-h-[300px] overflow-y-auto">
                   {cart.items.map((item) => (
                     <div key={cartItemKey(item)} className="flex gap-3 text-sm">
-                      <div className="w-10 h-10 bg-base-100 rounded shrink-0 overflow-hidden">
+                      <div className="w-10 h-10 bg-base-100 rounded shrink-0 overflow-hidden relative">
                         {item.image_url && (
-                          <img src={item.image_url} alt={item.product_name} className="w-full h-full object-cover" />
+                          <Image src={item.image_url} alt={item.product_name} fill sizes="40px" className="object-cover" />
                         )}
                       </div>
                       <div className="flex-1 min-w-0">
@@ -450,9 +451,9 @@ export default function CheckoutPage() {
                 <div className="space-y-2 max-h-[300px] overflow-y-auto">
                   {orderSummary.items.map((item, idx) => (
                     <div key={idx} className="flex gap-3 text-sm">
-                      <div className="w-10 h-10 bg-base-100 rounded shrink-0 overflow-hidden">
+                      <div className="w-10 h-10 bg-base-100 rounded shrink-0 overflow-hidden relative">
                         {item.image_url && (
-                          <img src={item.image_url} alt={item.product_name} className="w-full h-full object-cover" />
+                          <Image src={item.image_url} alt={item.product_name} fill sizes="40px" className="object-cover" />
                         )}
                       </div>
                       <div className="flex-1 min-w-0">

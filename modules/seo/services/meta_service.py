@@ -158,6 +158,59 @@ async def _auto_generate(db: AsyncSession, path: str) -> dict[str, Any]:
                 "structured_data": None,
             }
 
+    # Products listing page
+    if path.strip("/") == "products":
+        return {
+            "path": path,
+            "title": _truncate(f"Products | {settings.site_name}", 60),
+            "description": _truncate(
+                f"Browse the full catalog at {settings.site_name}. "
+                "Discover quality products across all categories.",
+                160,
+            ),
+            "canonical_url": canonical,
+            "robots": "index, follow",
+            "is_custom": False,
+            "og_tags": None,
+            "twitter_tags": None,
+            "structured_data": None,
+        }
+
+    # About page
+    if path.strip("/") == "about":
+        return {
+            "path": path,
+            "title": _truncate(f"About | {settings.site_name}", 60),
+            "description": _truncate(
+                f"Learn about {settings.site_name}, our mission, and what sets us apart.",
+                160,
+            ),
+            "canonical_url": canonical,
+            "robots": "index, follow",
+            "is_custom": False,
+            "og_tags": None,
+            "twitter_tags": None,
+            "structured_data": None,
+        }
+
+    # Contact page
+    if path.strip("/") == "contact":
+        return {
+            "path": path,
+            "title": _truncate(f"Contact | {settings.site_name}", 60),
+            "description": _truncate(
+                f"Get in touch with {settings.site_name}. "
+                "We'd love to hear from you.",
+                160,
+            ),
+            "canonical_url": canonical,
+            "robots": "index, follow",
+            "is_custom": False,
+            "og_tags": None,
+            "twitter_tags": None,
+            "structured_data": None,
+        }
+
     # Default: use site name
     return {
         "path": path,

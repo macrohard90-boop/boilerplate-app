@@ -53,6 +53,12 @@ async def crawl_page(db: AsyncSession, path: str) -> dict[str, Any]:
                 "robots": await page.evaluate(
                     '() => document.querySelector("meta[name=robots]")?.content || null'
                 ),
+                "internal_links": await page.evaluate(
+                    '() => document.querySelectorAll(\'a[href^="/"]\').length'
+                ),
+                "content_length": await page.evaluate(
+                    "() => (document.body?.innerText || '').length"
+                ),
             }
         except Exception:
             logger.exception("Failed to crawl %s", full_url)
@@ -70,7 +76,7 @@ async def crawl_page(db: AsyncSession, path: str) -> dict[str, Any]:
         text(
             "INSERT INTO seo.crawl_results "
             "(path, status_code, rendered_meta, api_meta, mismatches) "
-            "VALUES (:path, :status_code, :rendered::jsonb, :api::jsonb, :mismatches::jsonb)"
+            "VALUES (:path, :status_code, CAST(:rendered AS jsonb), CAST(:api AS jsonb), CAST(:mismatches AS jsonb))"
         ),
         {
             "path": path,

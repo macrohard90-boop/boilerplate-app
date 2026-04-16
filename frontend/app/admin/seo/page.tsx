@@ -6,7 +6,7 @@ import { useEffect } from "react";
 export default function SeoRedirect() {
   const router = useRouter();
   useEffect(() => {
-    router.replace("/admin/seo/overview");
+    router.replace("/admin/seo/discover");
   }, [router]);
   return null;
 }

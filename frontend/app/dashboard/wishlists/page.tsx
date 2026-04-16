@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { apiFetch } from "../../../lib/api";
 import { formatPrice } from "../../../lib/format";
@@ -87,9 +88,9 @@ export default function WishlistsPage() {
               <div className="space-y-3">
                 {wl.items.map((item) => (
                   <div key={item.id} className="glass rounded-xl p-4 flex items-center gap-4">
-                    <Link href={`/products/${item.product_slug}`} className="w-16 h-16 bg-base-100 rounded-lg shrink-0 overflow-hidden">
+                    <Link href={`/products/${item.product_slug}`} className="w-16 h-16 bg-base-100 rounded-lg shrink-0 overflow-hidden relative block">
                       {item.product_image_url ? (
-                        <img src={item.product_image_url} alt={item.product_name} className="w-full h-full object-cover" />
+                        <Image src={item.product_image_url} alt={item.product_name} fill sizes="64px" className="object-cover" />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center text-text-muted text-xs">No img</div>
                       )}

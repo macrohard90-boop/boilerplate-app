@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { formatPrice } from "../../../lib/format";
 import { useCart } from "../../../lib/cart-context";
@@ -211,9 +212,9 @@ export default function ProductDetailClient({ initialProduct, slug }: Props) {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
         {/* Images */}
         <div>
-          <div className="glass rounded-xl overflow-hidden aspect-square mb-4">
+          <div className="glass rounded-xl overflow-hidden aspect-square mb-4 relative">
             {selectedImage ? (
-              <img src={selectedImage} alt={product.name} className="w-full h-full object-cover" />
+              <Image src={selectedImage} alt={product.name} fill sizes="(max-width: 1024px) 100vw, 50vw" className="object-cover" priority />
             ) : (
               <div className="w-full h-full flex items-center justify-center text-text-muted">
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-20 w-20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -228,11 +229,11 @@ export default function ProductDetailClient({ initialProduct, slug }: Props) {
                 <button
                   key={img.id}
                   onClick={() => setSelectedImage(img.url)}
-                  className={`w-16 h-16 rounded-lg overflow-hidden shrink-0 border-2 transition-all ${
+                  className={`w-16 h-16 rounded-lg overflow-hidden shrink-0 border-2 transition-all relative ${
                     selectedImage === img.url ? "border-accent-purple" : "border-transparent opacity-60 hover:opacity-100"
                   }`}
                 >
-                  <img src={img.url} alt={img.alt_text || ""} className="w-full h-full object-cover" />
+                  <Image src={img.url} alt={img.alt_text || ""} fill sizes="64px" className="object-cover" />
                 </button>
               ))}
             </div>

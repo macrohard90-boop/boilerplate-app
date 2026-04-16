@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import { formatPrice } from "../lib/format";
 import StarRating from "./StarRating";
@@ -40,10 +41,12 @@ export default function ProductCard({
         {/* Image */}
         <div className="aspect-square bg-base-100 relative overflow-hidden">
           {image_url ? (
-            <img
+            <Image
               src={image_url}
               alt={name}
-              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+              fill
+              sizes="(max-width: 640px) 100vw, (max-width: 768px) 50vw, (max-width: 1024px) 33vw, 25vw"
+              className="object-cover group-hover:scale-105 transition-transform duration-500"
             />
           ) : (
             <div className="w-full h-full flex items-center justify-center text-text-muted">

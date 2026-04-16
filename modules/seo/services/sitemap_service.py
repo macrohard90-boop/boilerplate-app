@@ -35,61 +35,58 @@ async def invalidate_cache() -> None:
 
 
 async def _build_sitemap(db: AsyncSession) -> str:
-    """Build sitemap XML from database content."""
+    """Build sitemap XML from the page registry."""
     base_url = settings.frontend_url.rstrip("/")
 
-    # Collect all URLs
+    # Get all non-dynamic pages from the registry
+    rows = (
+        await db.execute(
+            text(
+                "SELECT path, changefreq, priority "
+                "FROM seo.page_registry "
+                "WHERE is_dynamic = FALSE "
+                "ORDER BY path"
+            )
+        )
+    ).mappings().all()
+
     urls: list[dict] = []
 
-    # Static pages
-    urls.append({"loc": f"{base_url}/", "changefreq": "monthly", "priority": "1.0"})
-    urls.append(
-        {"loc": f"{base_url}/about", "changefreq": "monthly", "priority": "0.5"}
-    )
-    urls.append(
-        {"loc": f"{base_url}/contact", "changefreq": "monthly", "priority": "0.5"}
-    )
-
-    # Products
-    products = (
-        await db.execute(
-            text(
-                "SELECT slug, updated_at FROM ecommerce.products "
-                "WHERE status = 'active' AND deleted_at IS NULL "
-                "ORDER BY updated_at DESC"
+    # Look up product updated_at dates for lastmod
+    product_dates: dict[str, str] = {}
+    try:
+        product_rows = (
+            await db.execute(
+                text(
+                    "SELECT slug, updated_at FROM ecommerce.products "
+                    "WHERE status = 'active' AND deleted_at IS NULL"
+                )
             )
-        )
-    ).mappings().all()
+        ).mappings().all()
+        for p in product_rows:
+            if p["updated_at"]:
+                product_dates[p["slug"]] = str(p["updated_at"])[:10]
+    except Exception:
+        pass  # ecommerce tables may not exist
 
-    for p in products:
+    for row in rows:
+        path = row["path"]
+        loc = f"{base_url}/" if path == "" else f"{base_url}/{path}"
+
         entry: dict = {
-            "loc": f"{base_url}/products/{p['slug']}",
-            "changefreq": "weekly",
-            "priority": "0.8",
+            "loc": loc,
+            "changefreq": row["changefreq"],
+            "priority": f"{float(row['priority']):.1f}",
         }
-        if p["updated_at"]:
-            entry["lastmod"] = str(p["updated_at"])[:10]  # YYYY-MM-DD
+
+        # Add lastmod for product pages
+        if path.startswith("products/"):
+            slug = path[len("products/"):]
+            if slug in product_dates:
+                entry["lastmod"] = product_dates[slug]
+
         urls.append(entry)
 
-    # Categories
-    categories = (
-        await db.execute(
-            text(
-                "SELECT slug FROM ecommerce.categories ORDER BY sort_order, name"
-            )
-        )
-    ).mappings().all()
-
-    for c in categories:
-        urls.append(
-            {
-                "loc": f"{base_url}/categories/{c['slug']}",
-                "changefreq": "weekly",
-                "priority": "0.6",
-            }
-        )
-
-    # If >50k URLs, build a sitemap index
     if len(urls) > MAX_URLS_PER_SITEMAP:
         return _build_sitemap_index(urls, base_url)
 

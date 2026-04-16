@@ -48,10 +48,13 @@ services:
       dockerfile: docker/backend.Dockerfile
       args:
         INSTALL_CRAWLER: ${ENABLE_SEO_CRAWLER:-false}
+        INSTALL_CLI_ADVISOR: ${INSTALL_CLI_ADVISOR:-false}
     restart: unless-stopped
     env_file: .env
     volumes:
       - upload_data:/app/uploads
+      - ./frontend/app:/app/frontend/app:ro  # Page discovery reads Next.js routes
+      - ~/.claude:/home/appuser/.claude:ro    # Claude CLI auth for SEO advisor
     depends_on:
       postgres:
         condition: service_healthy

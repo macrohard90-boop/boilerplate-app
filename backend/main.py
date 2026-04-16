@@ -10,7 +10,7 @@ from fastapi.responses import PlainTextResponse, Response
 
 from backend.core.config import settings
 from backend.core.redis import close_redis, redis_health_check
-from backend.core.database import close_db, db_health_check, get_db
+from backend.core.database import close_db, db_health_check, get_db, get_session_factory
 from backend.core.module_loader import load_modules
 
 logging.basicConfig(
@@ -28,6 +28,22 @@ async def lifespan(app: FastAPI):
     # Load modules
     loaded = load_modules(app)
     app.state.loaded_modules = loaded
+
+    # Sync page registry (populates seo.page_registry from filesystem + DB)
+    if settings.enable_seo_scoring:
+        try:
+            from modules.seo.services.page_discovery_service import sync_page_registry
+
+            factory = get_session_factory()
+            async with factory() as db:
+                result = await sync_page_registry(db)
+            logger.info(
+                "Page registry synced: %d upserted, %d total",
+                result["added"],
+                result["total"],
+            )
+        except Exception:
+            logger.exception("Page registry sync failed on startup")
 
     # Start background tasks
     tasks: list[asyncio.Task] = []
@@ -120,6 +136,12 @@ def create_app() -> FastAPI:
             "enable_tracking": settings.enable_tracking,
             "enable_seo_scoring": settings.enable_seo_scoring,
             "enable_seo_crawler": settings.enable_seo_crawler,
+            "enable_seo_keywords": settings.enable_seo_keywords,
+            "enable_geo_scoring": settings.enable_geo_scoring,
+            "enable_seo_advisor": settings.enable_seo_advisor,
+            "enable_geo_advisor": settings.enable_geo_advisor,
+            "site_name": settings.site_name,
+            "site_description": settings.site_description,
         }
 
     # SEO root-level routes (sitemap.xml, robots.txt)

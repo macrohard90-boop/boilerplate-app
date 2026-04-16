@@ -9,6 +9,12 @@ interface AppConfig {
   enable_tracking: boolean;
   enable_seo_scoring: boolean;
   enable_seo_crawler: boolean;
+  enable_seo_keywords: boolean;
+  enable_geo_scoring: boolean;
+  enable_seo_advisor: boolean;
+  enable_geo_advisor: boolean;
+  site_name: string;
+  site_description: string;
 }
 
 const DEFAULT_CONFIG: AppConfig = {
@@ -18,6 +24,12 @@ const DEFAULT_CONFIG: AppConfig = {
   enable_tracking: true,
   enable_seo_scoring: true,
   enable_seo_crawler: false,
+  enable_seo_keywords: true,
+  enable_geo_scoring: true,
+  enable_seo_advisor: true,
+  enable_geo_advisor: true,
+  site_name: "Boilerplate App",
+  site_description: "",
 };
 
 const ConfigContext = createContext<AppConfig>(DEFAULT_CONFIG);

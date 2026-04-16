@@ -46,7 +46,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       url: seoData.og_tags["og:url"],
       siteName: seoData.og_tags["og:site_name"],
       images: seoData.og_tags["og:image"] ? [seoData.og_tags["og:image"]] : [],
-      type: (seoData.og_tags["og:type"] as "website" | "article") || "website",
+      type: (["website", "article"].includes(seoData.og_tags["og:type"])
+        ? seoData.og_tags["og:type"]
+        : "website") as "website" | "article",
     };
   }
 

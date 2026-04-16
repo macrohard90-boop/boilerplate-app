@@ -17,6 +17,7 @@ RUN pip install --no-cache-dir --upgrade pip && \
 FROM python:3.11-slim AS runtime
 
 ARG INSTALL_CRAWLER=false
+ARG INSTALL_CLI_ADVISOR=false
 
 WORKDIR /app
 
@@ -34,6 +35,18 @@ RUN if [ "$INSTALL_CRAWLER" = "true" ]; then \
         pip install --no-cache-dir playwright && \
         playwright install --with-deps chromium && \
         rm -rf /var/lib/apt/lists/*; \
+    fi
+
+# Optional: Install Node.js + Claude CLI for SEO advisor (CLI provider)
+# No claude-agent-sdk — the adapter calls the CLI via subprocess directly,
+# avoiding the starlette version conflict between mcp and FastAPI.
+RUN if [ "$INSTALL_CLI_ADVISOR" = "true" ]; then \
+        apt-get update && \
+        apt-get install -y --no-install-recommends curl ca-certificates && \
+        curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \
+        apt-get install -y --no-install-recommends nodejs && \
+        npm install -g @anthropic-ai/claude-code && \
+        apt-get clean && rm -rf /var/lib/apt/lists/*; \
     fi
 
 # Create uploads directory and non-root user

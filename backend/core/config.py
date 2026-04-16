@@ -13,6 +13,7 @@ class Settings(BaseSettings):
     # Domain
     domain: str = "localhost"
     frontend_url: str = "http://localhost:3000"
+    internal_frontend_url: str = "http://nextjs:3000"  # Container-to-container URL for SSR verification
     backend_url: str = "http://localhost:8000"
     public_url: str = ""  # Public-facing URL for assets (e.g. https://mysite.com). When empty, image URLs are not sent to payment providers.
 
@@ -74,12 +75,23 @@ class Settings(BaseSettings):
 
     # SEO
     site_name: str = "Boilerplate App"
+    site_description: str = ""  # Business description for SEO advisor context
     default_og_image: str = "/images/og-default.png"
     social_handles: str = ""
     sitemap_cache_ttl: int = 3600
     enable_seo_scoring: bool = True
     enable_seo_crawler: bool = False
     seo_rescore_interval: int = 86400
+    enable_seo_keywords: bool = True
+    enable_geo_scoring: bool = True
+    enable_seo_advisor: bool = True
+    enable_geo_advisor: bool = True
+    geo_advisor_provider: str = ""  # Falls back to seo_advisor_provider when empty
+    seo_advisor_provider: str = "claude_cli"  # "claude_cli" | "anthropic_api"
+    seo_advisor_model: str = "claude-sonnet-4-20250514"  # For anthropic_api provider
+    anthropic_api_key: str = ""  # For anthropic_api provider
+    seo_advisor_max_searches: int = 5  # Web search limit per advisor request
+    frontend_app_dir: str = "/app/frontend/app"  # Path to Next.js app directory for page discovery
 
     # GDPR
     gdpr_grace_period_days: int = 30
