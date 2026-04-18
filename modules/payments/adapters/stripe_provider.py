@@ -129,7 +129,6 @@ class StripeProvider(PaymentProvider, CatalogProvider):
                 "customer": customer_id,
                 "price": item["price"],
                 "quantity": item.get("quantity", 1),
-                "currency": currency.lower(),
             }
             stripe.InvoiceItem.create(**params)
 
