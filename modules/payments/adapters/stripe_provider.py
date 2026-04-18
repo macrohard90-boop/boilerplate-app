@@ -64,19 +64,10 @@ class StripeProvider(PaymentProvider, CatalogProvider):
     ) -> PaymentResult:
         merged_metadata = {"order_id": order_id, **(metadata or {})}
 
-        # When line items with Stripe price IDs are provided, use Invoice flow
-        # so Stripe has full product-level detail on the customer's record.
-        if line_items and customer_id:
-            return await self._create_invoice_payment(
-                customer_id=customer_id,
-                line_items=line_items,
-                currency=currency,
-                metadata=merged_metadata,
-                description=description,
-                payment_method_types=payment_method_types,
-            )
-
-        # Fallback: bare PaymentIntent (no product detail in Stripe)
+        # NOTE: Invoice flow disabled — Stripe 2026 API (2026-03-25.dahlia)
+        # broke invoice.payment_intent and the payments expansion is unreliable
+        # for embedded payment UIs. Direct PaymentIntent is simpler and works.
+        # Line items are ignored; metadata + description still flow through.
         intent_params: dict[str, Any] = {
             "amount": amount,
             "currency": currency.lower(),
@@ -150,35 +141,32 @@ class StripeProvider(PaymentProvider, CatalogProvider):
 
         invoice = stripe.Invoice.create(**invoice_params)
 
-        # 3. Finalize the invoice — this creates the PaymentIntent
-        stripe.Invoice.finalize_invoice(invoice.id)
-
-        # 4. Retrieve the finalized invoice with payments expanded
-        #    (Stripe 2026 API replaced invoice.payment_intent with
-        #     invoice.payments — a list supporting multiple partial payments)
-        invoice = stripe.Invoice.retrieve(
+        # 3. Finalize the invoice with confirmation_secret expanded
+        #    (Stripe 2026 API: confirmation_secret contains the client_secret
+        #     of the auto-created PaymentIntent for embedded payment UIs)
+        invoice = stripe.Invoice.finalize_invoice(
             invoice.id,
-            expand=["payments.data.payment.payment_intent"],
+            expand=["confirmation_secret"],
         )
 
-        # 5. Extract the PaymentIntent from the payments array
-        pi_obj = None
-        if hasattr(invoice, "payments") and invoice.payments and invoice.payments.data:
-            payment_entry = invoice.payments.data[0]
-            pi_obj = payment_entry.payment.payment_intent
-
-        if pi_obj is None:
+        # 4. Extract client_secret from the invoice's confirmation_secret
+        cs = getattr(invoice, "confirmation_secret", None)
+        if not cs or not cs.client_secret:
             raise ValueError(
-                f"No PaymentIntent found on finalized invoice {invoice.id}"
+                f"No confirmation_secret on finalized invoice {invoice.id}"
             )
+        client_secret = cs.client_secret
+
+        # 5. Derive the PaymentIntent ID from client_secret format: pi_xxx_secret_yyy
+        pi_id = client_secret.rsplit("_secret_", 1)[0]
 
         # 6. Copy our metadata onto the PaymentIntent so webhook handlers
         #    can read order_id/user_id (PI doesn't inherit invoice metadata)
-        pi = stripe.PaymentIntent.modify(pi_obj.id, metadata=metadata)
+        pi = stripe.PaymentIntent.modify(pi_id, metadata=metadata)
 
         return PaymentResult(
             provider_payment_id=pi.id,
-            client_secret=pi.client_secret,
+            client_secret=client_secret,
             status=_STRIPE_STATUS_MAP.get(pi.status, "pending"),
             amount=pi.amount,
             currency=currency,
