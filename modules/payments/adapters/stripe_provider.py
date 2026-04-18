@@ -151,14 +151,30 @@ class StripeProvider(PaymentProvider, CatalogProvider):
         invoice = stripe.Invoice.create(**invoice_params)
 
         # 3. Finalize the invoice — this creates the PaymentIntent
-        invoice = stripe.Invoice.finalize_invoice(invoice.id)
+        stripe.Invoice.finalize_invoice(invoice.id)
 
-        # 4. Copy our metadata onto the PaymentIntent so webhook handlers
-        #    can read order_id/user_id (PI doesn't inherit invoice metadata)
-        pi = stripe.PaymentIntent.modify(
-            invoice.payment_intent,
-            metadata=metadata,
+        # 4. Retrieve the finalized invoice with payments expanded
+        #    (Stripe 2026 API replaced invoice.payment_intent with
+        #     invoice.payments — a list supporting multiple partial payments)
+        invoice = stripe.Invoice.retrieve(
+            invoice.id,
+            expand=["payments.data.payment.payment_intent"],
         )
+
+        # 5. Extract the PaymentIntent from the payments array
+        pi_obj = None
+        if hasattr(invoice, "payments") and invoice.payments and invoice.payments.data:
+            payment_entry = invoice.payments.data[0]
+            pi_obj = payment_entry.payment.payment_intent
+
+        if pi_obj is None:
+            raise ValueError(
+                f"No PaymentIntent found on finalized invoice {invoice.id}"
+            )
+
+        # 6. Copy our metadata onto the PaymentIntent so webhook handlers
+        #    can read order_id/user_id (PI doesn't inherit invoice metadata)
+        pi = stripe.PaymentIntent.modify(pi_obj.id, metadata=metadata)
 
         return PaymentResult(
             provider_payment_id=pi.id,
