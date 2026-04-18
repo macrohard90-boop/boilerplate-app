@@ -18,7 +18,8 @@ logger = logging.getLogger(__name__)
 async def checkout(
     db: AsyncSession,
     user_id: str,
-    shipping_address: dict[str, Any],
+    email: str = "",
+    shipping_address: dict[str, Any] | None = None,
     billing_address: dict[str, Any] | None = None,
     discount_code: str | None = None,
 ) -> dict[str, Any]:
@@ -27,10 +28,11 @@ async def checkout(
     1. Apply discount code to cart if provided
     2. Convert cart to order (stock reservation, pricing, snapshots)
     3. Store addresses on the order
-    4. Create Stripe PaymentIntent
-    5. Insert payment_records row
-    6. Update order status to 'processing'
-    7. Return order + client_secret
+    4. Resolve Stripe customer ID
+    5. Create Stripe PaymentIntent (linked to customer, with description)
+    6. Insert payment_records row
+    7. Update order status to 'processing'
+    8. Return order + client_secret
     """
     # 1. Apply discount code if provided
     if discount_code:
@@ -87,8 +89,50 @@ async def checkout(
             "currency": order.get("currency", "USD"),
         }
 
-    # 5. Create Stripe PaymentIntent
+    # 5. Resolve Stripe customer, build line items and description
+    from modules.ecommerce.services.subscription_service import get_or_create_stripe_customer
     from modules.payments.services import payment_settings_service
+
+    stripe_customer_id = await get_or_create_stripe_customer(db, user_id, email)
+
+    # Fetch order items with Stripe price IDs for invoice line items
+    order_items = (
+        await db.execute(
+            text(
+                "SELECT oi.quantity, oi.unit_price, oi.product_snapshot, "
+                "oi.product_id, oi.variant_id, "
+                "COALESCE(v.stripe_price_id, p.stripe_price_id) AS stripe_price_id "
+                "FROM ecommerce.order_items oi "
+                "JOIN ecommerce.products p ON p.id = oi.product_id "
+                "JOIN ecommerce.product_variants v ON v.id = oi.variant_id "
+                "WHERE oi.order_id = :oid"
+            ),
+            {"oid": order_id},
+        )
+    ).mappings().all()
+
+    # Build description and Stripe line items
+    desc_lines = []
+    stripe_line_items = []
+    all_synced = True
+    for oi in order_items:
+        snap = oi["product_snapshot"] if isinstance(oi["product_snapshot"], dict) else {}
+        name = snap.get("product_name", "Item")
+        variant = snap.get("variant_name")
+        label = f"{name} ({variant})" if variant else name
+        desc_lines.append(f"{oi['quantity']}x {label}")
+
+        if oi["stripe_price_id"]:
+            stripe_line_items.append({
+                "price": oi["stripe_price_id"],
+                "quantity": oi["quantity"],
+            })
+        else:
+            all_synced = False
+
+    description = ", ".join(desc_lines) if desc_lines else f"Order {order['order_number']}"
+    # Only use invoice flow if ALL products are synced to Stripe
+    line_items = stripe_line_items if all_synced and stripe_line_items else None
 
     provider = get_payment_provider()
     enabled_methods = await payment_settings_service.get_enabled_payment_methods(db)
@@ -97,9 +141,11 @@ async def checkout(
             order_id=order_id,
             amount=order["total"],
             currency=order.get("currency", settings.default_currency),
-            customer_id=user_id,
-            metadata={"order_number": order["order_number"]},
+            customer_id=stripe_customer_id,
+            metadata={"order_id": order_id, "user_id": user_id, "order_number": order["order_number"]},
             payment_method_types=enabled_methods,
+            description=description,
+            line_items=line_items,
         )
     except Exception as e:
         # Payment creation failed — release inventory and mark order rejected

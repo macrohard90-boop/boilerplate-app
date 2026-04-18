@@ -10,7 +10,7 @@ interface Order {
   id: string;
   user_id: string;
   status: string;
-  total_amount: number;
+  total: number;
   currency: string;
   created_at: string;
 }
@@ -68,7 +68,7 @@ export default function AdminOrdersPage() {
                 {data.items.map((o) => (
                   <tr key={o.id} className="border-b border-glass-border/50 hover:bg-glass-hover transition-colors">
                     <td className="p-4 text-text-primary font-mono text-xs">{o.id.slice(0, 8)}</td>
-                    <td className="p-4 text-text-primary font-medium">{formatPrice(o.total_amount, o.currency)}</td>
+                    <td className="p-4 text-text-primary font-medium">{formatPrice(o.total, o.currency)}</td>
                     <td className="p-4">
                       <span className={
                         o.status === "completed" ? "badge-green" :

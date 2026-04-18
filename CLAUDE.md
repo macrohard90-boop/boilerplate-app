@@ -259,6 +259,30 @@ Read these files for detailed context when needed:
 | 12 | Audit Logging & User Analytics | [ ] Not started | — |
 
 ## Environment
+
+### CRITICAL: Two Environments Exist — Never Confuse Them
+
+Claude Code runs on the **LOCAL machine (WSL2)**. It does NOT run on the VM. Every `docker compose exec`, `psql`, and log command runs against the **local** Docker stack, NOT the production VM.
+
+| | LOCAL (where Claude Code runs) | VM (production) |
+|---|---|---|
+| **Machine** | Windows 11 + WSL2 (Ubuntu 24.04) | GCP VM |
+| **Hostname** | `Adrian` | Unknown (NOT Adrian) |
+| **Kernel** | `microsoft-standard-WSL2` | Standard Linux |
+| **External IP** | `213.58.224.119` (NAT, changes) | `34.30.88.59` (static) |
+| **URL** | `http://localhost` | `http://34.30.88.59` |
+| **Database** | Local Docker postgres | VM Docker postgres |
+| **Stripe webhooks** | Will NOT work (localhost) | Works (public URL) |
+| **Use for** | Code editing, builds, tests | Full payment/email E2E testing |
+
+**Rules:**
+1. When the user reports behavior from `http://34.30.88.59/`, that data is in the **VM database** — you CANNOT query it directly. Do NOT look at the local DB and claim the data isn't there.
+2. To inspect the VM database, the user must either: (a) SSH into the VM, or (b) use a remote DB client (pgAdmin, etc.), or (c) read the browser DevTools Network tab.
+3. When debugging issues on the VM, rely on **browser DevTools** (Network tab, Console) for evidence — the user can share those. Do NOT rely on local Docker logs.
+4. If unsure which environment a problem is in, **ASK FIRST** before running any local queries.
+5. After code changes on the local machine, the user must `git push` and redeploy on the VM for changes to take effect there.
+
+### Local Machine Details
 - Windows 11 + WSL2 (Ubuntu 24.04, ARM64 aarch64)
 - Windows user: builduser | UNIX user: rootuser
 - Home: /home/rootuser
@@ -266,3 +290,13 @@ Read these files for detailed context when needed:
 - GitHub: macrohard90-boop/boilerplate-app (private)
 - SSH key: ~/.ssh/id_ed25519_build
 - Docker 29.2.0, Compose 5.0.2, Node.js v20.20.0, Python 3.11.8, Claude Code v2.1.42
+
+### VM Details
+- GCP VM at `34.30.88.59`
+- VM hostname: `instance-20260416-162856`
+- VM username: `adrian_radoi` (NOT rootuser)
+- Project path: `~/boilerplate-app` (NOT ~/projects/boilerplate-app)
+- Same Docker stack deployed via git pull + docker compose (CI/CD in `.github/workflows/ci.yml`)
+- Stripe webhook endpoint: `http://34.30.88.59/api/payments/webhook`
+- Access via: GCP Console → Compute Engine → SSH button (browser terminal)
+- This is where full E2E payment/email testing happens

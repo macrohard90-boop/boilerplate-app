@@ -177,7 +177,7 @@ export default function CheckoutPage() {
 
   if (isLoading) return <LoadingSpinner size="lg" className="py-40" />;
 
-  if (!clientSecret && !checkoutStarted && cart.items.length === 0) {
+  if (!clientSecret && !checkoutStarted && step === 1 && cart.items.length === 0) {
     return (
       <div className="max-w-md mx-auto px-4 py-20 text-center">
         <h1 className="font-serif text-2xl font-bold gradient-text mb-4">Cart is Empty</h1>

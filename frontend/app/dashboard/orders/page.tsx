@@ -10,7 +10,7 @@ import LoadingSpinner from "../../../components/LoadingSpinner";
 interface Order {
   id: string;
   status: string;
-  total_amount: number;
+  total: number;
   currency: string;
   created_at: string;
   item_count?: number;
@@ -62,7 +62,7 @@ export default function OrdersPage() {
                   <p className="text-xs text-text-muted mt-1">{formatDate(order.created_at)}</p>
                 </div>
                 <div className="text-right">
-                  <p className="text-lg font-semibold text-text-primary">{formatPrice(order.total_amount, order.currency)}</p>
+                  <p className="text-lg font-semibold text-text-primary">{formatPrice(order.total, order.currency)}</p>
                   <span className={`text-xs ${
                     order.status === "completed" || order.status === "delivered" ? "badge-green" :
                     order.status === "cancelled" ? "badge-pink" : "badge-blue"

@@ -4,6 +4,7 @@ Uses Stripe Payment Intents API for payments and Stripe Connect Express
 for merchant onboarding. All amounts are INT cents.
 """
 
+import json
 import logging
 from typing import Any
 
@@ -58,16 +59,33 @@ class StripeProvider(PaymentProvider, CatalogProvider):
         fee_amount: int | None = None,
         metadata: dict[str, Any] | None = None,
         payment_method_types: list[str] | None = None,
+        description: str | None = None,
+        line_items: list[dict[str, Any]] | None = None,
     ) -> PaymentResult:
+        merged_metadata = {"order_id": order_id, **(metadata or {})}
+
+        # When line items with Stripe price IDs are provided, use Invoice flow
+        # so Stripe has full product-level detail on the customer's record.
+        if line_items and customer_id:
+            return await self._create_invoice_payment(
+                customer_id=customer_id,
+                line_items=line_items,
+                currency=currency,
+                metadata=merged_metadata,
+                description=description,
+                payment_method_types=payment_method_types,
+            )
+
+        # Fallback: bare PaymentIntent (no product detail in Stripe)
         intent_params: dict[str, Any] = {
             "amount": amount,
             "currency": currency.lower(),
-            "metadata": {
-                "order_id": order_id,
-                "customer_id": customer_id,
-                **(metadata or {}),
-            },
+            "customer": customer_id,
+            "metadata": merged_metadata,
         }
+
+        if description:
+            intent_params["description"] = description
 
         # Explicit method list vs automatic
         if payment_method_types:
@@ -89,6 +107,65 @@ class StripeProvider(PaymentProvider, CatalogProvider):
             client_secret=pi.client_secret,
             status=_STRIPE_STATUS_MAP.get(pi.status, "pending"),
             amount=amount,
+            currency=currency,
+            metadata=pi.metadata or {},
+        )
+
+    async def _create_invoice_payment(
+        self,
+        customer_id: str,
+        line_items: list[dict[str, Any]],
+        currency: str,
+        metadata: dict[str, Any],
+        description: str | None = None,
+        payment_method_types: list[str] | None = None,
+    ) -> PaymentResult:
+        """Create an Invoice with line items, finalize it, and return the
+        auto-generated PaymentIntent's client_secret for embedded payment."""
+
+        # 1. Create invoice items (attached to the customer's upcoming invoice)
+        for item in line_items:
+            params: dict[str, Any] = {
+                "customer": customer_id,
+                "price": item["price"],
+                "quantity": item.get("quantity", 1),
+                "currency": currency.lower(),
+            }
+            stripe.InvoiceItem.create(**params)
+
+        # 2. Create the invoice
+        invoice_params: dict[str, Any] = {
+            "customer": customer_id,
+            "currency": currency.lower(),
+            "metadata": metadata,
+            "auto_advance": False,  # Don't auto-send; we control the flow
+        }
+        if description:
+            invoice_params["description"] = description
+
+        # Configure payment methods on the invoice
+        payment_settings: dict[str, Any] = {}
+        if payment_method_types:
+            payment_settings["payment_method_types"] = payment_method_types
+        invoice_params["payment_settings"] = payment_settings
+
+        invoice = stripe.Invoice.create(**invoice_params)
+
+        # 3. Finalize the invoice — this creates the PaymentIntent
+        invoice = stripe.Invoice.finalize_invoice(invoice.id)
+
+        # 4. Copy our metadata onto the PaymentIntent so webhook handlers
+        #    can read order_id/user_id (PI doesn't inherit invoice metadata)
+        pi = stripe.PaymentIntent.modify(
+            invoice.payment_intent,
+            metadata=metadata,
+        )
+
+        return PaymentResult(
+            provider_payment_id=pi.id,
+            client_secret=pi.client_secret,
+            status=_STRIPE_STATUS_MAP.get(pi.status, "pending"),
+            amount=pi.amount,
             currency=currency,
             metadata=pi.metadata or {},
         )
@@ -176,10 +253,14 @@ class StripeProvider(PaymentProvider, CatalogProvider):
         except Exception as e:
             raise ValueError("Webhook verification failed") from e
 
+        # Convert StripeObject to plain dict so handlers can use .get()
+        # str() on StripeObject returns its JSON representation
+        data_obj = event["data"]["object"]
+        data_dict = json.loads(str(data_obj))
         return {
             "id": event["id"],
             "type": event["type"],
-            "data": event["data"]["object"],
+            "data": data_dict,
         }
 
     async def create_account_link(

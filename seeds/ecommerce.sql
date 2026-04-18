@@ -46,10 +46,10 @@ INSERT INTO ecommerce.product_variants (id, product_id, name, sku, price_overrid
     -- Headphones: 2 colors
     ('e0000000-0000-0000-0000-000000000001', 'd0000000-0000-0000-0000-000000000001', 'Black', 'WH-001-BLK', NULL, 50, '{"color": "black"}'::jsonb),
     ('e0000000-0000-0000-0000-000000000002', 'd0000000-0000-0000-0000-000000000001', 'White', 'WH-001-WHT', NULL, 30, '{"color": "white"}'::jsonb),
-    -- T-Shirt: 3 sizes
-    ('e0000000-0000-0000-0000-000000000003', 'd0000000-0000-0000-0000-000000000003', 'Small', 'TS-001-S', NULL, 100, '{"size": "S", "color": "navy"}'::jsonb),
-    ('e0000000-0000-0000-0000-000000000004', 'd0000000-0000-0000-0000-000000000003', 'Medium', 'TS-001-M', NULL, 150, '{"size": "M", "color": "navy"}'::jsonb),
-    ('e0000000-0000-0000-0000-000000000005', 'd0000000-0000-0000-0000-000000000003', 'Large', 'TS-001-L', NULL, 120, '{"size": "L", "color": "navy"}'::jsonb),
+    -- T-Shirt: 3 colors (each has S/M/L in attributes for demo)
+    ('e0000000-0000-0000-0000-000000000003', 'd0000000-0000-0000-0000-000000000003', 'Navy - Small', 'TS-001-NVY-S', NULL, 100, '{"size": "S", "color": "navy"}'::jsonb),
+    ('e0000000-0000-0000-0000-000000000004', 'd0000000-0000-0000-0000-000000000003', 'Red - Medium', 'TS-001-RED-M', NULL, 150, '{"size": "M", "color": "red"}'::jsonb),
+    ('e0000000-0000-0000-0000-000000000005', 'd0000000-0000-0000-0000-000000000003', 'Forest Green - Large', 'TS-001-FGN-L', NULL, 120, '{"size": "L", "color": "forest"}'::jsonb),
     -- Running Shoes: 3 sizes
     ('e0000000-0000-0000-0000-000000000006', 'd0000000-0000-0000-0000-000000000004', 'Size 9', 'RS-001-9', NULL, 40, '{"size": "9"}'::jsonb),
     ('e0000000-0000-0000-0000-000000000007', 'd0000000-0000-0000-0000-000000000004', 'Size 10', 'RS-001-10', NULL, 60, '{"size": "10"}'::jsonb),
@@ -66,26 +66,35 @@ INSERT INTO ecommerce.product_variants (id, product_id, name, sku, price_overrid
     ('e0000000-0000-0000-0000-000000000016', 'd0000000-0000-0000-0000-000000000010', 'Default', 'CM-001-DEF', NULL, 300, '{}'::jsonb)
 ON CONFLICT (sku) DO NOTHING;
 
--- Product Images (2-3 per product)
+-- Product Images
+-- 7 products have images, 3 intentionally do not (Plant Pot Set, E-Book, Coffee Mug)
+-- Variant-specific images for: Headphones (black/white), T-Shirt (navy/red/forest), Watch (silver/black)
 INSERT INTO ecommerce.product_images (product_id, variant_id, url, alt_text, sort_order, is_primary) VALUES
-    ('d0000000-0000-0000-0000-000000000001', NULL, '/images/products/headphones-main.jpg', 'Wireless headphones front view', 1, TRUE),
-    ('d0000000-0000-0000-0000-000000000001', NULL, '/images/products/headphones-side.jpg', 'Wireless headphones side view', 2, FALSE),
-    ('d0000000-0000-0000-0000-000000000001', 'e0000000-0000-0000-0000-000000000002', '/images/products/headphones-white.jpg', 'Wireless headphones white variant', 3, FALSE),
-    ('d0000000-0000-0000-0000-000000000002', NULL, '/images/products/usb-hub-main.jpg', 'USB-C Hub top view', 1, TRUE),
-    ('d0000000-0000-0000-0000-000000000002', NULL, '/images/products/usb-hub-ports.jpg', 'USB-C Hub ports detail', 2, FALSE),
-    ('d0000000-0000-0000-0000-000000000003', NULL, '/images/products/tshirt-main.jpg', 'Classic t-shirt flat lay', 1, TRUE),
-    ('d0000000-0000-0000-0000-000000000003', NULL, '/images/products/tshirt-detail.jpg', 'Classic t-shirt fabric detail', 2, FALSE),
-    ('d0000000-0000-0000-0000-000000000004', NULL, '/images/products/shoes-main.jpg', 'Running shoes side view', 1, TRUE),
-    ('d0000000-0000-0000-0000-000000000004', NULL, '/images/products/shoes-sole.jpg', 'Running shoes sole detail', 2, FALSE),
-    ('d0000000-0000-0000-0000-000000000005', NULL, '/images/products/watch-main.jpg', 'Smart watch on wrist', 1, TRUE),
-    ('d0000000-0000-0000-0000-000000000005', NULL, '/images/products/watch-face.jpg', 'Smart watch face close-up', 2, FALSE),
-    ('d0000000-0000-0000-0000-000000000006', NULL, '/images/products/pots-main.jpg', 'Plant pot set arrangement', 1, TRUE),
-    ('d0000000-0000-0000-0000-000000000007', NULL, '/images/products/ebook-cover.jpg', 'Web dev guide cover', 1, TRUE),
-    ('d0000000-0000-0000-0000-000000000008', NULL, '/images/products/lamp-main.jpg', 'Desk lamp illuminated', 1, TRUE),
-    ('d0000000-0000-0000-0000-000000000008', NULL, '/images/products/lamp-modes.jpg', 'Desk lamp color temperature modes', 2, FALSE),
-    ('d0000000-0000-0000-0000-000000000009', NULL, '/images/products/backpack-main.jpg', 'Backpack front view', 1, TRUE),
-    ('d0000000-0000-0000-0000-000000000009', NULL, '/images/products/backpack-open.jpg', 'Backpack compartments open', 2, FALSE),
-    ('d0000000-0000-0000-0000-000000000010', NULL, '/images/products/mug-main.jpg', 'Coffee mug with lid', 1, TRUE);
+    -- Wireless Headphones: product-level primary + variant-specific images
+    ('d0000000-0000-0000-0000-000000000001', NULL, '/images/products/headphones-black.svg', 'Wireless headphones', 0, TRUE),
+    ('d0000000-0000-0000-0000-000000000001', 'e0000000-0000-0000-0000-000000000001', '/images/products/headphones-black.svg', 'Wireless headphones — Black', 1, FALSE),
+    ('d0000000-0000-0000-0000-000000000001', 'e0000000-0000-0000-0000-000000000002', '/images/products/headphones-white.svg', 'Wireless headphones — White', 2, FALSE),
+    -- USB-C Hub: single product image
+    ('d0000000-0000-0000-0000-000000000002', NULL, '/images/products/usb-hub.svg', 'USB-C Hub 7-in-1', 1, TRUE),
+    -- Classic T-Shirt: product-level primary (navy) + variant-specific images per color
+    ('d0000000-0000-0000-0000-000000000003', NULL, '/images/products/tshirt-navy.svg', 'Classic t-shirt', 0, TRUE),
+    ('d0000000-0000-0000-0000-000000000003', 'e0000000-0000-0000-0000-000000000003', '/images/products/tshirt-navy.svg', 'Classic t-shirt — Navy', 1, FALSE),
+    ('d0000000-0000-0000-0000-000000000003', 'e0000000-0000-0000-0000-000000000004', '/images/products/tshirt-red.svg', 'Classic t-shirt — Red', 2, FALSE),
+    ('d0000000-0000-0000-0000-000000000003', 'e0000000-0000-0000-0000-000000000005', '/images/products/tshirt-forest.svg', 'Classic t-shirt — Forest Green', 3, FALSE),
+    -- Running Shoes: single product image
+    ('d0000000-0000-0000-0000-000000000004', NULL, '/images/products/shoes-main.svg', 'Running shoes side view', 1, TRUE),
+    -- Smart Watch: product-level primary (silver) + variant-specific images
+    ('d0000000-0000-0000-0000-000000000005', NULL, '/images/products/watch-silver.svg', 'Smart watch', 0, TRUE),
+    ('d0000000-0000-0000-0000-000000000005', 'e0000000-0000-0000-0000-000000000009', '/images/products/watch-silver.svg', 'Smart watch — 42mm Silver', 1, FALSE),
+    ('d0000000-0000-0000-0000-000000000005', 'e0000000-0000-0000-0000-000000000010', '/images/products/watch-black.svg', 'Smart watch — 46mm Black', 2, FALSE),
+    -- Plant Pot Set: intentionally no image
+    -- E-Book: intentionally no image (digital product)
+    -- Desk Lamp: single product image
+    ('d0000000-0000-0000-0000-000000000008', NULL, '/images/products/desk-lamp.svg', 'Desk lamp LED adjustable', 1, TRUE),
+    -- Backpack: single product image
+    ('d0000000-0000-0000-0000-000000000009', NULL, '/images/products/backpack.svg', 'Backpack front view', 1, TRUE)
+    -- Coffee Mug: intentionally no image
+;
 
 -- Pricing Tiers (bulk discounts for headphones, t-shirts, and mugs)
 INSERT INTO ecommerce.pricing_tiers (product_id, variant_id, min_quantity, price_per_unit, label) VALUES
@@ -142,9 +151,9 @@ ON CONFLICT DO NOTHING;
 
 INSERT INTO ecommerce.order_items (order_id, product_id, variant_id, quantity, unit_price, total_price, product_snapshot) VALUES
     ('a2000000-0000-0000-0000-000000000001', 'd0000000-0000-0000-0000-000000000001', 'e0000000-0000-0000-0000-000000000001', 1, 7999, 7999,
-     '{"product_name": "Wireless Headphones", "product_slug": "wireless-headphones", "variant_name": "Black", "variant_sku": "WH-001-BLK", "attributes": {"color": "black"}, "product_type": "physical"}'::jsonb),
+     '{"product_name": "Wireless Headphones", "product_slug": "wireless-headphones", "variant_name": "Black", "variant_sku": "WH-001-BLK", "attributes": {"color": "black"}, "product_type": "physical", "image_url": "/images/products/headphones-black.svg"}'::jsonb),
     ('a2000000-0000-0000-0000-000000000001', 'd0000000-0000-0000-0000-000000000002', 'e0000000-0000-0000-0000-000000000011', 1, 4999, 4999,
-     '{"product_name": "USB-C Hub", "product_slug": "usb-c-hub", "variant_name": "Default", "variant_sku": "UC-001-DEF", "attributes": {}, "product_type": "physical"}'::jsonb)
+     '{"product_name": "USB-C Hub", "product_slug": "usb-c-hub", "variant_name": "Default", "variant_sku": "UC-001-DEF", "attributes": {}, "product_type": "physical", "image_url": "/images/products/usb-hub.svg"}'::jsonb)
 ON CONFLICT DO NOTHING;
 
 -- Customer metrics for test customer (reflects the completed order)

@@ -6,22 +6,28 @@ import Link from "next/link";
 import { apiFetch } from "../../../../lib/api";
 import { formatPrice, formatDate } from "../../../../lib/format";
 import { useCart } from "../../../../lib/cart-context";
+import { useAuth } from "../../../../lib/auth-context";
 import LoadingSpinner from "../../../../components/LoadingSpinner";
 
 interface OrderItem {
-  id: string;
-  product_name: string;
-  variant_name: string | null;
+  product_id: string;
+  variant_id: string;
   quantity: number;
   unit_price: number;
   total_price: number;
+  product_snapshot: {
+    product_name: string;
+    variant_name: string | null;
+    image_url: string | null;
+    [key: string]: unknown;
+  };
 }
 
 interface Order {
   id: string;
   order_number: string;
   status: string;
-  total_amount: number;
+  total: number;
   currency: string;
   created_at: string;
   items: OrderItem[];
@@ -42,6 +48,7 @@ export default function OrderConfirmationPage() {
   const searchParams = useSearchParams();
   const redirectStatus = searchParams.get("redirect_status") as RedirectStatus | null;
   const { clearCart } = useCart();
+  const { isLoading: authLoading } = useAuth();
   const [order, setOrder] = useState<Order | null>(null);
   const [paymentStatus, setPaymentStatus] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -57,8 +64,9 @@ export default function OrderConfirmationPage() {
     }
   }, [clearCart]);
 
-  // Load order details
+  // Load order details — wait for auth to finish refreshing first
   useEffect(() => {
+    if (authLoading) return;
     async function load() {
       try {
         const data = await apiFetch<Order>(`/ecommerce/orders/${id}`);
@@ -67,11 +75,11 @@ export default function OrderConfirmationPage() {
       setLoading(false);
     }
     if (id) load();
-  }, [id]);
+  }, [id, authLoading]);
 
-  // Poll payment status until terminal
+  // Poll payment status until terminal — wait for auth first
   useEffect(() => {
-    if (!id) return;
+    if (!id || authLoading) return;
 
     async function checkPayment() {
       try {
@@ -162,18 +170,28 @@ export default function OrderConfirmationPage() {
         <h2 className="text-lg font-semibold text-text-primary mb-4">Order Details</h2>
         <div className="space-y-3 mb-6">
           {order.items?.map((item) => (
-            <div key={item.id} className="flex justify-between text-sm">
-              <span className="text-text-secondary">
-                {item.product_name} {item.variant_name ? `(${item.variant_name})` : ""} x{item.quantity}
+            <div key={item.product_id} className="flex items-center gap-3 text-sm">
+              {item.product_snapshot?.image_url && (
+                <img
+                  src={item.product_snapshot.image_url}
+                  alt={item.product_snapshot.product_name}
+                  className="w-12 h-12 rounded-lg object-cover bg-glass-bg shrink-0"
+                />
+              )}
+              <span className="flex-1 text-text-secondary">
+                {item.product_snapshot?.product_name}{" "}
+                {item.product_snapshot?.variant_name && item.product_snapshot.variant_name !== "Default"
+                  ? `(${item.product_snapshot.variant_name})` : ""}{" "}
+                x{item.quantity}
               </span>
-              <span className="text-text-primary">{formatPrice(item.total_price, order.currency)}</span>
+              <span className="text-text-primary shrink-0">{formatPrice(item.total_price, order.currency)}</span>
             </div>
           ))}
         </div>
         <div className="border-t border-glass-border pt-3">
           <div className="flex justify-between font-semibold">
             <span>Total</span>
-            <span className="gradient-text text-lg">{formatPrice(order.total_amount, order.currency)}</span>
+            <span className="gradient-text text-lg">{formatPrice(order.total, order.currency)}</span>
           </div>
         </div>
         <div className="mt-4 text-sm text-text-muted">

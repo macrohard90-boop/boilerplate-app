@@ -67,7 +67,8 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       const data = await apiFetch<Cart>("/ecommerce/cart");
       setCart(data);
     } catch {
-      setCart(emptyCart);
+      // Keep existing cart data on refresh errors (network blip, token race).
+      // Only explicit clearCart() should wipe the cart.
     } finally {
       setIsLoading(false);
     }

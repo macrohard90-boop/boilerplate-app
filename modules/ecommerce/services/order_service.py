@@ -48,7 +48,11 @@ async def create_order_from_cart(
             text(
                 "SELECT ci.*, p.name AS product_name, p.slug AS product_slug, "
                 "p.base_price, p.currency, p.sku AS product_sku, p.type AS product_type, "
-                "v.name AS variant_name, v.sku AS variant_sku, v.price_override, v.attributes "
+                "v.name AS variant_name, v.sku AS variant_sku, v.price_override, v.attributes, "
+                "COALESCE("
+                "  (SELECT url FROM ecommerce.product_images WHERE variant_id = ci.variant_id ORDER BY is_primary DESC, sort_order LIMIT 1),"
+                "  (SELECT url FROM ecommerce.product_images WHERE product_id = ci.product_id AND variant_id IS NULL ORDER BY is_primary DESC, sort_order LIMIT 1)"
+                ") AS image_url "
                 "FROM ecommerce.cart_items ci "
                 "JOIN ecommerce.products p ON p.id = ci.product_id "
                 "JOIN ecommerce.product_variants v ON v.id = ci.variant_id "
@@ -88,6 +92,7 @@ async def create_order_from_cart(
             "variant_sku": item.get("variant_sku"),
             "attributes": item["attributes"] if isinstance(item["attributes"], dict) else {},
             "product_type": item.get("product_type", "physical"),
+            "image_url": item.get("image_url"),
         }
 
         order_items_data.append({

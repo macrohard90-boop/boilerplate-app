@@ -110,9 +110,14 @@ class PaymentProvider(ABC):
         fee_amount: int | None = None,
         metadata: dict[str, Any] | None = None,
         payment_method_types: list[str] | None = None,
+        description: str | None = None,
+        line_items: list[dict[str, Any]] | None = None,
     ) -> PaymentResult:
         """Create a payment intent/charge for an order.
 
+        customer_id should be the provider's customer ID (e.g. Stripe cus_xxx).
+        If line_items is provided (list of {"price": "price_xxx", "quantity": N}),
+        the provider should create an itemized invoice/receipt where supported.
         If payment_method_types is provided, only those methods are accepted.
         If None, the provider decides which methods to offer (automatic).
         """

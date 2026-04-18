@@ -49,6 +49,7 @@ async def create_checkout(
         result = await checkout_service.checkout(
             db,
             user_id=str(user["user_id"]),
+            email=user.get("email", ""),
             shipping_address=data.shipping_address.model_dump() if data.shipping_address else None,
             billing_address=data.billing_address.model_dump() if data.billing_address else None,
             discount_code=data.discount_code,
