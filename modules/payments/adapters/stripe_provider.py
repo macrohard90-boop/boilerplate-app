@@ -127,7 +127,7 @@ class StripeProvider(PaymentProvider, CatalogProvider):
         for item in line_items:
             params: dict[str, Any] = {
                 "customer": customer_id,
-                "price": item["price"],
+                "pricing": {"price": item["price"]},
                 "quantity": item.get("quantity", 1),
             }
             stripe.InvoiceItem.create(**params)
