@@ -10,6 +10,7 @@ from typing import Any
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from backend.core.config import settings
 from modules.ecommerce.services import inventory_service, order_service, subscription_service
 from modules.payments.adapters import get_payment_provider
 from modules.payments.services import payment_service
@@ -117,14 +118,63 @@ async def _handle_payment_succeeded(
         try:
             user_id = payment_intent.get("metadata", {}).get("user_id")
             if user_id:
+                email_data = await _build_order_email_data(db, order_id)
                 from modules.gdpr.services.email_send_service import send_email_fire_and_forget
                 await send_email_fire_and_forget(
                     user_id, "order_confirmation",
-                    {"order_id": order_id},
+                    email_data,
                     email_type="transactional_email",
                 )
         except Exception:
             logger.exception("Failed to send order confirmation for %s", order_id)
+
+
+async def _build_order_email_data(
+    db: AsyncSession, order_id: str
+) -> dict[str, Any]:
+    """Fetch order details + items for the confirmation email template."""
+    order = (
+        await db.execute(
+            text(
+                "SELECT order_number, total, currency "
+                "FROM ecommerce.orders WHERE id = :oid"
+            ),
+            {"oid": order_id},
+        )
+    ).mappings().first()
+
+    items_rows = (
+        await db.execute(
+            text(
+                "SELECT product_snapshot, quantity, unit_price "
+                "FROM ecommerce.order_items WHERE order_id = :oid"
+            ),
+            {"oid": order_id},
+        )
+    ).mappings().all()
+
+    items = []
+    for row in items_rows:
+        snap = row["product_snapshot"] if isinstance(row["product_snapshot"], dict) else {}
+        name = snap.get("product_name", "Item")
+        variant = snap.get("variant_name")
+        label = f"{name} ({variant})" if variant else name
+        items.append({
+            "name": label,
+            "quantity": row["quantity"],
+            "price": f"${row['unit_price'] / 100:.2f}",
+        })
+
+    currency = (order["currency"] if order else "USD").upper()
+    total_cents = order["total"] if order else 0
+    order_number = order["order_number"] if order else order_id[:8]
+
+    return {
+        "order_id": order_number,
+        "items": items,
+        "total": f"${total_cents / 100:.2f} {currency}",
+        "order_url": f"{settings.frontend_url}/dashboard/orders",
+    }
 
 
 async def _handle_payment_failed(
