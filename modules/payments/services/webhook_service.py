@@ -113,6 +113,19 @@ async def _handle_payment_succeeded(
     if order_id:
         await order_service.update_order_status(db, order_id, "completed")
 
+        # Send order confirmation email (fire-and-forget — don't block webhook)
+        try:
+            user_id = payment_intent.get("metadata", {}).get("user_id")
+            if user_id:
+                from modules.gdpr.services.email_send_service import send_email_fire_and_forget
+                await send_email_fire_and_forget(
+                    user_id, "order_confirmation",
+                    {"order_id": order_id},
+                    email_type="transactional_email",
+                )
+        except Exception:
+            logger.exception("Failed to send order confirmation for %s", order_id)
+
 
 async def _handle_payment_failed(
     db: AsyncSession, payment_intent: dict[str, Any]

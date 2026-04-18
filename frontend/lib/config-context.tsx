@@ -13,6 +13,8 @@ interface AppConfig {
   enable_geo_scoring: boolean;
   enable_seo_advisor: boolean;
   enable_geo_advisor: boolean;
+  enable_marketing: boolean;
+  enable_marketing_emails: boolean;
   site_name: string;
   site_description: string;
 }
@@ -28,6 +30,8 @@ const DEFAULT_CONFIG: AppConfig = {
   enable_geo_scoring: true,
   enable_seo_advisor: true,
   enable_geo_advisor: true,
+  enable_marketing: true,
+  enable_marketing_emails: true,
   site_name: "Boilerplate App",
   site_description: "",
 };

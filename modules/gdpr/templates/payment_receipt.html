@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}Payment Receipt{% endblock %}
+{% block content %}
+<h2>Payment Receipt</h2>
+<p>Hi {{ first_name }},</p>
+<p>We've received your payment. Here are the details:</p>
+<table style="width: 100%; margin: 16px 0;">
+  <tr>
+    <td style="padding: 8px 0; color: #555;">Amount</td>
+    <td style="text-align: right; padding: 8px 0; font-weight: 600;">{{ currency }} {{ amount }}</td>
+  </tr>
+  <tr>
+    <td style="padding: 8px 0; color: #555;">Date</td>
+    <td style="text-align: right; padding: 8px 0;">{{ date }}</td>
+  </tr>
+  {% if payment_method %}
+  <tr>
+    <td style="padding: 8px 0; color: #555;">Payment Method</td>
+    <td style="text-align: right; padding: 8px 0;">{{ payment_method }}</td>
+  </tr>
+  {% endif %}
+  {% if reference %}
+  <tr>
+    <td style="padding: 8px 0; color: #555;">Reference</td>
+    <td style="text-align: right; padding: 8px 0;">{{ reference }}</td>
+  </tr>
+  {% endif %}
+</table>
+<p class="muted">This serves as your payment receipt. Please keep it for your records.</p>
+{% endblock %}

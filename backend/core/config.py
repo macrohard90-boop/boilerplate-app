@@ -104,9 +104,16 @@ class Settings(BaseSettings):
     rfm_compute_schedule: str = "daily"
 
     # Email / Notifications
-    email_provider: str = "placeholder"
+    email_provider: str = "console"  # console (dev), brevo (production)
+    transactional_email_provider: str = ""  # Override for transactional; empty = use email_provider
+    marketing_email_provider: str = ""  # Override for marketing; empty = use email_provider
     from_email: str = "noreply@localhost"
     from_name: str = "Boilerplate App"
+    brevo_api_key: str = ""
+    brevo_webhook_secret: str = ""
+    email_retry_max_attempts: int = 3
+    email_retry_interval: int = 60  # seconds between retry attempts
+    enable_marketing_emails: bool = True  # Toggle for marketing email campaigns
 
     # Scaling
     uvicorn_workers: int = 2

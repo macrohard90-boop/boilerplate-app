@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { apiFetch, type ApiError } from "../../../lib/api";
 import { useToast } from "../../../components/Toast";
+import { useConfig } from "../../../lib/config-context";
 import LoadingSpinner from "../../../components/LoadingSpinner";
 import {
   CONSENT_TYPES,
@@ -16,13 +17,26 @@ interface ConsentItem {
   updated_at: string;
 }
 
+interface MarketingPref {
+  communication_type_id: string;
+  communication_type_name: string;
+  description: string | null;
+  allowed: boolean;
+}
+
 export default function PrivacyPage() {
   const { showToast } = useToast();
+  const { enable_marketing } = useConfig();
   const [consents, setConsents] = useState<ConsentItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState(false);
+
+  // Marketing preferences state
+  const [marketingConsent, setMarketingConsent] = useState(false);
+  const [marketingPrefs, setMarketingPrefs] = useState<MarketingPref[]>([]);
+  const [marketingLoading, setMarketingLoading] = useState(false);
 
   async function fetchConsents() {
     try {
@@ -34,7 +48,24 @@ export default function PrivacyPage() {
     setLoading(false);
   }
 
+  const fetchMarketingPrefs = useCallback(async () => {
+    if (!enable_marketing) return;
+    setMarketingLoading(true);
+    try {
+      const data = await apiFetch<{
+        marketing_email_consent: boolean;
+        preferences: MarketingPref[];
+      }>("/marketing/preferences");
+      setMarketingConsent(data.marketing_email_consent);
+      setMarketingPrefs(data.preferences);
+    } catch {
+      setMarketingPrefs([]);
+    }
+    setMarketingLoading(false);
+  }, [enable_marketing]);
+
   useEffect(() => { fetchConsents(); }, []);
+  useEffect(() => { fetchMarketingPrefs(); }, [fetchMarketingPrefs]);
 
   async function toggleConsent(type: string, granted: boolean) {
     const ct = CONSENT_TYPES.find((c) => c.key === type);
@@ -60,6 +91,11 @@ export default function PrivacyPage() {
       if (type in CONSENT_TO_COOKIE_MAP) {
         syncCookiePreferences(type, granted);
       }
+
+      // Re-fetch marketing preferences when marketing_email consent changes
+      if (type === "marketing_email" && enable_marketing) {
+        fetchMarketingPrefs();
+      }
     } catch {
       showToast("Failed to update consent", "error");
     }
@@ -83,6 +119,25 @@ export default function PrivacyPage() {
       localStorage.setItem("cookie_consent", JSON.stringify(cookiePrefs));
     } catch {
       // Best effort sync
+    }
+  }
+
+  async function toggleMarketingPref(typeId: string, allowed: boolean) {
+    try {
+      await apiFetch("/marketing/preferences", {
+        method: "PUT",
+        body: JSON.stringify({ preferences: [{ communication_type_id: typeId, allowed }] }),
+      });
+      setMarketingPrefs((prev) =>
+        prev.map((p) => (p.communication_type_id === typeId ? { ...p, allowed } : p))
+      );
+      const pref = marketingPrefs.find((p) => p.communication_type_id === typeId);
+      showToast(
+        `${pref?.communication_type_name ?? "Preference"} ${allowed ? "enabled" : "disabled"}`,
+        "info"
+      );
+    } catch {
+      showToast("Failed to update marketing preference", "error");
     }
   }
 
@@ -169,6 +224,57 @@ export default function PrivacyPage() {
           ))}
         </div>
       </div>
+
+      {/* Marketing Preferences */}
+      {enable_marketing && (
+        <div className="glass rounded-xl p-6 mb-6">
+          <h2 className="text-lg font-semibold text-text-primary mb-1">Marketing Preferences</h2>
+          <p className="text-sm text-text-secondary mb-4">
+            Choose which types of marketing communications you&apos;d like to receive.
+          </p>
+
+          {marketingLoading ? (
+            <LoadingSpinner size="sm" className="py-4" />
+          ) : !marketingConsent ? (
+            <div className="p-4 rounded-lg bg-accent-blue/10 border border-accent-blue/20">
+              <p className="text-sm text-accent-blue">
+                Marketing emails are turned off. Enable the{" "}
+                <strong>Marketing Email</strong> consent above to manage
+                your communication preferences.
+              </p>
+            </div>
+          ) : marketingPrefs.length === 0 ? (
+            <p className="text-sm text-text-muted">No communication types available.</p>
+          ) : (
+            <div className="space-y-3">
+              {marketingPrefs.map((pref) => (
+                <div key={pref.communication_type_id} className="flex items-center justify-between py-2">
+                  <div>
+                    <p className="text-sm font-medium text-text-primary capitalize">
+                      {pref.communication_type_name}
+                    </p>
+                    {pref.description && (
+                      <p className="text-xs text-text-muted">{pref.description}</p>
+                    )}
+                  </div>
+                  <button
+                    onClick={() => toggleMarketingPref(pref.communication_type_id, !pref.allowed)}
+                    className={`relative w-12 h-6 rounded-full transition-colors shrink-0 cursor-pointer ${
+                      pref.allowed ? "bg-accent-green/30" : "bg-glass-bg"
+                    }`}
+                  >
+                    <div className={`absolute top-0.5 w-5 h-5 rounded-full transition-all ${
+                      pref.allowed
+                        ? "left-6 bg-accent-green"
+                        : "left-0.5 bg-text-muted"
+                    }`} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Data Export */}
       <div className="glass rounded-xl p-6 mb-6">

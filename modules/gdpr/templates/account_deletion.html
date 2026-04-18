@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block title %}Account Deletion Confirmation{% endblock %}
+{% block content %}
+<h2>Account Deleted</h2>
+<p>Hi {{ first_name }},</p>
+<p>Your account and all associated personal data have been permanently deleted as of <strong>{{ deletion_date }}</strong>.</p>
+<p>This action is irreversible. All your data has been removed from our systems in compliance with data protection regulations.</p>
+<p class="muted">If you believe this was done in error, please contact our support team immediately.</p>
+{% endblock %}

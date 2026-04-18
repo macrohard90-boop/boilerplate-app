@@ -127,9 +127,23 @@ async def register(
 
     _set_refresh_cookie(response, refresh)
 
-    # Generate email verification token (logged to console — no email provider yet)
+    # Generate email verification token and send welcome email (fire-and-forget
+    # so it doesn't block registration or share the request's DB transaction)
     verify_token = await auth_service.generate_verification_token(redis, user_id)
-    logger.info("Email verification token for %s: %s", body.email, verify_token)
+    try:
+        from modules.gdpr.services.email_send_service import send_email_fire_and_forget
+        await send_email_fire_and_forget(
+            user_id, "welcome",
+            {
+                "verify_url": f"{settings.frontend_url}/verify-email?token={verify_token}",
+                "first_name": getattr(body, "first_name", None) or "there",
+            },
+            email_type="transactional_email",
+            to_email=body.email,
+            force=True,  # New user — no consent records yet
+        )
+    except Exception:
+        logger.exception("Failed to send welcome email to %s", body.email)
 
     await audit_service.log_audit(
         db, user_id=user_id, action="user.register", resource="user",
@@ -275,7 +289,19 @@ async def forgot_password(
     user = await auth_service.get_user_by_email(db, body.email)
     if user and user.get("is_active") and user.get("deleted_at") is None:
         token = await auth_service.generate_password_reset_token(redis, str(user["id"]))
-        logger.info("Password reset token for %s: %s", body.email, token)
+        try:
+            from modules.gdpr.services.email_send_service import send_email_fire_and_forget
+            await send_email_fire_and_forget(
+                str(user["id"]), "password_reset",
+                {
+                    "reset_url": f"{settings.frontend_url}/reset-password?token={token}",
+                    "first_name": user.get("first_name") or "there",
+                },
+                email_type="transactional_email",
+                to_email=body.email,
+            )
+        except Exception:
+            logger.exception("Failed to send password reset email to %s", body.email)
 
     return MessageResponse(message="If an account exists, a reset link has been sent")
 

@@ -116,8 +116,25 @@ async def update_preferences(
 
     await db.commit()
 
-    # Log intent to sync with email provider (no-op until provider is built)
-    logger.info("Email preferences updated for user %s — provider sync pending", user_id)
+    # Sync suppression to email provider if marketing was disabled
+    if not marketing_email:
+        try:
+            user_row = (
+                await db.execute(
+                    text("SELECT email FROM core.users WHERE id = :uid"),
+                    {"uid": user_id},
+                )
+            ).mappings().first()
+            if user_row:
+                from modules.gdpr.adapters import get_email_provider
+
+                provider = get_email_provider("marketing_email")
+                await provider.sync_suppression([user_row["email"]])
+        except Exception:
+            logger.exception(
+                "Failed to sync email preferences to provider for user %s",
+                user_id,
+            )
 
     return {
         "marketing_email": marketing_email,

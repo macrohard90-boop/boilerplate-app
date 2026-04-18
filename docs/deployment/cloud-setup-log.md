@@ -55,8 +55,8 @@
 
 ## Step 6: Verify
 - [x] `http://34.30.88.59` loads in browser
-- [ ] `http://34.30.88.59/api/health` returns OK
-- [ ] Can log in as admin@example.com / Admin1234!
+- [x] `http://34.30.88.59/api/health` returns OK (`{"status":"ok","services":{"redis":"ok","db":"ok"}}`)
+- [x] Can log in as admin@example.com / Test1234!
 - [ ] Products page loads
 - [ ] Admin dashboard loads
 
@@ -88,6 +88,24 @@
 ### Issue 5: Git clone directory disappeared
 - **Cause:** `rm -rf boilerplate-app` was run to fix a partial clone, then commands were run from the deleted directory
 - **Fix:** Re-cloned the repo
+
+### Issue 6: Login session lost on every page refresh
+- **Cause:** `_set_refresh_cookie()` set `secure = settings.app_env != "development"`. In production mode, the `Secure` flag is set on the refresh token cookie, but the site runs over HTTP (no SSL). Browsers refuse to send `Secure` cookies over HTTP, so the refresh token was never sent back — causing logout on every refresh.
+- **Fix:** Changed to `secure = settings.frontend_url.startswith("https://")` in both `auth_routes.py` and `oauth_routes.py`. This way the Secure flag is only set when the site actually uses HTTPS.
+- **Commit:** `4f5e94c`
+
+### Issue 7: Can't push from cloud VM to GitHub
+- **Cause:** The repo was cloned via HTTPS with a personal access token entered interactively. Non-interactive SSH sessions can't prompt for credentials.
+- **Workaround:** Make code changes locally, push from local machine, then `git pull` on VM. Or configure a credential helper / SSH key on the VM.
+
+## SSH Access from Local Machine
+```bash
+# Local machine can SSH directly to the VM:
+ssh -i ~/.ssh/id_ed25519_build adrian_radoi@34.30.88.59
+
+# Run commands remotely:
+ssh -i ~/.ssh/id_ed25519_build adrian_radoi@34.30.88.59 "cd /home/adrian_radoi/boilerplate-app && docker compose ps"
+```
 
 ## How to Update the Cloud
 When you make changes locally and push to GitHub:

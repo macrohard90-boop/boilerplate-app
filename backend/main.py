@@ -59,6 +59,12 @@ async def lifespan(app: FastAPI):
         tasks.append(asyncio.create_task(rescorer_loop()))
         logger.info("SEO rescorer background task started")
 
+    # Email retry queue
+    from modules.gdpr.services.retry_service import retry_loop
+
+    tasks.append(asyncio.create_task(retry_loop()))
+    logger.info("Email retry background task started")
+
     yield
 
     # Cancel background tasks
@@ -142,6 +148,8 @@ def create_app() -> FastAPI:
             "enable_geo_advisor": settings.enable_geo_advisor,
             "site_name": settings.site_name,
             "site_description": settings.site_description,
+            "enable_marketing": settings.enable_marketing,
+            "enable_marketing_emails": settings.enable_marketing_emails,
         }
 
     # SEO root-level routes (sitemap.xml, robots.txt)
