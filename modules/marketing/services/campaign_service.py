@@ -77,11 +77,11 @@ async def send_campaign(
     if not row:
         raise ValueError("Campaign not found or already sent")
 
-    # Render the template
-    from modules.gdpr.services.template_service import render_template
+    # Render the template (DB first, then filesystem fallback)
+    from modules.gdpr.services.template_service import render_template_hybrid
 
     template_data = row["template_data"] if isinstance(row["template_data"], dict) else {}
-    html_content = render_template(row["template_id"], template_data)
+    html_content, _ = await render_template_hybrid(db, row["template_id"], template_data)
 
     # Get the email provider
     from modules.gdpr.adapters import get_email_provider

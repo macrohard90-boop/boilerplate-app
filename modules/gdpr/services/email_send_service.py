@@ -238,16 +238,20 @@ async def send_email(
             f"?token={unsub_token}"
         )
 
-    # 4. Render template
-    from modules.gdpr.services.template_service import render_template
+    # 4. Render template (DB first, then filesystem fallback)
+    from modules.gdpr.services.template_service import render_template_hybrid
 
     try:
-        html_content = render_template(template_id, template_data)
+        html_content, db_subject = await render_template_hybrid(
+            db, template_id, template_data
+        )
     except Exception:
         logger.exception("Template render failed: %s", template_id)
         return {"status": "error", "error": f"Template render failed: {template_id}"}
 
-    # 5. Build subject
+    # 5. Build subject (DB template subject → caller override → hardcoded map)
+    if not subject_override and db_subject:
+        subject_override = db_subject
     subject = subject_override or _subject_for_template(template_id, template_data)
 
     # 6. Send via adapter

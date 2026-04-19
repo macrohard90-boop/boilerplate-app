@@ -1,4 +1,4 @@
-"""Marketing admin endpoints — campaigns, email logs, suppressed users, comm types."""
+"""Marketing admin endpoints — campaigns, email logs, suppressed users, comm types, templates."""
 
 from typing import Any
 
@@ -14,8 +14,15 @@ from modules.marketing.models.schemas import (
     CampaignStatsResponse,
     CommunicationTypeCreateRequest,
     CommunicationTypeResponse,
+    TemplateCloneRequest,
+    TemplateCreateRequest,
+    TemplateListResponse,
+    TemplatePreviewRequest,
+    TemplateResponse,
+    TemplateUpdateRequest,
 )
 from modules.marketing.services import campaign_service
+from modules.marketing.services import template_crud_service
 from modules.marketing.services.audience_service import (
     create_communication_type,
     get_eligible_recipients,
@@ -325,3 +332,172 @@ async def update_comm_type(
         )
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
+
+
+# ── Email Templates ──────────────────────────────────────
+
+
+@router.get("/templates", response_model=TemplateListResponse)
+async def list_templates(
+    db: AsyncSession = Depends(get_db),
+    user: dict = Depends(require_role("admin")),
+    category: str | None = Query(None),
+    page: int = Query(1, ge=1),
+    per_page: int = Query(20, ge=1, le=100),
+):
+    """List all email templates (paginated, filterable by category)."""
+    return await template_crud_service.list_templates(
+        db, category=category, page=page, per_page=per_page
+    )
+
+
+@router.post("/templates", response_model=TemplateResponse, status_code=201)
+async def create_template(
+    body: TemplateCreateRequest,
+    db: AsyncSession = Depends(get_db),
+    user: dict = Depends(require_role("admin")),
+):
+    """Create a new email template."""
+    try:
+        result = await template_crud_service.create_template(
+            db,
+            name=body.name,
+            display_name=body.display_name,
+            html_content=body.html_content,
+            category=body.category,
+            subject=body.subject,
+            description=body.description,
+            variables=body.variables,
+            created_by=user["user_id"],
+        )
+        # Fetch full template for response
+        return await template_crud_service.get_template(db, result["id"])
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.post("/templates/preview")
+async def preview_template(
+    body: TemplatePreviewRequest,
+    user: dict = Depends(require_role("admin")),
+):
+    """Render arbitrary HTML with sample data and return the result."""
+    try:
+        rendered = await template_crud_service.preview_template(
+            body.html_content, body.template_data
+        )
+        return {"html": rendered}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Render error: {e}")
+
+
+@router.get("/templates/{template_id}", response_model=TemplateResponse)
+async def get_template(
+    template_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: dict = Depends(require_role("admin")),
+):
+    """Get a single email template with full HTML content."""
+    result = await template_crud_service.get_template(db, template_id)
+    if not result:
+        raise HTTPException(status_code=404, detail="Template not found")
+    return result
+
+
+@router.put("/templates/{template_id}", response_model=TemplateResponse)
+async def update_template(
+    template_id: str,
+    body: TemplateUpdateRequest,
+    db: AsyncSession = Depends(get_db),
+    user: dict = Depends(require_role("admin")),
+):
+    """Update an email template (bumps version)."""
+    result = await template_crud_service.update_template(
+        db,
+        template_id,
+        display_name=body.display_name,
+        subject=body.subject,
+        html_content=body.html_content,
+        category=body.category,
+        description=body.description,
+        variables=body.variables,
+    )
+    if not result:
+        raise HTTPException(status_code=404, detail="Template not found")
+    # Fetch full template for response
+    return await template_crud_service.get_template(db, template_id)
+
+
+@router.delete("/templates/{template_id}")
+async def delete_template(
+    template_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: dict = Depends(require_role("admin")),
+):
+    """Delete a template. Built-in templates cannot be deleted."""
+    try:
+        await template_crud_service.delete_template(db, template_id)
+        return {"status": "deleted"}
+    except ValueError as e:
+        status = 400 if "Cannot delete" in str(e) else 404
+        raise HTTPException(status_code=status, detail=str(e))
+
+
+@router.post("/templates/{template_id}/clone", response_model=TemplateResponse, status_code=201)
+async def clone_template(
+    template_id: str,
+    body: TemplateCloneRequest,
+    db: AsyncSession = Depends(get_db),
+    user: dict = Depends(require_role("admin")),
+):
+    """Clone a template with a new name."""
+    try:
+        result = await template_crud_service.clone_template(
+            db,
+            source_id=template_id,
+            new_name=body.new_name,
+            new_display_name=body.new_display_name,
+            created_by=user["user_id"],
+        )
+        return await template_crud_service.get_template(db, result["id"])
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@router.post("/templates/{template_id}/send-test")
+async def send_test_email(
+    template_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: dict = Depends(require_role("admin")),
+):
+    """Send a test email using this template to the requesting admin."""
+    template = await template_crud_service.get_template(db, template_id)
+    if not template:
+        raise HTTPException(status_code=404, detail="Template not found")
+
+    # Look up admin's email
+    admin_row = (
+        await db.execute(
+            text("SELECT email FROM core.users WHERE id = :uid"),
+            {"uid": user["user_id"]},
+        )
+    ).mappings().first()
+
+    if not admin_row:
+        raise HTTPException(status_code=400, detail="Admin user not found")
+
+    from modules.gdpr.services.email_send_service import send_email
+
+    try:
+        result = await send_email(
+            db,
+            user_id=user["user_id"],
+            template_id=template["name"],
+            template_data={"first_name": "Test User"},
+            email_type="transactional_email",
+            to_email=admin_row["email"],
+            force=True,
+        )
+        return {"status": result.get("status", "sent"), "event_id": result.get("event_id")}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Send failed: {e}")

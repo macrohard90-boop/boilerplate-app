@@ -1,5 +1,6 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useCallback, useEffect, useState } from "react";
 import { apiFetch } from "../../../lib/api";
 import { useConfig } from "../../../lib/config-context";
@@ -9,7 +10,32 @@ import Pagination from "../../../components/Pagination";
 import Modal from "../../../components/Modal";
 import { formatDate, formatRelativeTime, truncate } from "../../../lib/format";
 
+const TemplateEditor = dynamic(() => import("../../../components/TemplateEditor"), { ssr: false });
+
 // ── Interfaces ──────────────────────────────────────────
+
+interface EmailTemplate {
+  id: string;
+  name: string;
+  display_name: string;
+  subject: string | null;
+  html_content: string | null;
+  category: string;
+  description: string | null;
+  variables: Array<Record<string, string>>;
+  is_builtin: boolean;
+  version: number;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+interface TemplateList {
+  items: EmailTemplate[];
+  total: number;
+  page: number;
+  per_page: number;
+}
 
 interface Campaign {
   id: string;
@@ -109,9 +135,10 @@ function statusBadge(status: string): string {
 
 // ── Tab types ───────────────────────────────────────────
 
-type TabId = "campaigns" | "email_logs" | "suppressed" | "comm_types" | "audience";
+type TabId = "templates" | "campaigns" | "email_logs" | "suppressed" | "comm_types" | "audience";
 
 const TABS: { id: TabId; label: string }[] = [
+  { id: "templates", label: "Templates" },
   { id: "campaigns", label: "Campaigns" },
   { id: "email_logs", label: "Email Logs" },
   { id: "suppressed", label: "Suppressed" },
@@ -123,7 +150,7 @@ const TABS: { id: TabId; label: string }[] = [
 
 export default function AdminMarketingPage() {
   const { enable_marketing } = useConfig();
-  const [activeTab, setActiveTab] = useState<TabId>("campaigns");
+  const [activeTab, setActiveTab] = useState<TabId>("templates");
 
   if (!enable_marketing) {
     return (
@@ -160,12 +187,368 @@ export default function AdminMarketingPage() {
       </div>
 
       {/* Tab content */}
+      {activeTab === "templates" && <TemplatesTab />}
       {activeTab === "campaigns" && <CampaignsTab />}
       {activeTab === "email_logs" && <EmailLogsTab />}
       {activeTab === "suppressed" && <SuppressedTab />}
       {activeTab === "comm_types" && <CommTypesTab />}
       {activeTab === "audience" && <AudienceTab />}
     </div>
+  );
+}
+
+// ── Templates Tab ───────────────────────────────────────
+
+function categoryBadge(category: string): string {
+  switch (category) {
+    case "transactional": return "badge-blue";
+    case "campaign": return "badge-purple";
+    case "automation": return "badge-green";
+    default: return "badge-purple";
+  }
+}
+
+function TemplatesTab() {
+  const { showToast } = useToast();
+  const [templates, setTemplates] = useState<EmailTemplate[]>([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  const [categoryFilter, setCategoryFilter] = useState("");
+  const [loading, setLoading] = useState(true);
+  const perPage = 15;
+
+  // Editor state
+  const [editorOpen, setEditorOpen] = useState(false);
+  const [editingTemplate, setEditingTemplate] = useState<EmailTemplate | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  // Form fields
+  const [formName, setFormName] = useState("");
+  const [formDisplayName, setFormDisplayName] = useState("");
+  const [formSubject, setFormSubject] = useState("");
+  const [formCategory, setFormCategory] = useState("campaign");
+  const [formDescription, setFormDescription] = useState("");
+  const [formHtml, setFormHtml] = useState("");
+
+  // Clone modal
+  const [cloneSource, setCloneSource] = useState<EmailTemplate | null>(null);
+  const [cloneName, setCloneName] = useState("");
+  const [cloneDisplayName, setCloneDisplayName] = useState("");
+  const [cloning, setCloning] = useState(false);
+
+  const fetchTemplates = useCallback(async () => {
+    setLoading(true);
+    try {
+      const params = new URLSearchParams({ page: String(page), per_page: String(perPage) });
+      if (categoryFilter) params.set("category", categoryFilter);
+      const data = await apiFetch<TemplateList>(`/marketing/admin/templates?${params}`);
+      setTemplates(data.items);
+      setTotal(data.total);
+    } catch {
+      showToast("Failed to load templates", "error");
+    }
+    setLoading(false);
+  }, [page, categoryFilter, showToast]);
+
+  useEffect(() => { fetchTemplates(); }, [fetchTemplates]);
+
+  function openCreate() {
+    setEditingTemplate(null);
+    setFormName("");
+    setFormDisplayName("");
+    setFormSubject("");
+    setFormCategory("campaign");
+    setFormDescription("");
+    setFormHtml('<h1>Hello {{ first_name }}</h1>\n<p>Your content here.</p>');
+    setEditorOpen(true);
+  }
+
+  async function openEdit(t: EmailTemplate) {
+    try {
+      const full = await apiFetch<EmailTemplate>(`/marketing/admin/templates/${t.id}`);
+      setEditingTemplate(full);
+      setFormName(full.name);
+      setFormDisplayName(full.display_name);
+      setFormSubject(full.subject || "");
+      setFormCategory(full.category);
+      setFormDescription(full.description || "");
+      setFormHtml(full.html_content || "");
+      setEditorOpen(true);
+    } catch {
+      showToast("Failed to load template", "error");
+    }
+  }
+
+  async function handleSave() {
+    if (!formDisplayName.trim() || !formHtml.trim()) {
+      showToast("Display name and HTML content are required", "error");
+      return;
+    }
+    setSaving(true);
+    try {
+      if (editingTemplate) {
+        await apiFetch(`/marketing/admin/templates/${editingTemplate.id}`, {
+          method: "PUT",
+          body: JSON.stringify({
+            display_name: formDisplayName,
+            subject: formSubject || null,
+            html_content: formHtml,
+            category: formCategory,
+            description: formDescription || null,
+          }),
+        });
+        showToast("Template updated", "success");
+      } else {
+        if (!formName.trim()) {
+          showToast("Template name is required", "error");
+          setSaving(false);
+          return;
+        }
+        await apiFetch("/marketing/admin/templates", {
+          method: "POST",
+          body: JSON.stringify({
+            name: formName,
+            display_name: formDisplayName,
+            subject: formSubject || null,
+            html_content: formHtml,
+            category: formCategory,
+            description: formDescription || null,
+            variables: [],
+          }),
+        });
+        showToast("Template created", "success");
+      }
+      setEditorOpen(false);
+      fetchTemplates();
+    } catch {
+      showToast("Failed to save template", "error");
+    }
+    setSaving(false);
+  }
+
+  async function handleDelete(t: EmailTemplate) {
+    if (!confirm(`Delete template "${t.display_name}"? This cannot be undone.`)) return;
+    try {
+      await apiFetch(`/marketing/admin/templates/${t.id}`, { method: "DELETE" });
+      showToast("Template deleted", "success");
+      fetchTemplates();
+    } catch {
+      showToast("Failed to delete template", "error");
+    }
+  }
+
+  async function handleSendTest(t: EmailTemplate) {
+    try {
+      await apiFetch(`/marketing/admin/templates/${t.id}/send-test`, { method: "POST" });
+      showToast("Test email sent to your address", "success");
+    } catch {
+      showToast("Failed to send test email", "error");
+    }
+  }
+
+  function openClone(t: EmailTemplate) {
+    setCloneSource(t);
+    setCloneName("");
+    setCloneDisplayName("");
+  }
+
+  async function handleClone() {
+    if (!cloneName.trim() || !cloneDisplayName.trim()) {
+      showToast("Name and display name are required", "error");
+      return;
+    }
+    setCloning(true);
+    try {
+      await apiFetch(`/marketing/admin/templates/${cloneSource!.id}/clone`, {
+        method: "POST",
+        body: JSON.stringify({ new_name: cloneName, new_display_name: cloneDisplayName }),
+      });
+      showToast("Template cloned", "success");
+      setCloneSource(null);
+      fetchTemplates();
+    } catch {
+      showToast("Failed to clone template", "error");
+    }
+    setCloning(false);
+  }
+
+  return (
+    <>
+      {/* Header */}
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-3">
+          <select
+            className="input-glass text-sm py-1.5 px-3"
+            value={categoryFilter}
+            onChange={(e) => { setCategoryFilter(e.target.value); setPage(1); }}
+          >
+            <option value="">All categories</option>
+            <option value="transactional">Transactional</option>
+            <option value="campaign">Campaign</option>
+            <option value="automation">Automation</option>
+          </select>
+          <span className="text-xs text-text-muted">{total} template{total !== 1 ? "s" : ""}</span>
+        </div>
+        <button className="btn-primary text-sm" onClick={openCreate}>
+          + New Template
+        </button>
+      </div>
+
+      {/* Table */}
+      {loading ? (
+        <LoadingSpinner className="py-16" />
+      ) : templates.length === 0 ? (
+        <div className="glass rounded-xl p-8 text-center text-text-muted">No templates found.</div>
+      ) : (
+        <div className="glass rounded-xl overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-glass-border">
+                <th className="text-left p-3 text-text-muted font-medium">Name</th>
+                <th className="text-left p-3 text-text-muted font-medium">Category</th>
+                <th className="text-left p-3 text-text-muted font-medium">Subject</th>
+                <th className="text-left p-3 text-text-muted font-medium">Version</th>
+                <th className="text-left p-3 text-text-muted font-medium">Updated</th>
+                <th className="text-right p-3 text-text-muted font-medium">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {templates.map((t) => (
+                <tr key={t.id} className="border-b border-glass-border/50 hover:bg-glass-hover transition-colors">
+                  <td className="p-3">
+                    <div className="text-text-primary font-medium">{t.display_name}</div>
+                    <div className="text-text-muted font-mono text-xs">{t.name}</div>
+                  </td>
+                  <td className="p-3">
+                    <span className={`badge ${categoryBadge(t.category)}`}>{t.category}</span>
+                  </td>
+                  <td className="p-3 text-text-secondary text-xs">{t.subject ? truncate(t.subject, 35) : "-"}</td>
+                  <td className="p-3 text-text-muted text-xs">
+                    v{t.version}
+                    {t.is_builtin && <span className="badge badge-blue ml-2">built-in</span>}
+                  </td>
+                  <td className="p-3 text-text-muted text-xs">{formatRelativeTime(t.updated_at)}</td>
+                  <td className="p-3 text-right space-x-2">
+                    <button onClick={() => openEdit(t)} className="text-accent-blue hover:underline text-xs">Edit</button>
+                    <button onClick={() => openClone(t)} className="text-accent-purple hover:underline text-xs">Clone</button>
+                    <button onClick={() => handleSendTest(t)} className="text-accent-green hover:underline text-xs">Test</button>
+                    {!t.is_builtin && (
+                      <button onClick={() => handleDelete(t)} className="text-accent-pink hover:underline text-xs">Delete</button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      <div className="mt-4">
+        <Pagination currentPage={page} totalPages={Math.ceil(total / perPage)} onPageChange={setPage} />
+      </div>
+
+      {/* Editor modal (full-screen) */}
+      <Modal isOpen={editorOpen} onClose={() => setEditorOpen(false)} title={editingTemplate ? `Edit: ${editingTemplate.display_name}` : "New Template"} size="full">
+        <div className="space-y-4">
+          {/* Meta fields row */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            <div>
+              <label className="text-xs text-text-muted block mb-1">Template ID</label>
+              <input
+                className="input-glass w-full font-mono text-sm"
+                value={formName}
+                onChange={(e) => setFormName(e.target.value)}
+                placeholder="my_template"
+                disabled={!!editingTemplate}
+              />
+            </div>
+            <div>
+              <label className="text-xs text-text-muted block mb-1">Display Name</label>
+              <input
+                className="input-glass w-full"
+                value={formDisplayName}
+                onChange={(e) => setFormDisplayName(e.target.value)}
+                placeholder="My Template"
+              />
+            </div>
+            <div>
+              <label className="text-xs text-text-muted block mb-1">Subject Line</label>
+              <input
+                className="input-glass w-full"
+                value={formSubject}
+                onChange={(e) => setFormSubject(e.target.value)}
+                placeholder="Hello {{first_name}}!"
+              />
+            </div>
+            <div>
+              <label className="text-xs text-text-muted block mb-1">Category</label>
+              <select className="input-glass w-full" value={formCategory} onChange={(e) => setFormCategory(e.target.value)}>
+                <option value="transactional">Transactional</option>
+                <option value="campaign">Campaign</option>
+                <option value="automation">Automation</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Description */}
+          <div>
+            <label className="text-xs text-text-muted block mb-1">Description (optional)</label>
+            <input
+              className="input-glass w-full text-sm"
+              value={formDescription}
+              onChange={(e) => setFormDescription(e.target.value)}
+              placeholder="Internal notes about this template..."
+            />
+          </div>
+
+          {/* Code editor + preview */}
+          <TemplateEditor
+            initialContent={formHtml}
+            onChange={setFormHtml}
+            templateData={{ first_name: "John" }}
+          />
+
+          {/* Footer */}
+          <div className="flex justify-end gap-3 pt-2">
+            <button className="btn-secondary text-sm" onClick={() => setEditorOpen(false)}>Cancel</button>
+            <button className="btn-primary text-sm" onClick={handleSave} disabled={saving}>
+              {saving ? "Saving..." : editingTemplate ? "Update Template" : "Create Template"}
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Clone modal */}
+      <Modal isOpen={!!cloneSource} onClose={() => setCloneSource(null)} title={`Clone: ${cloneSource?.display_name}`} size="sm">
+        <div className="space-y-4">
+          <div>
+            <label className="text-xs text-text-muted block mb-1">New Template ID</label>
+            <input
+              className="input-glass w-full font-mono text-sm"
+              value={cloneName}
+              onChange={(e) => setCloneName(e.target.value)}
+              placeholder="my_custom_welcome"
+            />
+            <p className="text-xs text-text-muted mt-1">Lowercase, underscores only (e.g. cart_abandonment)</p>
+          </div>
+          <div>
+            <label className="text-xs text-text-muted block mb-1">Display Name</label>
+            <input
+              className="input-glass w-full"
+              value={cloneDisplayName}
+              onChange={(e) => setCloneDisplayName(e.target.value)}
+              placeholder="My Custom Welcome"
+            />
+          </div>
+          <div className="flex justify-end gap-3 pt-2">
+            <button className="btn-secondary text-sm" onClick={() => setCloneSource(null)}>Cancel</button>
+            <button className="btn-primary text-sm" onClick={handleClone} disabled={cloning}>
+              {cloning ? "Cloning..." : "Clone Template"}
+            </button>
+          </div>
+        </div>
+      </Modal>
+    </>
   );
 }
 
@@ -186,8 +569,9 @@ function CampaignsTab() {
   // Create form
   const [formName, setFormName] = useState("");
   const [formSubject, setFormSubject] = useState("");
-  const [formTemplate, setFormTemplate] = useState("welcome");
+  const [formTemplate, setFormTemplate] = useState("");
   const [formScheduled, setFormScheduled] = useState("");
+  const [availableTemplates, setAvailableTemplates] = useState<EmailTemplate[]>([]);
 
   const perPage = 15;
 
@@ -206,6 +590,20 @@ function CampaignsTab() {
   }, [page, statusFilter, showToast]);
 
   useEffect(() => { fetchCampaigns(); }, [fetchCampaigns]);
+
+  // Load templates for the dropdown when create modal opens
+  useEffect(() => {
+    if (showCreate && availableTemplates.length === 0) {
+      apiFetch<TemplateList>("/marketing/admin/templates?per_page=100")
+        .then((data) => {
+          setAvailableTemplates(data.items);
+          if (data.items.length > 0 && !formTemplate) {
+            setFormTemplate(data.items[0].name);
+          }
+        })
+        .catch(() => {});
+    }
+  }, [showCreate]);
 
   async function handleCreate() {
     if (!formName.trim() || !formSubject.trim()) {
@@ -226,7 +624,7 @@ function CampaignsTab() {
       });
       showToast("Campaign created", "success");
       setShowCreate(false);
-      setFormName(""); setFormSubject(""); setFormTemplate("welcome"); setFormScheduled("");
+      setFormName(""); setFormSubject(""); setFormTemplate(""); setFormScheduled("");
       fetchCampaigns();
     } catch {
       showToast("Failed to create campaign", "error");
@@ -353,16 +751,12 @@ function CampaignsTab() {
             <input className="input-glass w-full" value={formSubject} onChange={(e) => setFormSubject(e.target.value)} placeholder="Don't miss our spring collection!" />
           </div>
           <div>
-            <label className="text-xs text-text-muted block mb-1">Template ID</label>
+            <label className="text-xs text-text-muted block mb-1">Template</label>
             <select className="input-glass w-full" value={formTemplate} onChange={(e) => setFormTemplate(e.target.value)}>
-              <option value="welcome">welcome</option>
-              <option value="password_reset">password_reset</option>
-              <option value="order_confirmation">order_confirmation</option>
-              <option value="payment_receipt">payment_receipt</option>
-              <option value="subscription_confirmation">subscription_confirmation</option>
-              <option value="subscription_cancelled">subscription_cancelled</option>
-              <option value="data_export_ready">data_export_ready</option>
-              <option value="account_deletion">account_deletion</option>
+              {availableTemplates.length === 0 && <option value="">Loading...</option>}
+              {availableTemplates.map((t) => (
+                <option key={t.name} value={t.name}>{t.display_name} ({t.name})</option>
+              ))}
             </select>
           </div>
           <div>
