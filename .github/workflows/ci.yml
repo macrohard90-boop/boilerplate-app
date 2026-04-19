@@ -149,4 +149,7 @@ jobs:
             git pull origin main
             docker compose build
             docker compose up -d
+            sleep 5
             docker compose ps
+            echo "--- Health check ---"
+            curl -sf http://localhost/api/health || echo "API health check failed"
