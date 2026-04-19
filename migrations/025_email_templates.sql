@@ -1,3 +1,4 @@
+-- UP
 -- 025: Email templates table + seed built-in templates
 -- Enables DB-backed template CRUD for the marketing admin UI.
 -- Hybrid resolution: DB templates take priority, filesystem fallback remains.
@@ -208,3 +209,6 @@ VALUES
     true
 )
 ON CONFLICT (name) DO NOTHING;
+
+-- DOWN
+DROP TABLE IF EXISTS marketing.email_templates CASCADE;
