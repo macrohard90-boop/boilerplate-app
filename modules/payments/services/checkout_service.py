@@ -90,47 +90,59 @@ async def checkout(
         }
 
     # 5. Resolve Stripe customer, build line items and description
-    from modules.ecommerce.services.subscription_service import get_or_create_stripe_customer
+    from modules.ecommerce.services.subscription_service import (
+        get_or_create_stripe_customer,
+    )
     from modules.payments.services import payment_settings_service
 
     stripe_customer_id = await get_or_create_stripe_customer(db, user_id, email)
 
     # Fetch order items with Stripe price IDs for invoice line items
     order_items = (
-        await db.execute(
-            text(
-                "SELECT oi.quantity, oi.unit_price, oi.product_snapshot, "
-                "oi.product_id, oi.variant_id, "
-                "COALESCE(v.stripe_price_id, p.stripe_price_id) AS stripe_price_id "
-                "FROM ecommerce.order_items oi "
-                "JOIN ecommerce.products p ON p.id = oi.product_id "
-                "JOIN ecommerce.product_variants v ON v.id = oi.variant_id "
-                "WHERE oi.order_id = :oid"
-            ),
-            {"oid": order_id},
+        (
+            await db.execute(
+                text(
+                    "SELECT oi.quantity, oi.unit_price, oi.product_snapshot, "
+                    "oi.product_id, oi.variant_id, "
+                    "COALESCE(v.stripe_price_id, p.stripe_price_id) AS stripe_price_id "
+                    "FROM ecommerce.order_items oi "
+                    "JOIN ecommerce.products p ON p.id = oi.product_id "
+                    "JOIN ecommerce.product_variants v ON v.id = oi.variant_id "
+                    "WHERE oi.order_id = :oid"
+                ),
+                {"oid": order_id},
+            )
         )
-    ).mappings().all()
+        .mappings()
+        .all()
+    )
 
     # Build description and Stripe line items
     desc_lines = []
     stripe_line_items = []
     all_synced = True
     for oi in order_items:
-        snap = oi["product_snapshot"] if isinstance(oi["product_snapshot"], dict) else {}
+        snap = (
+            oi["product_snapshot"] if isinstance(oi["product_snapshot"], dict) else {}
+        )
         name = snap.get("product_name", "Item")
         variant = snap.get("variant_name")
         label = f"{name} ({variant})" if variant else name
         desc_lines.append(f"{oi['quantity']}x {label}")
 
         if oi["stripe_price_id"]:
-            stripe_line_items.append({
-                "price": oi["stripe_price_id"],
-                "quantity": oi["quantity"],
-            })
+            stripe_line_items.append(
+                {
+                    "price": oi["stripe_price_id"],
+                    "quantity": oi["quantity"],
+                }
+            )
         else:
             all_synced = False
 
-    description = ", ".join(desc_lines) if desc_lines else f"Order {order['order_number']}"
+    description = (
+        ", ".join(desc_lines) if desc_lines else f"Order {order['order_number']}"
+    )
     # Only use invoice flow if ALL products are synced to Stripe
     line_items = stripe_line_items if all_synced and stripe_line_items else None
 
@@ -142,7 +154,11 @@ async def checkout(
             amount=order["total"],
             currency=order.get("currency", settings.default_currency),
             customer_id=stripe_customer_id,
-            metadata={"order_id": order_id, "user_id": user_id, "order_number": order["order_number"]},
+            metadata={
+                "order_id": order_id,
+                "user_id": user_id,
+                "order_number": order["order_number"],
+            },
             payment_method_types=enabled_methods,
             description=description,
             line_items=line_items,
@@ -189,38 +205,49 @@ async def _apply_discount_to_cart(
 
     # Calculate actual cart subtotal for min_order_amount validation
     cart_subtotal_row = (
-        await db.execute(
-            text(
-                "SELECT COALESCE(SUM("
-                "  ci.quantity * COALESCE(v.price_override, p.base_price)"
-                "), 0) AS subtotal "
-                "FROM ecommerce.cart c "
-                "JOIN ecommerce.cart_items ci ON ci.cart_id = c.id "
-                "JOIN ecommerce.products p ON p.id = ci.product_id "
-                "JOIN ecommerce.product_variants v ON v.id = ci.variant_id "
-                "WHERE c.user_id = :uid AND c.status = 'active'"
-            ),
-            {"uid": user_id},
+        (
+            await db.execute(
+                text(
+                    "SELECT COALESCE(SUM("
+                    "  ci.quantity * COALESCE(v.price_override, p.base_price)"
+                    "), 0) AS subtotal "
+                    "FROM ecommerce.cart c "
+                    "JOIN ecommerce.cart_items ci ON ci.cart_id = c.id "
+                    "JOIN ecommerce.products p ON p.id = ci.product_id "
+                    "JOIN ecommerce.product_variants v ON v.id = ci.variant_id "
+                    "WHERE c.user_id = :uid AND c.status = 'active'"
+                ),
+                {"uid": user_id},
+            )
         )
-    ).mappings().first()
+        .mappings()
+        .first()
+    )
     cart_subtotal = int(cart_subtotal_row["subtotal"]) if cart_subtotal_row else 0
 
     # Get cart product IDs for restriction validation
     cart_pids_rows = (
-        await db.execute(
-            text(
-                "SELECT DISTINCT ci.product_id FROM ecommerce.cart c "
-                "JOIN ecommerce.cart_items ci ON ci.cart_id = c.id "
-                "WHERE c.user_id = :uid AND c.status = 'active'"
-            ),
-            {"uid": user_id},
+        (
+            await db.execute(
+                text(
+                    "SELECT DISTINCT ci.product_id FROM ecommerce.cart c "
+                    "JOIN ecommerce.cart_items ci ON ci.cart_id = c.id "
+                    "WHERE c.user_id = :uid AND c.status = 'active'"
+                ),
+                {"uid": user_id},
+            )
         )
-    ).mappings().all()
+        .mappings()
+        .all()
+    )
     cart_product_ids = [str(r["product_id"]) for r in cart_pids_rows]
 
     discount = await discount_service.validate_discount(
-        db, discount_code, cart_subtotal,
-        user_id=user_id, cart_product_ids=cart_product_ids,
+        db,
+        discount_code,
+        cart_subtotal,
+        user_id=user_id,
+        cart_product_ids=cart_product_ids,
     )
     if not discount:
         raise ValueError("Invalid or expired discount code")
@@ -243,11 +270,17 @@ async def _release_order_inventory(db: AsyncSession, order_id: str) -> None:
     from modules.ecommerce.services import inventory_service
 
     items = (
-        await db.execute(
-            text("SELECT variant_id, quantity FROM ecommerce.order_items WHERE order_id = :oid"),
-            {"oid": order_id},
+        (
+            await db.execute(
+                text(
+                    "SELECT variant_id, quantity FROM ecommerce.order_items WHERE order_id = :oid"
+                ),
+                {"oid": order_id},
+            )
         )
-    ).mappings().all()
+        .mappings()
+        .all()
+    )
 
     for item in items:
         await inventory_service.release_stock(

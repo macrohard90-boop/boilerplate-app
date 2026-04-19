@@ -8,7 +8,11 @@ const SUBSCRIPTION_TABS = [
   { href: "/admin/subscriptions/subscribers", label: "Subscribers" },
 ];
 
-export default function SubscriptionsLayout({ children }: { children: React.ReactNode }) {
+export default function SubscriptionsLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   const pathname = usePathname();
 
   return (

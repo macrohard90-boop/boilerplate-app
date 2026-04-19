@@ -31,27 +31,35 @@ async def list_templates(
         params["category"] = category
 
     rows = (
-        await db.execute(
-            text(
-                f"SELECT id, name, display_name, subject, category, "
-                f"description, variables, is_builtin, version, "
-                f"created_at, updated_at "
-                f"FROM marketing.email_templates {where} "
-                f"ORDER BY category, display_name "
-                f"LIMIT :limit OFFSET :offset"
-            ),
-            params,
+        (
+            await db.execute(
+                text(
+                    f"SELECT id, name, display_name, subject, category, "
+                    f"description, variables, is_builtin, version, "
+                    f"created_at, updated_at "
+                    f"FROM marketing.email_templates {where} "
+                    f"ORDER BY category, display_name "
+                    f"LIMIT :limit OFFSET :offset"
+                ),
+                params,
+            )
         )
-    ).mappings().all()
+        .mappings()
+        .all()
+    )
 
     count_row = (
-        await db.execute(
-            text(
-                f"SELECT COUNT(*) as total FROM marketing.email_templates {where}"
-            ),
-            params,
+        (
+            await db.execute(
+                text(
+                    f"SELECT COUNT(*) as total FROM marketing.email_templates {where}"
+                ),
+                params,
+            )
         )
-    ).mappings().first()
+        .mappings()
+        .first()
+    )
 
     return {
         "items": [
@@ -76,21 +84,23 @@ async def list_templates(
     }
 
 
-async def get_template(
-    db: AsyncSession, template_id: str
-) -> dict[str, Any] | None:
+async def get_template(db: AsyncSession, template_id: str) -> dict[str, Any] | None:
     """Get a single template including html_content."""
     row = (
-        await db.execute(
-            text(
-                "SELECT id, name, display_name, subject, html_content, "
-                "category, description, variables, is_builtin, version, "
-                "created_by, created_at, updated_at "
-                "FROM marketing.email_templates WHERE id = :tid"
-            ),
-            {"tid": template_id},
+        (
+            await db.execute(
+                text(
+                    "SELECT id, name, display_name, subject, html_content, "
+                    "category, description, variables, is_builtin, version, "
+                    "created_by, created_at, updated_at "
+                    "FROM marketing.email_templates WHERE id = :tid"
+                ),
+                {"tid": template_id},
+            )
         )
-    ).mappings().first()
+        .mappings()
+        .first()
+    )
 
     if not row:
         return None
@@ -125,26 +135,30 @@ async def create_template(
 ) -> dict[str, Any]:
     """Create a new email template."""
     row = (
-        await db.execute(
-            text(
-                "INSERT INTO marketing.email_templates "
-                "(name, display_name, subject, html_content, category, "
-                "description, variables, created_by) "
-                "VALUES (:name, :dname, :subj, :html, :cat, :desc, :vars, :uid) "
-                "RETURNING id, version, created_at"
-            ),
-            {
-                "name": name,
-                "dname": display_name,
-                "subj": subject,
-                "html": html_content,
-                "cat": category,
-                "desc": description,
-                "vars": json.dumps(variables or []),
-                "uid": created_by,
-            },
+        (
+            await db.execute(
+                text(
+                    "INSERT INTO marketing.email_templates "
+                    "(name, display_name, subject, html_content, category, "
+                    "description, variables, created_by) "
+                    "VALUES (:name, :dname, :subj, :html, :cat, :desc, :vars, :uid) "
+                    "RETURNING id, version, created_at"
+                ),
+                {
+                    "name": name,
+                    "dname": display_name,
+                    "subj": subject,
+                    "html": html_content,
+                    "cat": category,
+                    "desc": description,
+                    "vars": json.dumps(variables or []),
+                    "uid": created_by,
+                },
+            )
         )
-    ).mappings().first()
+        .mappings()
+        .first()
+    )
 
     await db.commit()
     logger.info("Template created: %s (%s)", row["id"], name)
@@ -192,16 +206,20 @@ async def update_template(
         params["vars"] = json.dumps(variables)
 
     row = (
-        await db.execute(
-            text(
-                f"UPDATE marketing.email_templates "
-                f"SET {', '.join(set_parts)} "
-                f"WHERE id = :tid "
-                f"RETURNING id, name, display_name, version, updated_at"
-            ),
-            params,
+        (
+            await db.execute(
+                text(
+                    f"UPDATE marketing.email_templates "
+                    f"SET {', '.join(set_parts)} "
+                    f"WHERE id = :tid "
+                    f"RETURNING id, name, display_name, version, updated_at"
+                ),
+                params,
+            )
         )
-    ).mappings().first()
+        .mappings()
+        .first()
+    )
 
     if not row:
         return None
@@ -221,13 +239,17 @@ async def update_template(
 async def delete_template(db: AsyncSession, template_id: str) -> bool:
     """Delete a template. Rejects built-in templates."""
     row = (
-        await db.execute(
-            text(
-                "SELECT is_builtin FROM marketing.email_templates WHERE id = :tid"
-            ),
-            {"tid": template_id},
+        (
+            await db.execute(
+                text(
+                    "SELECT is_builtin FROM marketing.email_templates WHERE id = :tid"
+                ),
+                {"tid": template_id},
+            )
         )
-    ).mappings().first()
+        .mappings()
+        .first()
+    )
 
     if not row:
         raise ValueError("Template not found")

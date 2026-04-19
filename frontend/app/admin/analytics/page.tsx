@@ -77,12 +77,21 @@ interface SourceStats {
 }
 
 interface UTMStats {
-  campaigns: { utm_source: string | null; utm_medium: string | null; utm_campaign: string | null; sessions: number }[];
+  campaigns: {
+    utm_source: string | null;
+    utm_medium: string | null;
+    utm_campaign: string | null;
+    sessions: number;
+  }[];
 }
 
 interface DeviceStats {
   total_agents: number;
-  by_device_type: { device_type: string; count: number; total_duration_ms: number }[];
+  by_device_type: {
+    device_type: string;
+    count: number;
+    total_duration_ms: number;
+  }[];
   by_browser: { browser: string; count: number; total_duration_ms: number }[];
   by_os: { os: string; count: number; total_duration_ms: number }[];
 }
@@ -117,7 +126,10 @@ interface EnrichedUserList {
 function friendlyPageName(path: string): string {
   const clean = path.replace(/^\//, "");
   if (!clean) return "Home";
-  return clean.split("/").map((s) => s.charAt(0).toUpperCase() + s.slice(1)).join(" / ");
+  return clean
+    .split("/")
+    .map((s) => s.charAt(0).toUpperCase() + s.slice(1))
+    .join(" / ");
 }
 
 function nowLocal(): string {
@@ -133,7 +145,11 @@ function thirtyDaysAgoLocal(): string {
   return d.toISOString().slice(0, 16);
 }
 
-function buildFilterQS(dateFrom: string, dateTo: string, excludeBots: boolean): string {
+function buildFilterQS(
+  dateFrom: string,
+  dateTo: string,
+  excludeBots: boolean,
+): string {
   const qs = new URLSearchParams();
   if (dateFrom) qs.set("date_from", new Date(dateFrom).toISOString());
   if (dateTo) qs.set("date_to", new Date(dateTo).toISOString());
@@ -199,30 +215,45 @@ function FilterBar({
       <div className="flex flex-wrap items-end gap-4">
         <div>
           <label className="text-xs text-text-muted block mb-1">From</label>
-          <input type="datetime-local" value={dateFrom} max={dateTo || maxDate}
+          <input
+            type="datetime-local"
+            value={dateFrom}
+            max={dateTo || maxDate}
             onChange={(e) => onDateFromChange(e.target.value)}
-            className="bg-glass-bg border border-glass-border rounded-lg px-3 py-1.5 text-sm text-text-primary" />
+            className="bg-glass-bg border border-glass-border rounded-lg px-3 py-1.5 text-sm text-text-primary"
+          />
         </div>
         <div>
           <label className="text-xs text-text-muted block mb-1">To</label>
-          <input type="datetime-local" value={dateTo} max={maxDate}
+          <input
+            type="datetime-local"
+            value={dateTo}
+            max={maxDate}
             onChange={(e) => onDateToChange(e.target.value)}
-            className="bg-glass-bg border border-glass-border rounded-lg px-3 py-1.5 text-sm text-text-primary" />
+            className="bg-glass-bg border border-glass-border rounded-lg px-3 py-1.5 text-sm text-text-primary"
+          />
         </div>
         <label className="flex items-center gap-2 text-sm text-text-secondary cursor-pointer pb-1">
-          <input type="checkbox" checked={excludeBots}
+          <input
+            type="checkbox"
+            checked={excludeBots}
             onChange={(e) => onExcludeBotsChange(e.target.checked)}
-            className="rounded border-glass-border" />
+            className="rounded border-glass-border"
+          />
           Exclude bots
         </label>
         {children}
         <div className="flex gap-2 pb-0.5">
-          <button onClick={onApply}
-            className="px-4 py-1.5 text-sm rounded-lg bg-accent-pink/20 text-accent-pink hover:bg-accent-pink/30 transition-colors">
+          <button
+            onClick={onApply}
+            className="px-4 py-1.5 text-sm rounded-lg bg-accent-pink/20 text-accent-pink hover:bg-accent-pink/30 transition-colors"
+          >
             Apply
           </button>
-          <button onClick={onReset}
-            className="px-4 py-1.5 text-sm rounded-lg bg-glass-bg text-text-muted hover:text-text-secondary transition-colors">
+          <button
+            onClick={onReset}
+            className="px-4 py-1.5 text-sm rounded-lg bg-glass-bg text-text-muted hover:text-text-secondary transition-colors"
+          >
             Reset
           </button>
         </div>
@@ -231,9 +262,16 @@ function FilterBar({
   );
 }
 
-function BreakdownBar({ items, colorClass }: { items: { label: string; count: number }[]; colorClass: string }) {
+function BreakdownBar({
+  items,
+  colorClass,
+}: {
+  items: { label: string; count: number }[];
+  colorClass: string;
+}) {
   const total = items.reduce((sum, i) => sum + i.count, 0);
-  if (total === 0) return <p className="text-sm text-text-muted">No data available</p>;
+  if (total === 0)
+    return <p className="text-sm text-text-muted">No data available</p>;
   return (
     <div className="space-y-2">
       {items.map((item, i) => {
@@ -242,10 +280,15 @@ function BreakdownBar({ items, colorClass }: { items: { label: string; count: nu
           <div key={i}>
             <div className="flex justify-between text-sm mb-1">
               <span className="text-text-secondary">{item.label}</span>
-              <span className="text-text-muted text-xs">{item.count} ({pct}%)</span>
+              <span className="text-text-muted text-xs">
+                {item.count} ({pct}%)
+              </span>
             </div>
             <div className="w-full h-1.5 rounded-full bg-glass-bg overflow-hidden">
-              <div className={`h-full rounded-full ${colorClass} transition-all`} style={{ width: `${pct}%` }} />
+              <div
+                className={`h-full rounded-full ${colorClass} transition-all`}
+                style={{ width: `${pct}%` }}
+              />
             </div>
           </div>
         );
@@ -254,22 +297,46 @@ function BreakdownBar({ items, colorClass }: { items: { label: string; count: nu
   );
 }
 
-function ChangeBadge({ metric, invert }: { metric: KPIMetric; invert?: boolean }) {
+function ChangeBadge({
+  metric,
+  invert,
+}: {
+  metric: KPIMetric;
+  invert?: boolean;
+}) {
   const pct = metric.change_pct;
   if (pct == null) return <span className="text-xs text-text-muted">-</span>;
   const positive = invert ? pct < 0 : pct > 0;
   const negative = invert ? pct > 0 : pct < 0;
   const arrow = pct > 0 ? "\u2191" : pct < 0 ? "\u2193" : "";
-  const color = positive ? "bg-green-500/20 text-green-400" : negative ? "bg-red-500/20 text-red-400" : "bg-gray-500/20 text-gray-400";
+  const color = positive
+    ? "bg-green-500/20 text-green-400"
+    : negative
+      ? "bg-red-500/20 text-red-400"
+      : "bg-gray-500/20 text-gray-400";
   return (
-    <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-xs font-medium ${color}`}>
+    <span
+      className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-xs font-medium ${color}`}
+    >
       {arrow} {Math.abs(pct)}%
     </span>
   );
 }
 
-function KPICard({ label, value, metric, format, invert, hint }: {
-  label: string; value: string; metric: KPIMetric; format?: string; invert?: boolean; hint?: string;
+function KPICard({
+  label,
+  value,
+  metric,
+  format,
+  invert,
+  hint,
+}: {
+  label: string;
+  value: string;
+  metric: KPIMetric;
+  format?: string;
+  invert?: boolean;
+  hint?: string;
 }) {
   return (
     <div className="glass rounded-xl p-5">
@@ -292,8 +359,11 @@ function OverviewTab() {
 
   const [dashboard, setDashboard] = useState<DashboardSummary | null>(null);
   const [timeseries, setTimeseries] = useState<PageviewTimeSeries | null>(null);
-  const [activeSessions, setActiveSessions] = useState<ActiveSessionsResponse | null>(null);
-  const [engagement, setEngagement] = useState<PagesEngagementResponse | null>(null);
+  const [activeSessions, setActiveSessions] =
+    useState<ActiveSessionsResponse | null>(null);
+  const [engagement, setEngagement] = useState<PagesEngagementResponse | null>(
+    null,
+  );
   const [sources, setSources] = useState<SourceStats | null>(null);
   const [utm, setUtm] = useState<UTMStats | null>(null);
   const [devices, setDevices] = useState<DeviceStats | null>(null);
@@ -311,7 +381,9 @@ function OverviewTab() {
 
   // Fetch active sessions (independent of filters, polled)
   const fetchActive = useCallback(() => {
-    apiFetch<ActiveSessionsResponse>("/tracking/admin/analytics/active-sessions")
+    apiFetch<ActiveSessionsResponse>(
+      "/tracking/admin/analytics/active-sessions",
+    )
       .then(setActiveSessions)
       .catch(() => {});
   }, []);
@@ -327,55 +399,89 @@ function OverviewTab() {
     const now = new Date();
     const from = new Date(now);
     switch (range) {
-      case "hour": from.setMinutes(from.getMinutes() - 60); break;
-      case "day": from.setHours(from.getHours() - 24); break;
-      case "week": from.setDate(from.getDate() - 7); break;
-      case "month": from.setDate(from.getDate() - 30); break;
-      case "year": from.setFullYear(from.getFullYear() - 1); break;
+      case "hour":
+        from.setMinutes(from.getMinutes() - 60);
+        break;
+      case "day":
+        from.setHours(from.getHours() - 24);
+        break;
+      case "week":
+        from.setDate(from.getDate() - 7);
+        break;
+      case "month":
+        from.setDate(from.getDate() - 30);
+        break;
+      case "year":
+        from.setFullYear(from.getFullYear() - 1);
+        break;
     }
     return `?date_from=${from.toISOString()}&date_to=${now.toISOString()}&exclude_bots=${bots}`;
   }, []);
 
   // Stable fetch helpers — deps are passed as args, not captured in useCallback
-  const fetchTimeseriesFor = useCallback((g: string, bots: boolean) => {
-    const qs = lookbackQS(g, bots) + `&granularity=${g}`;
-    apiFetch<PageviewTimeSeries>(`/tracking/admin/analytics/pageviews/timeseries${qs}`)
-      .then(setTimeseries).catch(() => null);
-  }, [lookbackQS]);
+  const fetchTimeseriesFor = useCallback(
+    (g: string, bots: boolean) => {
+      const qs = lookbackQS(g, bots) + `&granularity=${g}`;
+      apiFetch<PageviewTimeSeries>(
+        `/tracking/admin/analytics/pageviews/timeseries${qs}`,
+      )
+        .then(setTimeseries)
+        .catch(() => null);
+    },
+    [lookbackQS],
+  );
 
-  const fetchDevicesFor = useCallback((range: string, bots: boolean) => {
-    const qs = lookbackQS(range, bots);
-    apiFetch<DeviceStats>(`/tracking/admin/analytics/devices${qs}`)
-      .then(setDevices).catch(() => null);
-  }, [lookbackQS]);
+  const fetchDevicesFor = useCallback(
+    (range: string, bots: boolean) => {
+      const qs = lookbackQS(range, bots);
+      apiFetch<DeviceStats>(`/tracking/admin/analytics/devices${qs}`)
+        .then(setDevices)
+        .catch(() => null);
+    },
+    [lookbackQS],
+  );
 
   // Main data fetch — only re-runs on filter bar Apply/Reset
   useEffect(() => {
     setLoading(true);
     const q = buildQS();
     Promise.all([
-      apiFetch<DashboardSummary>(`/tracking/admin/analytics/dashboard${q}`).catch(() => null),
-      apiFetch<PagesEngagementResponse>(`/tracking/admin/analytics/pages/engagement${q}`).catch(() => null),
-      apiFetch<SourceStats>(`/tracking/admin/analytics/sources${q}`).catch(() => null),
+      apiFetch<DashboardSummary>(
+        `/tracking/admin/analytics/dashboard${q}`,
+      ).catch(() => null),
+      apiFetch<PagesEngagementResponse>(
+        `/tracking/admin/analytics/pages/engagement${q}`,
+      ).catch(() => null),
+      apiFetch<SourceStats>(`/tracking/admin/analytics/sources${q}`).catch(
+        () => null,
+      ),
       apiFetch<UTMStats>(`/tracking/admin/analytics/utm${q}`).catch(() => null),
-      apiFetch<EventStats>(`/tracking/admin/analytics/events${q}`).catch(() => null),
-    ]).then(([dash, eng, src, u, ev]) => {
-      setDashboard(dash);
-      setEngagement(eng);
-      setSources(src);
-      setUtm(u);
-      setEvents(ev);
-    }).finally(() => setLoading(false));
+      apiFetch<EventStats>(`/tracking/admin/analytics/events${q}`).catch(
+        () => null,
+      ),
+    ])
+      .then(([dash, eng, src, u, ev]) => {
+        setDashboard(dash);
+        setEngagement(eng);
+        setSources(src);
+        setUtm(u);
+        setEvents(ev);
+      })
+      .finally(() => setLoading(false));
     fetchTimeseriesFor(granularity, excludeBots);
     fetchDevicesFor(deviceRange, excludeBots);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fetchKey, buildQS]);
 
   // Refetch only timeseries when granularity changes
-  useEffect(() => { fetchTimeseriesFor(granularity, excludeBots); }, [granularity, excludeBots, fetchTimeseriesFor]);
+  useEffect(() => {
+    fetchTimeseriesFor(granularity, excludeBots);
+  }, [granularity, excludeBots, fetchTimeseriesFor]);
 
   // Refetch only devices when device range changes
-  useEffect(() => { fetchDevicesFor(deviceRange, excludeBots); }, [deviceRange, excludeBots, fetchDevicesFor]);
+  useEffect(() => {
+    fetchDevicesFor(deviceRange, excludeBots);
+  }, [deviceRange, excludeBots, fetchDevicesFor]);
 
   const handleApply = () => setFetchKey((k) => k + 1);
   const handleReset = () => {
@@ -407,17 +513,21 @@ function OverviewTab() {
   // Sort sessions by page_duration_sec descending, show top 5
   const sortedSessions = (activeSessions?.sessions ?? [])
     .slice()
-    .sort((a, b) => ((b.page_duration_sec ?? 0) - (a.page_duration_sec ?? 0)));
+    .sort((a, b) => (b.page_duration_sec ?? 0) - (a.page_duration_sec ?? 0));
   const displaySessions = sortedSessions.slice(0, 5);
   const extraCount = sortedSessions.length - displaySessions.length;
 
   return (
     <>
       <FilterBar
-        dateFrom={dateFrom} dateTo={dateTo} excludeBots={excludeBots}
-        onDateFromChange={setDateFrom} onDateToChange={setDateTo}
+        dateFrom={dateFrom}
+        dateTo={dateTo}
+        excludeBots={excludeBots}
+        onDateFromChange={setDateFrom}
+        onDateToChange={setDateTo}
         onExcludeBotsChange={setExcludeBots}
-        onApply={handleApply} onReset={handleReset}
+        onApply={handleApply}
+        onReset={handleReset}
       />
 
       {/* Row 1: Active Sessions Banner */}
@@ -430,7 +540,8 @@ function OverviewTab() {
                 <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500" />
               </span>
               <span className="text-text-primary font-semibold">
-                {activeSessions.count} visitor{activeSessions.count !== 1 ? "s" : ""} on your site right now
+                {activeSessions.count} visitor
+                {activeSessions.count !== 1 ? "s" : ""} on your site right now
               </span>
             </div>
             <table className="w-full text-sm">
@@ -447,14 +558,25 @@ function OverviewTab() {
                 {displaySessions.map((s) => {
                   const pageDur = (s.page_duration_sec ?? 0) + tickOffset;
                   const sessDur = s.duration_sec + tickOffset;
-                  const idleDur = s.idle_duration_sec != null ? s.idle_duration_sec + tickOffset : null;
+                  const idleDur =
+                    s.idle_duration_sec != null
+                      ? s.idle_duration_sec + tickOffset
+                      : null;
                   return (
-                    <tr key={s.session_id} className="border-t border-glass-border/30">
+                    <tr
+                      key={s.session_id}
+                      className="border-t border-glass-border/30"
+                    >
                       <td className="py-1.5 text-text-secondary text-xs truncate max-w-[160px]">
                         {s.user_email || "(anonymous)"}
                       </td>
-                      <td className="py-1.5 text-text-muted text-xs truncate max-w-[160px]" title={s.current_page || ""}>
-                        {s.current_page ? friendlyPageName(s.current_page) : "-"}
+                      <td
+                        className="py-1.5 text-text-muted text-xs truncate max-w-[160px]"
+                        title={s.current_page || ""}
+                      >
+                        {s.current_page
+                          ? friendlyPageName(s.current_page)
+                          : "-"}
                       </td>
                       <td className="py-1.5">
                         {s.presence_status === "active" ? (
@@ -466,7 +588,10 @@ function OverviewTab() {
                           <span className="inline-flex items-center gap-1.5 text-xs">
                             <span className="inline-flex rounded-full h-2 w-2 bg-yellow-500" />
                             <span className="text-yellow-400">
-                              Idle{idleDur != null ? ` ${formatDurationSec(idleDur)}` : ""}
+                              Idle
+                              {idleDur != null
+                                ? ` ${formatDurationSec(idleDur)}`
+                                : ""}
                             </span>
                           </span>
                         ) : (
@@ -477,7 +602,9 @@ function OverviewTab() {
                         )}
                       </td>
                       <td className="py-1.5 text-text-primary text-xs text-right font-medium">
-                        {s.page_duration_sec != null ? formatDurationSec(pageDur) : formatDurationSec(sessDur)}
+                        {s.page_duration_sec != null
+                          ? formatDurationSec(pageDur)
+                          : formatDurationSec(sessDur)}
                       </td>
                       <td className="py-1.5 text-text-muted text-xs text-right">
                         {formatDurationSec(sessDur)}
@@ -488,13 +615,17 @@ function OverviewTab() {
               </tbody>
             </table>
             {extraCount > 0 && (
-              <p className="text-xs text-text-muted mt-2">and {extraCount} more</p>
+              <p className="text-xs text-text-muted mt-2">
+                and {extraCount} more
+              </p>
             )}
           </>
         ) : (
           <div className="flex items-center gap-3">
             <span className="inline-flex rounded-full h-3 w-3 bg-gray-500" />
-            <span className="text-text-muted">No active visitors right now</span>
+            <span className="text-text-muted">
+              No active visitors right now
+            </span>
           </div>
         )}
       </div>
@@ -506,34 +637,57 @@ function OverviewTab() {
           {/* Row 2: Conversion Funnel (full-width) */}
           {dashboard && (
             <div className="glass rounded-xl p-6 mb-6">
-              <h2 className="text-lg font-semibold text-text-primary mb-4">Conversion Funnel</h2>
+              <h2 className="text-lg font-semibold text-text-primary mb-4">
+                Conversion Funnel
+              </h2>
               {(() => {
-                const visitors = Math.round(dashboard.unique_visitors.current ?? 0);
-                const atcCount = events?.by_type.find((e) => e.event_type === "add_to_cart")?.count ?? 0;
-                const csCount = events?.by_type.find((e) => e.event_type === "checkout_started")?.count ?? 0;
+                const visitors = Math.round(
+                  dashboard.unique_visitors.current ?? 0,
+                );
+                const atcCount =
+                  events?.by_type.find((e) => e.event_type === "add_to_cart")
+                    ?.count ?? 0;
+                const csCount =
+                  events?.by_type.find(
+                    (e) => e.event_type === "checkout_started",
+                  )?.count ?? 0;
                 const steps = [
                   { label: "Visitors", count: visitors },
                   { label: "Add to Cart", count: atcCount },
                   { label: "Checkout", count: csCount },
                 ];
                 if (visitors === 0 && atcCount === 0) {
-                  return <p className="text-sm text-text-muted">No funnel data yet</p>;
+                  return (
+                    <p className="text-sm text-text-muted">
+                      No funnel data yet
+                    </p>
+                  );
                 }
                 const maxCount = Math.max(...steps.map((s) => s.count), 1);
                 return (
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     {steps.map((step, i) => {
-                      const pct = i > 0 && steps[i - 1].count > 0
-                        ? ((step.count / steps[i - 1].count) * 100).toFixed(1)
-                        : null;
-                      const barWidth = Math.max((step.count / maxCount) * 100, 4);
+                      const pct =
+                        i > 0 && steps[i - 1].count > 0
+                          ? ((step.count / steps[i - 1].count) * 100).toFixed(1)
+                          : null;
+                      const barWidth = Math.max(
+                        (step.count / maxCount) * 100,
+                        4,
+                      );
                       return (
                         <div key={step.label}>
                           <div className="flex justify-between text-sm mb-1.5">
-                            <span className="text-text-primary font-medium">{step.label}</span>
+                            <span className="text-text-primary font-medium">
+                              {step.label}
+                            </span>
                             <span className="text-text-muted text-xs">
                               {step.count.toLocaleString()}
-                              {pct && <span className="ml-1 text-blue-400">({pct}%)</span>}
+                              {pct && (
+                                <span className="ml-1 text-blue-400">
+                                  ({pct}%)
+                                </span>
+                              )}
                             </span>
                           </div>
                           <div className="w-full h-3 rounded-full bg-glass-bg overflow-hidden">
@@ -544,8 +698,17 @@ function OverviewTab() {
                           </div>
                           {i < steps.length - 1 && (
                             <div className="hidden md:flex justify-end mt-2 text-text-muted/40">
-                              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                                <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
+                              <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                className="h-5 w-5"
+                                viewBox="0 0 20 20"
+                                fill="currentColor"
+                              >
+                                <path
+                                  fillRule="evenodd"
+                                  d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z"
+                                  clipRule="evenodd"
+                                />
                               </svg>
                             </div>
                           )}
@@ -561,26 +724,66 @@ function OverviewTab() {
           {/* Row 3: KPI Cards */}
           {dashboard && (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-              <KPICard label="Total Pageviews" value={Math.round(dashboard.total_pageviews.current).toLocaleString()} metric={dashboard.total_pageviews} />
-              <KPICard label="Unique Visitors" value={Math.round(dashboard.unique_visitors.current).toLocaleString()} metric={dashboard.unique_visitors} />
+              <KPICard
+                label="Total Pageviews"
+                value={Math.round(
+                  dashboard.total_pageviews.current,
+                ).toLocaleString()}
+                metric={dashboard.total_pageviews}
+              />
+              <KPICard
+                label="Unique Visitors"
+                value={Math.round(
+                  dashboard.unique_visitors.current,
+                ).toLocaleString()}
+                metric={dashboard.unique_visitors}
+              />
               <div className="glass rounded-xl p-5 group relative">
                 <p className="text-xs text-text-muted mb-1">
                   New vs Returning
-                  <span className="ml-1 inline-block w-3.5 h-3.5 rounded-full border border-text-muted/40 text-center text-[10px] leading-[13px] cursor-help align-middle">?</span>
+                  <span className="ml-1 inline-block w-3.5 h-3.5 rounded-full border border-text-muted/40 text-center text-[10px] leading-[13px] cursor-help align-middle">
+                    ?
+                  </span>
                 </p>
                 <div className="flex items-end gap-2 mb-1">
                   <p className="text-2xl font-bold text-text-primary">
-                    {Math.round(dashboard.new_visitors.current)} <span className="text-sm font-normal text-text-muted">new</span> / {Math.round(dashboard.returning_visitors.current)} <span className="text-sm font-normal text-text-muted">ret</span>
+                    {Math.round(dashboard.new_visitors.current)}{" "}
+                    <span className="text-sm font-normal text-text-muted">
+                      new
+                    </span>{" "}
+                    / {Math.round(dashboard.returning_visitors.current)}{" "}
+                    <span className="text-sm font-normal text-text-muted">
+                      ret
+                    </span>
                   </p>
                   <ChangeBadge metric={dashboard.new_visitors} />
                 </div>
                 <div className="invisible group-hover:visible absolute left-0 right-0 top-full mt-1 z-20 glass rounded-lg p-3 text-xs text-text-secondary border border-glass-border/50 shadow-lg">
-                  <p className="mb-1"><span className="font-medium text-text-primary">New:</span> First-ever pageview (all time) falls within the selected dates</p>
-                  <p><span className="font-medium text-text-primary">Returning:</span> Had at least one pageview before the selected dates, and visited again during them</p>
-                  <p className="mt-1 text-text-muted">Only authenticated users are counted. Dates are set by the filter above (default: last 30 days).</p>
+                  <p className="mb-1">
+                    <span className="font-medium text-text-primary">New:</span>{" "}
+                    First-ever pageview (all time) falls within the selected
+                    dates
+                  </p>
+                  <p>
+                    <span className="font-medium text-text-primary">
+                      Returning:
+                    </span>{" "}
+                    Had at least one pageview before the selected dates, and
+                    visited again during them
+                  </p>
+                  <p className="mt-1 text-text-muted">
+                    Only authenticated users are counted. Dates are set by the
+                    filter above (default: last 30 days).
+                  </p>
                 </div>
               </div>
-              <KPICard label="Avg Active / Session" value={formatDurationSec(dashboard.avg_active_per_session.current)} metric={dashboard.avg_active_per_session} />
+              <KPICard
+                label="Avg Active / Session"
+                value={formatDurationSec(
+                  dashboard.avg_active_per_session.current,
+                )}
+                metric={dashboard.avg_active_per_session}
+              />
             </div>
           )}
 
@@ -588,18 +791,33 @@ function OverviewTab() {
           {timeseries && timeseries.points.length > 0 && (
             <div className="glass rounded-xl p-6 mb-6">
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-semibold text-text-primary">Traffic Over Time</h2>
+                <h2 className="text-lg font-semibold text-text-primary">
+                  Traffic Over Time
+                </h2>
                 <div className="flex gap-1">
-                  {(["hour", "day", "week", "month", "year"] as const).map((g) => (
-                    <button key={g} onClick={() => setGranularity(g)}
-                      className={`px-2.5 py-1 text-xs rounded-md transition-colors ${
-                        granularity === g
-                          ? "bg-accent-pink/20 text-accent-pink"
-                          : "text-text-muted hover:text-text-secondary"
-                      }`}>
-                      {g === "hour" ? "Hourly" : g === "day" ? "Daily" : g === "week" ? "Weekly" : g === "month" ? "Monthly" : "Yearly"}
-                    </button>
-                  ))}
+                  {(["hour", "day", "week", "month", "year"] as const).map(
+                    (g) => (
+                      <button
+                        key={g}
+                        onClick={() => setGranularity(g)}
+                        className={`px-2.5 py-1 text-xs rounded-md transition-colors ${
+                          granularity === g
+                            ? "bg-accent-pink/20 text-accent-pink"
+                            : "text-text-muted hover:text-text-secondary"
+                        }`}
+                      >
+                        {g === "hour"
+                          ? "Hourly"
+                          : g === "day"
+                            ? "Daily"
+                            : g === "week"
+                              ? "Weekly"
+                              : g === "month"
+                                ? "Monthly"
+                                : "Yearly"}
+                      </button>
+                    ),
+                  )}
                 </div>
               </div>
               <AreaSparkChart
@@ -623,7 +841,9 @@ function OverviewTab() {
           {/* Row 5: Top Pages + Traffic Sources */}
           <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 mb-6">
             <div className="lg:col-span-3 glass rounded-xl p-6">
-              <h2 className="text-lg font-semibold text-text-primary mb-4">Top Pages</h2>
+              <h2 className="text-lg font-semibold text-text-primary mb-4">
+                Top Pages
+              </h2>
               {engagement?.pages && engagement.pages.length > 0 ? (
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
@@ -637,19 +857,35 @@ function OverviewTab() {
                     </thead>
                     <tbody>
                       {engagement.pages.slice(0, 10).map((p, i) => {
-                        const bounceRate = p.entry_count > 0 ? Math.round((p.bounce_count / p.entry_count) * 100) : 0;
-                        const lowDuration = p.avg_duration_ms != null && p.avg_duration_ms < 5000;
+                        const bounceRate =
+                          p.entry_count > 0
+                            ? Math.round((p.bounce_count / p.entry_count) * 100)
+                            : 0;
+                        const lowDuration =
+                          p.avg_duration_ms != null && p.avg_duration_ms < 5000;
                         const highBounce = bounceRate > 60;
                         return (
-                          <tr key={i} className="border-t border-glass-border/30">
-                            <td className="py-2 text-text-secondary truncate max-w-[200px]" title={p.path}>
+                          <tr
+                            key={i}
+                            className="border-t border-glass-border/30"
+                          >
+                            <td
+                              className="py-2 text-text-secondary truncate max-w-[200px]"
+                              title={p.path}
+                            >
                               {friendlyPageName(p.path)}
                             </td>
-                            <td className="py-2 text-text-primary text-right font-medium">{p.views}</td>
-                            <td className={`py-2 text-right ${lowDuration ? "text-amber-400" : "text-text-muted"}`}>
+                            <td className="py-2 text-text-primary text-right font-medium">
+                              {p.views}
+                            </td>
+                            <td
+                              className={`py-2 text-right ${lowDuration ? "text-amber-400" : "text-text-muted"}`}
+                            >
                               {formatDurationMs(p.avg_duration_ms)}
                             </td>
-                            <td className={`py-2 text-right ${highBounce ? "text-red-400" : "text-text-muted"}`}>
+                            <td
+                              className={`py-2 text-right ${highBounce ? "text-red-400" : "text-text-muted"}`}
+                            >
                               {p.entry_count > 0 ? `${bounceRate}%` : "-"}
                             </td>
                           </tr>
@@ -664,11 +900,16 @@ function OverviewTab() {
             </div>
 
             <div className="lg:col-span-2 glass rounded-xl p-6">
-              <h2 className="text-lg font-semibold text-text-primary mb-4">Traffic Sources</h2>
+              <h2 className="text-lg font-semibold text-text-primary mb-4">
+                Traffic Sources
+              </h2>
               <BreakdownBar
                 items={(sources?.sources ?? []).slice(0, 8).map((s) => {
-                  const src = (s.source || "direct").charAt(0).toUpperCase() + (s.source || "direct").slice(1);
-                  const med = s.medium && s.medium !== "none" ? ` / ${s.medium}` : "";
+                  const src =
+                    (s.source || "direct").charAt(0).toUpperCase() +
+                    (s.source || "direct").slice(1);
+                  const med =
+                    s.medium && s.medium !== "none" ? ` / ${s.medium}` : "";
                   return { label: `${src}${med}`, count: s.sessions };
                 })}
                 colorClass="bg-accent-pink/60"
@@ -680,19 +921,35 @@ function OverviewTab() {
           <div className="glass rounded-xl p-6 mb-6">
             <div className="flex items-center justify-between mb-1">
               <h2 className="text-lg font-semibold text-text-primary">
-                Device / Browser / OS <span className="text-sm font-normal text-text-muted">(Sessions)</span>
+                Device / Browser / OS{" "}
+                <span className="text-sm font-normal text-text-muted">
+                  (Sessions)
+                </span>
               </h2>
               <div className="flex gap-1">
-                {(["hour", "day", "week", "month", "year"] as const).map((r) => (
-                  <button key={r} onClick={() => setDeviceRange(r)}
-                    className={`px-2.5 py-1 text-xs rounded-md transition-colors ${
-                      deviceRange === r
-                        ? "bg-accent-purple/20 text-accent-purple"
-                        : "text-text-muted hover:text-text-secondary"
-                    }`}>
-                    {r === "hour" ? "Last Hour" : r === "day" ? "Last 24h" : r === "week" ? "7 Days" : r === "month" ? "30 Days" : "Yearly"}
-                  </button>
-                ))}
+                {(["hour", "day", "week", "month", "year"] as const).map(
+                  (r) => (
+                    <button
+                      key={r}
+                      onClick={() => setDeviceRange(r)}
+                      className={`px-2.5 py-1 text-xs rounded-md transition-colors ${
+                        deviceRange === r
+                          ? "bg-accent-purple/20 text-accent-purple"
+                          : "text-text-muted hover:text-text-secondary"
+                      }`}
+                    >
+                      {r === "hour"
+                        ? "Last Hour"
+                        : r === "day"
+                          ? "Last 24h"
+                          : r === "week"
+                            ? "7 Days"
+                            : r === "month"
+                              ? "30 Days"
+                              : "Yearly"}
+                    </button>
+                  ),
+                )}
               </div>
             </div>
 
@@ -709,13 +966,21 @@ function OverviewTab() {
                       return (
                         <div key={d.device_type}>
                           <div className="flex items-baseline justify-between mb-1">
-                            <span className="text-sm font-medium text-accent-purple">{d.device_type}</span>
+                            <span className="text-sm font-medium text-accent-purple">
+                              {d.device_type}
+                            </span>
                             <span className="text-xs text-text-muted">
-                              {d.count} ({pct}%) <span className="font-medium text-text-secondary ml-1">{formatDurationMs(d.total_duration_ms)}</span>
+                              {d.count} ({pct}%){" "}
+                              <span className="font-medium text-text-secondary ml-1">
+                                {formatDurationMs(d.total_duration_ms)}
+                              </span>
                             </span>
                           </div>
                           <div className="w-full h-1.5 rounded-full bg-glass-bg overflow-hidden">
-                            <div className="h-full rounded-full bg-accent-purple/60 transition-all" style={{ width: `${barWidth}%` }} />
+                            <div
+                              className="h-full rounded-full bg-accent-purple/60 transition-all"
+                              style={{ width: `${barWidth}%` }}
+                            />
                           </div>
                         </div>
                       );
@@ -734,13 +999,21 @@ function OverviewTab() {
                       return (
                         <div key={d.browser}>
                           <div className="flex items-baseline justify-between mb-1">
-                            <span className="text-sm font-medium text-blue-400">{d.browser}</span>
+                            <span className="text-sm font-medium text-blue-400">
+                              {d.browser}
+                            </span>
                             <span className="text-xs text-text-muted">
-                              {d.count} ({pct}%) <span className="font-medium text-text-secondary ml-1">{formatDurationMs(d.total_duration_ms)}</span>
+                              {d.count} ({pct}%){" "}
+                              <span className="font-medium text-text-secondary ml-1">
+                                {formatDurationMs(d.total_duration_ms)}
+                              </span>
                             </span>
                           </div>
                           <div className="w-full h-1.5 rounded-full bg-glass-bg overflow-hidden">
-                            <div className="h-full rounded-full bg-blue-500/60 transition-all" style={{ width: `${barWidth}%` }} />
+                            <div
+                              className="h-full rounded-full bg-blue-500/60 transition-all"
+                              style={{ width: `${barWidth}%` }}
+                            />
                           </div>
                         </div>
                       );
@@ -750,7 +1023,9 @@ function OverviewTab() {
 
                 {/* Operating Systems */}
                 <div>
-                  <p className="text-xs text-text-muted mb-2">Operating Systems</p>
+                  <p className="text-xs text-text-muted mb-2">
+                    Operating Systems
+                  </p>
                   <div className="space-y-3">
                     {(devices.by_os ?? []).map((d) => {
                       const total = devices.total_agents || 1;
@@ -759,13 +1034,21 @@ function OverviewTab() {
                       return (
                         <div key={d.os}>
                           <div className="flex items-baseline justify-between mb-1">
-                            <span className="text-sm font-medium text-emerald-400">{d.os}</span>
+                            <span className="text-sm font-medium text-emerald-400">
+                              {d.os}
+                            </span>
                             <span className="text-xs text-text-muted">
-                              {d.count} ({pct}%) <span className="font-medium text-text-secondary ml-1">{formatDurationMs(d.total_duration_ms)}</span>
+                              {d.count} ({pct}%){" "}
+                              <span className="font-medium text-text-secondary ml-1">
+                                {formatDurationMs(d.total_duration_ms)}
+                              </span>
                             </span>
                           </div>
                           <div className="w-full h-1.5 rounded-full bg-glass-bg overflow-hidden">
-                            <div className="h-full rounded-full bg-emerald-500/60 transition-all" style={{ width: `${barWidth}%` }} />
+                            <div
+                              className="h-full rounded-full bg-emerald-500/60 transition-all"
+                              style={{ width: `${barWidth}%` }}
+                            />
                           </div>
                         </div>
                       );
@@ -779,7 +1062,9 @@ function OverviewTab() {
           {/* Row 7: UTM Campaigns + Events */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
             <div className="glass rounded-xl p-6">
-              <h2 className="text-lg font-semibold text-text-primary mb-4">UTM Campaigns</h2>
+              <h2 className="text-lg font-semibold text-text-primary mb-4">
+                UTM Campaigns
+              </h2>
               {utm?.campaigns && utm.campaigns.length > 0 ? (
                 <BreakdownBar
                   items={utm.campaigns.slice(0, 8).map((c) => ({
@@ -793,10 +1078,14 @@ function OverviewTab() {
               )}
             </div>
             <div className="glass rounded-xl p-6">
-              <h2 className="text-lg font-semibold text-text-primary mb-4">Events</h2>
+              <h2 className="text-lg font-semibold text-text-primary mb-4">
+                Events
+              </h2>
               {events && events.total_events > 0 ? (
                 <BreakdownBar
-                  items={events.by_type.slice(0, 8).map((e) => ({ label: e.event_type, count: e.count }))}
+                  items={events.by_type
+                    .slice(0, 8)
+                    .map((e) => ({ label: e.event_type, count: e.count }))}
                   colorClass="bg-accent-green/60"
                 />
               ) : (
@@ -827,16 +1116,30 @@ function UserActivityTab() {
   const [sortDir, setSortDir] = useState("desc");
   const searchTimer = useRef<ReturnType<typeof setTimeout>>();
 
-  const fetchUsers = useCallback((q: string) => {
-    setLoading(true);
-    const qs = buildFilterQS(dateFrom, dateTo, excludeBots);
-    const sep = qs ? "&" : "?";
-    const extra = `${sep}q=${encodeURIComponent(q)}&segment=${segment}&sort_by=${sortBy}&sort_dir=${sortDir}`;
-    apiFetch<EnrichedUserList>(`/tracking/admin/analytics/users/enriched${qs}${extra}`)
-      .then((d) => { setUsers(d.users || []); setTotalCount(d.total_count || 0); })
-      .catch(() => { setUsers([]); setTotalCount(0); })
-      .finally(() => { setLoading(false); setSearched(true); });
-  }, [dateFrom, dateTo, excludeBots, segment, sortBy, sortDir]);
+  const fetchUsers = useCallback(
+    (q: string) => {
+      setLoading(true);
+      const qs = buildFilterQS(dateFrom, dateTo, excludeBots);
+      const sep = qs ? "&" : "?";
+      const extra = `${sep}q=${encodeURIComponent(q)}&segment=${segment}&sort_by=${sortBy}&sort_dir=${sortDir}`;
+      apiFetch<EnrichedUserList>(
+        `/tracking/admin/analytics/users/enriched${qs}${extra}`,
+      )
+        .then((d) => {
+          setUsers(d.users || []);
+          setTotalCount(d.total_count || 0);
+        })
+        .catch(() => {
+          setUsers([]);
+          setTotalCount(0);
+        })
+        .finally(() => {
+          setLoading(false);
+          setSearched(true);
+        });
+    },
+    [dateFrom, dateTo, excludeBots, segment, sortBy, sortDir],
+  );
 
   useEffect(() => {
     clearTimeout(searchTimer.current);
@@ -862,7 +1165,7 @@ function UserActivityTab() {
 
   const toggleSort = (col: string) => {
     if (sortBy === col) {
-      setSortDir((d) => d === "desc" ? "asc" : "desc");
+      setSortDir((d) => (d === "desc" ? "asc" : "desc"));
     } else {
       setSortBy(col);
       setSortDir("desc");
@@ -871,8 +1174,13 @@ function UserActivityTab() {
   };
 
   const SortIcon = ({ col }: { col: string }) => {
-    if (sortBy !== col) return <span className="text-text-muted/30 ml-1">{"\u2195"}</span>;
-    return <span className="text-accent-pink ml-1">{sortDir === "desc" ? "\u2193" : "\u2191"}</span>;
+    if (sortBy !== col)
+      return <span className="text-text-muted/30 ml-1">{"\u2195"}</span>;
+    return (
+      <span className="text-accent-pink ml-1">
+        {sortDir === "desc" ? "\u2193" : "\u2191"}
+      </span>
+    );
   };
 
   const segments = [
@@ -887,22 +1195,46 @@ function UserActivityTab() {
   return (
     <>
       <FilterBar
-        dateFrom={dateFrom} dateTo={dateTo} excludeBots={excludeBots}
-        onDateFromChange={setDateFrom} onDateToChange={setDateTo}
+        dateFrom={dateFrom}
+        dateTo={dateTo}
+        excludeBots={excludeBots}
+        onDateFromChange={setDateFrom}
+        onDateToChange={setDateTo}
         onExcludeBotsChange={setExcludeBots}
-        onApply={handleApply} onReset={handleReset}
+        onApply={handleApply}
+        onReset={handleReset}
       >
         <div className="flex-1 min-w-[200px]">
           <label className="text-xs text-text-muted block mb-1">Search</label>
           <div className="flex items-center gap-2 bg-glass-bg border border-glass-border rounded-lg px-3 py-1.5">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-text-muted shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-4 w-4 text-text-muted shrink-0"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={1.5}
+                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+              />
             </svg>
-            <input type="text" placeholder="Filter by email..." value={search}
+            <input
+              type="text"
+              placeholder="Filter by email..."
+              value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="flex-1 bg-transparent border-none outline-none text-sm text-text-primary placeholder:text-text-muted" />
+              className="flex-1 bg-transparent border-none outline-none text-sm text-text-primary placeholder:text-text-muted"
+            />
             {search && (
-              <button onClick={() => setSearch("")} className="text-xs text-text-muted hover:text-text-secondary">x</button>
+              <button
+                onClick={() => setSearch("")}
+                className="text-xs text-text-muted hover:text-text-secondary"
+              >
+                x
+              </button>
             )}
           </div>
         </div>
@@ -911,12 +1243,18 @@ function UserActivityTab() {
       {/* Segment pills */}
       <div className="flex gap-2 mb-4">
         {segments.map((s) => (
-          <button key={s.id} onClick={() => { setSegment(s.id); setFetchKey((k) => k + 1); }}
+          <button
+            key={s.id}
+            onClick={() => {
+              setSegment(s.id);
+              setFetchKey((k) => k + 1);
+            }}
             className={`px-3 py-1.5 text-xs rounded-full transition-colors ${
               segment === s.id
                 ? "bg-accent-pink/20 text-accent-pink"
                 : "bg-glass-bg text-text-muted hover:text-text-secondary"
-            }`}>
+            }`}
+          >
             {s.label}
           </button>
         ))}
@@ -925,7 +1263,8 @@ function UserActivityTab() {
       {segment === "inactive" && users.length > 0 && (
         <div className="glass rounded-xl p-3 mb-4 border border-amber-500/20">
           <p className="text-sm text-amber-400">
-            {users.length} user{users.length !== 1 ? "s" : ""} haven&apos;t returned in 7+ days &mdash; consider re-engagement outreach
+            {users.length} user{users.length !== 1 ? "s" : ""} haven&apos;t
+            returned in 7+ days &mdash; consider re-engagement outreach
           </p>
         </div>
       )}
@@ -938,16 +1277,28 @@ function UserActivityTab() {
             <thead>
               <tr className="text-text-muted text-xs text-left border-b border-glass-border/50">
                 <th className="px-4 py-3">Email</th>
-                <th className="px-4 py-3 cursor-pointer select-none" onClick={() => toggleSort("last_active")}>
+                <th
+                  className="px-4 py-3 cursor-pointer select-none"
+                  onClick={() => toggleSort("last_active")}
+                >
                   Last Active <SortIcon col="last_active" />
                 </th>
-                <th className="px-4 py-3 text-right cursor-pointer select-none" onClick={() => toggleSort("sessions")}>
+                <th
+                  className="px-4 py-3 text-right cursor-pointer select-none"
+                  onClick={() => toggleSort("sessions")}
+                >
                   Sessions <SortIcon col="sessions" />
                 </th>
-                <th className="px-4 py-3 text-right cursor-pointer select-none" onClick={() => toggleSort("active_time")}>
+                <th
+                  className="px-4 py-3 text-right cursor-pointer select-none"
+                  onClick={() => toggleSort("active_time")}
+                >
                   Active Time <SortIcon col="active_time" />
                 </th>
-                <th className="px-4 py-3 text-right cursor-pointer select-none" onClick={() => toggleSort("engagement")}>
+                <th
+                  className="px-4 py-3 text-right cursor-pointer select-none"
+                  onClick={() => toggleSort("engagement")}
+                >
                   Engagement % <SortIcon col="engagement" />
                 </th>
                 <th className="px-4 py-3">Top Page</th>
@@ -956,7 +1307,10 @@ function UserActivityTab() {
             </thead>
             <tbody>
               {users.map((u) => (
-                <tr key={u.user_id} className="border-t border-glass-border/30 hover:bg-glass-hover/30 transition-colors">
+                <tr
+                  key={u.user_id}
+                  className="border-t border-glass-border/30 hover:bg-glass-hover/30 transition-colors"
+                >
                   <td className="px-4 py-3 text-text-secondary">
                     <span className="inline-flex items-center gap-2">
                       {u.is_live && (
@@ -968,26 +1322,50 @@ function UserActivityTab() {
                       {u.email}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-text-muted text-xs" title={u.last_active ? new Date(u.last_active).toLocaleString() : ""}>
+                  <td
+                    className="px-4 py-3 text-text-muted text-xs"
+                    title={
+                      u.last_active
+                        ? new Date(u.last_active).toLocaleString()
+                        : ""
+                    }
+                  >
                     {u.last_active ? relativeTime(u.last_active) : "-"}
                   </td>
-                  <td className="px-4 py-3 text-text-primary text-right">{u.total_sessions}</td>
+                  <td className="px-4 py-3 text-text-primary text-right">
+                    {u.total_sessions}
+                  </td>
                   <td className="px-4 py-3 text-text-primary text-right font-medium">
                     {formatDurationSec(u.total_active_time_sec)}
                   </td>
                   <td className="px-4 py-3 text-right text-xs font-medium">
                     {u.avg_engagement_pct != null ? (
-                      <span className={u.avg_engagement_pct >= 60 ? "text-green-400" : u.avg_engagement_pct >= 30 ? "text-yellow-400" : "text-red-400"}>
+                      <span
+                        className={
+                          u.avg_engagement_pct >= 60
+                            ? "text-green-400"
+                            : u.avg_engagement_pct >= 30
+                              ? "text-yellow-400"
+                              : "text-red-400"
+                        }
+                      >
                         {u.avg_engagement_pct.toFixed(1)}%
                       </span>
-                    ) : "-"}
+                    ) : (
+                      "-"
+                    )}
                   </td>
-                  <td className="px-4 py-3 text-text-muted text-xs truncate max-w-[200px]" title={u.top_page || ""}>
+                  <td
+                    className="px-4 py-3 text-text-muted text-xs truncate max-w-[200px]"
+                    title={u.top_page || ""}
+                  >
                     {u.top_page ? friendlyPageName(u.top_page) : "-"}
                   </td>
                   <td className="px-4 py-3 text-right">
-                    <Link href={`/admin/analytics/user/${u.user_id}`}
-                      className="text-xs text-accent-pink hover:text-accent-pink/80 transition-colors">
+                    <Link
+                      href={`/admin/analytics/user/${u.user_id}`}
+                      className="text-xs text-accent-pink hover:text-accent-pink/80 transition-colors"
+                    >
                       View
                     </Link>
                   </td>
@@ -1016,7 +1394,11 @@ export default function AdminAnalyticsPage() {
   if (!enable_tracking) {
     return (
       <div className="glass rounded-xl p-8 text-center">
-        <p className="text-text-muted">Tracking is disabled. Enable it via <code className="text-accent-pink">ENABLE_TRACKING=true</code> in your environment configuration.</p>
+        <p className="text-text-muted">
+          Tracking is disabled. Enable it via{" "}
+          <code className="text-accent-pink">ENABLE_TRACKING=true</code> in your
+          environment configuration.
+        </p>
       </div>
     );
   }
@@ -1034,10 +1416,15 @@ export default function AdminAnalyticsPage() {
 
       <div className="flex gap-1 mb-6 border-b border-glass-border/50">
         {tabs.map((tab) => (
-          <button key={tab.id} onClick={() => setActiveTab(tab.id)}
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id)}
             className={`px-4 py-2.5 text-sm font-medium transition-colors relative ${
-              activeTab === tab.id ? "text-accent-pink" : "text-text-muted hover:text-text-secondary"
-            }`}>
+              activeTab === tab.id
+                ? "text-accent-pink"
+                : "text-text-muted hover:text-text-secondary"
+            }`}
+          >
             {tab.label}
             {activeTab === tab.id && (
               <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-accent-pink rounded-full" />

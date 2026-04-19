@@ -26,7 +26,9 @@ async def admin_list_discounts(
     user: dict = Depends(require_role("admin")),
     db: AsyncSession = Depends(get_db),
 ) -> Any:
-    return await discount_service.list_discounts(db, page=page, page_size=page_size, status=status)
+    return await discount_service.list_discounts(
+        db, page=page, page_size=page_size, status=status
+    )
 
 
 @router.get("/discounts/{discount_id}", response_model=DiscountResponse)
@@ -37,7 +39,14 @@ async def admin_get_discount(
 ) -> Any:
     result = await discount_service.get_discount_by_id(db, discount_id)
     if not result:
-        raise HTTPException(status_code=404, detail={"error": "not_found", "message": "Discount not found", "details": None})
+        raise HTTPException(
+            status_code=404,
+            detail={
+                "error": "not_found",
+                "message": "Discount not found",
+                "details": None,
+            },
+        )
     return result
 
 
@@ -58,9 +67,14 @@ async def admin_update_discount(
     db: AsyncSession = Depends(get_db),
 ) -> Any:
     try:
-        return await discount_service.update_discount(db, discount_id, body.model_dump(exclude_unset=True))
+        return await discount_service.update_discount(
+            db, discount_id, body.model_dump(exclude_unset=True)
+        )
     except ValueError as e:
-        raise HTTPException(status_code=404, detail={"error": "not_found", "message": str(e), "details": None})
+        raise HTTPException(
+            status_code=404,
+            detail={"error": "not_found", "message": str(e), "details": None},
+        )
 
 
 @router.delete("/discounts/{discount_id}", status_code=204)
@@ -72,4 +86,7 @@ async def admin_deactivate_discount(
     try:
         await discount_service.deactivate_discount(db, discount_id)
     except ValueError as e:
-        raise HTTPException(status_code=404, detail={"error": "not_found", "message": str(e), "details": None})
+        raise HTTPException(
+            status_code=404,
+            detail={"error": "not_found", "message": str(e), "details": None},
+        )

@@ -17,11 +17,16 @@ function ResetPasswordForm() {
   if (!token) {
     return (
       <div className="glass rounded-2xl p-8 text-center">
-        <h1 className="font-serif text-3xl font-bold gradient-text mb-4">Invalid Link</h1>
+        <h1 className="font-serif text-3xl font-bold gradient-text mb-4">
+          Invalid Link
+        </h1>
         <div className="p-4 rounded-lg bg-accent-pink/10 border border-accent-pink/20 text-accent-pink text-sm mb-4">
           Invalid or missing reset token. Please request a new reset link.
         </div>
-        <Link href="/auth/forgot-password" className="text-accent-purple hover:text-accent-blue transition-colors text-sm">
+        <Link
+          href="/auth/forgot-password"
+          className="text-accent-purple hover:text-accent-blue transition-colors text-sm"
+        >
           Request new reset link
         </Link>
       </div>
@@ -31,7 +36,9 @@ function ResetPasswordForm() {
   if (success) {
     return (
       <div className="glass rounded-2xl p-8 text-center">
-        <h1 className="font-serif text-3xl font-bold gradient-text mb-4">Password Reset</h1>
+        <h1 className="font-serif text-3xl font-bold gradient-text mb-4">
+          Password Reset
+        </h1>
         <div className="p-4 rounded-lg bg-accent-green/10 border border-accent-green/20 text-accent-green text-sm mb-4">
           Your password has been reset successfully.
         </div>
@@ -63,7 +70,9 @@ function ResetPasswordForm() {
   return (
     <div className="glass rounded-2xl p-8">
       <div className="text-center mb-8">
-        <h1 className="font-serif text-3xl font-bold gradient-text mb-2">Set New Password</h1>
+        <h1 className="font-serif text-3xl font-bold gradient-text mb-2">
+          Set New Password
+        </h1>
         <p className="text-text-secondary text-sm">Choose a strong password</p>
       </div>
 
@@ -75,7 +84,9 @@ function ResetPasswordForm() {
 
       <form onSubmit={handleSubmit} className="space-y-5">
         <div>
-          <label className="block text-sm text-text-secondary mb-1.5">New Password</label>
+          <label className="block text-sm text-text-secondary mb-1.5">
+            New Password
+          </label>
           <input
             type="password"
             value={password}

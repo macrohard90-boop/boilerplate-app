@@ -21,10 +21,7 @@ def get_email_provider(
 
     if email_type == "marketing_email" and settings.marketing_email_provider:
         provider_name = settings.marketing_email_provider
-    elif (
-        email_type == "transactional_email"
-        and settings.transactional_email_provider
-    ):
+    elif email_type == "transactional_email" and settings.transactional_email_provider:
         provider_name = settings.transactional_email_provider
     else:
         provider_name = settings.email_provider

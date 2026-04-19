@@ -5,10 +5,15 @@ import { useParams, useRouter } from "next/navigation";
 import { apiFetch } from "../../../../../lib/api";
 import { useToast } from "../../../../../components/Toast";
 import LoadingSpinner from "../../../../../components/LoadingSpinner";
-import ProductForm, { type ProductFormData, type CategoryOption } from "../../../../../components/admin/ProductForm";
+import ProductForm, {
+  type ProductFormData,
+  type CategoryOption,
+} from "../../../../../components/admin/ProductForm";
 import VariantManager from "../../../../../components/admin/VariantManager";
 import SyncStatusBadge from "../../../../../components/admin/SyncStatusBadge";
-import ImageUploader, { type ImageUploaderVariant } from "../../../../../components/admin/ImageUploader";
+import ImageUploader, {
+  type ImageUploaderVariant,
+} from "../../../../../components/admin/ImageUploader";
 
 interface Product {
   id: string;
@@ -51,7 +56,7 @@ export default function AdminProductEditPage() {
   const fetchProduct = useCallback(async () => {
     try {
       const allData = await apiFetch<{ items: Product[] }>(
-        `/ecommerce/products?page=1&page_size=100`
+        `/ecommerce/products?page=1&page_size=100`,
       );
       const found = allData.items.find((p) => p.id === productId);
       if (found) {
@@ -59,7 +64,7 @@ export default function AdminProductEditPage() {
         // Fetch product detail by slug to get categories
         try {
           const detail = await apiFetch<{ categories?: { id: string }[] }>(
-            `/ecommerce/products/${found.slug}`
+            `/ecommerce/products/${found.slug}`,
           );
           setProductCategoryIds((detail.categories || []).map((c) => c.id));
         } catch {
@@ -76,7 +81,9 @@ export default function AdminProductEditPage() {
     setLoading(false);
   }, [productId, router, showToast]);
 
-  useEffect(() => { fetchProduct(); }, [fetchProduct]);
+  useEffect(() => {
+    fetchProduct();
+  }, [fetchProduct]);
 
   useEffect(() => {
     apiFetch<CategoryOption[]>("/ecommerce/categories")
@@ -84,9 +91,12 @@ export default function AdminProductEditPage() {
       .catch(() => {});
   }, []);
 
-  const handleVariantsChange = useCallback((v: { id: string; name: string }[]) => {
-    setVariants(v.map((vr) => ({ id: vr.id, name: vr.name })));
-  }, []);
+  const handleVariantsChange = useCallback(
+    (v: { id: string; name: string }[]) => {
+      setVariants(v.map((vr) => ({ id: vr.id, name: vr.name })));
+    },
+    [],
+  );
 
   const handleUpdate = async (formData: ProductFormData) => {
     setSaving(true);
@@ -107,7 +117,9 @@ export default function AdminProductEditPage() {
   const handleRetrySync = async () => {
     setSyncing(true);
     try {
-      await apiFetch(`/ecommerce/products/${productId}/sync`, { method: "POST" });
+      await apiFetch(`/ecommerce/products/${productId}/sync`, {
+        method: "POST",
+      });
       showToast("Sync successful", "success");
       fetchProduct();
       setRefreshKey((k) => k + 1);
@@ -128,8 +140,19 @@ export default function AdminProductEditPage() {
           onClick={() => router.push("/admin/catalog/products")}
           className="text-text-muted hover:text-text-primary transition-colors"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            className="h-5 w-5"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M15 19l-7-7 7-7"
+            />
           </svg>
         </button>
         <h1 className="font-serif text-2xl font-bold">
@@ -146,36 +169,51 @@ export default function AdminProductEditPage() {
               status={product.stripe_sync_status}
               error={product.stripe_sync_error}
               provider={product.synced_provider}
-              onRetry={product.stripe_sync_status === "error" ? handleRetrySync : undefined}
+              onRetry={
+                product.stripe_sync_status === "error"
+                  ? handleRetrySync
+                  : undefined
+              }
             />
           </div>
           {product.stripe_product_id && (
             <div>
-              <span className="text-xs text-text-muted block">Stripe Product</span>
-              <span className="text-xs text-text-secondary font-mono">{product.stripe_product_id}</span>
+              <span className="text-xs text-text-muted block">
+                Stripe Product
+              </span>
+              <span className="text-xs text-text-secondary font-mono">
+                {product.stripe_product_id}
+              </span>
             </div>
           )}
           {product.stripe_price_id && (
             <div>
-              <span className="text-xs text-text-muted block">Stripe Price</span>
-              <span className="text-xs text-text-secondary font-mono">{product.stripe_price_id}</span>
+              <span className="text-xs text-text-muted block">
+                Stripe Price
+              </span>
+              <span className="text-xs text-text-secondary font-mono">
+                {product.stripe_price_id}
+              </span>
             </div>
           )}
         </div>
-        {product.stripe_sync_status !== "synced" && product.status === "active" && (
-          <button
-            onClick={handleRetrySync}
-            className="btn-primary px-3 py-1.5 rounded-lg text-sm"
-            disabled={syncing}
-          >
-            {syncing ? "Syncing..." : "Sync Now"}
-          </button>
-        )}
+        {product.stripe_sync_status !== "synced" &&
+          product.status === "active" && (
+            <button
+              onClick={handleRetrySync}
+              className="btn-primary px-3 py-1.5 rounded-lg text-sm"
+              disabled={syncing}
+            >
+              {syncing ? "Syncing..." : "Sync Now"}
+            </button>
+          )}
       </div>
 
       {/* Product Form */}
       <div className="glass rounded-xl p-6 mb-6">
-        <h2 className="text-lg font-semibold text-text-primary mb-4">Product Details</h2>
+        <h2 className="text-lg font-semibold text-text-primary mb-4">
+          Product Details
+        </h2>
         <ProductForm
           initial={{
             name: product.name,

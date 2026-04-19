@@ -32,7 +32,10 @@ export default function HorizontalBarChart({
         return (
           <div key={i}>
             <div className="flex items-center justify-between text-sm mb-1">
-              <span className="text-text-secondary truncate flex-1" title={item.label}>
+              <span
+                className="text-text-secondary truncate flex-1"
+                title={item.label}
+              >
                 {item.label}
               </span>
               <span className="text-text-primary font-medium ml-2 tabular-nums whitespace-nowrap">
@@ -47,7 +50,11 @@ export default function HorizontalBarChart({
             <div className="w-full h-2 rounded-full bg-glass-bg/50 overflow-hidden">
               <div
                 className="h-full rounded-full transition-all duration-500"
-                style={{ width: `${pct}%`, backgroundColor: color, opacity: 0.7 - i * 0.06 }}
+                style={{
+                  width: `${pct}%`,
+                  backgroundColor: color,
+                  opacity: 0.7 - i * 0.06,
+                }}
               />
             </div>
           </div>

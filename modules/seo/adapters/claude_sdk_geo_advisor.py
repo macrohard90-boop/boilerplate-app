@@ -51,8 +51,13 @@ class ClaudeSDKGEOAdvisor(GEOAdvisorProvider):
             return False, "claude binary not found"
         try:
             proc = await asyncio.create_subprocess_exec(
-                cli_path, "-p", "respond with ok", "--max-turns", "1",
-                "--output-format", "text",
+                cli_path,
+                "-p",
+                "respond with ok",
+                "--max-turns",
+                "1",
+                "--output-format",
+                "text",
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
                 env={
@@ -63,7 +68,8 @@ class ClaudeSDKGEOAdvisor(GEOAdvisorProvider):
                 },
             )
             stdout, stderr = await asyncio.wait_for(
-                proc.communicate(), timeout=10,
+                proc.communicate(),
+                timeout=10,
             )
             if proc.returncode == 0:
                 return True, ""
@@ -83,15 +89,16 @@ class ClaudeSDKGEOAdvisor(GEOAdvisorProvider):
         """Spawn ``claude -p`` with the prompt and parse the output."""
         cli_path = shutil.which("claude")
 
-        full_prompt = (
-            f"<system>\n{GEO_SYSTEM_PROMPT}\n</system>\n\n{prompt}"
-        )
+        full_prompt = f"<system>\n{GEO_SYSTEM_PROMPT}\n</system>\n\n{prompt}"
 
         proc = await asyncio.create_subprocess_exec(
             cli_path,
-            "-p", full_prompt,
-            "--max-turns", str(_MAX_TURNS),
-            "--output-format", "text",
+            "-p",
+            full_prompt,
+            "--max-turns",
+            str(_MAX_TURNS),
+            "--output-format",
+            "text",
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
             env={
@@ -109,7 +116,8 @@ class ClaudeSDKGEOAdvisor(GEOAdvisorProvider):
             err_msg = stderr.decode("utf-8", errors="replace").strip()
             logger.error(
                 "Claude CLI (GEO) exited with code %d: %s",
-                proc.returncode, err_msg,
+                proc.returncode,
+                err_msg,
             )
             return GEOAdvisorResult(
                 suggestions=[],
@@ -167,8 +175,13 @@ class ClaudeSDKGEOAdvisor(GEOAdvisorProvider):
             )
 
         prompt = build_geo_prompt(
-            path, html, scores, dimension_scores, rule_results,
-            business_context, intent,
+            path,
+            html,
+            scores,
+            dimension_scores,
+            rule_results,
+            business_context,
+            intent,
         )
 
         try:
@@ -191,7 +204,9 @@ class ClaudeSDKGEOAdvisor(GEOAdvisorProvider):
         except Exception as e:
             error_type = type(e).__name__
             logger.error(
-                "Claude CLI GEO advisor error: %s: %s", error_type, e,
+                "Claude CLI GEO advisor error: %s: %s",
+                error_type,
+                e,
             )
             return GEOAdvisorResult(
                 suggestions=[],

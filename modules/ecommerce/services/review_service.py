@@ -24,7 +24,8 @@ async def list_reviews(
 
     total = (
         await db.execute(
-            text(f"SELECT COUNT(*) FROM ecommerce.product_reviews WHERE {where}"), params
+            text(f"SELECT COUNT(*) FROM ecommerce.product_reviews WHERE {where}"),
+            params,
         )
     ).scalar() or 0
 
@@ -32,14 +33,18 @@ async def list_reviews(
     params["limit"] = page_size
     params["offset"] = offset
     rows = (
-        await db.execute(
-            text(
-                f"SELECT * FROM ecommerce.product_reviews WHERE {where} "
-                f"ORDER BY created_at DESC LIMIT :limit OFFSET :offset"
-            ),
-            params,
+        (
+            await db.execute(
+                text(
+                    f"SELECT * FROM ecommerce.product_reviews WHERE {where} "
+                    f"ORDER BY created_at DESC LIMIT :limit OFFSET :offset"
+                ),
+                params,
+            )
         )
-    ).mappings().all()
+        .mappings()
+        .all()
+    )
 
     return {
         "items": [dict(r) for r in rows],
@@ -73,38 +78,48 @@ async def create_review(
         raise ValueError("You have already reviewed this product")
 
     row = (
-        await db.execute(
-            text(
-                "INSERT INTO ecommerce.product_reviews "
-                "(product_id, user_id, rating, title, body, status) "
-                "VALUES (:pid, :uid, :rating, :title, :body, 'pending') "
-                "RETURNING *"
-            ),
-            {
-                "pid": product_id,
-                "uid": user_id,
-                "rating": rating,
-                "title": title,
-                "body": body,
-            },
+        (
+            await db.execute(
+                text(
+                    "INSERT INTO ecommerce.product_reviews "
+                    "(product_id, user_id, rating, title, body, status) "
+                    "VALUES (:pid, :uid, :rating, :title, :body, 'pending') "
+                    "RETURNING *"
+                ),
+                {
+                    "pid": product_id,
+                    "uid": user_id,
+                    "rating": rating,
+                    "title": title,
+                    "body": body,
+                },
+            )
         )
-    ).mappings().first()
+        .mappings()
+        .first()
+    )
     await db.commit()
     return dict(row)
 
 
 async def moderate_review(
-    db: AsyncSession, review_id: str, status: str,
+    db: AsyncSession,
+    review_id: str,
+    status: str,
 ) -> dict[str, Any]:
     row = (
-        await db.execute(
-            text(
-                "UPDATE ecommerce.product_reviews SET status = :status "
-                "WHERE id = :rid RETURNING *"
-            ),
-            {"rid": review_id, "status": status},
+        (
+            await db.execute(
+                text(
+                    "UPDATE ecommerce.product_reviews SET status = :status "
+                    "WHERE id = :rid RETURNING *"
+                ),
+                {"rid": review_id, "status": status},
+            )
         )
-    ).mappings().first()
+        .mappings()
+        .first()
+    )
     if not row:
         raise ValueError("Review not found")
     await db.commit()

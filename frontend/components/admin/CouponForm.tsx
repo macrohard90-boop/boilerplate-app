@@ -33,7 +33,9 @@ interface UserOption {
 }
 
 interface CouponFormProps {
-  initial?: Partial<CouponFormData & { active: boolean; stripe_coupon_id?: string }> | null;
+  initial?: Partial<
+    CouponFormData & { active: boolean; stripe_coupon_id?: string }
+  > | null;
   onSubmit: (data: CouponFormData) => Promise<void>;
   onCancel: () => void;
   loading?: boolean;
@@ -56,57 +58,69 @@ export default function CouponForm({
   });
   const [currency, setCurrency] = useState(initial?.currency || "USD");
   const [minOrderDisplay, setMinOrderDisplay] = useState(
-    initial?.min_order_amount != null ? (initial.min_order_amount / 100).toFixed(2) : ""
+    initial?.min_order_amount != null
+      ? (initial.min_order_amount / 100).toFixed(2)
+      : "",
   );
   const [maxUses, setMaxUses] = useState(
-    initial?.max_uses != null ? String(initial.max_uses) : ""
+    initial?.max_uses != null ? String(initial.max_uses) : "",
   );
   const [validFrom, setValidFrom] = useState(
-    initial?.valid_from ? initial.valid_from.slice(0, 16) : ""
+    initial?.valid_from ? initial.valid_from.slice(0, 16) : "",
   );
   const [validUntil, setValidUntil] = useState(
-    initial?.valid_until ? initial.valid_until.slice(0, 16) : ""
+    initial?.valid_until ? initial.valid_until.slice(0, 16) : "",
   );
   const [appliesTo, setAppliesTo] = useState(initial?.applies_to || "all");
-  const [stripeDuration, setStripeDuration] = useState(initial?.stripe_duration || "once");
+  const [stripeDuration, setStripeDuration] = useState(
+    initial?.stripe_duration || "once",
+  );
   const [durationInMonths, setDurationInMonths] = useState(
-    initial?.stripe_duration_in_months != null ? String(initial.stripe_duration_in_months) : ""
+    initial?.stripe_duration_in_months != null
+      ? String(initial.stripe_duration_in_months)
+      : "",
   );
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   // --- New restriction fields ---
   const [restrictProducts, setRestrictProducts] = useState(
-    (initial?.product_ids?.length ?? 0) > 0
+    (initial?.product_ids?.length ?? 0) > 0,
   );
   const [selectedProductIds, setSelectedProductIds] = useState<string[]>(
-    initial?.product_ids || []
+    initial?.product_ids || [],
   );
   const [products, setProducts] = useState<ProductOption[]>([]);
   const [productsLoading, setProductsLoading] = useState(false);
 
   const [restrictCustomer, setRestrictCustomer] = useState(
-    !!initial?.restricted_to_customer_id
+    !!initial?.restricted_to_customer_id,
   );
   const [customerSearch, setCustomerSearch] = useState("");
   const [customerResults, setCustomerResults] = useState<UserOption[]>([]);
-  const [selectedCustomer, setSelectedCustomer] = useState<UserOption | null>(null);
+  const [selectedCustomer, setSelectedCustomer] = useState<UserOption | null>(
+    null,
+  );
   const [customerSearchLoading, setCustomerSearchLoading] = useState(false);
   const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
   const customerRef = useRef<HTMLDivElement>(null);
   const searchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [firstTimeOnly, setFirstTimeOnly] = useState(
-    initial?.first_time_transaction_only || false
+    initial?.first_time_transaction_only || false,
   );
   const [maxUsesPerCustomer, setMaxUsesPerCustomer] = useState(
-    initial?.max_uses_per_customer != null ? String(initial.max_uses_per_customer) : ""
+    initial?.max_uses_per_customer != null
+      ? String(initial.max_uses_per_customer)
+      : "",
   );
 
   // Load products when restriction is toggled on
   useEffect(() => {
     if (restrictProducts && products.length === 0) {
       setProductsLoading(true);
-      apiFetch<{ items: ProductOption[] }>("/ecommerce/products?status=active&page_size=100")
+      apiFetch<{ items: ProductOption[] }>(
+        "/ecommerce/products?status=active&page_size=100",
+      )
         .then((data) => setProducts(data.items || []))
         .catch(() => {})
         .finally(() => setProductsLoading(false));
@@ -118,8 +132,20 @@ export default function CouponForm({
   useEffect(() => {
     if (initial?.restricted_to_customer_id && !initialCustomerLoaded.current) {
       initialCustomerLoaded.current = true;
-      apiFetch<{ id: string; email: string; first_name: string | null; last_name: string | null }>(`/auth/admin/users/${initial.restricted_to_customer_id}`)
-        .then((u) => setSelectedCustomer({ id: u.id, email: u.email, full_name: [u.first_name, u.last_name].filter(Boolean).join(" ") || null }))
+      apiFetch<{
+        id: string;
+        email: string;
+        first_name: string | null;
+        last_name: string | null;
+      }>(`/auth/admin/users/${initial.restricted_to_customer_id}`)
+        .then((u) =>
+          setSelectedCustomer({
+            id: u.id,
+            email: u.email,
+            full_name:
+              [u.first_name, u.last_name].filter(Boolean).join(" ") || null,
+          }),
+        )
         .catch(() => {});
     }
   }, [initial?.restricted_to_customer_id]);
@@ -134,14 +160,24 @@ export default function CouponForm({
     searchTimeout.current = setTimeout(async () => {
       setCustomerSearchLoading(true);
       try {
-        const data = await apiFetch<{ items: { id: string; email: string; first_name: string | null; last_name: string | null }[] }>(
-          `/auth/admin/users?search=${encodeURIComponent(customerSearch)}&page_size=5`
+        const data = await apiFetch<{
+          items: {
+            id: string;
+            email: string;
+            first_name: string | null;
+            last_name: string | null;
+          }[];
+        }>(
+          `/auth/admin/users?search=${encodeURIComponent(customerSearch)}&page_size=5`,
         );
-        setCustomerResults((data.items || []).map((u) => ({
-          id: u.id,
-          email: u.email,
-          full_name: [u.first_name, u.last_name].filter(Boolean).join(" ") || null,
-        })));
+        setCustomerResults(
+          (data.items || []).map((u) => ({
+            id: u.id,
+            email: u.email,
+            full_name:
+              [u.first_name, u.last_name].filter(Boolean).join(" ") || null,
+          })),
+        );
         setShowCustomerDropdown(true);
       } catch {
         setCustomerResults([]);
@@ -156,7 +192,10 @@ export default function CouponForm({
   // Close dropdown on outside click
   useEffect(() => {
     function handleClick(e: MouseEvent) {
-      if (customerRef.current && !customerRef.current.contains(e.target as Node)) {
+      if (
+        customerRef.current &&
+        !customerRef.current.contains(e.target as Node)
+      ) {
         setShowCustomerDropdown(false);
       }
     }
@@ -195,7 +234,9 @@ export default function CouponForm({
       type,
       value,
       currency,
-      min_order_amount: minOrderDisplay ? Math.round(parseFloat(minOrderDisplay) * 100) : 0,
+      min_order_amount: minOrderDisplay
+        ? Math.round(parseFloat(minOrderDisplay) * 100)
+        : 0,
       max_uses: maxUses ? parseInt(maxUses, 10) : null,
       valid_from: validFrom || null,
       valid_until: validUntil || null,
@@ -206,15 +247,18 @@ export default function CouponForm({
           ? parseInt(durationInMonths, 10)
           : null,
       product_ids: restrictProducts ? selectedProductIds : [],
-      restricted_to_customer_id: restrictCustomer && selectedCustomer ? selectedCustomer.id : null,
+      restricted_to_customer_id:
+        restrictCustomer && selectedCustomer ? selectedCustomer.id : null,
       first_time_transaction_only: firstTimeOnly,
-      max_uses_per_customer: maxUsesPerCustomer ? parseInt(maxUsesPerCustomer, 10) : null,
+      max_uses_per_customer: maxUsesPerCustomer
+        ? parseInt(maxUsesPerCustomer, 10)
+        : null,
     });
   };
 
   const toggleProduct = (pid: string) => {
     setSelectedProductIds((prev) =>
-      prev.includes(pid) ? prev.filter((p) => p !== pid) : [...prev, pid]
+      prev.includes(pid) ? prev.filter((p) => p !== pid) : [...prev, pid],
     );
   };
 
@@ -222,7 +266,9 @@ export default function CouponForm({
     <form onSubmit={handleSubmit} className="space-y-4">
       {/* Code */}
       <div>
-        <label className="block text-sm text-text-muted mb-1">Coupon Code *</label>
+        <label className="block text-sm text-text-muted mb-1">
+          Coupon Code *
+        </label>
         <input
           type="text"
           value={code}
@@ -231,7 +277,9 @@ export default function CouponForm({
           placeholder="SAVE10"
           disabled={loading}
         />
-        {errors.code && <p className="text-accent-pink text-xs mt-1">{errors.code}</p>}
+        {errors.code && (
+          <p className="text-accent-pink text-xs mt-1">{errors.code}</p>
+        )}
       </div>
 
       {/* Type + Value row */}
@@ -270,9 +318,13 @@ export default function CouponForm({
                 placeholder={type === "percentage" ? "10" : "5.00"}
                 disabled={loading}
               />
-              {type === "percentage" && <span className="text-text-muted">%</span>}
+              {type === "percentage" && (
+                <span className="text-text-muted">%</span>
+              )}
             </div>
-            {errors.value && <p className="text-accent-pink text-xs mt-1">{errors.value}</p>}
+            {errors.value && (
+              <p className="text-accent-pink text-xs mt-1">{errors.value}</p>
+            )}
           </div>
         )}
       </div>
@@ -281,7 +333,9 @@ export default function CouponForm({
       <div className={`grid gap-4 ${type === "fixed" ? "grid-cols-2" : ""}`}>
         {type === "fixed" && (
           <div>
-            <label className="block text-sm text-text-muted mb-1">Currency</label>
+            <label className="block text-sm text-text-muted mb-1">
+              Currency
+            </label>
             <select
               value={currency}
               onChange={(e) => setCurrency(e.target.value)}
@@ -296,7 +350,9 @@ export default function CouponForm({
           </div>
         )}
         <div>
-          <label className="block text-sm text-text-muted mb-1">Min Order Amount</label>
+          <label className="block text-sm text-text-muted mb-1">
+            Min Order Amount
+          </label>
           <div className="flex items-center gap-2">
             <span className="text-text-muted">$</span>
             <input
@@ -316,7 +372,9 @@ export default function CouponForm({
       {/* Max Uses row */}
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <label className="block text-sm text-text-muted mb-1">Max Uses (total)</label>
+          <label className="block text-sm text-text-muted mb-1">
+            Max Uses (total)
+          </label>
           <input
             type="number"
             min="1"
@@ -328,7 +386,9 @@ export default function CouponForm({
           />
         </div>
         <div>
-          <label className="block text-sm text-text-muted mb-1">Max Uses Per Customer</label>
+          <label className="block text-sm text-text-muted mb-1">
+            Max Uses Per Customer
+          </label>
           <input
             type="number"
             min="1"
@@ -344,7 +404,9 @@ export default function CouponForm({
       {/* Applies To + Stripe Duration */}
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <label className="block text-sm text-text-muted mb-1">Applies To</label>
+          <label className="block text-sm text-text-muted mb-1">
+            Applies To
+          </label>
           <select
             value={appliesTo}
             onChange={(e) => {
@@ -364,7 +426,9 @@ export default function CouponForm({
         </div>
         {appliesTo !== "one_time" && (
           <div>
-            <label className="block text-sm text-text-muted mb-1">Subscription Duration</label>
+            <label className="block text-sm text-text-muted mb-1">
+              Subscription Duration
+            </label>
             <select
               value={stripeDuration}
               onChange={(e) => setStripeDuration(e.target.value)}
@@ -381,7 +445,9 @@ export default function CouponForm({
 
       {stripeDuration === "repeating" && appliesTo !== "one_time" && (
         <div>
-          <label className="block text-sm text-text-muted mb-1">Duration (months)</label>
+          <label className="block text-sm text-text-muted mb-1">
+            Duration (months)
+          </label>
           <input
             type="number"
             min="1"
@@ -401,7 +467,9 @@ export default function CouponForm({
       {/* Validity period */}
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <label className="block text-sm text-text-muted mb-1">Valid From</label>
+          <label className="block text-sm text-text-muted mb-1">
+            Valid From
+          </label>
           <input
             type="datetime-local"
             value={validFrom}
@@ -411,7 +479,9 @@ export default function CouponForm({
           />
         </div>
         <div>
-          <label className="block text-sm text-text-muted mb-1">Valid Until (optional)</label>
+          <label className="block text-sm text-text-muted mb-1">
+            Valid Until (optional)
+          </label>
           <input
             type="datetime-local"
             value={validUntil}
@@ -424,7 +494,9 @@ export default function CouponForm({
 
       {/* --- Restrictions Section --- */}
       <div className="border-t border-glass-border pt-4 mt-4">
-        <p className="text-sm font-medium text-text-primary mb-3">Restrictions</p>
+        <p className="text-sm font-medium text-text-primary mb-3">
+          Restrictions
+        </p>
 
         {/* First-time only */}
         <label className="flex items-center gap-2 mb-3 cursor-pointer">
@@ -435,7 +507,9 @@ export default function CouponForm({
             className="accent-accent-blue"
             disabled={loading}
           />
-          <span className="text-sm text-text-secondary">First-time purchases only</span>
+          <span className="text-sm text-text-secondary">
+            First-time purchases only
+          </span>
         </label>
 
         {/* Product restriction */}
@@ -450,7 +524,9 @@ export default function CouponForm({
             className="accent-accent-blue"
             disabled={loading}
           />
-          <span className="text-sm text-text-secondary">Restrict to specific products</span>
+          <span className="text-sm text-text-secondary">
+            Restrict to specific products
+          </span>
         </label>
         {restrictProducts && (
           <div className="ml-6 mb-3">
@@ -459,7 +535,10 @@ export default function CouponForm({
             ) : (
               <div className="max-h-40 overflow-y-auto border border-glass-border rounded-lg p-2 space-y-1">
                 {products.map((p) => (
-                  <label key={p.id} className="flex items-center gap-2 cursor-pointer text-sm">
+                  <label
+                    key={p.id}
+                    className="flex items-center gap-2 cursor-pointer text-sm"
+                  >
                     <input
                       type="checkbox"
                       checked={selectedProductIds.includes(p.id)}
@@ -471,13 +550,16 @@ export default function CouponForm({
                   </label>
                 ))}
                 {products.length === 0 && (
-                  <p className="text-xs text-text-muted">No active products found</p>
+                  <p className="text-xs text-text-muted">
+                    No active products found
+                  </p>
                 )}
               </div>
             )}
             {selectedProductIds.length > 0 && (
               <p className="text-xs text-text-muted mt-1">
-                {selectedProductIds.length} product{selectedProductIds.length !== 1 ? "s" : ""} selected
+                {selectedProductIds.length} product
+                {selectedProductIds.length !== 1 ? "s" : ""} selected
               </p>
             )}
           </div>
@@ -496,15 +578,21 @@ export default function CouponForm({
             className="accent-accent-blue"
             disabled={loading}
           />
-          <span className="text-sm text-text-secondary">Restrict to specific customer</span>
+          <span className="text-sm text-text-secondary">
+            Restrict to specific customer
+          </span>
         </label>
         {restrictCustomer && (
           <div className="ml-6 mb-3 relative" ref={customerRef}>
             {selectedCustomer ? (
               <div className="flex items-center gap-2 text-sm">
-                <span className="text-text-primary">{selectedCustomer.email}</span>
+                <span className="text-text-primary">
+                  {selectedCustomer.email}
+                </span>
                 {selectedCustomer.full_name && (
-                  <span className="text-text-muted">({selectedCustomer.full_name})</span>
+                  <span className="text-text-muted">
+                    ({selectedCustomer.full_name})
+                  </span>
                 )}
                 <button
                   type="button"
@@ -545,7 +633,9 @@ export default function CouponForm({
                       >
                         <span className="text-text-primary">{u.email}</span>
                         {u.full_name && (
-                          <span className="text-text-muted ml-2">({u.full_name})</span>
+                          <span className="text-text-muted ml-2">
+                            ({u.full_name})
+                          </span>
                         )}
                       </button>
                     ))}

@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#1a1a2e"/>
+      <stop offset="100%" stop-color="#16213e"/>
+    </linearGradient>
+  </defs>
+  <rect width="400" height="400" rx="24" fill="url(#bg)"/>
+  <!-- Headband -->
+  <path d="M120 180 Q120 100 200 90 Q280 100 280 180" fill="none" stroke="#d0d0d0" stroke-width="18" stroke-linecap="round"/>
+  <!-- Left ear cup -->
+  <rect x="95" y="168" width="55" height="72" rx="14" fill="#e8e8e8" stroke="#ccc" stroke-width="2"/>
+  <rect x="103" y="176" width="39" height="56" rx="10" fill="#f0f0f0"/>
+  <circle cx="122" cy="204" r="12" fill="none" stroke="#bbb" stroke-width="1.5"/>
+  <!-- Right ear cup -->
+  <rect x="250" y="168" width="55" height="72" rx="14" fill="#e8e8e8" stroke="#ccc" stroke-width="2"/>
+  <rect x="258" y="176" width="39" height="56" rx="10" fill="#f0f0f0"/>
+  <circle cx="278" cy="204" r="12" fill="none" stroke="#bbb" stroke-width="1.5"/>
+  <!-- Cushion highlights -->
+  <path d="M107 185 Q112 180 117 185" fill="none" stroke="#ddd" stroke-width="1"/>
+  <path d="M262 185 Q267 180 272 185" fill="none" stroke="#ddd" stroke-width="1"/>
+  <!-- Label -->
+  <text x="200" y="310" text-anchor="middle" fill="#666" font-family="system-ui,sans-serif" font-size="14" font-weight="500">WIRELESS HEADPHONES</text>
+  <text x="200" y="330" text-anchor="middle" fill="#555" font-family="system-ui,sans-serif" font-size="12">White</text>
+</svg>

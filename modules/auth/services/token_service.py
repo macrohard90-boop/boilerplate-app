@@ -4,7 +4,7 @@ import secrets
 from datetime import datetime, timezone
 from typing import Any
 
-from jose import JWTError, jwt
+from jose import jwt
 from redis.asyncio import Redis
 
 from backend.core.config import settings

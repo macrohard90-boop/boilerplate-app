@@ -87,7 +87,11 @@ async def revoke_api_key(
     if not ok:
         raise HTTPException(
             status_code=404,
-            detail={"error": "not_found", "message": "API key not found", "details": None},
+            detail={
+                "error": "not_found",
+                "message": "API key not found",
+                "details": None,
+            },
         )
 
     await audit_service.log_audit(

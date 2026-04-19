@@ -22,9 +22,7 @@ from backend.core.config import settings
 logger = logging.getLogger(__name__)
 
 
-async def _get_consent_snapshot(
-    db: AsyncSession, user_id: str
-) -> dict:
+async def _get_consent_snapshot(db: AsyncSession, user_id: str) -> dict:
     """Build a snapshot of consent state at send time for audit."""
     try:
         result = await db.execute(
@@ -48,14 +46,18 @@ async def _check_can_send(
     """Check suppression and consent. Returns (can_send, skip_reason)."""
     # Check suppression (overrides all consent)
     row = (
-        await db.execute(
-            text(
-                "SELECT suppressed_at, marketing_email, transactional_email "
-                "FROM gdpr.email_preferences WHERE user_id = :uid"
-            ),
-            {"uid": user_id},
+        (
+            await db.execute(
+                text(
+                    "SELECT suppressed_at, marketing_email, transactional_email "
+                    "FROM gdpr.email_preferences WHERE user_id = :uid"
+                ),
+                {"uid": user_id},
+            )
         )
-    ).mappings().first()
+        .mappings()
+        .first()
+    )
 
     if row and row["suppressed_at"] is not None:
         return False, "suppressed"
@@ -136,14 +138,16 @@ async def _push_to_retry_queue(
         from backend.core.redis import get_redis
 
         redis = await get_redis()
-        payload = json.dumps({
-            "event_id": event_id,
-            "user_id": user_id,
-            "template_id": template_id,
-            "template_data": template_data,
-            "email_type": email_type,
-            "to_email": to_email,
-        })
+        payload = json.dumps(
+            {
+                "event_id": event_id,
+                "user_id": user_id,
+                "template_id": template_id,
+                "template_data": template_data,
+                "email_type": email_type,
+                "to_email": to_email,
+            }
+        )
         await redis.rpush("email_retry_queue", payload)
         logger.info("Pushed email event %s to retry queue", event_id)
     except Exception:
@@ -181,11 +185,15 @@ async def send_email(
     # 1. Look up user email if not provided
     if not to_email:
         row = (
-            await db.execute(
-                text("SELECT email, first_name FROM core.users WHERE id = :uid"),
-                {"uid": user_id},
+            (
+                await db.execute(
+                    text("SELECT email, first_name FROM core.users WHERE id = :uid"),
+                    {"uid": user_id},
+                )
             )
-        ).mappings().first()
+            .mappings()
+            .first()
+        )
         if not row:
             logger.warning("send_email: user %s not found", user_id)
             return {"status": "error", "error": "User not found"}
@@ -292,8 +300,12 @@ async def send_email(
     # 8. On failure, push to retry queue
     if not result.success:
         await _push_to_retry_queue(
-            event_id, user_id, template_id,
-            template_data, email_type, to_email,
+            event_id,
+            user_id,
+            template_id,
+            template_data,
+            email_type,
+            to_email,
         )
 
     return {

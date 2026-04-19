@@ -48,26 +48,33 @@ export default function ProductForm({
   const [description, setDescription] = useState(initial?.description || "");
   const [sku, setSku] = useState(initial?.sku || "");
   const [priceDisplay, setPriceDisplay] = useState(
-    initial?.base_price != null ? (initial.base_price / 100).toFixed(2) : ""
+    initial?.base_price != null ? (initial.base_price / 100).toFixed(2) : "",
   );
   const [currency, setCurrency] = useState(initial?.currency || "USD");
   const [status, setStatus] = useState(initial?.status || "draft");
-  const [pricingType, setPricingType] = useState(initial?.pricing_type || "one_time");
-  const [recurringInterval, setRecurringInterval] = useState(initial?.recurring_interval || "month");
+  const [pricingType, setPricingType] = useState(
+    initial?.pricing_type || "one_time",
+  );
+  const [recurringInterval, setRecurringInterval] = useState(
+    initial?.recurring_interval || "month",
+  );
   const [recurringIntervalCount, setRecurringIntervalCount] = useState(
-    initial?.recurring_interval_count ?? 1
+    initial?.recurring_interval_count ?? 1,
   );
   const [trialDays, setTrialDays] = useState(
-    initial?.trial_period_days != null ? String(initial.trial_period_days) : ""
+    initial?.trial_period_days != null ? String(initial.trial_period_days) : "",
   );
-  const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>(initialCategoryIds);
+  const [selectedCategoryIds, setSelectedCategoryIds] =
+    useState<string[]>(initialCategoryIds);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const toggleCategory = (id: string, parentId?: string | null) => {
     setSelectedCategoryIds((prev) => {
       if (prev.includes(id)) {
         // Deselecting: remove this id. If it's a parent, also remove its children.
-        const childIds = categories.find((c) => c.id === id)?.children?.map((ch) => ch.id) || [];
+        const childIds =
+          categories.find((c) => c.id === id)?.children?.map((ch) => ch.id) ||
+          [];
         return prev.filter((c) => c !== id && !childIds.includes(c));
       } else {
         // Selecting: add this id. If it's a child, also select the parent.
@@ -101,9 +108,14 @@ export default function ProductForm({
       currency,
       status,
       pricing_type: pricingType,
-      recurring_interval: pricingType === "recurring" ? recurringInterval : null,
-      recurring_interval_count: pricingType === "recurring" ? recurringIntervalCount : 1,
-      trial_period_days: pricingType === "recurring" && trialDays ? parseInt(trialDays, 10) : null,
+      recurring_interval:
+        pricingType === "recurring" ? recurringInterval : null,
+      recurring_interval_count:
+        pricingType === "recurring" ? recurringIntervalCount : 1,
+      trial_period_days:
+        pricingType === "recurring" && trialDays
+          ? parseInt(trialDays, 10)
+          : null,
       category_ids: selectedCategoryIds,
     });
   };
@@ -121,12 +133,16 @@ export default function ProductForm({
           placeholder="Product name"
           disabled={loading}
         />
-        {errors.name && <p className="text-accent-pink text-xs mt-1">{errors.name}</p>}
+        {errors.name && (
+          <p className="text-accent-pink text-xs mt-1">{errors.name}</p>
+        )}
       </div>
 
       {/* Description */}
       <div>
-        <label className="block text-sm text-text-muted mb-1">Description</label>
+        <label className="block text-sm text-text-muted mb-1">
+          Description
+        </label>
         <textarea
           value={description}
           onChange={(e) => setDescription(e.target.value)}
@@ -139,7 +155,9 @@ export default function ProductForm({
       {/* Categories */}
       {categories.length > 0 && (
         <div>
-          <label className="block text-sm text-text-muted mb-2">Categories</label>
+          <label className="block text-sm text-text-muted mb-2">
+            Categories
+          </label>
           <div className="space-y-3">
             {categories.map((cat) => (
               <div key={cat.id}>
@@ -206,7 +224,9 @@ export default function ProductForm({
               disabled={loading}
             />
           </div>
-          {errors.base_price && <p className="text-accent-pink text-xs mt-1">{errors.base_price}</p>}
+          {errors.base_price && (
+            <p className="text-accent-pink text-xs mt-1">{errors.base_price}</p>
+          )}
         </div>
       </div>
 
@@ -214,7 +234,9 @@ export default function ProductForm({
       <div className="grid grid-cols-2 gap-4">
         {allowRecurring && (
           <div>
-            <label className="block text-sm text-text-muted mb-1">Pricing</label>
+            <label className="block text-sm text-text-muted mb-1">
+              Pricing
+            </label>
             <select
               value={pricingType}
               onChange={(e) => setPricingType(e.target.value)}
@@ -245,10 +267,14 @@ export default function ProductForm({
       {/* Recurring options */}
       {pricingType === "recurring" && (
         <div className="glass rounded-lg p-4 space-y-3">
-          <p className="text-xs text-accent-blue font-medium">Recurring Billing</p>
+          <p className="text-xs text-accent-blue font-medium">
+            Recurring Billing
+          </p>
           <div className="grid grid-cols-3 gap-4">
             <div>
-              <label className="block text-sm text-text-muted mb-1">Interval</label>
+              <label className="block text-sm text-text-muted mb-1">
+                Interval
+              </label>
               <select
                 value={recurringInterval}
                 onChange={(e) => setRecurringInterval(e.target.value)}
@@ -262,19 +288,25 @@ export default function ProductForm({
               </select>
             </div>
             <div>
-              <label className="block text-sm text-text-muted mb-1">Every X intervals</label>
+              <label className="block text-sm text-text-muted mb-1">
+                Every X intervals
+              </label>
               <input
                 type="number"
                 min="1"
                 max="365"
                 value={recurringIntervalCount}
-                onChange={(e) => setRecurringIntervalCount(parseInt(e.target.value, 10) || 1)}
+                onChange={(e) =>
+                  setRecurringIntervalCount(parseInt(e.target.value, 10) || 1)
+                }
                 className="input-glass w-full"
                 disabled={loading}
               />
             </div>
             <div>
-              <label className="block text-sm text-text-muted mb-1">Trial days</label>
+              <label className="block text-sm text-text-muted mb-1">
+                Trial days
+              </label>
               <input
                 type="number"
                 min="0"
@@ -306,7 +338,8 @@ export default function ProductForm({
 
       {status === "active" && !initial?.status && (
         <p className="text-xs text-accent-blue bg-accent-blue/10 rounded-lg px-3 py-2">
-          Setting status to &quot;Active&quot; will sync this product to your payment provider (Stripe).
+          Setting status to &quot;Active&quot; will sync this product to your
+          payment provider (Stripe).
         </p>
       )}
 

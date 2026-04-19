@@ -17,17 +17,25 @@ async def get_or_create_stripe_customer(
 ) -> str:
     """Return the Stripe customer ID for a user, creating one if needed."""
     row = (
-        await db.execute(
-            text("SELECT stripe_customer_id FROM ecommerce.stripe_customers WHERE user_id = :uid"),
-            {"uid": user_id},
+        (
+            await db.execute(
+                text(
+                    "SELECT stripe_customer_id FROM ecommerce.stripe_customers WHERE user_id = :uid"
+                ),
+                {"uid": user_id},
+            )
         )
-    ).mappings().first()
+        .mappings()
+        .first()
+    )
 
     if row:
         return str(row["stripe_customer_id"])
 
     provider = get_payment_provider()
-    result = await provider.create_customer(email, name=name, metadata={"user_id": user_id})
+    result = await provider.create_customer(
+        email, name=name, metadata={"user_id": user_id}
+    )
 
     await db.execute(
         text(
@@ -55,14 +63,18 @@ async def create_subscription(
     """
     # Validate product is recurring
     product = (
-        await db.execute(
-            text(
-                "SELECT id, pricing_type, stripe_price_id, trial_period_days "
-                "FROM ecommerce.products WHERE id = :pid AND deleted_at IS NULL"
-            ),
-            {"pid": product_id},
+        (
+            await db.execute(
+                text(
+                    "SELECT id, pricing_type, stripe_price_id, trial_period_days "
+                    "FROM ecommerce.products WHERE id = :pid AND deleted_at IS NULL"
+                ),
+                {"pid": product_id},
+            )
         )
-    ).mappings().first()
+        .mappings()
+        .first()
+    )
 
     if not product:
         raise ValueError("Product not found")
@@ -75,14 +87,18 @@ async def create_subscription(
     price_id = str(product["stripe_price_id"])
     if variant_id:
         variant = (
-            await db.execute(
-                text(
-                    "SELECT stripe_price_id FROM ecommerce.product_variants "
-                    "WHERE id = :vid AND product_id = :pid"
-                ),
-                {"vid": variant_id, "pid": product_id},
+            (
+                await db.execute(
+                    text(
+                        "SELECT stripe_price_id FROM ecommerce.product_variants "
+                        "WHERE id = :vid AND product_id = :pid"
+                    ),
+                    {"vid": variant_id, "pid": product_id},
+                )
             )
-        ).mappings().first()
+            .mappings()
+            .first()
+        )
         if variant and variant["stripe_price_id"]:
             price_id = str(variant["stripe_price_id"])
 
@@ -119,12 +135,16 @@ async def create_subscription(
     period_end = None
     if result.current_period_start:
         try:
-            period_start = datetime.fromtimestamp(int(result.current_period_start), tz=timezone.utc)
+            period_start = datetime.fromtimestamp(
+                int(result.current_period_start), tz=timezone.utc
+            )
         except (ValueError, TypeError):
             pass
     if result.current_period_end:
         try:
-            period_end = datetime.fromtimestamp(int(result.current_period_end), tz=timezone.utc)
+            period_end = datetime.fromtimestamp(
+                int(result.current_period_end), tz=timezone.utc
+            )
         except (ValueError, TypeError):
             pass
 
@@ -134,36 +154,41 @@ async def create_subscription(
 
     # Insert subscription record
     row = (
-        await db.execute(
-            text(
-                "INSERT INTO ecommerce.subscriptions "
-                "(user_id, product_id, variant_id, stripe_subscription_id, stripe_customer_id, "
-                " status, current_period_start, current_period_end, "
-                " trial_start, trial_end, discount_code_id) "
-                "VALUES (:uid, :pid, :vid, :ssid, :scid, :status, "
-                " :ps, :pe, :trial_start, :trial_end, :dcid) "
-                "RETURNING *"
-            ),
-            {
-                "uid": user_id,
-                "pid": product_id,
-                "vid": variant_id,
-                "ssid": result.provider_subscription_id,
-                "scid": stripe_customer_id,
-                "status": result.status,
-                "ps": period_start,
-                "pe": period_end,
-                "trial_start": trial_start,
-                "trial_end": trial_end,
-                "dcid": discount_code_id,
-            },
+        (
+            await db.execute(
+                text(
+                    "INSERT INTO ecommerce.subscriptions "
+                    "(user_id, product_id, variant_id, stripe_subscription_id, stripe_customer_id, "
+                    " status, current_period_start, current_period_end, "
+                    " trial_start, trial_end, discount_code_id) "
+                    "VALUES (:uid, :pid, :vid, :ssid, :scid, :status, "
+                    " :ps, :pe, :trial_start, :trial_end, :dcid) "
+                    "RETURNING *"
+                ),
+                {
+                    "uid": user_id,
+                    "pid": product_id,
+                    "vid": variant_id,
+                    "ssid": result.provider_subscription_id,
+                    "scid": stripe_customer_id,
+                    "status": result.status,
+                    "ps": period_start,
+                    "pe": period_end,
+                    "trial_start": trial_start,
+                    "trial_end": trial_end,
+                    "dcid": discount_code_id,
+                },
+            )
         )
-    ).mappings().first()
+        .mappings()
+        .first()
+    )
     await db.commit()
 
     # Increment coupon usage
     if discount_code_id:
         from modules.ecommerce.services import discount_service
+
         await discount_service.increment_uses(db, discount_code_id)
 
     sub = dict(row)
@@ -176,14 +201,18 @@ async def cancel_subscription(
 ) -> dict[str, Any]:
     """Cancel a subscription at period end."""
     row = (
-        await db.execute(
-            text(
-                "SELECT * FROM ecommerce.subscriptions "
-                "WHERE id = :sid AND user_id = :uid"
-            ),
-            {"sid": subscription_id, "uid": user_id},
+        (
+            await db.execute(
+                text(
+                    "SELECT * FROM ecommerce.subscriptions "
+                    "WHERE id = :sid AND user_id = :uid"
+                ),
+                {"sid": subscription_id, "uid": user_id},
+            )
         )
-    ).mappings().first()
+        .mappings()
+        .first()
+    )
 
     if not row:
         raise ValueError("Subscription not found")
@@ -193,18 +222,24 @@ async def cancel_subscription(
         raise ValueError("Subscription is already canceled")
 
     provider = get_payment_provider()
-    await provider.cancel_subscription(sub["stripe_subscription_id"], at_period_end=True)
+    await provider.cancel_subscription(
+        sub["stripe_subscription_id"], at_period_end=True
+    )
 
     updated = (
-        await db.execute(
-            text(
-                "UPDATE ecommerce.subscriptions "
-                "SET cancel_at_period_end = TRUE, canceled_at = NOW() "
-                "WHERE id = :sid RETURNING *"
-            ),
-            {"sid": subscription_id},
+        (
+            await db.execute(
+                text(
+                    "UPDATE ecommerce.subscriptions "
+                    "SET cancel_at_period_end = TRUE, canceled_at = NOW() "
+                    "WHERE id = :sid RETURNING *"
+                ),
+                {"sid": subscription_id},
+            )
         )
-    ).mappings().first()
+        .mappings()
+        .first()
+    )
     await db.commit()
 
     return dict(updated)
@@ -215,14 +250,15 @@ async def admin_cancel_subscription(
 ) -> dict[str, Any]:
     """Cancel a subscription at period end (admin — no user_id check)."""
     row = (
-        await db.execute(
-            text(
-                "SELECT * FROM ecommerce.subscriptions "
-                "WHERE id = :sid"
-            ),
-            {"sid": subscription_id},
+        (
+            await db.execute(
+                text("SELECT * FROM ecommerce.subscriptions " "WHERE id = :sid"),
+                {"sid": subscription_id},
+            )
         )
-    ).mappings().first()
+        .mappings()
+        .first()
+    )
 
     if not row:
         raise ValueError("Subscription not found")
@@ -232,18 +268,24 @@ async def admin_cancel_subscription(
         raise ValueError("Subscription is already canceled")
 
     provider = get_payment_provider()
-    await provider.cancel_subscription(sub["stripe_subscription_id"], at_period_end=True)
+    await provider.cancel_subscription(
+        sub["stripe_subscription_id"], at_period_end=True
+    )
 
     updated = (
-        await db.execute(
-            text(
-                "UPDATE ecommerce.subscriptions "
-                "SET cancel_at_period_end = TRUE, canceled_at = NOW() "
-                "WHERE id = :sid RETURNING *"
-            ),
-            {"sid": subscription_id},
+        (
+            await db.execute(
+                text(
+                    "UPDATE ecommerce.subscriptions "
+                    "SET cancel_at_period_end = TRUE, canceled_at = NOW() "
+                    "WHERE id = :sid RETURNING *"
+                ),
+                {"sid": subscription_id},
+            )
         )
-    ).mappings().first()
+        .mappings()
+        .first()
+    )
     await db.commit()
 
     return dict(updated)
@@ -254,18 +296,22 @@ async def list_user_subscriptions(
 ) -> list[dict[str, Any]]:
     """List all subscriptions for a user."""
     rows = (
-        await db.execute(
-            text(
-                "SELECT s.*, p.name as product_name, p.base_price, p.currency, "
-                "p.recurring_interval, p.recurring_interval_count "
-                "FROM ecommerce.subscriptions s "
-                "JOIN ecommerce.products p ON s.product_id = p.id "
-                "WHERE s.user_id = :uid "
-                "ORDER BY s.created_at DESC"
-            ),
-            {"uid": user_id},
+        (
+            await db.execute(
+                text(
+                    "SELECT s.*, p.name as product_name, p.base_price, p.currency, "
+                    "p.recurring_interval, p.recurring_interval_count "
+                    "FROM ecommerce.subscriptions s "
+                    "JOIN ecommerce.products p ON s.product_id = p.id "
+                    "WHERE s.user_id = :uid "
+                    "ORDER BY s.created_at DESC"
+                ),
+                {"uid": user_id},
+            )
         )
-    ).mappings().all()
+        .mappings()
+        .all()
+    )
     return [dict(r) for r in rows]
 
 
@@ -285,19 +331,23 @@ async def list_all_subscriptions(
         )
     ).scalar() or 0
     rows = (
-        await db.execute(
-            text(
-                f"SELECT s.*, p.name as product_name, u.email as user_email "
-                f"FROM ecommerce.subscriptions s "
-                f"JOIN ecommerce.products p ON s.product_id = p.id "
-                f"JOIN core.users u ON s.user_id = u.id"
-                f"{where} "
-                f"ORDER BY s.created_at DESC "
-                f"LIMIT :limit OFFSET :offset"
-            ),
-            params,
+        (
+            await db.execute(
+                text(
+                    f"SELECT s.*, p.name as product_name, u.email as user_email "
+                    f"FROM ecommerce.subscriptions s "
+                    f"JOIN ecommerce.products p ON s.product_id = p.id "
+                    f"JOIN core.users u ON s.user_id = u.id"
+                    f"{where} "
+                    f"ORDER BY s.created_at DESC "
+                    f"LIMIT :limit OFFSET :offset"
+                ),
+                params,
+            )
         )
-    ).mappings().all()
+        .mappings()
+        .all()
+    )
     return {
         "items": [dict(r) for r in rows],
         "total": total,

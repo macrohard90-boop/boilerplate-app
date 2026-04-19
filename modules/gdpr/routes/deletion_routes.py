@@ -21,15 +21,16 @@ async def request_deletion(
 ):
     """Request account deletion. Immediately revokes all sessions."""
     try:
-        result = await deletion_service.request_deletion(
-            db, redis, user["user_id"]
-        )
+        result = await deletion_service.request_deletion(db, redis, user["user_id"])
     except ValueError as e:
-        raise HTTPException(status_code=409, detail={
-            "error": "conflict",
-            "message": str(e),
-            "details": None,
-        })
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "error": "conflict",
+                "message": str(e),
+                "details": None,
+            },
+        )
 
     return DeletionStatusResponse(**result)
 
@@ -46,11 +47,14 @@ async def get_deletion_status(
             db, user["user_id"], deletion_id
         )
     except ValueError as e:
-        raise HTTPException(status_code=404, detail={
-            "error": "not_found",
-            "message": str(e),
-            "details": None,
-        })
+        raise HTTPException(
+            status_code=404,
+            detail={
+                "error": "not_found",
+                "message": str(e),
+                "details": None,
+            },
+        )
 
     return DeletionStatusResponse(**result)
 
@@ -63,14 +67,15 @@ async def cancel_deletion(
 ):
     """Cancel a deletion request during the grace period."""
     try:
-        await deletion_service.cancel_deletion(
-            db, user["user_id"], deletion_id
-        )
+        await deletion_service.cancel_deletion(db, user["user_id"], deletion_id)
     except ValueError as e:
-        raise HTTPException(status_code=400, detail={
-            "error": "bad_request",
-            "message": str(e),
-            "details": None,
-        })
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "error": "bad_request",
+                "message": str(e),
+                "details": None,
+            },
+        )
 
     return MessageResponse(message="Deletion request cancelled")

@@ -18,16 +18,20 @@ async def get_preferences(
     """
     if user_id:
         row = (
-            await db.execute(
-                text(
-                    "SELECT necessary, analytics, marketing, preferences, updated_at "
-                    "FROM gdpr.cookie_preferences "
-                    "WHERE user_id = :uid "
-                    "ORDER BY created_at DESC LIMIT 1"
-                ),
-                {"uid": user_id},
+            (
+                await db.execute(
+                    text(
+                        "SELECT necessary, analytics, marketing, preferences, updated_at "
+                        "FROM gdpr.cookie_preferences "
+                        "WHERE user_id = :uid "
+                        "ORDER BY created_at DESC LIMIT 1"
+                    ),
+                    {"uid": user_id},
+                )
             )
-        ).mappings().first()
+            .mappings()
+            .first()
+        )
         if row:
             return {
                 "necessary": row["necessary"],
@@ -39,16 +43,20 @@ async def get_preferences(
 
     if session_id:
         row = (
-            await db.execute(
-                text(
-                    "SELECT necessary, analytics, marketing, preferences, updated_at "
-                    "FROM gdpr.cookie_preferences "
-                    "WHERE session_id = :sid "
-                    "ORDER BY created_at DESC LIMIT 1"
-                ),
-                {"sid": session_id},
+            (
+                await db.execute(
+                    text(
+                        "SELECT necessary, analytics, marketing, preferences, updated_at "
+                        "FROM gdpr.cookie_preferences "
+                        "WHERE session_id = :sid "
+                        "ORDER BY created_at DESC LIMIT 1"
+                    ),
+                    {"sid": session_id},
+                )
             )
-        ).mappings().first()
+            .mappings()
+            .first()
+        )
         if row:
             return {
                 "necessary": row["necessary"],
@@ -81,24 +89,32 @@ async def update_preferences(
     existing = None
     if user_id:
         existing = (
-            await db.execute(
-                text(
-                    "SELECT id FROM gdpr.cookie_preferences "
-                    "WHERE user_id = :uid LIMIT 1"
-                ),
-                {"uid": user_id},
+            (
+                await db.execute(
+                    text(
+                        "SELECT id FROM gdpr.cookie_preferences "
+                        "WHERE user_id = :uid LIMIT 1"
+                    ),
+                    {"uid": user_id},
+                )
             )
-        ).mappings().first()
+            .mappings()
+            .first()
+        )
     elif session_id:
         existing = (
-            await db.execute(
-                text(
-                    "SELECT id FROM gdpr.cookie_preferences "
-                    "WHERE session_id = :sid AND user_id IS NULL LIMIT 1"
-                ),
-                {"sid": session_id},
+            (
+                await db.execute(
+                    text(
+                        "SELECT id FROM gdpr.cookie_preferences "
+                        "WHERE session_id = :sid AND user_id IS NULL LIMIT 1"
+                    ),
+                    {"sid": session_id},
+                )
             )
-        ).mappings().first()
+            .mappings()
+            .first()
+        )
 
     if existing:
         await db.execute(

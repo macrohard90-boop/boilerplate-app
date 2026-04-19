@@ -6,7 +6,9 @@ import { apiFetch } from "../../../../../lib/api";
 import { useToast } from "../../../../../components/Toast";
 import LoadingSpinner from "../../../../../components/LoadingSpinner";
 import SyncStatusBadge from "../../../../../components/admin/SyncStatusBadge";
-import CouponForm, { type CouponFormData } from "../../../../../components/admin/CouponForm";
+import CouponForm, {
+  type CouponFormData,
+} from "../../../../../components/admin/CouponForm";
 
 interface Discount {
   id: string;
@@ -47,7 +49,7 @@ export default function AdminCouponEditPage() {
   const fetchCoupon = useCallback(async () => {
     try {
       const data = await apiFetch<Discount>(
-        `/ecommerce/admin/discounts/${couponId}`
+        `/ecommerce/admin/discounts/${couponId}`,
       );
       setCoupon(data);
     } catch {
@@ -66,11 +68,14 @@ export default function AdminCouponEditPage() {
     try {
       const updated = await apiFetch<Discount>(
         `/ecommerce/admin/discounts/${couponId}`,
-        { method: "PUT", body: JSON.stringify(formData) }
+        { method: "PUT", body: JSON.stringify(formData) },
       );
       setCoupon(updated);
       if (updated.stripe_sync_status === "error") {
-        showToast(`Saved, but Stripe sync failed: ${updated.stripe_sync_error}`, "error");
+        showToast(
+          `Saved, but Stripe sync failed: ${updated.stripe_sync_error}`,
+          "error",
+        );
       } else {
         showToast("Coupon updated", "success");
       }
@@ -91,8 +96,19 @@ export default function AdminCouponEditPage() {
           onClick={() => router.push("/admin/catalog/coupons")}
           className="text-text-muted hover:text-text-primary transition-colors"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            className="h-5 w-5"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M15 19l-7-7 7-7"
+            />
           </svg>
         </button>
         <h1 className="font-serif text-2xl font-bold">
@@ -107,7 +123,9 @@ export default function AdminCouponEditPage() {
           <div>
             <span className="text-xs text-text-muted block">Stripe Sync</span>
             {coupon.type === "free_shipping" ? (
-              <span className="text-xs text-text-muted">N/A (free shipping)</span>
+              <span className="text-xs text-text-muted">
+                N/A (free shipping)
+              </span>
             ) : (
               <SyncStatusBadge
                 status={coupon.stripe_sync_status}
@@ -118,18 +136,26 @@ export default function AdminCouponEditPage() {
           {coupon.stripe_coupon_id && (
             <div>
               <span className="text-xs text-text-muted block">Coupon ID</span>
-              <span className="text-xs text-text-secondary font-mono">{coupon.stripe_coupon_id}</span>
+              <span className="text-xs text-text-secondary font-mono">
+                {coupon.stripe_coupon_id}
+              </span>
             </div>
           )}
           {coupon.stripe_promotion_code_id && (
             <div>
-              <span className="text-xs text-text-muted block">Promo Code ID</span>
-              <span className="text-xs text-text-secondary font-mono">{coupon.stripe_promotion_code_id}</span>
+              <span className="text-xs text-text-muted block">
+                Promo Code ID
+              </span>
+              <span className="text-xs text-text-secondary font-mono">
+                {coupon.stripe_promotion_code_id}
+              </span>
             </div>
           )}
           <div>
             <span className="text-xs text-text-muted block">Usage</span>
-            <span className="text-xs text-text-secondary">{coupon.uses_count} / {coupon.max_uses ?? "unlimited"}</span>
+            <span className="text-xs text-text-secondary">
+              {coupon.uses_count} / {coupon.max_uses ?? "unlimited"}
+            </span>
           </div>
         </div>
         {coupon.stripe_sync_status === "error" && (

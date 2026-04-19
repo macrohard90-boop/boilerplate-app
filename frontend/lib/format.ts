@@ -49,7 +49,11 @@ export function truncate(str: string, len: number): string {
 /**
  * Generate star rating display info.
  */
-export function ratingToStars(rating: number): { full: number; half: boolean; empty: number } {
+export function ratingToStars(rating: number): {
+  full: number;
+  half: boolean;
+  empty: number;
+} {
   const full = Math.floor(rating);
   const half = rating - full >= 0.5;
   const empty = 5 - full - (half ? 1 : 0);

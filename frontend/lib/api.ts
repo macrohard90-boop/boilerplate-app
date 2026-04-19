@@ -14,7 +14,8 @@ function uuidv4(): string {
   if (typeof crypto !== "undefined" && crypto.getRandomValues) {
     crypto.getRandomValues(bytes);
   } else {
-    for (let i = 0; i < bytes.length; i++) bytes[i] = Math.floor(Math.random() * 256);
+    for (let i = 0; i < bytes.length; i++)
+      bytes[i] = Math.floor(Math.random() * 256);
   }
   bytes[6] = (bytes[6] & 0x0f) | 0x40;
   bytes[8] = (bytes[8] & 0x3f) | 0x80;
@@ -73,7 +74,7 @@ export interface ApiError {
 
 export async function apiFetch<T = unknown>(
   path: string,
-  options: RequestInit = {}
+  options: RequestInit = {},
 ): Promise<T> {
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
@@ -130,7 +131,10 @@ export async function apiFetch<T = unknown>(
   }
 
   // On 403 with CSRF error, try to refresh tokens to get a new CSRF token
-  if (res.status === 403 && ["POST", "PUT", "DELETE", "PATCH"].includes(method)) {
+  if (
+    res.status === 403 &&
+    ["POST", "PUT", "DELETE", "PATCH"].includes(method)
+  ) {
     try {
       const body = await res.clone().json();
       const msg = body?.detail?.message || body?.message || "";

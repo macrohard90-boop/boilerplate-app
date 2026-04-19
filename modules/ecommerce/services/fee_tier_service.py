@@ -1,7 +1,6 @@
 """Fee tier service — volume-based platform fees with per-merchant overrides."""
 
 import logging
-import math
 from typing import Any
 
 from sqlalchemy import text
@@ -18,37 +17,45 @@ logger = logging.getLogger(__name__)
 async def list_default_tiers(db: AsyncSession) -> list[dict[str, Any]]:
     """List all global default fee tiers sorted by sort_order."""
     rows = (
-        await db.execute(
-            text(
-                "SELECT * FROM ecommerce.fee_tiers "
-                "WHERE is_default = TRUE "
-                "ORDER BY sort_order"
+        (
+            await db.execute(
+                text(
+                    "SELECT * FROM ecommerce.fee_tiers "
+                    "WHERE is_default = TRUE "
+                    "ORDER BY sort_order"
+                )
             )
         )
-    ).mappings().all()
+        .mappings()
+        .all()
+    )
     return [dict(r) for r in rows]
 
 
 async def create_tier(db: AsyncSession, data: dict[str, Any]) -> dict[str, Any]:
     """Create a global fee tier."""
     row = (
-        await db.execute(
-            text(
-                "INSERT INTO ecommerce.fee_tiers "
-                "(name, min_volume, max_volume, fee_percent, fee_flat, sort_order, is_default) "
-                "VALUES (:name, :min_volume, :max_volume, :fee_percent, :fee_flat, :sort_order, TRUE) "
-                "RETURNING *"
-            ),
-            {
-                "name": data["name"],
-                "min_volume": data.get("min_volume", 0),
-                "max_volume": data.get("max_volume"),
-                "fee_percent": data["fee_percent"],
-                "fee_flat": data.get("fee_flat", 0),
-                "sort_order": data.get("sort_order", 0),
-            },
+        (
+            await db.execute(
+                text(
+                    "INSERT INTO ecommerce.fee_tiers "
+                    "(name, min_volume, max_volume, fee_percent, fee_flat, sort_order, is_default) "
+                    "VALUES (:name, :min_volume, :max_volume, :fee_percent, :fee_flat, :sort_order, TRUE) "
+                    "RETURNING *"
+                ),
+                {
+                    "name": data["name"],
+                    "min_volume": data.get("min_volume", 0),
+                    "max_volume": data.get("max_volume"),
+                    "fee_percent": data["fee_percent"],
+                    "fee_flat": data.get("fee_flat", 0),
+                    "sort_order": data.get("sort_order", 0),
+                },
+            )
         )
-    ).mappings().first()
+        .mappings()
+        .first()
+    )
     await db.commit()
     return dict(row)
 
@@ -72,14 +79,18 @@ async def update_tier(
             params[k] = v
 
     row = (
-        await db.execute(
-            text(
-                f"UPDATE ecommerce.fee_tiers SET {', '.join(set_parts)} "
-                "WHERE id = :tid RETURNING *"
-            ),
-            params,
+        (
+            await db.execute(
+                text(
+                    f"UPDATE ecommerce.fee_tiers SET {', '.join(set_parts)} "
+                    "WHERE id = :tid RETURNING *"
+                ),
+                params,
+            )
         )
-    ).mappings().first()
+        .mappings()
+        .first()
+    )
     if not row:
         raise ValueError("Fee tier not found")
     await db.commit()
@@ -107,15 +118,19 @@ async def get_merchant_overrides(
 ) -> list[dict[str, Any]]:
     """Get custom fee tiers for a specific merchant."""
     rows = (
-        await db.execute(
-            text(
-                "SELECT * FROM ecommerce.merchant_fee_overrides "
-                "WHERE merchant_account_id = :mid "
-                "ORDER BY sort_order"
-            ),
-            {"mid": merchant_account_id},
+        (
+            await db.execute(
+                text(
+                    "SELECT * FROM ecommerce.merchant_fee_overrides "
+                    "WHERE merchant_account_id = :mid "
+                    "ORDER BY sort_order"
+                ),
+                {"mid": merchant_account_id},
+            )
         )
-    ).mappings().all()
+        .mappings()
+        .all()
+    )
     return [dict(r) for r in rows]
 
 
@@ -134,32 +149,34 @@ async def set_merchant_overrides(
     results = []
     for i, tier in enumerate(tiers):
         row = (
-            await db.execute(
-                text(
-                    "INSERT INTO ecommerce.merchant_fee_overrides "
-                    "(merchant_account_id, fee_percent, fee_flat, min_volume, max_volume, sort_order) "
-                    "VALUES (:mid, :fp, :ff, :minv, :maxv, :so) "
-                    "RETURNING *"
-                ),
-                {
-                    "mid": merchant_account_id,
-                    "fp": tier["fee_percent"],
-                    "ff": tier.get("fee_flat", 0),
-                    "minv": tier.get("min_volume", 0),
-                    "maxv": tier.get("max_volume"),
-                    "so": i + 1,
-                },
+            (
+                await db.execute(
+                    text(
+                        "INSERT INTO ecommerce.merchant_fee_overrides "
+                        "(merchant_account_id, fee_percent, fee_flat, min_volume, max_volume, sort_order) "
+                        "VALUES (:mid, :fp, :ff, :minv, :maxv, :so) "
+                        "RETURNING *"
+                    ),
+                    {
+                        "mid": merchant_account_id,
+                        "fp": tier["fee_percent"],
+                        "ff": tier.get("fee_flat", 0),
+                        "minv": tier.get("min_volume", 0),
+                        "maxv": tier.get("max_volume"),
+                        "so": i + 1,
+                    },
+                )
             )
-        ).mappings().first()
+            .mappings()
+            .first()
+        )
         results.append(dict(row))
 
     await db.commit()
     return results
 
 
-async def clear_merchant_overrides(
-    db: AsyncSession, merchant_account_id: str
-) -> None:
+async def clear_merchant_overrides(db: AsyncSession, merchant_account_id: str) -> None:
     """Remove all custom fee overrides for a merchant (revert to global defaults)."""
     await db.execute(
         text(
@@ -189,14 +206,18 @@ async def calculate_fee(
     """
     # Get merchant's current sales volume
     row = (
-        await db.execute(
-            text(
-                "SELECT total_sales_volume FROM ecommerce.merchant_accounts "
-                "WHERE id = :mid"
-            ),
-            {"mid": merchant_account_id},
+        (
+            await db.execute(
+                text(
+                    "SELECT total_sales_volume FROM ecommerce.merchant_accounts "
+                    "WHERE id = :mid"
+                ),
+                {"mid": merchant_account_id},
+            )
         )
-    ).mappings().first()
+        .mappings()
+        .first()
+    )
 
     volume = int(row["total_sales_volume"]) if row else 0
 

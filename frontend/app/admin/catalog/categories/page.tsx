@@ -6,7 +6,9 @@ import { formatDate } from "../../../../lib/format";
 import LoadingSpinner from "../../../../components/LoadingSpinner";
 import Modal from "../../../../components/Modal";
 import { useToast } from "../../../../components/Toast";
-import CategoryForm, { type CategoryFormData } from "../../../../components/admin/CategoryForm";
+import CategoryForm, {
+  type CategoryFormData,
+} from "../../../../components/admin/CategoryForm";
 
 interface Category {
   id: string;
@@ -21,7 +23,10 @@ interface Category {
 }
 
 /** Flatten tree into display rows with depth info */
-function flattenTree(tree: Category[], depth = 0): (Category & { depth: number })[] {
+function flattenTree(
+  tree: Category[],
+  depth = 0,
+): (Category & { depth: number })[] {
   const rows: (Category & { depth: number })[] = [];
   for (const cat of tree) {
     rows.push({ ...cat, depth });
@@ -33,7 +38,9 @@ function flattenTree(tree: Category[], depth = 0): (Category & { depth: number }
 }
 
 /** Flatten tree into a flat list (for parent picker) */
-function flattenForPicker(tree: Category[]): { id: string; name: string; parent_id: string | null }[] {
+function flattenForPicker(
+  tree: Category[],
+): { id: string; name: string; parent_id: string | null }[] {
   const result: { id: string; name: string; parent_id: string | null }[] = [];
   for (const cat of tree) {
     result.push({ id: cat.id, name: cat.name, parent_id: cat.parent_id });
@@ -63,7 +70,9 @@ export default function AdminCategoriesPage() {
       .finally(() => setLoading(false));
   }, [showToast]);
 
-  useEffect(() => { fetchCategories(); }, [fetchCategories]);
+  useEffect(() => {
+    fetchCategories();
+  }, [fetchCategories]);
 
   const flatCategories = flattenForPicker(tree);
   const displayRows = flattenTree(tree);
@@ -79,7 +88,8 @@ export default function AdminCategoriesPage() {
       setShowCreate(false);
       fetchCategories();
     } catch (err: unknown) {
-      const msg = (err as { message?: string })?.message || "Failed to create category";
+      const msg =
+        (err as { message?: string })?.message || "Failed to create category";
       showToast(msg, "error");
     }
     setCreating(false);
@@ -97,7 +107,8 @@ export default function AdminCategoriesPage() {
       setEditItem(null);
       fetchCategories();
     } catch (err: unknown) {
-      const msg = (err as { message?: string })?.message || "Failed to update category";
+      const msg =
+        (err as { message?: string })?.message || "Failed to update category";
       showToast(msg, "error");
     }
     setEditing(false);
@@ -114,14 +125,16 @@ export default function AdminCategoriesPage() {
       setDeleteItem(null);
       fetchCategories();
     } catch (err: unknown) {
-      const msg = (err as { message?: string })?.message || "Failed to delete category";
+      const msg =
+        (err as { message?: string })?.message || "Failed to delete category";
       showToast(msg, "error");
     }
     setDeleting(false);
   };
 
   const canDelete = deleteItem
-    ? deleteItem.product_count === 0 && (!deleteItem.children || deleteItem.children.length === 0)
+    ? deleteItem.product_count === 0 &&
+      (!deleteItem.children || deleteItem.children.length === 0)
     : false;
 
   if (loading && tree.length === 0) return <LoadingSpinner className="py-20" />;
@@ -145,7 +158,9 @@ export default function AdminCategoriesPage() {
       {displayRows.length === 0 ? (
         <div className="text-text-secondary glass rounded-xl p-12 text-center">
           <p className="text-lg mb-2">No categories yet</p>
-          <p className="text-sm text-text-muted mb-4">Create your first category to organize products.</p>
+          <p className="text-sm text-text-muted mb-4">
+            Create your first category to organize products.
+          </p>
           <button
             onClick={() => setShowCreate(true)}
             className="btn-primary px-4 py-2 rounded-lg text-sm"
@@ -158,29 +173,53 @@ export default function AdminCategoriesPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-glass-border">
-                <th className="text-left p-4 text-text-muted font-medium">Name</th>
-                <th className="text-left p-4 text-text-muted font-medium">Slug</th>
-                <th className="text-left p-4 text-text-muted font-medium">Products</th>
-                <th className="text-left p-4 text-text-muted font-medium">Order</th>
-                <th className="text-left p-4 text-text-muted font-medium">Created</th>
-                <th className="text-right p-4 text-text-muted font-medium">Actions</th>
+                <th className="text-left p-4 text-text-muted font-medium">
+                  Name
+                </th>
+                <th className="text-left p-4 text-text-muted font-medium">
+                  Slug
+                </th>
+                <th className="text-left p-4 text-text-muted font-medium">
+                  Products
+                </th>
+                <th className="text-left p-4 text-text-muted font-medium">
+                  Order
+                </th>
+                <th className="text-left p-4 text-text-muted font-medium">
+                  Created
+                </th>
+                <th className="text-right p-4 text-text-muted font-medium">
+                  Actions
+                </th>
               </tr>
             </thead>
             <tbody>
               {displayRows.map((cat) => (
-                <tr key={cat.id} className="border-b border-glass-border/50 hover:bg-glass-hover transition-colors">
+                <tr
+                  key={cat.id}
+                  className="border-b border-glass-border/50 hover:bg-glass-hover transition-colors"
+                >
                   <td className="p-4 text-text-primary font-medium">
-                    <span style={{ paddingLeft: `${cat.depth * 24}px` }} className="flex items-center gap-2">
+                    <span
+                      style={{ paddingLeft: `${cat.depth * 24}px` }}
+                      className="flex items-center gap-2"
+                    >
                       {cat.depth > 0 && (
                         <span className="text-text-muted text-xs">└</span>
                       )}
                       {cat.name}
                     </span>
                   </td>
-                  <td className="p-4 text-text-muted font-mono text-xs">{cat.slug}</td>
-                  <td className="p-4 text-text-secondary">{cat.product_count}</td>
+                  <td className="p-4 text-text-muted font-mono text-xs">
+                    {cat.slug}
+                  </td>
+                  <td className="p-4 text-text-secondary">
+                    {cat.product_count}
+                  </td>
                   <td className="p-4 text-text-muted">{cat.sort_order}</td>
-                  <td className="p-4 text-text-muted">{formatDate(cat.created_at)}</td>
+                  <td className="p-4 text-text-muted">
+                    {formatDate(cat.created_at)}
+                  </td>
                   <td className="p-4 text-right whitespace-nowrap">
                     <button
                       onClick={() => setEditItem(cat)}
@@ -203,7 +242,12 @@ export default function AdminCategoriesPage() {
       )}
 
       {/* Create Category Modal */}
-      <Modal isOpen={showCreate} onClose={() => setShowCreate(false)} title="Create Category" size="md">
+      <Modal
+        isOpen={showCreate}
+        onClose={() => setShowCreate(false)}
+        title="Create Category"
+        size="md"
+      >
         <CategoryForm
           onSubmit={handleCreate}
           onCancel={() => setShowCreate(false)}
@@ -214,7 +258,12 @@ export default function AdminCategoriesPage() {
       </Modal>
 
       {/* Edit Category Modal */}
-      <Modal isOpen={!!editItem} onClose={() => setEditItem(null)} title="Edit Category" size="md">
+      <Modal
+        isOpen={!!editItem}
+        onClose={() => setEditItem(null)}
+        title="Edit Category"
+        size="md"
+      >
         {editItem && (
           <CategoryForm
             initial={{
@@ -234,25 +283,35 @@ export default function AdminCategoriesPage() {
       </Modal>
 
       {/* Delete Confirmation Modal */}
-      <Modal isOpen={!!deleteItem} onClose={() => setDeleteItem(null)} title="Delete Category" size="sm">
+      <Modal
+        isOpen={!!deleteItem}
+        onClose={() => setDeleteItem(null)}
+        title="Delete Category"
+        size="sm"
+      >
         {deleteItem && (
           <>
             {!canDelete ? (
               <div className="space-y-3 mb-4">
                 {deleteItem.product_count > 0 && (
                   <p className="text-accent-pink text-sm bg-accent-pink/10 rounded-lg px-3 py-2">
-                    This category has {deleteItem.product_count} assigned product{deleteItem.product_count !== 1 ? "s" : ""}. Unassign them first.
+                    This category has {deleteItem.product_count} assigned
+                    product{deleteItem.product_count !== 1 ? "s" : ""}. Unassign
+                    them first.
                   </p>
                 )}
                 {deleteItem.children?.length > 0 && (
                   <p className="text-accent-pink text-sm bg-accent-pink/10 rounded-lg px-3 py-2">
-                    This category has {deleteItem.children.length} subcategor{deleteItem.children.length !== 1 ? "ies" : "y"}. Delete or reparent them first.
+                    This category has {deleteItem.children.length} subcategor
+                    {deleteItem.children.length !== 1 ? "ies" : "y"}. Delete or
+                    reparent them first.
                   </p>
                 )}
               </div>
             ) : (
               <p className="text-text-secondary text-sm mb-4">
-                Are you sure you want to delete &quot;{deleteItem.name}&quot;? This action cannot be undone.
+                Are you sure you want to delete &quot;{deleteItem.name}&quot;?
+                This action cannot be undone.
               </p>
             )}
             <div className="flex justify-end gap-3">

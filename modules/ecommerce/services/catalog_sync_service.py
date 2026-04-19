@@ -91,10 +91,18 @@ async def sync_product_to_catalog(
         product["stripe_sync_status"] = "synced"
         product["stripe_sync_error"] = None
         if not product.get("stripe_product_id"):
-            row = (await db.execute(
-                text("SELECT stripe_product_id FROM ecommerce.products WHERE id = :id"),
-                {"id": product_id},
-            )).mappings().first()
+            row = (
+                (
+                    await db.execute(
+                        text(
+                            "SELECT stripe_product_id FROM ecommerce.products WHERE id = :id"
+                        ),
+                        {"id": product_id},
+                    )
+                )
+                .mappings()
+                .first()
+            )
             if row:
                 product["stripe_product_id"] = row["stripe_product_id"]
 
@@ -117,14 +125,20 @@ async def copy_default_variant_price(
     (subscription service uses it as the default price).
     """
     product_id = str(product["id"])
-    row = (await db.execute(
-        text(
-            "SELECT stripe_price_id FROM ecommerce.product_variants "
-            "WHERE product_id = :pid AND stripe_price_id IS NOT NULL "
-            "ORDER BY created_at LIMIT 1"
-        ),
-        {"pid": product_id},
-    )).mappings().first()
+    row = (
+        (
+            await db.execute(
+                text(
+                    "SELECT stripe_price_id FROM ecommerce.product_variants "
+                    "WHERE product_id = :pid AND stripe_price_id IS NOT NULL "
+                    "ORDER BY created_at LIMIT 1"
+                ),
+                {"pid": product_id},
+            )
+        )
+        .mappings()
+        .first()
+    )
     if row and row["stripe_price_id"]:
         await db.execute(
             text(
@@ -150,10 +164,16 @@ async def sync_product_images_to_catalog(
     if provider is None:
         return
 
-    row = (await db.execute(
-        text("SELECT stripe_product_id FROM ecommerce.products WHERE id = :id"),
-        {"id": product_id},
-    )).mappings().first()
+    row = (
+        (
+            await db.execute(
+                text("SELECT stripe_product_id FROM ecommerce.products WHERE id = :id"),
+                {"id": product_id},
+            )
+        )
+        .mappings()
+        .first()
+    )
     if not row or not row["stripe_product_id"]:
         return
 
@@ -204,9 +224,13 @@ async def sync_variant_to_catalog(
                 "nickname": price_nickname,
                 "metadata": price_metadata,
             }
-            if product.get("pricing_type") == "recurring" and product.get("recurring_interval"):
+            if product.get("pricing_type") == "recurring" and product.get(
+                "recurring_interval"
+            ):
                 rotate_kwargs["recurring_interval"] = product["recurring_interval"]
-                rotate_kwargs["recurring_interval_count"] = product.get("recurring_interval_count", 1)
+                rotate_kwargs["recurring_interval_count"] = product.get(
+                    "recurring_interval_count", 1
+                )
             new_price = await _rotate_price(
                 provider,
                 stripe_product_id,
@@ -231,9 +255,13 @@ async def sync_variant_to_catalog(
                 "nickname": price_nickname,
                 "metadata": price_metadata,
             }
-            if product.get("pricing_type") == "recurring" and product.get("recurring_interval"):
+            if product.get("pricing_type") == "recurring" and product.get(
+                "recurring_interval"
+            ):
                 price_kwargs["recurring_interval"] = product["recurring_interval"]
-                price_kwargs["recurring_interval_count"] = product.get("recurring_interval_count", 1)
+                price_kwargs["recurring_interval_count"] = product.get(
+                    "recurring_interval_count", 1
+                )
             catalog_price = await provider.create_price(
                 stripe_product_id,
                 effective_price,
@@ -296,9 +324,7 @@ async def archive_product_in_catalog(
         )
         await db.commit()
     except Exception as e:
-        logger.error(
-            "Catalog archive failed for product %s: %s", product["id"], e
-        )
+        logger.error("Catalog archive failed for product %s: %s", product["id"], e)
 
 
 async def retry_sync(db: AsyncSession, product_id: str) -> dict[str, Any]:
@@ -332,9 +358,14 @@ async def retry_sync(db: AsyncSession, product_id: str) -> dict[str, Any]:
 
 
 async def _rotate_price(
-    provider, stripe_product_id: str, old_price_id: str | None,
-    amount: int, currency: str, *,
-    nickname: str | None = None, metadata: dict | None = None,
+    provider,
+    stripe_product_id: str,
+    old_price_id: str | None,
+    amount: int,
+    currency: str,
+    *,
+    nickname: str | None = None,
+    metadata: dict | None = None,
     recurring_interval: str | None = None,
     recurring_interval_count: int = 1,
 ):
@@ -350,8 +381,11 @@ async def _rotate_price(
             logger.warning("Failed to archive old price %s: %s", old_price_id, e)
 
     return await provider.create_price(
-        stripe_product_id, amount, currency,
-        nickname=nickname, metadata=metadata,
+        stripe_product_id,
+        amount,
+        currency,
+        nickname=nickname,
+        metadata=metadata,
         recurring_interval=recurring_interval,
         recurring_interval_count=recurring_interval_count,
     )
@@ -385,9 +419,7 @@ async def _mark_product_error(
     await db.commit()
 
 
-async def _get_product_image_urls(
-    db: AsyncSession, product_id: str
-) -> list[str]:
+async def _get_product_image_urls(db: AsyncSession, product_id: str) -> list[str]:
     """Build public image URLs for a product.
 
     Only returns URLs when ``public_url`` is configured (Stripe needs
@@ -397,15 +429,19 @@ async def _get_product_image_urls(
         return []
 
     rows = (
-        await db.execute(
-            text(
-                "SELECT url FROM ecommerce.product_images "
-                "WHERE product_id = :pid ORDER BY sort_order, created_at "
-                "LIMIT 8"
-            ),
-            {"pid": product_id},
+        (
+            await db.execute(
+                text(
+                    "SELECT url FROM ecommerce.product_images "
+                    "WHERE product_id = :pid ORDER BY sort_order, created_at "
+                    "LIMIT 8"
+                ),
+                {"pid": product_id},
+            )
         )
-    ).mappings().all()
+        .mappings()
+        .all()
+    )
 
     base = settings.public_url.rstrip("/")
     urls: list[str] = []

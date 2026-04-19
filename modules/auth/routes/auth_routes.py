@@ -12,10 +12,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.core.config import settings
 from backend.core.database import get_db
-from backend.core.dependencies import get_current_user, require_role, require_permission
+from backend.core.dependencies import get_current_user
 from backend.core.redis import get_redis
 from modules.auth.models.schemas import (
-    ErrorResponse,
     ForgotPasswordRequest,
     LoginRequest,
     MessageResponse,
@@ -27,7 +26,12 @@ from modules.auth.models.schemas import (
     SessionResponse,
     VerifyEmailRequest,
 )
-from modules.auth.services import auth_service, audit_service, session_service, token_service
+from modules.auth.services import (
+    auth_service,
+    audit_service,
+    session_service,
+    token_service,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -105,7 +109,10 @@ async def register(
             last_name=body.last_name,
         )
     except ValueError as e:
-        raise HTTPException(status_code=409, detail={"error": "conflict", "message": str(e), "details": None})
+        raise HTTPException(
+            status_code=409,
+            detail={"error": "conflict", "message": str(e), "details": None},
+        )
 
     user_id = str(user["id"])
     permissions = await auth_service.get_user_permissions(db, user_id)
@@ -114,13 +121,26 @@ async def register(
     ip = _client_ip(request)
     device = request.headers.get("user-agent", "")[:255]
     session_id = await session_service.create_session(
-        redis, db, user_id, user["role"], device=device, ip=ip, user_agent=device,
-        auth_time=now_ts, amr=["pwd"],
+        redis,
+        db,
+        user_id,
+        user["role"],
+        device=device,
+        ip=ip,
+        user_agent=device,
+        auth_time=now_ts,
+        amr=["pwd"],
     )
 
     access = token_service.create_access_token(
-        user_id, user["role"], session_id, permissions,
-        auth_time=now_ts, amr=["pwd"], consent=[], token_type="access",
+        user_id,
+        user["role"],
+        session_id,
+        permissions,
+        auth_time=now_ts,
+        amr=["pwd"],
+        consent=[],
+        token_type="access",
     )
     refresh = await token_service.create_refresh_token(redis, user_id, session_id)
     csrf = await auth_service.create_csrf_token(redis, session_id)
@@ -132,8 +152,10 @@ async def register(
     verify_token = await auth_service.generate_verification_token(redis, user_id)
     try:
         from modules.gdpr.services.email_send_service import send_email_fire_and_forget
+
         await send_email_fire_and_forget(
-            user_id, "welcome",
+            user_id,
+            "welcome",
             {
                 "verify_url": f"{settings.frontend_url}/verify-email?token={verify_token}",
                 "first_name": getattr(body, "first_name", None) or "there",
@@ -146,11 +168,17 @@ async def register(
         logger.exception("Failed to send welcome email to %s", body.email)
 
     await audit_service.log_audit(
-        db, user_id=user_id, action="user.register", resource="user",
-        resource_id=user_id, ip_address=ip,
+        db,
+        user_id=user_id,
+        action="user.register",
+        resource="user",
+        resource_id=user_id,
+        ip_address=ip,
     )
 
-    return TokenResponse(access_token=access, expires_in=settings.jwt_expiry, csrf_token=csrf)
+    return TokenResponse(
+        access_token=access, expires_in=settings.jwt_expiry, csrf_token=csrf
+    )
 
 
 # -----------------------------------------------------------------------
@@ -165,9 +193,14 @@ async def login(
     redis: Redis = Depends(get_redis),
 ) -> Any:
     try:
-        user = await auth_service.authenticate_user(db, email=body.email, password=body.password)
+        user = await auth_service.authenticate_user(
+            db, email=body.email, password=body.password
+        )
     except ValueError as e:
-        raise HTTPException(status_code=401, detail={"error": "unauthorized", "message": str(e), "details": None})
+        raise HTTPException(
+            status_code=401,
+            detail={"error": "unauthorized", "message": str(e), "details": None},
+        )
 
     user_id = str(user["id"])
     permissions = await auth_service.get_user_permissions(db, user_id)
@@ -177,13 +210,26 @@ async def login(
     ip = _client_ip(request)
     device = request.headers.get("user-agent", "")[:255]
     session_id = await session_service.create_session(
-        redis, db, user_id, user["role"], device=device, ip=ip, user_agent=device,
-        auth_time=now_ts, amr=["pwd"],
+        redis,
+        db,
+        user_id,
+        user["role"],
+        device=device,
+        ip=ip,
+        user_agent=device,
+        auth_time=now_ts,
+        amr=["pwd"],
     )
 
     access = token_service.create_access_token(
-        user_id, user["role"], session_id, permissions,
-        auth_time=now_ts, amr=["pwd"], consent=consent, token_type="access",
+        user_id,
+        user["role"],
+        session_id,
+        permissions,
+        auth_time=now_ts,
+        amr=["pwd"],
+        consent=consent,
+        token_type="access",
     )
     refresh = await token_service.create_refresh_token(redis, user_id, session_id)
     csrf = await auth_service.create_csrf_token(redis, session_id)
@@ -191,11 +237,17 @@ async def login(
     _set_refresh_cookie(response, refresh)
 
     await audit_service.log_audit(
-        db, user_id=user_id, action="user.login", resource="user",
-        resource_id=user_id, ip_address=ip,
+        db,
+        user_id=user_id,
+        action="user.login",
+        resource="user",
+        resource_id=user_id,
+        ip_address=ip,
     )
 
-    return TokenResponse(access_token=access, expires_in=settings.jwt_expiry, csrf_token=csrf)
+    return TokenResponse(
+        access_token=access, expires_in=settings.jwt_expiry, csrf_token=csrf
+    )
 
 
 # -----------------------------------------------------------------------
@@ -210,12 +262,26 @@ async def refresh(
     refresh_token: str | None = Cookie(default=None),
 ) -> Any:
     if not refresh_token:
-        raise HTTPException(status_code=401, detail={"error": "unauthorized", "message": "No refresh token", "details": None})
+        raise HTTPException(
+            status_code=401,
+            detail={
+                "error": "unauthorized",
+                "message": "No refresh token",
+                "details": None,
+            },
+        )
 
     data = await token_service.validate_refresh_token(redis, refresh_token)
     if not data:
         _clear_refresh_cookie(response)
-        raise HTTPException(status_code=401, detail={"error": "unauthorized", "message": "Invalid or expired refresh token", "details": None})
+        raise HTTPException(
+            status_code=401,
+            detail={
+                "error": "unauthorized",
+                "message": "Invalid or expired refresh token",
+                "details": None,
+            },
+        )
 
     user_id = data["user_id"]
     session_id = data["session_id"]
@@ -225,14 +291,28 @@ async def refresh(
     if not session:
         await token_service.revoke_refresh_token(redis, refresh_token)
         _clear_refresh_cookie(response)
-        raise HTTPException(status_code=401, detail={"error": "unauthorized", "message": "Session expired", "details": None})
+        raise HTTPException(
+            status_code=401,
+            detail={
+                "error": "unauthorized",
+                "message": "Session expired",
+                "details": None,
+            },
+        )
 
     # Rotate: revoke old refresh, issue new pair
     await token_service.revoke_refresh_token(redis, refresh_token)
 
     user = await auth_service.get_user_by_id(db, user_id)
     if not user:
-        raise HTTPException(status_code=401, detail={"error": "unauthorized", "message": "User not found", "details": None})
+        raise HTTPException(
+            status_code=401,
+            detail={
+                "error": "unauthorized",
+                "message": "User not found",
+                "details": None,
+            },
+        )
 
     # Preserve auth_time and amr from original session, refresh consent
     auth_time = int(float(session.get("auth_time", 0))) or None
@@ -244,14 +324,22 @@ async def refresh(
 
     permissions = await auth_service.get_user_permissions(db, user_id)
     access = token_service.create_access_token(
-        user_id, user["role"], session_id, permissions,
-        auth_time=auth_time, amr=amr, consent=consent, token_type="access",
+        user_id,
+        user["role"],
+        session_id,
+        permissions,
+        auth_time=auth_time,
+        amr=amr,
+        consent=consent,
+        token_type="access",
     )
     new_refresh = await token_service.create_refresh_token(redis, user_id, session_id)
     csrf = await auth_service.create_csrf_token(redis, session_id)
 
     _set_refresh_cookie(response, new_refresh)
-    return TokenResponse(access_token=access, expires_in=settings.jwt_expiry, csrf_token=csrf)
+    return TokenResponse(
+        access_token=access, expires_in=settings.jwt_expiry, csrf_token=csrf
+    )
 
 
 # -----------------------------------------------------------------------
@@ -268,7 +356,9 @@ async def logout(
     if refresh_token:
         data = await token_service.validate_refresh_token(redis, refresh_token)
         if data:
-            await session_service.invalidate_session(redis, data["session_id"], data["user_id"])
+            await session_service.invalidate_session(
+                redis, data["session_id"], data["user_id"]
+            )
         await token_service.revoke_refresh_token(redis, refresh_token)
 
     _clear_refresh_cookie(response)
@@ -290,9 +380,13 @@ async def forgot_password(
     if user and user.get("is_active") and user.get("deleted_at") is None:
         token = await auth_service.generate_password_reset_token(redis, str(user["id"]))
         try:
-            from modules.gdpr.services.email_send_service import send_email_fire_and_forget
+            from modules.gdpr.services.email_send_service import (
+                send_email_fire_and_forget,
+            )
+
             await send_email_fire_and_forget(
-                str(user["id"]), "password_reset",
+                str(user["id"]),
+                "password_reset",
                 {
                     "reset_url": f"{settings.frontend_url}/reset-password?token={token}",
                     "first_name": user.get("first_name") or "there",
@@ -318,15 +412,26 @@ async def reset_password(
 ) -> Any:
     user_id = await auth_service.consume_reset_token(redis, body.token)
     if not user_id:
-        raise HTTPException(status_code=400, detail={"error": "bad_request", "message": "Invalid or expired reset token", "details": None})
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "error": "bad_request",
+                "message": "Invalid or expired reset token",
+                "details": None,
+            },
+        )
 
     await auth_service.change_password(db, user_id, body.new_password)
     await session_service.invalidate_all_sessions(redis, user_id)
 
     ip = _client_ip(request)
     await audit_service.log_audit(
-        db, user_id=user_id, action="user.password_reset", resource="user",
-        resource_id=user_id, ip_address=ip,
+        db,
+        user_id=user_id,
+        action="user.password_reset",
+        resource="user",
+        resource_id=user_id,
+        ip_address=ip,
     )
 
     return MessageResponse(message="Password reset successfully")
@@ -343,7 +448,14 @@ async def verify_email_endpoint(
 ) -> Any:
     ok = await auth_service.verify_email(db, redis, body.token)
     if not ok:
-        raise HTTPException(status_code=400, detail={"error": "bad_request", "message": "Invalid or expired verification token", "details": None})
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "error": "bad_request",
+                "message": "Invalid or expired verification token",
+                "details": None,
+            },
+        )
 
     return MessageResponse(message="Email verified successfully")
 
@@ -359,7 +471,10 @@ async def get_me(
 ) -> Any:
     full_user = await auth_service.get_user_by_id(db, user["user_id"])
     if not full_user:
-        raise HTTPException(status_code=404, detail={"error": "not_found", "message": "User not found", "details": None})
+        raise HTTPException(
+            status_code=404,
+            detail={"error": "not_found", "message": "User not found", "details": None},
+        )
 
     session_count = await session_service.get_user_session_count(redis, user["user_id"])
 
@@ -368,6 +483,7 @@ async def get_me(
         session_data = await session_service.get_session(redis, user["session_id"])
         if session_data:
             from datetime import datetime, timezone
+
             session_created = datetime.fromtimestamp(
                 float(session_data.get("created_at", 0)), tz=timezone.utc
             )
@@ -415,27 +531,59 @@ async def upgrade_to_merchant(
     user_id = str(user["user_id"])
     full_user = await auth_service.get_user_by_id(db, user_id)
     if not full_user:
-        raise HTTPException(status_code=404, detail={"error": "not_found", "message": "User not found", "details": None})
+        raise HTTPException(
+            status_code=404,
+            detail={"error": "not_found", "message": "User not found", "details": None},
+        )
 
     current_role = full_user["role"]
     if current_role == "merchant":
-        raise HTTPException(status_code=400, detail={"error": "already_merchant", "message": "Account is already a merchant", "details": None})
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "error": "already_merchant",
+                "message": "Account is already a merchant",
+                "details": None,
+            },
+        )
     if current_role == "admin":
-        raise HTTPException(status_code=400, detail={"error": "invalid_role", "message": "Admin accounts cannot be converted to merchant", "details": None})
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "error": "invalid_role",
+                "message": "Admin accounts cannot be converted to merchant",
+                "details": None,
+            },
+        )
     if current_role != "customer":
-        raise HTTPException(status_code=400, detail={"error": "invalid_role", "message": f"Cannot upgrade role '{current_role}' to merchant", "details": None})
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "error": "invalid_role",
+                "message": f"Cannot upgrade role '{current_role}' to merchant",
+                "details": None,
+            },
+        )
 
     await db.execute(
-        text("UPDATE core.users SET role_id = (SELECT id FROM core.roles WHERE name = 'merchant') WHERE id = :uid"),
+        text(
+            "UPDATE core.users SET role_id = (SELECT id FROM core.roles WHERE name = 'merchant') WHERE id = :uid"
+        ),
         {"uid": user_id},
     )
     await db.commit()
 
     ip = _client_ip(request)
     await audit_service.log_audit(
-        db, user_id=user_id, action="user.upgrade_to_merchant", resource="user",
-        resource_id=user_id, ip_address=ip,
+        db,
+        user_id=user_id,
+        action="user.upgrade_to_merchant",
+        resource="user",
+        resource_id=user_id,
+        ip_address=ip,
     )
 
     logger.info("User %s upgraded to merchant role", user_id)
-    return MessageResponse(message="Account upgraded to merchant. Please refresh your session to get updated permissions.")
+    return MessageResponse(
+        message="Account upgraded to merchant. Please refresh your session to get updated permissions."
+    )

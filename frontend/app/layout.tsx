@@ -15,7 +15,9 @@ export const metadata: Metadata = {
     template: "%s | Boilerplate App",
   },
   description: "A modern e-commerce platform",
-  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"),
+  metadataBase: new URL(
+    process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000",
+  ),
 };
 
 export default function RootLayout({
@@ -27,7 +29,11 @@ export default function RootLayout({
     <html lang="en">
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link
+          rel="preconnect"
+          href="https://fonts.gstatic.com"
+          crossOrigin="anonymous"
+        />
         <link
           href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600;700&family=JetBrains+Mono:wght@400;500&family=Outfit:wght@300;400;500;600;700&display=swap"
           rel="stylesheet"
@@ -35,17 +41,17 @@ export default function RootLayout({
       </head>
       <body className="min-h-screen flex flex-col">
         <ConfigProvider>
-        <AuthProvider>
-          <CartProvider>
-            <ToastProvider>
-              <Header />
-              <main className="flex-1 pt-16">{children}</main>
-              <Footer />
-              <CookieBanner />
-              <ConditionalDurationTracker />
-            </ToastProvider>
-          </CartProvider>
-        </AuthProvider>
+          <AuthProvider>
+            <CartProvider>
+              <ToastProvider>
+                <Header />
+                <main className="flex-1 pt-16">{children}</main>
+                <Footer />
+                <CookieBanner />
+                <ConditionalDurationTracker />
+              </ToastProvider>
+            </CartProvider>
+          </AuthProvider>
         </ConfigProvider>
       </body>
     </html>

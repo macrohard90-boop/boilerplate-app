@@ -19,9 +19,16 @@ export default function MerchantOnboardPage() {
   if (!isAuthenticated) {
     return (
       <div className="max-w-md mx-auto px-4 py-20 text-center">
-        <h1 className="font-serif text-2xl font-bold gradient-text mb-4">Merchant Onboarding</h1>
+        <h1 className="font-serif text-2xl font-bold gradient-text mb-4">
+          Merchant Onboarding
+        </h1>
         <p className="text-text-secondary mb-6">Please sign in to continue.</p>
-        <Link href="/auth/login?redirect=/merchant/onboard" className="btn-primary text-sm">Sign In</Link>
+        <Link
+          href="/auth/login?redirect=/merchant/onboard"
+          className="btn-primary text-sm"
+        >
+          Sign In
+        </Link>
       </div>
     );
   }
@@ -29,9 +36,15 @@ export default function MerchantOnboardPage() {
   if (user?.role !== "merchant") {
     return (
       <div className="max-w-md mx-auto px-4 py-20 text-center">
-        <h1 className="font-serif text-2xl font-bold gradient-text mb-4">Upgrade Required</h1>
-        <p className="text-text-secondary mb-6">You need a merchant account to access onboarding.</p>
-        <Link href="/merchant/register" className="btn-primary text-sm">Become a Merchant</Link>
+        <h1 className="font-serif text-2xl font-bold gradient-text mb-4">
+          Upgrade Required
+        </h1>
+        <p className="text-text-secondary mb-6">
+          You need a merchant account to access onboarding.
+        </p>
+        <Link href="/merchant/register" className="btn-primary text-sm">
+          Become a Merchant
+        </Link>
       </div>
     );
   }
@@ -40,14 +53,17 @@ export default function MerchantOnboardPage() {
     setSubmitting(true);
     setError(null);
     try {
-      const data = await apiFetch<{ onboarding_url: string }>("/payments/merchants/onboard", {
-        method: "POST",
-        body: JSON.stringify({
-          business_name: businessName || null,
-          business_type: businessType,
-          country,
-        }),
-      });
+      const data = await apiFetch<{ onboarding_url: string }>(
+        "/payments/merchants/onboard",
+        {
+          method: "POST",
+          body: JSON.stringify({
+            business_name: businessName || null,
+            business_type: businessType,
+            country,
+          }),
+        },
+      );
       // Redirect to Stripe Connect onboarding
       window.location.href = data.onboarding_url;
     } catch (e: unknown) {
@@ -60,15 +76,21 @@ export default function MerchantOnboardPage() {
   return (
     <div className="max-w-lg mx-auto px-4 sm:px-6 lg:px-8 py-12">
       <div className="glass rounded-2xl p-8">
-        <h1 className="font-serif text-2xl font-bold gradient-text mb-2">Stripe Connect Setup</h1>
+        <h1 className="font-serif text-2xl font-bold gradient-text mb-2">
+          Stripe Connect Setup
+        </h1>
         <p className="text-text-secondary text-sm mb-8">
-          Complete your Stripe Express account to start receiving payments. You&apos;ll be redirected
-          to Stripe to verify your identity and business details.
+          Complete your Stripe Express account to start receiving payments.
+          You&apos;ll be redirected to Stripe to verify your identity and
+          business details.
         </p>
 
         <div className="space-y-4 mb-6">
           <div>
-            <label htmlFor="businessName" className="block text-sm text-text-secondary mb-1">
+            <label
+              htmlFor="businessName"
+              className="block text-sm text-text-secondary mb-1"
+            >
               Business Name <span className="text-text-muted">(optional)</span>
             </label>
             <input
@@ -82,7 +104,10 @@ export default function MerchantOnboardPage() {
           </div>
 
           <div>
-            <label htmlFor="businessType" className="block text-sm text-text-secondary mb-1">
+            <label
+              htmlFor="businessType"
+              className="block text-sm text-text-secondary mb-1"
+            >
               Business Type
             </label>
             <select
@@ -98,7 +123,10 @@ export default function MerchantOnboardPage() {
           </div>
 
           <div>
-            <label htmlFor="country" className="block text-sm text-text-secondary mb-1">
+            <label
+              htmlFor="country"
+              className="block text-sm text-text-secondary mb-1"
+            >
               Country
             </label>
             <select
@@ -137,7 +165,10 @@ export default function MerchantOnboardPage() {
       </div>
 
       <div className="text-center mt-6">
-        <Link href="/merchant/dashboard" className="text-sm text-text-muted hover:text-text-secondary">
+        <Link
+          href="/merchant/dashboard"
+          className="text-sm text-text-muted hover:text-text-secondary"
+        >
           Already onboarded? Go to dashboard
         </Link>
       </div>

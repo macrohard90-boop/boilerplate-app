@@ -1,8 +1,6 @@
 """User-facing marketing preferences endpoints."""
 
-from typing import Any
-
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -26,32 +24,40 @@ async def get_preferences(
 
     # Check GDPR marketing_email consent
     consent_row = (
-        await db.execute(
-            text(
-                "SELECT marketing_email FROM gdpr.email_preferences "
-                "WHERE user_id = :uid"
-            ),
-            {"uid": user_id},
+        (
+            await db.execute(
+                text(
+                    "SELECT marketing_email FROM gdpr.email_preferences "
+                    "WHERE user_id = :uid"
+                ),
+                {"uid": user_id},
+            )
         )
-    ).mappings().first()
+        .mappings()
+        .first()
+    )
 
     marketing_email_consent = bool(consent_row and consent_row["marketing_email"])
 
     # Get all enabled communication types with user's preference (LEFT JOIN)
     rows = (
-        await db.execute(
-            text(
-                "SELECT ct.id, ct.name, ct.description, "
-                "COALESCE(ucp.allowed, FALSE) AS allowed "
-                "FROM marketing.communication_types ct "
-                "LEFT JOIN marketing.user_communication_preferences ucp "
-                "  ON ucp.communication_type_id = ct.id AND ucp.user_id = :uid "
-                "WHERE ct.enabled = TRUE "
-                "ORDER BY ct.name"
-            ),
-            {"uid": user_id},
+        (
+            await db.execute(
+                text(
+                    "SELECT ct.id, ct.name, ct.description, "
+                    "COALESCE(ucp.allowed, FALSE) AS allowed "
+                    "FROM marketing.communication_types ct "
+                    "LEFT JOIN marketing.user_communication_preferences ucp "
+                    "  ON ucp.communication_type_id = ct.id AND ucp.user_id = :uid "
+                    "WHERE ct.enabled = TRUE "
+                    "ORDER BY ct.name"
+                ),
+                {"uid": user_id},
+            )
         )
-    ).mappings().all()
+        .mappings()
+        .all()
+    )
 
     return {
         "marketing_email_consent": marketing_email_consent,

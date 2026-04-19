@@ -78,8 +78,8 @@ export default async function AboutPage() {
 
         <div className="space-y-6 text-text-secondary leading-relaxed">
           <p>
-            Welcome to our store. We are passionate about delivering quality products
-            and exceptional service to our customers.
+            Welcome to our store. We are passionate about delivering quality
+            products and exceptional service to our customers.
           </p>
 
           <div className="glass rounded-xl p-6 space-y-4">
@@ -87,9 +87,9 @@ export default async function AboutPage() {
               Our Mission
             </h2>
             <p>
-              We believe in making great products accessible to everyone. Our team
-              works tirelessly to curate the best selection and provide a seamless
-              shopping experience.
+              We believe in making great products accessible to everyone. Our
+              team works tirelessly to curate the best selection and provide a
+              seamless shopping experience.
             </p>
           </div>
 
@@ -110,9 +110,12 @@ export default async function AboutPage() {
               Get in Touch
             </h2>
             <p>
-              Have questions or feedback? We&apos;d love to hear from you.
-              Visit our{" "}
-              <a href="/contact" className="text-accent-blue hover:text-accent-purple transition-colors">
+              Have questions or feedback? We&apos;d love to hear from you. Visit
+              our{" "}
+              <a
+                href="/contact"
+                className="text-accent-blue hover:text-accent-purple transition-colors"
+              >
                 contact page
               </a>{" "}
               to reach out.

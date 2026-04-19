@@ -118,9 +118,7 @@ async def verify_and_compare(db: Any, path: str) -> dict[str, Any]:
         # Title: use substring check (rendered may include site name suffix)
         if field == "title" and exp_norm and act_norm:
             if exp_norm not in act_norm:
-                mismatches.append(
-                    {"field": field, "expected": exp, "actual": act}
-                )
+                mismatches.append({"field": field, "expected": exp, "actual": act})
         elif exp_norm != act_norm:
             mismatches.append({"field": field, "expected": exp, "actual": act})
 

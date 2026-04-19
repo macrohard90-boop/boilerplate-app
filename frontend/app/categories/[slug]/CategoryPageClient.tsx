@@ -42,7 +42,7 @@ export default function CategoryPageClient({
 }: Props) {
   const category = initialCategory;
   const [products, setProducts] = useState<ProductResponse | null>(
-    initialProducts
+    initialProducts,
   );
   const [page, setPage] = useState(initialProducts?.page ?? 1);
 
@@ -50,14 +50,14 @@ export default function CategoryPageClient({
     async (pageNum: number) => {
       try {
         const res = await fetch(
-          `/api/ecommerce/products?category_id=${category.id}&status=active&page=${pageNum}&page_size=12`
+          `/api/ecommerce/products?category_id=${category.id}&status=active&page=${pageNum}&page_size=12`,
         );
         if (res.ok) {
           setProducts(await res.json());
         }
       } catch {}
     },
-    [category.id]
+    [category.id],
   );
 
   // Re-fetch when page changes (but not on initial render with page 1)

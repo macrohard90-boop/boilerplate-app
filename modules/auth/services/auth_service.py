@@ -9,8 +9,6 @@ from redis.asyncio import Redis
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.core.config import settings
-
 logger = logging.getLogger(__name__)
 
 
@@ -128,7 +126,10 @@ async def register_user(
 
     # Sync new user to Stripe as a customer
     try:
-        from modules.ecommerce.services.subscription_service import get_or_create_stripe_customer
+        from modules.ecommerce.services.subscription_service import (
+            get_or_create_stripe_customer,
+        )
+
         full_name = f"{first_name or ''} {last_name or ''}".strip() or None
         await get_or_create_stripe_customer(db, str(user["id"]), email, name=full_name)
     except Exception as e:

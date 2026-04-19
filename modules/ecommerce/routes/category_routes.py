@@ -33,8 +33,17 @@ async def get_category_products(
 ) -> Any:
     cat = await category_service.get_category_by_slug(db, slug)
     if not cat:
-        raise HTTPException(status_code=404, detail={"error": "not_found", "message": "Category not found", "details": None})
-    return await category_service.get_category_products(db, str(cat["id"]), page=page, page_size=page_size)
+        raise HTTPException(
+            status_code=404,
+            detail={
+                "error": "not_found",
+                "message": "Category not found",
+                "details": None,
+            },
+        )
+    return await category_service.get_category_products(
+        db, str(cat["id"]), page=page, page_size=page_size
+    )
 
 
 @router.post("", response_model=CategoryResponse, status_code=201)
@@ -54,9 +63,14 @@ async def update_category(
     db: AsyncSession = Depends(get_db),
 ) -> Any:
     try:
-        return await category_service.update_category(db, category_id, body.model_dump(exclude_unset=True))
+        return await category_service.update_category(
+            db, category_id, body.model_dump(exclude_unset=True)
+        )
     except ValueError as e:
-        raise HTTPException(status_code=404, detail={"error": "not_found", "message": str(e), "details": None})
+        raise HTTPException(
+            status_code=404,
+            detail={"error": "not_found", "message": str(e), "details": None},
+        )
 
 
 @router.delete("/{category_id}", status_code=204)
@@ -70,5 +84,11 @@ async def delete_category(
     except ValueError as e:
         msg = str(e)
         if "not found" in msg.lower():
-            raise HTTPException(status_code=404, detail={"error": "not_found", "message": msg, "details": None})
-        raise HTTPException(status_code=409, detail={"error": "conflict", "message": msg, "details": None})
+            raise HTTPException(
+                status_code=404,
+                detail={"error": "not_found", "message": msg, "details": None},
+            )
+        raise HTTPException(
+            status_code=409,
+            detail={"error": "conflict", "message": msg, "details": None},
+        )

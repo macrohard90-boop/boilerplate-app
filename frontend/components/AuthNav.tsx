@@ -21,20 +21,31 @@ export default function AuthNav() {
         background: "#fafafa",
       }}
     >
-      <Link href="/" style={{ fontWeight: 700, textDecoration: "none", color: "#111" }}>
+      <Link
+        href="/"
+        style={{ fontWeight: 700, textDecoration: "none", color: "#111" }}
+      >
         Boilerplate App
       </Link>
 
       <div style={{ display: "flex", gap: "16px", alignItems: "center" }}>
         {isAuthenticated ? (
           <>
-            <Link href="/protected" style={{ textDecoration: "none", color: "#333" }}>
+            <Link
+              href="/protected"
+              style={{ textDecoration: "none", color: "#333" }}
+            >
               Dashboard
             </Link>
             <span style={{ color: "#666" }}>{user?.email}</span>
             <span
               style={{
-                background: user?.role === "admin" ? "#dc2626" : user?.role === "merchant" ? "#2563eb" : "#16a34a",
+                background:
+                  user?.role === "admin"
+                    ? "#dc2626"
+                    : user?.role === "merchant"
+                      ? "#2563eb"
+                      : "#16a34a",
                 color: "white",
                 padding: "2px 8px",
                 borderRadius: "4px",
@@ -58,7 +69,10 @@ export default function AuthNav() {
           </>
         ) : (
           <>
-            <Link href="/auth/login" style={{ textDecoration: "none", color: "#333" }}>
+            <Link
+              href="/auth/login"
+              style={{ textDecoration: "none", color: "#333" }}
+            >
               Login
             </Link>
             <Link

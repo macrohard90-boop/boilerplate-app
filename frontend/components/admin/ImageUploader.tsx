@@ -27,7 +27,10 @@ type FilterTab = "all" | "product" | string; // string = variant id
 
 const EMPTY_VARIANTS: ImageUploaderVariant[] = [];
 
-export default function ImageUploader({ productId, variants = EMPTY_VARIANTS }: ImageUploaderProps) {
+export default function ImageUploader({
+  productId,
+  variants = EMPTY_VARIANTS,
+}: ImageUploaderProps) {
   const [images, setImages] = useState<ProductImage[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
@@ -37,7 +40,7 @@ export default function ImageUploader({ productId, variants = EMPTY_VARIANTS }: 
   const fetchImages = useCallback(async () => {
     try {
       const data = await apiFetch<ProductImage[]>(
-        `/ecommerce/products/${productId}/images`
+        `/ecommerce/products/${productId}/images`,
       );
       setImages(data);
     } catch {
@@ -83,7 +86,7 @@ export default function ImageUploader({ productId, variants = EMPTY_VARIANTS }: 
       try {
         await apiUpload(
           `/ecommerce/products/${productId}/images/upload`,
-          formData
+          formData,
         );
       } catch {
         /* ignore individual failures */
@@ -112,7 +115,8 @@ export default function ImageUploader({ productId, variants = EMPTY_VARIANTS }: 
 
   // Only show variant tabs when there are real (non-default-only) variants
   const hasRealVariants =
-    variants.length > 1 || (variants.length === 1 && variants[0].name !== "Default");
+    variants.length > 1 ||
+    (variants.length === 1 && variants[0].name !== "Default");
 
   const variantName = (variantId: string | null): string => {
     if (!variantId) return "Product";
@@ -216,7 +220,8 @@ export default function ImageUploader({ productId, variants = EMPTY_VARIANTS }: 
         <p className="text-text-muted text-sm">Loading images...</p>
       ) : filteredImages.length === 0 ? (
         <p className="text-text-secondary text-sm text-center">
-          No images{activeTab !== "all" ? " in this category" : " uploaded"} yet.
+          No images{activeTab !== "all" ? " in this category" : " uploaded"}{" "}
+          yet.
         </p>
       ) : (
         <div className="grid grid-cols-4 gap-3">

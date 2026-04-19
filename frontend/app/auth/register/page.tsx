@@ -5,13 +5,20 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "../../../lib/auth-context";
 
-function passwordStrength(pw: string): { label: string; color: string; width: string } {
-  if (pw.length < 8) return { label: "Too short", color: "text-accent-pink", width: "w-1/4" };
+function passwordStrength(pw: string): {
+  label: string;
+  color: string;
+  width: string;
+} {
+  if (pw.length < 8)
+    return { label: "Too short", color: "text-accent-pink", width: "w-1/4" };
   const hasUpper = /[A-Z]/.test(pw);
   const hasLower = /[a-z]/.test(pw);
   const hasDigit = /\d/.test(pw);
-  if (!hasUpper || !hasLower || !hasDigit) return { label: "Weak", color: "text-amber-400", width: "w-1/2" };
-  if (pw.length >= 12) return { label: "Strong", color: "text-accent-green", width: "w-full" };
+  if (!hasUpper || !hasLower || !hasDigit)
+    return { label: "Weak", color: "text-amber-400", width: "w-1/2" };
+  if (pw.length >= 12)
+    return { label: "Strong", color: "text-accent-green", width: "w-full" };
   return { label: "Good", color: "text-accent-blue", width: "w-3/4" };
 }
 
@@ -50,8 +57,12 @@ export default function RegisterPage() {
       <div className="w-full max-w-md">
         <div className="glass rounded-2xl p-8">
           <div className="text-center mb-8">
-            <h1 className="font-serif text-3xl font-bold gradient-text mb-2">Create Account</h1>
-            <p className="text-text-secondary text-sm">Join us and start shopping</p>
+            <h1 className="font-serif text-3xl font-bold gradient-text mb-2">
+              Create Account
+            </h1>
+            <p className="text-text-secondary text-sm">
+              Join us and start shopping
+            </p>
           </div>
 
           {error && (
@@ -63,7 +74,9 @@ export default function RegisterPage() {
           <form onSubmit={handleSubmit} className="space-y-5">
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-sm text-text-secondary mb-1.5">First name</label>
+                <label className="block text-sm text-text-secondary mb-1.5">
+                  First name
+                </label>
                 <input
                   type="text"
                   value={firstName}
@@ -74,7 +87,9 @@ export default function RegisterPage() {
                 />
               </div>
               <div>
-                <label className="block text-sm text-text-secondary mb-1.5">Last name</label>
+                <label className="block text-sm text-text-secondary mb-1.5">
+                  Last name
+                </label>
                 <input
                   type="text"
                   value={lastName}
@@ -87,7 +102,9 @@ export default function RegisterPage() {
             </div>
 
             <div>
-              <label className="block text-sm text-text-secondary mb-1.5">Email</label>
+              <label className="block text-sm text-text-secondary mb-1.5">
+                Email
+              </label>
               <input
                 type="email"
                 value={email}
@@ -99,7 +116,9 @@ export default function RegisterPage() {
             </div>
 
             <div>
-              <label className="block text-sm text-text-secondary mb-1.5">Password</label>
+              <label className="block text-sm text-text-secondary mb-1.5">
+                Password
+              </label>
               <input
                 type="password"
                 value={password}
@@ -112,8 +131,18 @@ export default function RegisterPage() {
               {password && (
                 <div className="mt-2">
                   <div className="h-1 rounded-full bg-glass-bg overflow-hidden">
-                    <div className={`h-full ${strength.width} rounded-full transition-all duration-300`}
-                      style={{ background: strength.color === "text-accent-pink" ? "#ff6b9d" : strength.color === "text-amber-400" ? "#fbbf24" : strength.color === "text-accent-blue" ? "#38bdf8" : "#34d399" }}
+                    <div
+                      className={`h-full ${strength.width} rounded-full transition-all duration-300`}
+                      style={{
+                        background:
+                          strength.color === "text-accent-pink"
+                            ? "#ff6b9d"
+                            : strength.color === "text-amber-400"
+                              ? "#fbbf24"
+                              : strength.color === "text-accent-blue"
+                                ? "#38bdf8"
+                                : "#34d399",
+                      }}
                     />
                   </div>
                   <p className={`text-xs mt-1 ${strength.color}`}>
@@ -134,7 +163,10 @@ export default function RegisterPage() {
 
           <div className="mt-6 text-center text-sm">
             <span className="text-text-muted">Already have an account? </span>
-            <Link href="/auth/login" className="text-accent-purple hover:text-accent-blue transition-colors">
+            <Link
+              href="/auth/login"
+              className="text-accent-purple hover:text-accent-blue transition-colors"
+            >
               Sign in
             </Link>
           </div>

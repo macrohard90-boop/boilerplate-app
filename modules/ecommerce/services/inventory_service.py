@@ -10,7 +10,9 @@ async def check_stock(db: AsyncSession, variant_id: str, quantity: int) -> bool:
     """Return True if variant has enough stock."""
     row = (
         await db.execute(
-            text("SELECT stock_quantity FROM ecommerce.product_variants WHERE id = :id"),
+            text(
+                "SELECT stock_quantity FROM ecommerce.product_variants WHERE id = :id"
+            ),
             {"id": variant_id},
         )
     ).first()
@@ -22,7 +24,9 @@ async def check_stock(db: AsyncSession, variant_id: str, quantity: int) -> bool:
 async def get_stock(db: AsyncSession, variant_id: str) -> int:
     row = (
         await db.execute(
-            text("SELECT stock_quantity FROM ecommerce.product_variants WHERE id = :id"),
+            text(
+                "SELECT stock_quantity FROM ecommerce.product_variants WHERE id = :id"
+            ),
             {"id": variant_id},
         )
     ).first()
@@ -32,6 +36,7 @@ async def get_stock(db: AsyncSession, variant_id: str) -> int:
 # ---------------------------------------------------------------------------
 # Stock reservation (Wave 3 — used during checkout)
 # ---------------------------------------------------------------------------
+
 
 async def reserve_stock(
     db: AsyncSession,
@@ -56,7 +61,9 @@ async def reserve_stock(
     if not row:
         raise ValueError(f"Variant {variant_id} not found")
     if row[0] < quantity:
-        raise ValueError(f"Insufficient stock for variant {variant_id}: have {row[0]}, need {quantity}")
+        raise ValueError(
+            f"Insufficient stock for variant {variant_id}: have {row[0]}, need {quantity}"
+        )
 
     await db.execute(
         text(
@@ -123,14 +130,18 @@ async def adjust_stock(
         {"id": variant_id, "qty": quantity_change},
     )
     row = (
-        await db.execute(
-            text(
-                "INSERT INTO ecommerce.inventory_records (variant_id, quantity_change, reason) "
-                "VALUES (:vid, :qty, :reason) RETURNING *"
-            ),
-            {"vid": variant_id, "qty": quantity_change, "reason": reason},
+        (
+            await db.execute(
+                text(
+                    "INSERT INTO ecommerce.inventory_records (variant_id, quantity_change, reason) "
+                    "VALUES (:vid, :qty, :reason) RETURNING *"
+                ),
+                {"vid": variant_id, "qty": quantity_change, "reason": reason},
+            )
         )
-    ).mappings().first()
+        .mappings()
+        .first()
+    )
     await db.commit()
     return dict(row)
 
@@ -138,16 +149,20 @@ async def adjust_stock(
 async def get_low_stock(db: AsyncSession, threshold: int = 10) -> list[dict[str, Any]]:
     """Return variants with stock below threshold."""
     rows = (
-        await db.execute(
-            text(
-                "SELECT v.id AS variant_id, v.product_id, p.name AS product_name, "
-                "v.name AS variant_name, v.stock_quantity, v.sku "
-                "FROM ecommerce.product_variants v "
-                "JOIN ecommerce.products p ON p.id = v.product_id "
-                "WHERE v.stock_quantity < :threshold AND p.deleted_at IS NULL "
-                "ORDER BY v.stock_quantity ASC"
-            ),
-            {"threshold": threshold},
+        (
+            await db.execute(
+                text(
+                    "SELECT v.id AS variant_id, v.product_id, p.name AS product_name, "
+                    "v.name AS variant_name, v.stock_quantity, v.sku "
+                    "FROM ecommerce.product_variants v "
+                    "JOIN ecommerce.products p ON p.id = v.product_id "
+                    "WHERE v.stock_quantity < :threshold AND p.deleted_at IS NULL "
+                    "ORDER BY v.stock_quantity ASC"
+                ),
+                {"threshold": threshold},
+            )
         )
-    ).mappings().all()
+        .mappings()
+        .all()
+    )
     return [dict(r) for r in rows]

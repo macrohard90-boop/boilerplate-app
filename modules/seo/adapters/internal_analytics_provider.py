@@ -19,19 +19,23 @@ class InternalAnalyticsProvider(SEOAnalyticsProvider):
         """Get traffic data for a specific page over the given time window."""
         try:
             row = (
-                await db.execute(
-                    text(
-                        "SELECT "
-                        "  COUNT(*) AS views, "
-                        "  COUNT(DISTINCT session_id) AS unique_sessions, "
-                        "  AVG(duration_ms) AS avg_duration "
-                        "FROM analytics.page_views "
-                        "WHERE path = :path "
-                        "  AND created_at >= NOW() - INTERVAL '1 day' * :days"
-                    ),
-                    {"path": path, "days": days},
+                (
+                    await db.execute(
+                        text(
+                            "SELECT "
+                            "  COUNT(*) AS views, "
+                            "  COUNT(DISTINCT session_id) AS unique_sessions, "
+                            "  AVG(duration_ms) AS avg_duration "
+                            "FROM analytics.page_views "
+                            "WHERE path = :path "
+                            "  AND created_at >= NOW() - INTERVAL '1 day' * :days"
+                        ),
+                        {"path": path, "days": days},
+                    )
                 )
-            ).mappings().first()
+                .mappings()
+                .first()
+            )
 
             if not row or row["views"] == 0:
                 return PageTraffic(path=path)
@@ -43,7 +47,9 @@ class InternalAnalyticsProvider(SEOAnalyticsProvider):
                 path=path,
                 views=row["views"],
                 unique_sessions=row["unique_sessions"],
-                avg_duration_ms=int(row["avg_duration"]) if row["avg_duration"] else None,
+                avg_duration_ms=(
+                    int(row["avg_duration"]) if row["avg_duration"] else None
+                ),
                 trend=trend,
             )
         except Exception:
@@ -56,31 +62,37 @@ class InternalAnalyticsProvider(SEOAnalyticsProvider):
         """Get the most-visited pages, excluding API and static asset paths."""
         try:
             rows = (
-                await db.execute(
-                    text(
-                        "SELECT "
-                        "  path, "
-                        "  COUNT(*) AS views, "
-                        "  COUNT(DISTINCT session_id) AS unique_sessions, "
-                        "  AVG(duration_ms) AS avg_duration "
-                        "FROM analytics.page_views "
-                        "WHERE created_at >= NOW() - INTERVAL '1 day' * :days "
-                        "  AND path NOT LIKE '/api/%' "
-                        "  AND path NOT LIKE '/_next/%' "
-                        "GROUP BY path "
-                        "ORDER BY views DESC "
-                        "LIMIT :lim"
-                    ),
-                    {"days": days, "lim": limit},
+                (
+                    await db.execute(
+                        text(
+                            "SELECT "
+                            "  path, "
+                            "  COUNT(*) AS views, "
+                            "  COUNT(DISTINCT session_id) AS unique_sessions, "
+                            "  AVG(duration_ms) AS avg_duration "
+                            "FROM analytics.page_views "
+                            "WHERE created_at >= NOW() - INTERVAL '1 day' * :days "
+                            "  AND path NOT LIKE '/api/%' "
+                            "  AND path NOT LIKE '/_next/%' "
+                            "GROUP BY path "
+                            "ORDER BY views DESC "
+                            "LIMIT :lim"
+                        ),
+                        {"days": days, "lim": limit},
+                    )
                 )
-            ).mappings().all()
+                .mappings()
+                .all()
+            )
 
             return [
                 PageTraffic(
                     path=r["path"],
                     views=r["views"],
                     unique_sessions=r["unique_sessions"],
-                    avg_duration_ms=int(r["avg_duration"]) if r["avg_duration"] else None,
+                    avg_duration_ms=(
+                        int(r["avg_duration"]) if r["avg_duration"] else None
+                    ),
                 )
                 for r in rows
             ]
@@ -88,26 +100,28 @@ class InternalAnalyticsProvider(SEOAnalyticsProvider):
             logger.exception("Failed to get top pages")
             return []
 
-    async def _compute_trend(
-        self, db: AsyncSession, path: str, days: int
-    ) -> str:
+    async def _compute_trend(self, db: AsyncSession, path: str, days: int) -> str:
         """Compare recent half vs older half of the window to determine trend."""
         half = days // 2
         try:
             row = (
-                await db.execute(
-                    text(
-                        "SELECT "
-                        "  COUNT(*) FILTER (WHERE created_at >= NOW() - INTERVAL '1 day' * :half) AS recent, "
-                        "  COUNT(*) FILTER (WHERE created_at < NOW() - INTERVAL '1 day' * :half "
-                        "    AND created_at >= NOW() - INTERVAL '1 day' * :days) AS older "
-                        "FROM analytics.page_views "
-                        "WHERE path = :path "
-                        "  AND created_at >= NOW() - INTERVAL '1 day' * :days"
-                    ),
-                    {"path": path, "half": half, "days": days},
+                (
+                    await db.execute(
+                        text(
+                            "SELECT "
+                            "  COUNT(*) FILTER (WHERE created_at >= NOW() - INTERVAL '1 day' * :half) AS recent, "
+                            "  COUNT(*) FILTER (WHERE created_at < NOW() - INTERVAL '1 day' * :half "
+                            "    AND created_at >= NOW() - INTERVAL '1 day' * :days) AS older "
+                            "FROM analytics.page_views "
+                            "WHERE path = :path "
+                            "  AND created_at >= NOW() - INTERVAL '1 day' * :days"
+                        ),
+                        {"path": path, "half": half, "days": days},
+                    )
                 )
-            ).mappings().first()
+                .mappings()
+                .first()
+            )
 
             if not row or (row["recent"] == 0 and row["older"] == 0):
                 return "stable"

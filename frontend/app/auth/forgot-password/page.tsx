@@ -29,21 +29,33 @@ export default function ForgotPasswordPage() {
       <div className="w-full max-w-md">
         <div className="glass rounded-2xl p-8">
           <div className="text-center mb-8">
-            <h1 className="font-serif text-3xl font-bold gradient-text mb-2">Forgot Password</h1>
-            <p className="text-text-secondary text-sm">We&apos;ll send you a reset link</p>
+            <h1 className="font-serif text-3xl font-bold gradient-text mb-2">
+              Forgot Password
+            </h1>
+            <p className="text-text-secondary text-sm">
+              We&apos;ll send you a reset link
+            </p>
           </div>
 
           {sent ? (
             <div className="p-4 rounded-lg bg-accent-green/10 border border-accent-green/20 text-accent-green text-sm">
-              <p>If an account exists with that email, a reset link has been sent.</p>
-              <Link href="/auth/login" className="inline-block mt-4 text-accent-purple hover:text-accent-blue transition-colors">
+              <p>
+                If an account exists with that email, a reset link has been
+                sent.
+              </p>
+              <Link
+                href="/auth/login"
+                className="inline-block mt-4 text-accent-purple hover:text-accent-blue transition-colors"
+              >
                 Back to sign in
               </Link>
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-5">
               <div>
-                <label className="block text-sm text-text-secondary mb-1.5">Email</label>
+                <label className="block text-sm text-text-secondary mb-1.5">
+                  Email
+                </label>
                 <input
                   type="email"
                   value={email}
@@ -63,7 +75,10 @@ export default function ForgotPasswordPage() {
               </button>
 
               <div className="text-center text-sm">
-                <Link href="/auth/login" className="text-text-muted hover:text-accent-purple transition-colors">
+                <Link
+                  href="/auth/login"
+                  className="text-text-muted hover:text-accent-purple transition-colors"
+                >
                   Back to sign in
                 </Link>
               </div>

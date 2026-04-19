@@ -5,7 +5,9 @@ import { useParams, useRouter } from "next/navigation";
 import { apiFetch } from "../../../../../lib/api";
 import { useToast } from "../../../../../components/Toast";
 import LoadingSpinner from "../../../../../components/LoadingSpinner";
-import ProductForm, { type ProductFormData } from "../../../../../components/admin/ProductForm";
+import ProductForm, {
+  type ProductFormData,
+} from "../../../../../components/admin/ProductForm";
 import SyncStatusBadge from "../../../../../components/admin/SyncStatusBadge";
 import ImageUploader from "../../../../../components/admin/ImageUploader";
 
@@ -43,7 +45,7 @@ export default function EditPlanPage() {
   const fetchPlan = useCallback(async () => {
     try {
       const allData = await apiFetch<{ items: Plan[] }>(
-        `/ecommerce/products?pricing_type=recurring&page=1&page_size=100`
+        `/ecommerce/products?pricing_type=recurring&page=1&page_size=100`,
       );
       const found = allData.items.find((p) => p.id === planId);
       if (found) {
@@ -59,7 +61,9 @@ export default function EditPlanPage() {
     setLoading(false);
   }, [planId, router, showToast]);
 
-  useEffect(() => { fetchPlan(); }, [fetchPlan]);
+  useEffect(() => {
+    fetchPlan();
+  }, [fetchPlan]);
 
   const handleUpdate = async (formData: ProductFormData) => {
     setSaving(true);
@@ -99,8 +103,19 @@ export default function EditPlanPage() {
           onClick={() => router.push("/admin/subscriptions/plans")}
           className="text-text-muted hover:text-text-primary transition-colors"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            className="h-5 w-5"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M15 19l-7-7 7-7"
+            />
           </svg>
         </button>
         <h1 className="font-serif text-2xl font-bold">
@@ -117,19 +132,31 @@ export default function EditPlanPage() {
               status={plan.stripe_sync_status}
               error={plan.stripe_sync_error}
               provider={plan.synced_provider}
-              onRetry={plan.stripe_sync_status === "error" ? handleRetrySync : undefined}
+              onRetry={
+                plan.stripe_sync_status === "error"
+                  ? handleRetrySync
+                  : undefined
+              }
             />
           </div>
           {plan.stripe_product_id && (
             <div>
-              <span className="text-xs text-text-muted block">Stripe Product</span>
-              <span className="text-xs text-text-secondary font-mono">{plan.stripe_product_id}</span>
+              <span className="text-xs text-text-muted block">
+                Stripe Product
+              </span>
+              <span className="text-xs text-text-secondary font-mono">
+                {plan.stripe_product_id}
+              </span>
             </div>
           )}
           {plan.stripe_price_id && (
             <div>
-              <span className="text-xs text-text-muted block">Stripe Price</span>
-              <span className="text-xs text-text-secondary font-mono">{plan.stripe_price_id}</span>
+              <span className="text-xs text-text-muted block">
+                Stripe Price
+              </span>
+              <span className="text-xs text-text-secondary font-mono">
+                {plan.stripe_price_id}
+              </span>
             </div>
           )}
         </div>
@@ -146,7 +173,9 @@ export default function EditPlanPage() {
 
       {/* Plan Form */}
       <div className="glass rounded-xl p-6">
-        <h2 className="text-lg font-semibold text-text-primary mb-4">Plan Details</h2>
+        <h2 className="text-lg font-semibold text-text-primary mb-4">
+          Plan Details
+        </h2>
         <ProductForm
           initial={{
             name: plan.name,

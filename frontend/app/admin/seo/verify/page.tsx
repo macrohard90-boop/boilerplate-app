@@ -36,7 +36,7 @@ export default function SeoVerifyPage() {
   async function fetchResults() {
     try {
       const res = await apiFetch<{ items: CrawlResult[] }>(
-        "/seo/admin/seo/crawl/results?page_size=50"
+        "/seo/admin/seo/crawl/results?page_size=50",
       );
       setResults(res.items || []);
     } catch {}
@@ -56,7 +56,7 @@ export default function SeoVerifyPage() {
     try {
       const res = await apiFetch<{ message: string }>(
         `/seo/admin/seo/crawl/${crawlPath}`,
-        { method: "POST" }
+        { method: "POST" },
       );
       showToast(res.message, "success");
       fetchResults();
@@ -71,7 +71,7 @@ export default function SeoVerifyPage() {
     try {
       const res = await apiFetch<{ message: string }>(
         "/seo/admin/seo/crawl/batch",
-        { method: "POST" }
+        { method: "POST" },
       );
       showToast(res.message, "success");
       fetchResults();
@@ -84,7 +84,7 @@ export default function SeoVerifyPage() {
   async function viewDetail(id: string) {
     try {
       const res = await apiFetch<CrawlDetail>(
-        `/seo/admin/seo/crawl/results/${id}`
+        `/seo/admin/seo/crawl/results/${id}`,
       );
       setDetail(res);
     } catch {
@@ -111,9 +111,9 @@ export default function SeoVerifyPage() {
       {/* Controls */}
       <div className="glass rounded-xl p-6 mb-6">
         <p className="text-sm text-text-secondary mb-4">
-          Crawl pages with a real browser to verify that rendered meta tags match
-          your API-configured values. Detects mismatches in title, description,
-          OG tags, and more.
+          Crawl pages with a real browser to verify that rendered meta tags
+          match your API-configured values. Detects mismatches in title,
+          description, OG tags, and more.
         </p>
         <div className="flex flex-col sm:flex-row gap-4">
           <div className="flex-1 flex gap-2">
@@ -192,7 +192,9 @@ export default function SeoVerifyPage() {
                     </td>
                     <td className="py-3 px-4">
                       {r.mismatches.length === 0 ? (
-                        <span className="text-green-400 text-xs">All match</span>
+                        <span className="text-green-400 text-xs">
+                          All match
+                        </span>
                       ) : (
                         <span className="text-yellow-400 text-xs font-medium">
                           {r.mismatches.length} issue(s)
@@ -228,7 +230,8 @@ export default function SeoVerifyPage() {
         <div className="glass rounded-xl p-6">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold text-text-primary">
-              Crawl Detail: <span className="font-mono text-accent-blue">/{detail.path}</span>
+              Crawl Detail:{" "}
+              <span className="font-mono text-accent-blue">/{detail.path}</span>
             </h2>
             <button
               onClick={() => setDetail(null)}

@@ -5,6 +5,7 @@ from pydantic import BaseModel, Field
 
 # ── Meta Tags ───────────────────────────────────────────────
 
+
 class MetaTagsResponse(BaseModel):
     path: str
     title: str | None = None
@@ -27,6 +28,7 @@ class MetaTagsUpdate(BaseModel):
 
 # ── Admin Meta Overrides ────────────────────────────────────
 
+
 class AdminMetaListItem(BaseModel):
     id: str
     path: str
@@ -48,6 +50,7 @@ class AdminMetaListResponse(BaseModel):
 
 # ── SEO Config ──────────────────────────────────────────────
 
+
 class SEOConfigResponse(BaseModel):
     site_name: str
     default_og_image: str
@@ -63,6 +66,7 @@ class SEOConfigUpdate(BaseModel):
 
 
 # ── Scoring ─────────────────────────────────────────────────
+
 
 class ScoreRuleResult(BaseModel):
     rule_id: str
@@ -102,6 +106,7 @@ class ScoreTrendResponse(BaseModel):
 
 # ── Snapshots ───────────────────────────────────────────────
 
+
 class PageSnapshotResponse(BaseModel):
     id: str
     path: str
@@ -120,6 +125,7 @@ class SnapshotListResponse(BaseModel):
 
 
 # ── Crawler ─────────────────────────────────────────────────
+
 
 class CrawlMismatch(BaseModel):
     field: str
@@ -146,6 +152,7 @@ class CrawlResultListResponse(BaseModel):
 
 
 # ── Site Audit ──────────────────────────────────────────────
+
 
 class AuditCheckResponse(BaseModel):
     check_id: str
@@ -175,6 +182,7 @@ class AuditListResponse(BaseModel):
 
 
 # ── Keywords ───────────────────────────────────────────────
+
 
 class TargetKeywordResponse(BaseModel):
     id: str
@@ -252,6 +260,7 @@ class PageRegistryCreate(BaseModel):
 
 
 # ── Common ──────────────────────────────────────────────────
+
 
 class MessageResponse(BaseModel):
     message: str

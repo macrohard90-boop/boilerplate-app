@@ -30,7 +30,9 @@ async def stripe_webhook(
         raise HTTPException(status_code=400, detail="Missing Stripe-Signature header")
 
     try:
-        result = await webhook_service.verify_and_process_webhook(db, payload, sig_header)
+        result = await webhook_service.verify_and_process_webhook(
+            db, payload, sig_header
+        )
         return {"received": True, **result}
     except ValueError as e:
         # Signature verification failed

@@ -10,7 +10,11 @@ from typing import Any
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from modules.ecommerce.services import discount_service, inventory_service, pricing_service
+from modules.ecommerce.services import (
+    discount_service,
+    inventory_service,
+    pricing_service,
+)
 
 
 async def create_order_from_cart(
@@ -28,15 +32,19 @@ async def create_order_from_cart(
     """
     # 1. Get active cart
     cart_row = (
-        await db.execute(
-            text(
-                "SELECT * FROM ecommerce.cart "
-                "WHERE user_id = :uid AND status = 'active' "
-                "ORDER BY created_at DESC LIMIT 1"
-            ),
-            {"uid": user_id},
+        (
+            await db.execute(
+                text(
+                    "SELECT * FROM ecommerce.cart "
+                    "WHERE user_id = :uid AND status = 'active' "
+                    "ORDER BY created_at DESC LIMIT 1"
+                ),
+                {"uid": user_id},
+            )
         )
-    ).mappings().first()
+        .mappings()
+        .first()
+    )
     if not cart_row:
         raise ValueError("No active cart")
 
@@ -44,24 +52,32 @@ async def create_order_from_cart(
     cart_id = str(cart["id"])
 
     items = (
-        await db.execute(
-            text(
-                "SELECT ci.*, p.name AS product_name, p.slug AS product_slug, "
-                "p.base_price, p.currency, p.sku AS product_sku, p.type AS product_type, "
-                "v.name AS variant_name, v.sku AS variant_sku, v.price_override, v.attributes, "
-                "COALESCE("
-                "  (SELECT url FROM ecommerce.product_images WHERE variant_id = ci.variant_id ORDER BY is_primary DESC, sort_order LIMIT 1),"
-                "  (SELECT url FROM ecommerce.product_images WHERE product_id = ci.product_id AND variant_id IS NULL ORDER BY is_primary DESC, sort_order LIMIT 1)"
-                ") AS image_url "
-                "FROM ecommerce.cart_items ci "
-                "JOIN ecommerce.products p ON p.id = ci.product_id "
-                "JOIN ecommerce.product_variants v ON v.id = ci.variant_id "
-                "WHERE ci.cart_id = :cid "
-                "ORDER BY ci.variant_id"  # Sorted for consistent locking order
-            ),
-            {"cid": cart_id},
+        (
+            await db.execute(
+                text(
+                    "SELECT ci.*, p.name AS product_name, p.slug AS product_slug, "
+                    "p.base_price, p.currency, p.sku AS product_sku, p.type AS product_type, "
+                    "v.name AS variant_name, v.sku AS variant_sku, v.price_override, v.attributes, "
+                    "COALESCE("
+                    "  (SELECT url FROM ecommerce.product_images"
+                    "   WHERE variant_id = ci.variant_id"
+                    "   ORDER BY is_primary DESC, sort_order LIMIT 1),"
+                    "  (SELECT url FROM ecommerce.product_images"
+                    "   WHERE product_id = ci.product_id AND variant_id IS NULL"
+                    "   ORDER BY is_primary DESC, sort_order LIMIT 1)"
+                    ") AS image_url "
+                    "FROM ecommerce.cart_items ci "
+                    "JOIN ecommerce.products p ON p.id = ci.product_id "
+                    "JOIN ecommerce.product_variants v ON v.id = ci.variant_id "
+                    "WHERE ci.cart_id = :cid "
+                    "ORDER BY ci.variant_id"  # Sorted for consistent locking order
+                ),
+                {"cid": cart_id},
+            )
         )
-    ).mappings().all()
+        .mappings()
+        .all()
+    )
 
     if not items:
         raise ValueError("Cart is empty")
@@ -69,17 +85,26 @@ async def create_order_from_cart(
     # 2 & 3. Lock and verify stock for each item
     for item in items:
         await inventory_service.reserve_stock(
-            db, str(item["variant_id"]), item["quantity"],
+            db,
+            str(item["variant_id"]),
+            item["quantity"],
         )
 
     # 4. Calculate totals with pricing tiers
     subtotal = 0
     order_items_data = []
     for item in items:
-        effective_price = item["price_override"] if item["price_override"] is not None else item["base_price"]
+        effective_price = (
+            item["price_override"]
+            if item["price_override"] is not None
+            else item["base_price"]
+        )
         unit_price = await pricing_service.get_effective_unit_price(
-            db, str(item["product_id"]), str(item["variant_id"]),
-            item["quantity"], effective_price,
+            db,
+            str(item["product_id"]),
+            str(item["variant_id"]),
+            item["quantity"],
+            effective_price,
         )
         line_total = unit_price * item["quantity"]
         subtotal += line_total
@@ -90,19 +115,23 @@ async def create_order_from_cart(
             "product_sku": item.get("product_sku"),
             "variant_name": item["variant_name"],
             "variant_sku": item.get("variant_sku"),
-            "attributes": item["attributes"] if isinstance(item["attributes"], dict) else {},
+            "attributes": (
+                item["attributes"] if isinstance(item["attributes"], dict) else {}
+            ),
             "product_type": item.get("product_type", "physical"),
             "image_url": item.get("image_url"),
         }
 
-        order_items_data.append({
-            "product_id": str(item["product_id"]),
-            "variant_id": str(item["variant_id"]),
-            "quantity": item["quantity"],
-            "unit_price": unit_price,
-            "total_price": line_total,
-            "product_snapshot": json.dumps(snapshot),
-        })
+        order_items_data.append(
+            {
+                "product_id": str(item["product_id"]),
+                "variant_id": str(item["variant_id"]),
+                "quantity": item["quantity"],
+                "unit_price": unit_price,
+                "total_price": line_total,
+                "product_snapshot": json.dumps(snapshot),
+            }
+        )
 
     # Apply discount
     discount_amount = 0
@@ -114,12 +143,15 @@ async def create_order_from_cart(
             if restricted_pids:
                 restricted_set = set(str(p) for p in restricted_pids)
                 applicable_subtotal = sum(
-                    oi["total_price"] for oi in order_items_data
+                    oi["total_price"]
+                    for oi in order_items_data
                     if oi["product_id"] in restricted_set
                 )
             else:
                 applicable_subtotal = subtotal
-            discount_amount = discount_service.calculate_discount(d, applicable_subtotal)
+            discount_amount = discount_service.calculate_discount(
+                d, applicable_subtotal
+            )
             await discount_service.increment_uses(db, str(d["id"]))
             await discount_service.increment_customer_uses(db, str(d["id"]), user_id)
 
@@ -128,22 +160,26 @@ async def create_order_from_cart(
     # 5. Generate order number and create order
     order_number = _generate_order_number()
     order_row = (
-        await db.execute(
-            text(
-                "INSERT INTO ecommerce.orders "
-                "(user_id, order_number, status, currency, subtotal, discount_amount, tax_amount, total) "
-                "VALUES (:uid, :num, 'pending', 'USD', :sub, :disc, 0, :total) "
-                "RETURNING *"
-            ),
-            {
-                "uid": user_id,
-                "num": order_number,
-                "sub": subtotal,
-                "disc": discount_amount,
-                "total": total,
-            },
+        (
+            await db.execute(
+                text(
+                    "INSERT INTO ecommerce.orders "
+                    "(user_id, order_number, status, currency, subtotal, discount_amount, tax_amount, total) "
+                    "VALUES (:uid, :num, 'pending', 'USD', :sub, :disc, 0, :total) "
+                    "RETURNING *"
+                ),
+                {
+                    "uid": user_id,
+                    "num": order_number,
+                    "sub": subtotal,
+                    "disc": discount_amount,
+                    "total": total,
+                },
+            )
         )
-    ).mappings().first()
+        .mappings()
+        .first()
+    )
     order = dict(order_row)
     order_id = str(order["id"])
 
@@ -192,7 +228,9 @@ async def create_order_from_cart(
     return order
 
 
-async def get_order(db: AsyncSession, order_id: str, user_id: str | None = None) -> dict[str, Any] | None:
+async def get_order(
+    db: AsyncSession, order_id: str, user_id: str | None = None
+) -> dict[str, Any] | None:
     """Get order with items. If user_id provided, scope to that user."""
     q = "SELECT * FROM ecommerce.orders WHERE id = :oid"
     params: dict[str, Any] = {"oid": order_id}
@@ -206,11 +244,15 @@ async def get_order(db: AsyncSession, order_id: str, user_id: str | None = None)
 
     order = dict(row)
     items = (
-        await db.execute(
-            text("SELECT * FROM ecommerce.order_items WHERE order_id = :oid"),
-            {"oid": order_id},
+        (
+            await db.execute(
+                text("SELECT * FROM ecommerce.order_items WHERE order_id = :oid"),
+                {"oid": order_id},
+            )
         )
-    ).mappings().all()
+        .mappings()
+        .all()
+    )
     order["items"] = [dict(i) for i in items]
     return order
 
@@ -229,18 +271,26 @@ async def list_orders(
         params["uid"] = user_id
 
     total = (
-        await db.execute(text(f"SELECT COUNT(*) FROM ecommerce.orders WHERE {where}"), params)
+        await db.execute(
+            text(f"SELECT COUNT(*) FROM ecommerce.orders WHERE {where}"), params
+        )
     ).scalar() or 0
 
     offset = (page - 1) * page_size
     params["limit"] = page_size
     params["offset"] = offset
     rows = (
-        await db.execute(
-            text(f"SELECT * FROM ecommerce.orders WHERE {where} ORDER BY created_at DESC LIMIT :limit OFFSET :offset"),
-            params,
+        (
+            await db.execute(
+                text(
+                    f"SELECT * FROM ecommerce.orders WHERE {where} ORDER BY created_at DESC LIMIT :limit OFFSET :offset"
+                ),
+                params,
+            )
         )
-    ).mappings().all()
+        .mappings()
+        .all()
+    )
 
     return {
         "items": [dict(r) for r in rows],
@@ -251,13 +301,21 @@ async def list_orders(
     }
 
 
-async def update_order_status(db: AsyncSession, order_id: str, status: str) -> dict[str, Any]:
+async def update_order_status(
+    db: AsyncSession, order_id: str, status: str
+) -> dict[str, Any]:
     row = (
-        await db.execute(
-            text("UPDATE ecommerce.orders SET status = :status WHERE id = :oid RETURNING *"),
-            {"oid": order_id, "status": status},
+        (
+            await db.execute(
+                text(
+                    "UPDATE ecommerce.orders SET status = :status WHERE id = :oid RETURNING *"
+                ),
+                {"oid": order_id, "status": status},
+            )
         )
-    ).mappings().first()
+        .mappings()
+        .first()
+    )
     if not row:
         raise ValueError("Order not found")
     await db.commit()

@@ -7,7 +7,6 @@ Identifies:
 """
 
 import logging
-from dataclasses import asdict
 from typing import Any
 
 from sqlalchemy import text
@@ -65,14 +64,16 @@ async def get_seo_traffic_report(
     top_paths = {_norm(p.path) for p in top_pages}
     for path, score in scores.items():
         if score >= 70 and path not in top_paths:
-            opportunities.append({
-                "path": path,
-                "views": 0,
-                "unique_sessions": 0,
-                "avg_duration_ms": None,
-                "trend": "stable",
-                "seo_score": score,
-            })
+            opportunities.append(
+                {
+                    "path": path,
+                    "views": 0,
+                    "unique_sessions": 0,
+                    "avg_duration_ms": None,
+                    "trend": "stable",
+                    "seo_score": score,
+                }
+            )
 
     # Also check scored pages that are in top traffic but have high score + low views
     median_views = _median([p.views for p in top_pages]) if top_pages else 0
@@ -97,13 +98,17 @@ async def _get_latest_scores(db: AsyncSession) -> dict[str, int]:
     """Get the most recent SEO score for each page."""
     try:
         rows = (
-            await db.execute(
-                text(
-                    "SELECT DISTINCT ON (path) path, score "
-                    "FROM seo.page_scores ORDER BY path, scored_at DESC"
+            (
+                await db.execute(
+                    text(
+                        "SELECT DISTINCT ON (path) path, score "
+                        "FROM seo.page_scores ORDER BY path, scored_at DESC"
+                    )
                 )
             )
-        ).mappings().all()
+            .mappings()
+            .all()
+        )
         return {r["path"]: r["score"] for r in rows}
     except Exception:
         return {}

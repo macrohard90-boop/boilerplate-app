@@ -183,9 +183,7 @@ function SocialPreview({
             className="w-full h-full object-cover"
           />
         ) : (
-          <span className="text-text-muted text-xs">
-            No OG image set
-          </span>
+          <span className="text-text-muted text-xs">No OG image set</span>
         )}
       </div>
 
@@ -198,7 +196,8 @@ function SocialPreview({
           {displayTitle || "Page Title"}
         </p>
         <p className="text-xs text-text-secondary leading-relaxed">
-          {displayDesc || "Page description will appear when shared on social media."}
+          {displayDesc ||
+            "Page description will appear when shared on social media."}
         </p>
       </div>
     </div>

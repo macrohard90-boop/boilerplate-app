@@ -7,7 +7,7 @@ from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.core.database import get_db
-from backend.core.dependencies import get_current_user, require_role
+from backend.core.dependencies import require_role
 from backend.core.redis import get_redis
 from modules.auth.models.schemas import (
     AdminUserDetail,

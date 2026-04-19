@@ -3,7 +3,12 @@
 import { useEffect, useState, FormEvent } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js";
+import {
+  Elements,
+  PaymentElement,
+  useStripe,
+  useElements,
+} from "@stripe/react-stripe-js";
 import { apiFetch } from "../../../../lib/api";
 import { getStripe } from "../../../../lib/stripe";
 import LoadingSpinner from "../../../../components/LoadingSpinner";
@@ -73,11 +78,16 @@ export default function PaymentRetryPage() {
   useEffect(() => {
     async function load() {
       try {
-        const data = await apiFetch<PaymentStatus>(`/payments/orders/${id}/payment`);
+        const data = await apiFetch<PaymentStatus>(
+          `/payments/orders/${id}/payment`,
+        );
         setStatus(data);
 
         // If already succeeded, redirect to confirmation
-        if (data.payment_status === "succeeded" || data.order_status === "completed") {
+        if (
+          data.payment_status === "succeeded" ||
+          data.order_status === "completed"
+        ) {
           router.replace(`/orders/${id}/confirmation`);
           return;
         }
@@ -99,9 +109,15 @@ export default function PaymentRetryPage() {
   if (error || !status?.client_secret) {
     return (
       <div className="max-w-md mx-auto px-4 py-20 text-center">
-        <h1 className="font-serif text-2xl font-bold text-red-400 mb-4">Cannot Retry</h1>
-        <p className="text-text-secondary mb-6">{error || "Payment session expired."}</p>
-        <Link href="/products" className="btn-primary text-sm">Browse Products</Link>
+        <h1 className="font-serif text-2xl font-bold text-red-400 mb-4">
+          Cannot Retry
+        </h1>
+        <p className="text-text-secondary mb-6">
+          {error || "Payment session expired."}
+        </p>
+        <Link href="/products" className="btn-primary text-sm">
+          Browse Products
+        </Link>
       </div>
     );
   }
@@ -109,9 +125,12 @@ export default function PaymentRetryPage() {
   return (
     <div className="max-w-lg mx-auto px-4 sm:px-6 lg:px-8 py-12">
       <div className="glass rounded-2xl p-6">
-        <h1 className="font-serif text-2xl font-bold gradient-text mb-2">Retry Payment</h1>
+        <h1 className="font-serif text-2xl font-bold gradient-text mb-2">
+          Retry Payment
+        </h1>
         <p className="text-sm text-text-secondary mb-6">
-          Your previous payment attempt failed. Please try again with a different payment method.
+          Your previous payment attempt failed. Please try again with a
+          different payment method.
         </p>
 
         <Elements
@@ -135,7 +154,10 @@ export default function PaymentRetryPage() {
       </div>
 
       <div className="text-center mt-6">
-        <Link href="/dashboard/orders" className="text-sm text-text-muted hover:text-text-secondary">
+        <Link
+          href="/dashboard/orders"
+          className="text-sm text-text-muted hover:text-text-secondary"
+        >
           Back to Orders
         </Link>
       </div>

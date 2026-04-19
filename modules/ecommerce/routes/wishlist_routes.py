@@ -43,11 +43,17 @@ async def add_item(
 ) -> Any:
     try:
         return await wishlist_service.add_item(
-            db, user["user_id"], wishlist_id,
-            str(body.product_id), str(body.variant_id) if body.variant_id else None,
+            db,
+            user["user_id"],
+            wishlist_id,
+            str(body.product_id),
+            str(body.variant_id) if body.variant_id else None,
         )
     except ValueError as e:
-        raise HTTPException(status_code=404, detail={"error": "not_found", "message": str(e), "details": None})
+        raise HTTPException(
+            status_code=404,
+            detail={"error": "not_found", "message": str(e), "details": None},
+        )
 
 
 @router.delete("/{wishlist_id}/items/{product_id}", status_code=204)
@@ -60,7 +66,10 @@ async def remove_item(
     try:
         await wishlist_service.remove_item(db, user["user_id"], wishlist_id, product_id)
     except ValueError as e:
-        raise HTTPException(status_code=404, detail={"error": "not_found", "message": str(e), "details": None})
+        raise HTTPException(
+            status_code=404,
+            detail={"error": "not_found", "message": str(e), "details": None},
+        )
 
 
 @router.delete("/{wishlist_id}", status_code=204)
@@ -72,4 +81,7 @@ async def delete_wishlist(
     try:
         await wishlist_service.delete_wishlist(db, user["user_id"], wishlist_id)
     except ValueError as e:
-        raise HTTPException(status_code=400, detail={"error": "bad_request", "message": str(e), "details": None})
+        raise HTTPException(
+            status_code=400,
+            detail={"error": "bad_request", "message": str(e), "details": None},
+        )

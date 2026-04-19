@@ -47,7 +47,10 @@ class GitHubAuthProvider(AuthProvider):
             return resp.json()
 
     async def get_user_info(self, access_token: str) -> OAuthUserInfo:
-        headers = {"Authorization": f"Bearer {access_token}", "Accept": "application/json"}
+        headers = {
+            "Authorization": f"Bearer {access_token}",
+            "Accept": "application/json",
+        }
         async with httpx.AsyncClient(timeout=10.0) as client:
             resp = await client.get(_USERINFO_ENDPOINT, headers=headers)
             resp.raise_for_status()

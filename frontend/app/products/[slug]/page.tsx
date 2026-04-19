@@ -22,7 +22,7 @@ interface Props {
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
   const seoData = await serverFetch<SEOMetaResponse>(
-    `/api/seo/meta/products/${slug}`
+    `/api/seo/meta/products/${slug}`,
   );
 
   if (!seoData || !seoData.title) {

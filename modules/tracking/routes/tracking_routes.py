@@ -1,10 +1,9 @@
 """Tracking collection endpoints — page views and events."""
 
-import asyncio
 import logging
 import time
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Request
+from fastapi import APIRouter, Depends, Header, Request
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -13,7 +12,6 @@ from backend.core.database import get_db
 from backend.core.dependencies import get_optional_user
 from backend.core.redis import get_redis
 from modules.tracking.models.schemas import (
-    ErrorResponse,
     EventBatch,
     EventCreate,
     HeartbeatCreate,
@@ -262,10 +260,16 @@ async def record_heartbeat(
     # Check if path changed or key is new
     raw_presence = await redis.hgetall(presence_key)
     # Normalize keys/values — Redis may return str or bytes depending on config
-    old_presence: dict[str, str] = {
-        (k.decode() if isinstance(k, bytes) else k): (v.decode() if isinstance(v, bytes) else v)
-        for k, v in raw_presence.items()
-    } if raw_presence else {}
+    old_presence: dict[str, str] = (
+        {
+            (k.decode() if isinstance(k, bytes) else k): (
+                v.decode() if isinstance(v, bytes) else v
+            )
+            for k, v in raw_presence.items()
+        }
+        if raw_presence
+        else {}
+    )
     old_path = old_presence.get("path", "")
 
     presence_data: dict[str, str] = {

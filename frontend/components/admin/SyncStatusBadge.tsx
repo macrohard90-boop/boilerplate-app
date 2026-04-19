@@ -11,7 +11,12 @@ const PROVIDER_LABELS: Record<string, string> = {
   stripe: "Stripe",
 };
 
-export default function SyncStatusBadge({ status, error, provider, onRetry }: SyncStatusBadgeProps) {
+export default function SyncStatusBadge({
+  status,
+  error,
+  provider,
+  onRetry,
+}: SyncStatusBadgeProps) {
   if (status === "synced") {
     const label = provider
       ? `Synced to ${PROVIDER_LABELS[provider] || provider}`
@@ -22,7 +27,9 @@ export default function SyncStatusBadge({ status, error, provider, onRetry }: Sy
   if (status === "error") {
     return (
       <span className="inline-flex items-center gap-1.5">
-        <span className="badge-pink text-xs" title={error || "Sync failed"}>Error</span>
+        <span className="badge-pink text-xs" title={error || "Sync failed"}>
+          Error
+        </span>
         {onRetry && (
           <button
             onClick={onRetry}

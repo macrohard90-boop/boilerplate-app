@@ -51,7 +51,9 @@ export default function CategoryForm({
     return result;
   };
 
-  const excludeIds = editingId ? new Set(getDescendantIds(editingId)) : new Set<string>();
+  const excludeIds = editingId
+    ? new Set(getDescendantIds(editingId))
+    : new Set<string>();
   const parentOptions = categories.filter((c) => !excludeIds.has(c.id));
 
   const validate = (): boolean => {
@@ -86,12 +88,16 @@ export default function CategoryForm({
           placeholder="Category name"
           disabled={loading}
         />
-        {errors.name && <p className="text-accent-pink text-xs mt-1">{errors.name}</p>}
+        {errors.name && (
+          <p className="text-accent-pink text-xs mt-1">{errors.name}</p>
+        )}
       </div>
 
       {/* Parent Category */}
       <div>
-        <label className="block text-sm text-text-muted mb-1">Parent Category</label>
+        <label className="block text-sm text-text-muted mb-1">
+          Parent Category
+        </label>
         <select
           value={parentId}
           onChange={(e) => setParentId(e.target.value)}
@@ -109,7 +115,9 @@ export default function CategoryForm({
 
       {/* Description */}
       <div>
-        <label className="block text-sm text-text-muted mb-1">Description</label>
+        <label className="block text-sm text-text-muted mb-1">
+          Description
+        </label>
         <textarea
           value={description}
           onChange={(e) => setDescription(e.target.value)}
@@ -130,7 +138,9 @@ export default function CategoryForm({
           className="input-glass w-32"
           disabled={loading}
         />
-        <p className="text-text-muted text-xs mt-1">Lower numbers appear first</p>
+        <p className="text-text-muted text-xs mt-1">
+          Lower numbers appear first
+        </p>
       </div>
 
       {/* Actions */}

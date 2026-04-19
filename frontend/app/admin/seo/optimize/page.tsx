@@ -43,7 +43,11 @@ interface CurrentMeta {
 interface VerifyResult {
   rendered: Record<string, string | null>;
   expected: Record<string, string | null>;
-  mismatches: { field: string; expected: string | null; actual: string | null }[];
+  mismatches: {
+    field: string;
+    expected: string | null;
+    actual: string | null;
+  }[];
   match: boolean;
 }
 
@@ -58,15 +62,42 @@ const CATEGORY_LABELS: Record<string, { label: string; icon: string }> = {
 /** Maps rule_id to the meta field it controls. Only rules here are inline-editable. */
 const RULE_FIELD_MAP: Record<
   string,
-  { field: string; label: string; type: "text" | "textarea" | "checkbox"; maxLen?: number }
+  {
+    field: string;
+    label: string;
+    type: "text" | "textarea" | "checkbox";
+    maxLen?: number;
+  }
 > = {
   title_present: { field: "title", label: "Title", type: "text", maxLen: 60 },
   title_length: { field: "title", label: "Title", type: "text", maxLen: 60 },
-  desc_present: { field: "description", label: "Description", type: "textarea", maxLen: 160 },
-  desc_length: { field: "description", label: "Description", type: "textarea", maxLen: 160 },
-  canonical_set: { field: "canonical_url", label: "Canonical URL", type: "text" },
-  canonical_self_ref: { field: "canonical_url", label: "Canonical URL", type: "text" },
-  robots_indexable: { field: "robots_index", label: "Allow Indexing", type: "checkbox" },
+  desc_present: {
+    field: "description",
+    label: "Description",
+    type: "textarea",
+    maxLen: 160,
+  },
+  desc_length: {
+    field: "description",
+    label: "Description",
+    type: "textarea",
+    maxLen: 160,
+  },
+  canonical_set: {
+    field: "canonical_url",
+    label: "Canonical URL",
+    type: "text",
+  },
+  canonical_self_ref: {
+    field: "canonical_url",
+    label: "Canonical URL",
+    type: "text",
+  },
+  robots_indexable: {
+    field: "robots_index",
+    label: "Allow Indexing",
+    type: "checkbox",
+  },
 };
 
 function groupByCategory(rules: RuleResult[]): Record<string, RuleResult[]> {
@@ -127,7 +158,7 @@ const SEVERITY_BADGES: Record<string, string> = {
 };
 
 function groupAuditByCategory(
-  checks: AuditCheck[]
+  checks: AuditCheck[],
 ): Record<string, AuditCheck[]> {
   const groups: Record<string, AuditCheck[]> = {};
   const order = ["technical", "content", "social", "performance"];
@@ -164,7 +195,9 @@ export default function SeoOptimizePage() {
   const [currentMeta, setCurrentMeta] = useState<CurrentMeta | null>(null);
   const [editingRule, setEditingRule] = useState<string | null>(null);
   const [editValue, setEditValue] = useState<string | boolean>("");
-  const [confirmingPassingRule, setConfirmingPassingRule] = useState<string | null>(null);
+  const [confirmingPassingRule, setConfirmingPassingRule] = useState<
+    string | null
+  >(null);
   const [saving, setSaving] = useState(false);
   const [expandedDescRule, setExpandedDescRule] = useState<string | null>(null);
 
@@ -177,51 +210,48 @@ export default function SeoOptimizePage() {
   const [htmlLoading, setHtmlLoading] = useState(false);
   const [highlightedRule, setHighlightedRule] = useState<string | null>(null);
 
-  const selectPage = useCallback(
-    async (score: PageScore) => {
-      setSelectedPath(score.path);
-      setDetail(score);
-      setEditingRule(null);
-      setConfirmingPassingRule(null);
-      setVerifyResult(null);
-      setHighlightedRule(null);
-      setHtmlLoading(true);
-      setPageHtml(null);
+  const selectPage = useCallback(async (score: PageScore) => {
+    setSelectedPath(score.path);
+    setDetail(score);
+    setEditingRule(null);
+    setConfirmingPassingRule(null);
+    setVerifyResult(null);
+    setHighlightedRule(null);
+    setHtmlLoading(true);
+    setPageHtml(null);
 
-      try {
-        const [snapRes, trendRes, metaRes, htmlRes] = await Promise.all([
-          apiFetch<{ items: Snapshot[] }>(
-            `/seo/admin/seo/snapshots?path=${encodeURIComponent(score.path)}&page_size=20`
-          ).catch(() => ({ items: [] })),
-          apiFetch<{ trend: TrendPoint[] }>(
-            `/seo/admin/seo/scores/trend?path=${encodeURIComponent(score.path)}&days=30`
-          ).catch(() => ({ trend: [] })),
-          apiFetch<CurrentMeta>(
-            `/seo/admin/seo/meta/current/${encodeURIComponent(score.path)}`
-          ).catch(() => null),
-          apiFetch<{ html: string; status_code: number }>(
-            `/seo/admin/seo/html/${encodeURIComponent(score.path)}`
-          ).catch(() => null),
-        ]);
-        setSnapshots(snapRes.items || []);
-        setTrend(trendRes.trend || []);
-        setCurrentMeta(metaRes);
-        setPageHtml(htmlRes?.html ?? null);
-      } catch {}
-      setHtmlLoading(false);
-    },
-    []
-  );
+    try {
+      const [snapRes, trendRes, metaRes, htmlRes] = await Promise.all([
+        apiFetch<{ items: Snapshot[] }>(
+          `/seo/admin/seo/snapshots?path=${encodeURIComponent(score.path)}&page_size=20`,
+        ).catch(() => ({ items: [] })),
+        apiFetch<{ trend: TrendPoint[] }>(
+          `/seo/admin/seo/scores/trend?path=${encodeURIComponent(score.path)}&days=30`,
+        ).catch(() => ({ trend: [] })),
+        apiFetch<CurrentMeta>(
+          `/seo/admin/seo/meta/current/${encodeURIComponent(score.path)}`,
+        ).catch(() => null),
+        apiFetch<{ html: string; status_code: number }>(
+          `/seo/admin/seo/html/${encodeURIComponent(score.path)}`,
+        ).catch(() => null),
+      ]);
+      setSnapshots(snapRes.items || []);
+      setTrend(trendRes.trend || []);
+      setCurrentMeta(metaRes);
+      setPageHtml(htmlRes?.html ?? null);
+    } catch {}
+    setHtmlLoading(false);
+  }, []);
 
   useEffect(() => {
     async function load() {
       try {
         const [scoreRes, auditRes] = await Promise.all([
           apiFetch<{ items: PageScore[] }>(
-            "/seo/admin/seo/scores?page_size=100"
+            "/seo/admin/seo/scores?page_size=100",
           ).catch(() => ({ items: [] })),
           apiFetch<AuditReport>("/seo/admin/seo/audit/latest").catch(
-            () => null
+            () => null,
           ),
         ]);
         const items = scoreRes.items || [];
@@ -263,7 +293,7 @@ export default function SeoOptimizePage() {
         method: "POST",
       });
       const res = await apiFetch<{ items: PageScore[] }>(
-        "/seo/admin/seo/scores?page_size=100"
+        "/seo/admin/seo/scores?page_size=100",
       );
       setScores(res.items || []);
       const updated = res.items.find((s: PageScore) => s.path === path);
@@ -341,20 +371,17 @@ export default function SeoOptimizePage() {
       };
       payload[mapping.field] = editValue;
 
-      await apiFetch(
-        `/seo/admin/seo/meta/${encodeURIComponent(detail.path)}`,
-        {
-          method: "PUT",
-          body: JSON.stringify(payload),
-        }
-      );
+      await apiFetch(`/seo/admin/seo/meta/${encodeURIComponent(detail.path)}`, {
+        method: "PUT",
+        body: JSON.stringify(payload),
+      });
 
       // Re-score
       await handleScorePage(detail.path);
 
       // Refresh current meta
       const metaRes = await apiFetch<CurrentMeta>(
-        `/seo/admin/seo/meta/current/${encodeURIComponent(detail.path)}`
+        `/seo/admin/seo/meta/current/${encodeURIComponent(detail.path)}`,
       ).catch(() => null);
       setCurrentMeta(metaRes);
 
@@ -372,16 +399,13 @@ export default function SeoOptimizePage() {
     try {
       const result = await apiFetch<VerifyResult>(
         `/seo/admin/seo/verify/${encodeURIComponent(detail.path)}`,
-        { method: "POST" }
+        { method: "POST" },
       );
       setVerifyResult(result);
       if (result.match) {
         showToast("All meta tags match the rendered page.", "success");
       } else {
-        showToast(
-          `${result.mismatches.length} mismatch(es) found.`,
-          "error"
-        );
+        showToast(`${result.mismatches.length} mismatch(es) found.`, "error");
       }
     } catch (e) {
       showToast((e as ApiError).message || "Verification failed", "error");
@@ -400,8 +424,7 @@ export default function SeoOptimizePage() {
   function triggerBadge(trigger: string) {
     const map: Record<string, string> = {
       manual: "bg-blue-500/20 text-blue-400 border-blue-500/30",
-      override_change:
-        "bg-purple-500/20 text-purple-400 border-purple-500/30",
+      override_change: "bg-purple-500/20 text-purple-400 border-purple-500/30",
       scheduled: "bg-gray-500/20 text-gray-400 border-gray-500/30",
       crawler: "bg-green-500/20 text-green-400 border-green-500/30",
     };
@@ -417,7 +440,10 @@ export default function SeoOptimizePage() {
       </h1>
       <p className="text-sm text-text-secondary mb-6">
         Score, audit, advise, and fix your pages.{" "}
-        <a href="/admin/seo/meta" className="text-accent-blue hover:text-accent-purple transition-colors">
+        <a
+          href="/admin/seo/meta"
+          className="text-accent-blue hover:text-accent-purple transition-colors"
+        >
           Manage all meta overrides &rarr;
         </a>
       </p>
@@ -505,7 +531,7 @@ export default function SeoOptimizePage() {
                                 setExpandedCheck(
                                   expandedCheck === c.check_id
                                     ? null
-                                    : c.check_id
+                                    : c.check_id,
                                 )
                               }
                               className="w-full text-left py-2 flex items-center gap-3"
@@ -582,7 +608,7 @@ export default function SeoOptimizePage() {
                       </div>
                     </div>
                   );
-                }
+                },
               )}
             </div>
           </>
@@ -601,8 +627,8 @@ export default function SeoOptimizePage() {
         Per-Page Scores
       </h2>
       <p className="text-sm text-text-secondary mb-6">
-        Select a page to see its score breakdown and live HTML source.
-        Click any rule to highlight its element in the source code.
+        Select a page to see its score breakdown and live HTML source. Click any
+        rule to highlight its element in the source code.
       </p>
 
       {/* Full-width page table */}
@@ -680,189 +706,191 @@ export default function SeoOptimizePage() {
           <div className="space-y-6">
             {/* Score Breakdown */}
             <div className="glass rounded-xl p-6">
-                <div className="mb-4 space-y-3">
-                  {/* Row 1: path + score badge */}
-                  <div className="flex items-center gap-3">
-                    <span
-                      className={`px-2.5 py-0.5 rounded-lg text-lg font-bold border shrink-0 ${scoreBadge(detail.score)}`}
-                    >
-                      {detail.score}
-                    </span>
-                    <div className="min-w-0">
-                      <h2 className="text-base font-semibold text-text-primary truncate">
-                        <span className="font-mono text-accent-blue">
-                          /{detail.path}
+              <div className="mb-4 space-y-3">
+                {/* Row 1: path + score badge */}
+                <div className="flex items-center gap-3">
+                  <span
+                    className={`px-2.5 py-0.5 rounded-lg text-lg font-bold border shrink-0 ${scoreBadge(detail.score)}`}
+                  >
+                    {detail.score}
+                  </span>
+                  <div className="min-w-0">
+                    <h2 className="text-base font-semibold text-text-primary truncate">
+                      <span className="font-mono text-accent-blue">
+                        /{detail.path}
+                      </span>
+                    </h2>
+                    <p className="text-[11px] text-text-muted">
+                      {new Date(detail.scored_at).toLocaleDateString()}
+                      {currentMeta?.is_custom && (
+                        <span className="ml-2 px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-400 text-[10px] border border-purple-500/30">
+                          Custom
                         </span>
-                      </h2>
-                      <p className="text-[11px] text-text-muted">
-                        {new Date(detail.scored_at).toLocaleDateString()}
-                        {currentMeta?.is_custom && (
-                          <span className="ml-2 px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-400 text-[10px] border border-purple-500/30">
-                            Custom
-                          </span>
-                        )}
-                      </p>
-                    </div>
-                  </div>
-                  {/* Row 2: action buttons */}
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => handleScorePage(detail.path)}
-                      className="btn-secondary text-xs whitespace-nowrap"
-                    >
-                      Re-score
-                    </button>
-                    <button
-                      onClick={handleVerify}
-                      disabled={verifying}
-                      className="btn-secondary text-xs disabled:opacity-50 whitespace-nowrap"
-                    >
-                      {verifying ? "Verifying..." : "Verify Live Page"}
-                    </button>
+                      )}
+                    </p>
                   </div>
                 </div>
+                {/* Row 2: action buttons */}
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => handleScorePage(detail.path)}
+                    className="btn-secondary text-xs whitespace-nowrap"
+                  >
+                    Re-score
+                  </button>
+                  <button
+                    onClick={handleVerify}
+                    disabled={verifying}
+                    className="btn-secondary text-xs disabled:opacity-50 whitespace-nowrap"
+                  >
+                    {verifying ? "Verifying..." : "Verify Live Page"}
+                  </button>
+                </div>
+              </div>
 
-                {/* Verification Results */}
-                {verifyResult && (
-                  <div
-                    className={`mb-4 p-4 rounded-lg border ${
-                      verifyResult.match
-                        ? "bg-green-500/10 border-green-500/30"
-                        : "bg-red-500/10 border-red-500/30"
+              {/* Verification Results */}
+              {verifyResult && (
+                <div
+                  className={`mb-4 p-4 rounded-lg border ${
+                    verifyResult.match
+                      ? "bg-green-500/10 border-green-500/30"
+                      : "bg-red-500/10 border-red-500/30"
+                  }`}
+                >
+                  <p
+                    className={`text-sm font-medium mb-2 ${
+                      verifyResult.match ? "text-green-400" : "text-red-400"
                     }`}
                   >
-                    <p
-                      className={`text-sm font-medium mb-2 ${
-                        verifyResult.match
-                          ? "text-green-400"
-                          : "text-red-400"
-                      }`}
-                    >
-                      {verifyResult.match
-                        ? "All meta tags match the rendered page"
-                        : `${verifyResult.mismatches.length} mismatch(es) found`}
-                    </p>
-                    {verifyResult.mismatches.length > 0 && (
-                      <div className="space-y-2">
-                        {verifyResult.mismatches.map((m, i) => (
-                          <div
-                            key={i}
-                            className="text-xs border-t border-glass-border/30 pt-2"
-                          >
-                            <p className="font-medium text-text-primary">
-                              {m.field}
-                            </p>
-                            <div className="grid grid-cols-2 gap-2 mt-1">
-                              <div>
-                                <p className="text-text-muted">Expected</p>
-                                <p className="text-green-400 font-mono break-all">
-                                  {m.expected || "\u2014"}
-                                </p>
-                              </div>
-                              <div>
-                                <p className="text-text-muted">Rendered</p>
-                                <p className="text-red-400 font-mono break-all">
-                                  {m.actual || "\u2014"}
-                                </p>
-                              </div>
+                    {verifyResult.match
+                      ? "All meta tags match the rendered page"
+                      : `${verifyResult.mismatches.length} mismatch(es) found`}
+                  </p>
+                  {verifyResult.mismatches.length > 0 && (
+                    <div className="space-y-2">
+                      {verifyResult.mismatches.map((m, i) => (
+                        <div
+                          key={i}
+                          className="text-xs border-t border-glass-border/30 pt-2"
+                        >
+                          <p className="font-medium text-text-primary">
+                            {m.field}
+                          </p>
+                          <div className="grid grid-cols-2 gap-2 mt-1">
+                            <div>
+                              <p className="text-text-muted">Expected</p>
+                              <p className="text-green-400 font-mono break-all">
+                                {m.expected || "\u2014"}
+                              </p>
+                            </div>
+                            <div>
+                              <p className="text-text-muted">Rendered</p>
+                              <p className="text-red-400 font-mono break-all">
+                                {m.actual || "\u2014"}
+                              </p>
                             </div>
                           </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
 
-                {/* Rule Breakdown */}
-                <div className="space-y-6">
-                  {Object.entries(groupByCategory(detail.rule_results)).map(
-                    ([cat, rules]) => {
-                      const catMeta =
-                        CATEGORY_LABELS[cat] || CATEGORY_LABELS.general;
-                      const catPassed = rules.filter((r) => r.passed).length;
-                      return (
-                        <div key={cat}>
-                          <div className="flex items-center gap-2 mb-2">
-                            <span className="text-sm">{catMeta.icon}</span>
-                            <h3 className="text-xs font-semibold text-text-secondary uppercase tracking-wider">
-                              {catMeta.label}
-                            </h3>
-                            <span className="text-xs text-text-muted ml-auto">
-                              {catPassed}/{rules.length} passed
-                            </span>
-                          </div>
-                          <div className="space-y-1">
-                            {rules.map((r) => {
-                              const editable = !!RULE_FIELD_MAP[r.rule_id];
-                              const isEditing = editingRule === r.rule_id;
-                              const isConfirming =
-                                confirmingPassingRule === r.rule_id;
-                              const mapping = RULE_FIELD_MAP[r.rule_id];
+              {/* Rule Breakdown */}
+              <div className="space-y-6">
+                {Object.entries(groupByCategory(detail.rule_results)).map(
+                  ([cat, rules]) => {
+                    const catMeta =
+                      CATEGORY_LABELS[cat] || CATEGORY_LABELS.general;
+                    const catPassed = rules.filter((r) => r.passed).length;
+                    return (
+                      <div key={cat}>
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className="text-sm">{catMeta.icon}</span>
+                          <h3 className="text-xs font-semibold text-text-secondary uppercase tracking-wider">
+                            {catMeta.label}
+                          </h3>
+                          <span className="text-xs text-text-muted ml-auto">
+                            {catPassed}/{rules.length} passed
+                          </span>
+                        </div>
+                        <div className="space-y-1">
+                          {rules.map((r) => {
+                            const editable = !!RULE_FIELD_MAP[r.rule_id];
+                            const isEditing = editingRule === r.rule_id;
+                            const isConfirming =
+                              confirmingPassingRule === r.rule_id;
+                            const mapping = RULE_FIELD_MAP[r.rule_id];
 
-                              return (
-                                <div
-                                  key={r.rule_id}
-                                  className="border-b border-glass-border/30 last:border-0"
+                            return (
+                              <div
+                                key={r.rule_id}
+                                className="border-b border-glass-border/30 last:border-0"
+                              >
+                                {/* Rule row */}
+                                <button
+                                  onClick={() => handleRuleClick(r)}
+                                  className={`w-full text-left py-2 px-2 flex items-center gap-3 rounded-md transition-colors ${
+                                    editable
+                                      ? "border-l-2 border-l-accent-purple/60 hover:bg-glass-hover/50 cursor-pointer"
+                                      : "border-l-2 border-l-transparent hover:bg-glass-hover/30"
+                                  }`}
                                 >
-                                  {/* Rule row */}
-                                  <button
-                                    onClick={() => handleRuleClick(r)}
-                                    className={`w-full text-left py-2 px-2 flex items-center gap-3 rounded-md transition-colors ${
-                                      editable
-                                        ? "border-l-2 border-l-accent-purple/60 hover:bg-glass-hover/50 cursor-pointer"
-                                        : "border-l-2 border-l-transparent hover:bg-glass-hover/30"
+                                  <span
+                                    className={`w-5 h-5 rounded-full flex items-center justify-center text-xs shrink-0 ${
+                                      r.passed
+                                        ? "bg-green-500/20 text-green-400"
+                                        : "bg-red-500/20 text-red-400"
                                     }`}
                                   >
-                                    <span
-                                      className={`w-5 h-5 rounded-full flex items-center justify-center text-xs shrink-0 ${
-                                        r.passed
-                                          ? "bg-green-500/20 text-green-400"
-                                          : "bg-red-500/20 text-red-400"
-                                      }`}
-                                    >
-                                      {r.passed ? "\u2713" : "\u2717"}
+                                    {r.passed ? "\u2713" : "\u2717"}
+                                  </span>
+                                  <span className="text-sm text-text-primary flex-1">
+                                    {r.name}
+                                  </span>
+                                  {/* Badge */}
+                                  {!r.passed && editable && (
+                                    <span className="text-[10px] font-medium text-accent-purple px-2 py-0.5 rounded-full bg-accent-purple/10 border border-accent-purple/30 shrink-0">
+                                      Fix in Admin
                                     </span>
-                                    <span className="text-sm text-text-primary flex-1">
-                                      {r.name}
+                                  )}
+                                  {!r.passed && !editable && (
+                                    <span className="text-[10px] font-medium text-text-muted px-2 py-0.5 rounded-full bg-glass-bg border border-glass-border shrink-0">
+                                      Requires Code
                                     </span>
-                                    {/* Badge */}
-                                    {!r.passed && editable && (
-                                      <span className="text-[10px] font-medium text-accent-purple px-2 py-0.5 rounded-full bg-accent-purple/10 border border-accent-purple/30 shrink-0">
-                                        Fix in Admin
-                                      </span>
-                                    )}
-                                    {!r.passed && !editable && (
-                                      <span className="text-[10px] font-medium text-text-muted px-2 py-0.5 rounded-full bg-glass-bg border border-glass-border shrink-0">
-                                        Requires Code
-                                      </span>
-                                    )}
-                                    <span className="text-xs text-text-muted shrink-0">
-                                      {r.points}/{r.max_points}
-                                    </span>
-                                    {/* Info button — always far right */}
-                                    <button
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        const opening = expandedDescRule !== r.rule_id;
-                                        setExpandedDescRule(opening ? r.rule_id : null);
-                                        if (opening) {
-                                          setEditingRule(null);
-                                          setConfirmingPassingRule(null);
-                                        }
-                                      }}
-                                      className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 transition-colors ${
-                                        expandedDescRule === r.rule_id
-                                          ? "bg-accent-blue/20 text-accent-blue"
-                                          : "bg-glass-bg text-text-muted hover:text-accent-blue hover:bg-accent-blue/10"
-                                      }`}
-                                      title="Learn about this rule"
-                                    >
-                                      ?
-                                    </button>
+                                  )}
+                                  <span className="text-xs text-text-muted shrink-0">
+                                    {r.points}/{r.max_points}
+                                  </span>
+                                  {/* Info button — always far right */}
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      const opening =
+                                        expandedDescRule !== r.rule_id;
+                                      setExpandedDescRule(
+                                        opening ? r.rule_id : null,
+                                      );
+                                      if (opening) {
+                                        setEditingRule(null);
+                                        setConfirmingPassingRule(null);
+                                      }
+                                    }}
+                                    className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 transition-colors ${
+                                      expandedDescRule === r.rule_id
+                                        ? "bg-accent-blue/20 text-accent-blue"
+                                        : "bg-glass-bg text-text-muted hover:text-accent-blue hover:bg-accent-blue/10"
+                                    }`}
+                                    title="Learn about this rule"
+                                  >
+                                    ?
                                   </button>
+                                </button>
 
-                                  {/* Educational description panel */}
-                                  {expandedDescRule === r.rule_id && RULE_DESCRIPTIONS[r.rule_id] && (
+                                {/* Educational description panel */}
+                                {expandedDescRule === r.rule_id &&
+                                  RULE_DESCRIPTIONS[r.rule_id] && (
                                     <div className="pb-3 px-3">
                                       <div className="p-4 rounded-lg bg-base-100/50 border border-glass-border/30 space-y-3">
                                         <div>
@@ -870,7 +898,10 @@ export default function SeoOptimizePage() {
                                             What this checks
                                           </p>
                                           <p className="text-xs text-text-secondary leading-relaxed">
-                                            {RULE_DESCRIPTIONS[r.rule_id].whatItChecks}
+                                            {
+                                              RULE_DESCRIPTIONS[r.rule_id]
+                                                .whatItChecks
+                                            }
                                           </p>
                                         </div>
                                         <div>
@@ -878,7 +909,10 @@ export default function SeoOptimizePage() {
                                             Why it matters
                                           </p>
                                           <p className="text-xs text-text-secondary leading-relaxed">
-                                            {RULE_DESCRIPTIONS[r.rule_id].whyItMatters}
+                                            {
+                                              RULE_DESCRIPTIONS[r.rule_id]
+                                                .whyItMatters
+                                            }
                                           </p>
                                         </div>
                                         <div>
@@ -886,16 +920,23 @@ export default function SeoOptimizePage() {
                                             Passing looks like
                                           </p>
                                           <p className="text-xs text-text-secondary leading-relaxed">
-                                            {RULE_DESCRIPTIONS[r.rule_id].passingLooks}
+                                            {
+                                              RULE_DESCRIPTIONS[r.rule_id]
+                                                .passingLooks
+                                            }
                                           </p>
                                         </div>
-                                        {RULE_DESCRIPTIONS[r.rule_id].howToFix && (
+                                        {RULE_DESCRIPTIONS[r.rule_id]
+                                          .howToFix && (
                                           <div>
                                             <p className="text-[10px] font-medium text-amber-400 uppercase tracking-wider mb-1">
                                               How to fix
                                             </p>
                                             <p className="text-xs text-text-secondary leading-relaxed">
-                                              {RULE_DESCRIPTIONS[r.rule_id].howToFix}
+                                              {
+                                                RULE_DESCRIPTIONS[r.rule_id]
+                                                  .howToFix
+                                              }
                                             </p>
                                           </div>
                                         )}
@@ -903,287 +944,285 @@ export default function SeoOptimizePage() {
                                     </div>
                                   )}
 
-                                  {/* Recommendation for non-editable failing rules */}
-                                  {!editable && !r.passed && r.recommendation && (
-                                    <div className="pb-2 pl-4">
+                                {/* Recommendation for non-editable failing rules */}
+                                {!editable && !r.passed && r.recommendation && (
+                                  <div className="pb-2 pl-4">
+                                    <p className="text-xs text-text-secondary">
+                                      {r.recommendation}
+                                    </p>
+                                    <div className="mt-2 px-3 py-2 rounded-lg bg-glass-bg border border-glass-border/50">
+                                      <p className="text-[10px] font-medium text-text-muted uppercase tracking-wider mb-0.5">
+                                        Where to fix
+                                      </p>
                                       <p className="text-xs text-text-secondary">
-                                        {r.recommendation}
-                                      </p>
-                                      <div className="mt-2 px-3 py-2 rounded-lg bg-glass-bg border border-glass-border/50">
-                                        <p className="text-[10px] font-medium text-text-muted uppercase tracking-wider mb-0.5">
-                                          Where to fix
-                                        </p>
-                                        <p className="text-xs text-text-secondary">
-                                          {RULE_DESCRIPTIONS[r.rule_id]?.howToFix || "Requires changes to page code"}
-                                        </p>
-                                      </div>
-                                    </div>
-                                  )}
-
-                                  {/* Passing rule confirmation */}
-                                  {isConfirming && (
-                                    <div className="pb-3 pl-8">
-                                      <div className="p-3 rounded-lg bg-yellow-500/10 border border-yellow-500/30">
-                                        <p className="text-xs text-yellow-400 mb-2">
-                                          This rule is currently passing. Editing
-                                          may affect your score.
-                                        </p>
-                                        <div className="flex gap-2">
-                                          <button
-                                            onClick={(e) => {
-                                              e.stopPropagation();
-                                              openEditor(r.rule_id);
-                                            }}
-                                            className="btn-secondary text-xs"
-                                          >
-                                            Continue Editing
-                                          </button>
-                                          <button
-                                            onClick={(e) => {
-                                              e.stopPropagation();
-                                              cancelEdit();
-                                            }}
-                                            className="text-xs text-text-muted hover:text-text-primary"
-                                          >
-                                            Cancel
-                                          </button>
-                                        </div>
-                                      </div>
-                                    </div>
-                                  )}
-
-                                  {/* Inline editor */}
-                                  {isEditing && mapping && (
-                                    <div className="pb-3 pl-8">
-                                      <div className="p-3 rounded-lg bg-glass-bg border border-glass-border">
-                                        <label className="block text-xs font-medium text-text-secondary mb-1">
-                                          {mapping.label}
-                                          {mapping.maxLen && (
-                                            <span
-                                              className={`ml-2 ${
-                                                typeof editValue === "string" &&
-                                                editValue.length > mapping.maxLen
-                                                  ? "text-red-400"
-                                                  : "text-text-muted"
-                                              }`}
-                                            >
-                                              {typeof editValue === "string"
-                                                ? editValue.length
-                                                : 0}
-                                              /{mapping.maxLen}
-                                            </span>
-                                          )}
-                                        </label>
-
-                                        {mapping.type === "checkbox" ? (
-                                          <label className="flex items-center gap-2 text-sm text-text-secondary cursor-pointer mt-1">
-                                            <input
-                                              type="checkbox"
-                                              checked={editValue === true}
-                                              onChange={(e) =>
-                                                setEditValue(e.target.checked)
-                                              }
-                                              className="rounded border-glass-border"
-                                            />
-                                            {mapping.label}
-                                          </label>
-                                        ) : mapping.type === "textarea" ? (
-                                          <textarea
-                                            rows={3}
-                                            maxLength={mapping.maxLen}
-                                            value={
-                                              typeof editValue === "string"
-                                                ? editValue
-                                                : ""
-                                            }
-                                            onChange={(e) =>
-                                              setEditValue(e.target.value)
-                                            }
-                                            className="w-full px-3 py-2 bg-glass-bg border border-glass-border rounded-lg text-sm text-text-primary placeholder-text-muted focus:border-accent-blue focus:outline-none resize-none"
-                                            placeholder={`Enter ${mapping.label.toLowerCase()}...`}
-                                          />
-                                        ) : (
-                                          <input
-                                            type="text"
-                                            maxLength={mapping.maxLen}
-                                            value={
-                                              typeof editValue === "string"
-                                                ? editValue
-                                                : ""
-                                            }
-                                            onChange={(e) =>
-                                              setEditValue(e.target.value)
-                                            }
-                                            className="w-full px-3 py-2 bg-glass-bg border border-glass-border rounded-lg text-sm text-text-primary placeholder-text-muted focus:border-accent-blue focus:outline-none"
-                                            placeholder={`Enter ${mapping.label.toLowerCase()}...`}
-                                          />
-                                        )}
-
-                                        {r.recommendation && (
-                                          <p className="text-[10px] text-accent-blue mt-1">
-                                            {r.recommendation}
-                                          </p>
-                                        )}
-
-                                        <div className="flex gap-2 mt-3">
-                                          <button
-                                            onClick={handleSaveAndRescore}
-                                            disabled={saving}
-                                            className="btn-primary text-xs disabled:opacity-50"
-                                          >
-                                            {saving
-                                              ? "Saving..."
-                                              : "Save & Re-score"}
-                                          </button>
-                                          <button
-                                            onClick={cancelEdit}
-                                            className="text-xs text-text-muted hover:text-text-primary"
-                                          >
-                                            Cancel
-                                          </button>
-                                        </div>
-                                      </div>
-                                    </div>
-                                  )}
-                                </div>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      );
-                    }
-                  )}
-                </div>
-              </div>
-
-              {/* SEO Advisor Panel */}
-              {enable_seo_advisor && (
-                <SEOAdvisorPanel
-                  path={detail.path}
-                  onRuleClick={(ruleId) => setHighlightedRule(ruleId)}
-                />
-              )}
-
-              {/* Score Trend */}
-              {trend.length > 1 && (
-                <div className="glass rounded-xl p-6">
-                  <h3 className="text-sm font-medium text-text-primary mb-3">
-                    Score Trend (30 days)
-                  </h3>
-                  <div className="flex items-end gap-1 h-24">
-                    {trend.map((t, i) => (
-                      <div
-                        key={i}
-                        className="flex-1 rounded-t"
-                        style={{
-                          height: `${t.score}%`,
-                          backgroundColor:
-                            t.score >= 80
-                              ? "rgba(34, 197, 94, 0.4)"
-                              : t.score >= 50
-                                ? "rgba(234, 179, 8, 0.4)"
-                                : "rgba(239, 68, 68, 0.4)",
-                        }}
-                        title={`${t.score} \u2014 ${new Date(t.scored_at).toLocaleDateString()}`}
-                      />
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Snapshot History */}
-              <div className="glass rounded-xl p-6">
-                <h3 className="text-sm font-medium text-text-primary mb-3">
-                  Change History
-                </h3>
-                {snapshots.length === 0 ? (
-                  <p className="text-sm text-text-muted">
-                    No snapshots yet.
-                  </p>
-                ) : (
-                  <div className="space-y-2">
-                    {snapshots.map((snap) => (
-                      <div
-                        key={snap.id}
-                        className="border border-glass-border/50 rounded-lg"
-                      >
-                        <button
-                          onClick={() =>
-                            setExpandedSnapshot(
-                              expandedSnapshot === snap.id ? null : snap.id
-                            )
-                          }
-                          className="w-full text-left px-4 py-3 flex items-center justify-between hover:bg-glass-hover transition-colors"
-                        >
-                          <div className="flex items-center gap-3">
-                            <span
-                              className={`px-2 py-0.5 rounded-full text-xs font-medium border ${triggerBadge(snap.trigger)}`}
-                            >
-                              {snap.trigger}
-                            </span>
-                            <span className="text-xs text-text-muted">
-                              {new Date(snap.created_at).toLocaleString()}
-                            </span>
-                          </div>
-                          <span className="text-xs text-text-muted">
-                            {snap.diff
-                              ? `${Object.keys(snap.diff).length} change(s)`
-                              : "Initial snapshot"}
-                          </span>
-                        </button>
-
-                        {expandedSnapshot === snap.id && snap.diff && (
-                          <div className="px-4 pb-4 space-y-2">
-                            {Object.entries(snap.diff).map(
-                              ([field, change]) => (
-                                <div
-                                  key={field}
-                                  className="text-xs border-t border-glass-border/30 pt-2"
-                                >
-                                  <p className="font-medium text-text-primary mb-1">
-                                    {field}
-                                  </p>
-                                  <div className="grid grid-cols-2 gap-2">
-                                    <div>
-                                      <p className="text-text-muted">Before</p>
-                                      <p className="text-red-400 font-mono break-all">
-                                        {typeof change.old === "object"
-                                          ? JSON.stringify(change.old)
-                                          : String(change.old ?? "\u2014")}
-                                      </p>
-                                    </div>
-                                    <div>
-                                      <p className="text-text-muted">After</p>
-                                      <p className="text-green-400 font-mono break-all">
-                                        {typeof change.new === "object"
-                                          ? JSON.stringify(change.new)
-                                          : String(change.new ?? "\u2014")}
+                                        {RULE_DESCRIPTIONS[r.rule_id]
+                                          ?.howToFix ||
+                                          "Requires changes to page code"}
                                       </p>
                                     </div>
                                   </div>
-                                </div>
-                              )
-                            )}
-                          </div>
-                        )}
+                                )}
+
+                                {/* Passing rule confirmation */}
+                                {isConfirming && (
+                                  <div className="pb-3 pl-8">
+                                    <div className="p-3 rounded-lg bg-yellow-500/10 border border-yellow-500/30">
+                                      <p className="text-xs text-yellow-400 mb-2">
+                                        This rule is currently passing. Editing
+                                        may affect your score.
+                                      </p>
+                                      <div className="flex gap-2">
+                                        <button
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            openEditor(r.rule_id);
+                                          }}
+                                          className="btn-secondary text-xs"
+                                        >
+                                          Continue Editing
+                                        </button>
+                                        <button
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            cancelEdit();
+                                          }}
+                                          className="text-xs text-text-muted hover:text-text-primary"
+                                        >
+                                          Cancel
+                                        </button>
+                                      </div>
+                                    </div>
+                                  </div>
+                                )}
+
+                                {/* Inline editor */}
+                                {isEditing && mapping && (
+                                  <div className="pb-3 pl-8">
+                                    <div className="p-3 rounded-lg bg-glass-bg border border-glass-border">
+                                      <label className="block text-xs font-medium text-text-secondary mb-1">
+                                        {mapping.label}
+                                        {mapping.maxLen && (
+                                          <span
+                                            className={`ml-2 ${
+                                              typeof editValue === "string" &&
+                                              editValue.length > mapping.maxLen
+                                                ? "text-red-400"
+                                                : "text-text-muted"
+                                            }`}
+                                          >
+                                            {typeof editValue === "string"
+                                              ? editValue.length
+                                              : 0}
+                                            /{mapping.maxLen}
+                                          </span>
+                                        )}
+                                      </label>
+
+                                      {mapping.type === "checkbox" ? (
+                                        <label className="flex items-center gap-2 text-sm text-text-secondary cursor-pointer mt-1">
+                                          <input
+                                            type="checkbox"
+                                            checked={editValue === true}
+                                            onChange={(e) =>
+                                              setEditValue(e.target.checked)
+                                            }
+                                            className="rounded border-glass-border"
+                                          />
+                                          {mapping.label}
+                                        </label>
+                                      ) : mapping.type === "textarea" ? (
+                                        <textarea
+                                          rows={3}
+                                          maxLength={mapping.maxLen}
+                                          value={
+                                            typeof editValue === "string"
+                                              ? editValue
+                                              : ""
+                                          }
+                                          onChange={(e) =>
+                                            setEditValue(e.target.value)
+                                          }
+                                          className="w-full px-3 py-2 bg-glass-bg border border-glass-border rounded-lg text-sm text-text-primary placeholder-text-muted focus:border-accent-blue focus:outline-none resize-none"
+                                          placeholder={`Enter ${mapping.label.toLowerCase()}...`}
+                                        />
+                                      ) : (
+                                        <input
+                                          type="text"
+                                          maxLength={mapping.maxLen}
+                                          value={
+                                            typeof editValue === "string"
+                                              ? editValue
+                                              : ""
+                                          }
+                                          onChange={(e) =>
+                                            setEditValue(e.target.value)
+                                          }
+                                          className="w-full px-3 py-2 bg-glass-bg border border-glass-border rounded-lg text-sm text-text-primary placeholder-text-muted focus:border-accent-blue focus:outline-none"
+                                          placeholder={`Enter ${mapping.label.toLowerCase()}...`}
+                                        />
+                                      )}
+
+                                      {r.recommendation && (
+                                        <p className="text-[10px] text-accent-blue mt-1">
+                                          {r.recommendation}
+                                        </p>
+                                      )}
+
+                                      <div className="flex gap-2 mt-3">
+                                        <button
+                                          onClick={handleSaveAndRescore}
+                                          disabled={saving}
+                                          className="btn-primary text-xs disabled:opacity-50"
+                                        >
+                                          {saving
+                                            ? "Saving..."
+                                            : "Save & Re-score"}
+                                        </button>
+                                        <button
+                                          onClick={cancelEdit}
+                                          className="text-xs text-text-muted hover:text-text-primary"
+                                        >
+                                          Cancel
+                                        </button>
+                                      </div>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
                       </div>
-                    ))}
-                  </div>
+                    );
+                  },
                 )}
               </div>
             </div>
 
-            {/* Right column: HTML Source Viewer */}
-            <div className="lg:sticky lg:top-4 lg:self-start">
-              <HtmlSourceViewer
-                html={pageHtml}
-                loading={htmlLoading}
-                ruleResults={detail.rule_results}
-                highlightedRule={highlightedRule}
+            {/* SEO Advisor Panel */}
+            {enable_seo_advisor && (
+              <SEOAdvisorPanel
+                path={detail.path}
+                onRuleClick={(ruleId) => setHighlightedRule(ruleId)}
               />
+            )}
+
+            {/* Score Trend */}
+            {trend.length > 1 && (
+              <div className="glass rounded-xl p-6">
+                <h3 className="text-sm font-medium text-text-primary mb-3">
+                  Score Trend (30 days)
+                </h3>
+                <div className="flex items-end gap-1 h-24">
+                  {trend.map((t, i) => (
+                    <div
+                      key={i}
+                      className="flex-1 rounded-t"
+                      style={{
+                        height: `${t.score}%`,
+                        backgroundColor:
+                          t.score >= 80
+                            ? "rgba(34, 197, 94, 0.4)"
+                            : t.score >= 50
+                              ? "rgba(234, 179, 8, 0.4)"
+                              : "rgba(239, 68, 68, 0.4)",
+                      }}
+                      title={`${t.score} \u2014 ${new Date(t.scored_at).toLocaleDateString()}`}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Snapshot History */}
+            <div className="glass rounded-xl p-6">
+              <h3 className="text-sm font-medium text-text-primary mb-3">
+                Change History
+              </h3>
+              {snapshots.length === 0 ? (
+                <p className="text-sm text-text-muted">No snapshots yet.</p>
+              ) : (
+                <div className="space-y-2">
+                  {snapshots.map((snap) => (
+                    <div
+                      key={snap.id}
+                      className="border border-glass-border/50 rounded-lg"
+                    >
+                      <button
+                        onClick={() =>
+                          setExpandedSnapshot(
+                            expandedSnapshot === snap.id ? null : snap.id,
+                          )
+                        }
+                        className="w-full text-left px-4 py-3 flex items-center justify-between hover:bg-glass-hover transition-colors"
+                      >
+                        <div className="flex items-center gap-3">
+                          <span
+                            className={`px-2 py-0.5 rounded-full text-xs font-medium border ${triggerBadge(snap.trigger)}`}
+                          >
+                            {snap.trigger}
+                          </span>
+                          <span className="text-xs text-text-muted">
+                            {new Date(snap.created_at).toLocaleString()}
+                          </span>
+                        </div>
+                        <span className="text-xs text-text-muted">
+                          {snap.diff
+                            ? `${Object.keys(snap.diff).length} change(s)`
+                            : "Initial snapshot"}
+                        </span>
+                      </button>
+
+                      {expandedSnapshot === snap.id && snap.diff && (
+                        <div className="px-4 pb-4 space-y-2">
+                          {Object.entries(snap.diff).map(([field, change]) => (
+                            <div
+                              key={field}
+                              className="text-xs border-t border-glass-border/30 pt-2"
+                            >
+                              <p className="font-medium text-text-primary mb-1">
+                                {field}
+                              </p>
+                              <div className="grid grid-cols-2 gap-2">
+                                <div>
+                                  <p className="text-text-muted">Before</p>
+                                  <p className="text-red-400 font-mono break-all">
+                                    {typeof change.old === "object"
+                                      ? JSON.stringify(change.old)
+                                      : String(change.old ?? "\u2014")}
+                                  </p>
+                                </div>
+                                <div>
+                                  <p className="text-text-muted">After</p>
+                                  <p className="text-green-400 font-mono break-all">
+                                    {typeof change.new === "object"
+                                      ? JSON.stringify(change.new)
+                                      : String(change.new ?? "\u2014")}
+                                  </p>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
-        )}
+
+          {/* Right column: HTML Source Viewer */}
+          <div className="lg:sticky lg:top-4 lg:self-start">
+            <HtmlSourceViewer
+              html={pageHtml}
+              loading={htmlLoading}
+              ruleResults={detail.rule_results}
+              highlightedRule={highlightedRule}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

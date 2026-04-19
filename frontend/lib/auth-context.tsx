@@ -1,7 +1,19 @@
 "use client";
 
-import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
-import { apiFetch, setAccessToken, getAccessToken, setCsrfToken, type ApiError } from "./api";
+import React, {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  useCallback,
+} from "react";
+import {
+  apiFetch,
+  setAccessToken,
+  getAccessToken,
+  setCsrfToken,
+  type ApiError,
+} from "./api";
 
 interface User {
   id: string;
@@ -39,7 +51,7 @@ interface AuthState {
     email: string,
     password: string,
     firstName: string,
-    lastName: string
+    lastName: string,
   ) => Promise<void>;
   logout: () => Promise<void>;
   error: string | null;
@@ -106,28 +118,42 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     init();
   }, [fetchMe]);
 
-  const login = useCallback(async (email: string, password: string) => {
-    setError(null);
-    try {
-      const data = await apiFetch<{ access_token: string; csrf_token?: string }>("/auth/login", {
-        method: "POST",
-        body: JSON.stringify({ email, password }),
-      });
-      setAccessToken(data.access_token);
-      if (data.csrf_token) setCsrfToken(data.csrf_token);
-      await fetchMe();
-    } catch (e) {
-      const err = e as ApiError;
-      setError(err.message || "Login failed");
-      throw e;
-    }
-  }, [fetchMe]);
-
-  const register = useCallback(
-    async (email: string, password: string, firstName: string, lastName: string) => {
+  const login = useCallback(
+    async (email: string, password: string) => {
       setError(null);
       try {
-        const data = await apiFetch<{ access_token: string; csrf_token?: string }>("/auth/register", {
+        const data = await apiFetch<{
+          access_token: string;
+          csrf_token?: string;
+        }>("/auth/login", {
+          method: "POST",
+          body: JSON.stringify({ email, password }),
+        });
+        setAccessToken(data.access_token);
+        if (data.csrf_token) setCsrfToken(data.csrf_token);
+        await fetchMe();
+      } catch (e) {
+        const err = e as ApiError;
+        setError(err.message || "Login failed");
+        throw e;
+      }
+    },
+    [fetchMe],
+  );
+
+  const register = useCallback(
+    async (
+      email: string,
+      password: string,
+      firstName: string,
+      lastName: string,
+    ) => {
+      setError(null);
+      try {
+        const data = await apiFetch<{
+          access_token: string;
+          csrf_token?: string;
+        }>("/auth/register", {
           method: "POST",
           body: JSON.stringify({
             email,
@@ -145,7 +171,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         throw e;
       }
     },
-    [fetchMe]
+    [fetchMe],
   );
 
   const logout = useCallback(async () => {

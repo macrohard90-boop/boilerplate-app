@@ -7,7 +7,6 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 
-from backend.core.config import settings
 from backend.core.redis import get_redis
 
 
@@ -23,7 +22,13 @@ _GENERAL_LIMIT_IP = (30, 60)  # 30 req/min per IP for unauthenticated
 _GENERAL_LIMIT_USER = (60, 60)  # 60 req/min per user for authenticated
 
 # Paths exempt from rate limiting
-_EXEMPT_PATHS = {"/api/health", "/api/health/db", "/api/health/redis", "/docs", "/openapi.json"}
+_EXEMPT_PATHS = {
+    "/api/health",
+    "/api/health/db",
+    "/api/health/redis",
+    "/docs",
+    "/openapi.json",
+}
 
 # Path prefixes exempt from rate limiting (admin-only read endpoints)
 _EXEMPT_PREFIXES = ("/api/tracking/admin/",)

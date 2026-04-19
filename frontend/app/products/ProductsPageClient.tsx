@@ -71,7 +71,7 @@ function ProductsContent() {
   const [page, setPage] = useState(Number(searchParams.get("page")) || 1);
   const [view, setView] = useState<"grid" | "list">("grid");
   const [tab, setTab] = useState<TabKey>(
-    (searchParams.get("tab") as TabKey) || defaultTab
+    (searchParams.get("tab") as TabKey) || defaultTab,
   );
   const [categories, setCategories] = useState<Category[]>([]);
   const [categoryId, setCategoryId] = useState<string | null>(null);
@@ -79,7 +79,7 @@ function ProductsContent() {
   // Fetch categories once
   useEffect(() => {
     fetch("/api/ecommerce/categories")
-      .then((r) => r.ok ? r.json() : [])
+      .then((r) => (r.ok ? r.json() : []))
       .then((data: Category[]) => {
         // Only root categories for filter pills
         setCategories(data.filter((c) => !c.parent_id));
@@ -159,21 +159,21 @@ function ProductsContent() {
 
       {/* Tabs */}
       {tabs.length > 1 && (
-      <div className="flex gap-1 mb-6 glass rounded-lg p-1 w-fit">
-        {tabs.map((t) => (
-          <button
-            key={t.key}
-            onClick={() => handleTab(t.key)}
-            className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-              tab === t.key
-                ? "bg-accent-purple/20 text-accent-purple"
-                : "text-text-muted hover:text-text-primary"
-            }`}
-          >
-            {t.label}
-          </button>
-        ))}
-      </div>
+        <div className="flex gap-1 mb-6 glass rounded-lg p-1 w-fit">
+          {tabs.map((t) => (
+            <button
+              key={t.key}
+              onClick={() => handleTab(t.key)}
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                tab === t.key
+                  ? "bg-accent-purple/20 text-accent-purple"
+                  : "text-text-muted hover:text-text-primary"
+              }`}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
       )}
 
       {/* Category Filter — only for products, not subscriptions */}
@@ -208,7 +208,9 @@ function ProductsContent() {
       {/* Controls */}
       <div className="flex flex-col sm:flex-row gap-4 mb-8">
         <SearchBar
-          placeholder={isSubscriptions ? "Search subscriptions..." : "Search products..."}
+          placeholder={
+            isSubscriptions ? "Search subscriptions..." : "Search products..."
+          }
           onSearch={handleSearch}
           className="flex-1"
         />
@@ -219,7 +221,11 @@ function ProductsContent() {
             className="input-glass text-sm !w-auto !py-2"
           >
             {SORT_OPTIONS.map((o) => (
-              <option key={o.value} value={o.value} className="bg-base text-text-primary">
+              <option
+                key={o.value}
+                value={o.value}
+                className="bg-base text-text-primary"
+              >
                 {o.label}
               </option>
             ))}
@@ -232,8 +238,20 @@ function ProductsContent() {
               aria-label="Grid view"
               className={`p-2 transition-colors ${view === "grid" ? "bg-accent-purple/20 text-accent-purple" : "text-text-muted hover:text-text-primary"}`}
             >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-5 w-5"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                aria-hidden="true"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"
+                />
               </svg>
             </button>
             <button
@@ -241,8 +259,20 @@ function ProductsContent() {
               aria-label="List view"
               className={`p-2 transition-colors ${view === "list" ? "bg-accent-purple/20 text-accent-purple" : "text-text-muted hover:text-text-primary"}`}
             >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-5 w-5"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                aria-hidden="true"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M4 6h16M4 10h16M4 14h16M4 18h16"
+                />
               </svg>
             </button>
           </div>
@@ -259,7 +289,10 @@ function ProductsContent() {
           </p>
           {(search || categoryId) && (
             <button
-              onClick={() => { handleSearch(""); handleCategoryFilter(null); }}
+              onClick={() => {
+                handleSearch("");
+                handleCategoryFilter(null);
+              }}
               className="btn-secondary text-sm mt-4"
             >
               Clear filters
@@ -269,16 +302,20 @@ function ProductsContent() {
       ) : (
         <>
           <p className="text-sm text-text-muted mb-6">
-            {data.total} {isSubscriptions ? "plan" : "product"}{data.total !== 1 ? "s" : ""}
+            {data.total} {isSubscriptions ? "plan" : "product"}
+            {data.total !== 1 ? "s" : ""}
             {activeCategoryName && ` in ${activeCategoryName}`}
           </p>
-          <div className={view === "grid"
-            ? isSubscriptions
-              ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6"
-              : "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"
-            : "space-y-4"
-          }>
-            {data.items.map((product) => (
+          <div
+            className={
+              view === "grid"
+                ? isSubscriptions
+                  ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6"
+                  : "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"
+                : "space-y-4"
+            }
+          >
+            {data.items.map((product) =>
               view === "grid" ? (
                 isSubscriptions ? (
                   <PlanCard
@@ -298,49 +335,91 @@ function ProductsContent() {
                     name={product.name}
                     price={product.base_price}
                     currency={product.currency}
-                    image_url={product.images?.find((i) => i.is_primary)?.url || product.images?.[0]?.url}
+                    image_url={
+                      product.images?.find((i) => i.is_primary)?.url ||
+                      product.images?.[0]?.url
+                    }
                     category_name={product.categories?.[0]?.name}
                     pricing_type={product.pricing_type}
                     recurring_interval={product.recurring_interval}
                   />
                 )
               ) : isSubscriptions ? (
-                <a key={product.id} href={`/products/${product.slug}`} className="glass rounded-xl p-4 flex items-center gap-4 group hover:border-accent-purple/30 transition-all block">
+                <a
+                  key={product.id}
+                  href={`/products/${product.slug}`}
+                  className="glass rounded-xl p-4 flex items-center gap-4 group hover:border-accent-purple/30 transition-all block"
+                >
                   <div className="flex-1 min-w-0">
-                    <h3 className="text-text-primary font-medium group-hover:text-accent-blue transition-colors">{product.name}</h3>
-                    <p className="text-sm text-text-muted truncate mt-1">{product.description}</p>
+                    <h3 className="text-text-primary font-medium group-hover:text-accent-blue transition-colors">
+                      {product.name}
+                    </h3>
+                    <p className="text-sm text-text-muted truncate mt-1">
+                      {product.description}
+                    </p>
                   </div>
                   <div className="text-lg font-semibold text-text-primary shrink-0">
-                    {(product.base_price / 100).toLocaleString("en-US", { style: "currency", currency: product.currency })}
+                    {(product.base_price / 100).toLocaleString("en-US", {
+                      style: "currency",
+                      currency: product.currency,
+                    })}
                     {product.recurring_interval && (
                       <span className="text-sm font-normal text-text-muted">
-                        /{product.recurring_interval === "month" ? "mo" : product.recurring_interval === "year" ? "yr" : product.recurring_interval}
+                        /
+                        {product.recurring_interval === "month"
+                          ? "mo"
+                          : product.recurring_interval === "year"
+                            ? "yr"
+                            : product.recurring_interval}
                       </span>
                     )}
                   </div>
                 </a>
               ) : (
-                <a key={product.id} href={`/products/${product.slug}`} className="glass rounded-xl p-4 flex gap-4 group hover:border-accent-purple/30 transition-all block">
+                <a
+                  key={product.id}
+                  href={`/products/${product.slug}`}
+                  className="glass rounded-xl p-4 flex gap-4 group hover:border-accent-purple/30 transition-all block"
+                >
                   <div className="w-20 h-20 bg-base-100 rounded-lg shrink-0 overflow-hidden relative">
                     {product.images?.[0] && (
-                      <Image src={product.images[0].url} alt={product.name} fill sizes="80px" className="object-cover" />
+                      <Image
+                        src={product.images[0].url}
+                        alt={product.name}
+                        fill
+                        sizes="80px"
+                        className="object-cover"
+                      />
                     )}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <h3 className="text-text-primary font-medium group-hover:text-accent-blue transition-colors">{product.name}</h3>
-                    <p className="text-sm text-text-muted truncate mt-1">{product.description}</p>
+                    <h3 className="text-text-primary font-medium group-hover:text-accent-blue transition-colors">
+                      {product.name}
+                    </h3>
+                    <p className="text-sm text-text-muted truncate mt-1">
+                      {product.description}
+                    </p>
                   </div>
                   <div className="text-lg font-semibold text-text-primary shrink-0">
-                    {(product.base_price / 100).toLocaleString("en-US", { style: "currency", currency: product.currency })}
-                    {product.pricing_type === "recurring" && product.recurring_interval && (
-                      <span className="text-sm font-normal text-text-muted">
-                        /{product.recurring_interval === "month" ? "mo" : product.recurring_interval === "year" ? "yr" : product.recurring_interval}
-                      </span>
-                    )}
+                    {(product.base_price / 100).toLocaleString("en-US", {
+                      style: "currency",
+                      currency: product.currency,
+                    })}
+                    {product.pricing_type === "recurring" &&
+                      product.recurring_interval && (
+                        <span className="text-sm font-normal text-text-muted">
+                          /
+                          {product.recurring_interval === "month"
+                            ? "mo"
+                            : product.recurring_interval === "year"
+                              ? "yr"
+                              : product.recurring_interval}
+                        </span>
+                      )}
                   </div>
                 </a>
-              )
-            ))}
+              ),
+            )}
           </div>
 
           {data.total_pages > 1 && (

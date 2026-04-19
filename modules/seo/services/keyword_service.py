@@ -3,7 +3,6 @@
 Manages keyword discovery, page targeting, and suggestion storage.
 """
 
-import json
 import logging
 from typing import Any
 
@@ -96,15 +95,19 @@ async def get_target_keywords(db: AsyncSession, path: str) -> list[str]:
     Returns keywords targeted to this specific path plus site-wide keywords.
     """
     rows = (
-        await db.execute(
-            text(
-                "SELECT keyword FROM seo.target_keywords "
-                "WHERE path = :path OR path IS NULL "
-                "ORDER BY priority DESC"
-            ),
-            {"path": path},
+        (
+            await db.execute(
+                text(
+                    "SELECT keyword FROM seo.target_keywords "
+                    "WHERE path = :path OR path IS NULL "
+                    "ORDER BY priority DESC"
+                ),
+                {"path": path},
+            )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
     return list(rows)
 
 
@@ -119,15 +122,19 @@ async def list_target_keywords(
     ).scalar() or 0
 
     rows = (
-        await db.execute(
-            text(
-                "SELECT id, keyword, path, priority, notes, created_at, updated_at "
-                "FROM seo.target_keywords ORDER BY priority DESC, keyword "
-                "LIMIT :lim OFFSET :off"
-            ),
-            {"lim": page_size, "off": offset},
+        (
+            await db.execute(
+                text(
+                    "SELECT id, keyword, path, priority, notes, created_at, updated_at "
+                    "FROM seo.target_keywords ORDER BY priority DESC, keyword "
+                    "LIMIT :lim OFFSET :off"
+                ),
+                {"lim": page_size, "off": offset},
+            )
         )
-    ).mappings().all()
+        .mappings()
+        .all()
+    )
 
     return {
         "items": [_target_row_to_dict(r) for r in rows],
@@ -206,16 +213,20 @@ async def list_suggestions(
     ).scalar() or 0
 
     rows = (
-        await db.execute(
-            text(
-                f"SELECT id, keyword, search_volume, competition, trend, "
-                f"source, depth_level, seed_keyword, fetched_at "
-                f"FROM seo.keyword_suggestions {where} "
-                f"ORDER BY depth_level, keyword LIMIT :lim OFFSET :off"
-            ),
-            params,
+        (
+            await db.execute(
+                text(
+                    f"SELECT id, keyword, search_volume, competition, trend, "
+                    f"source, depth_level, seed_keyword, fetched_at "
+                    f"FROM seo.keyword_suggestions {where} "
+                    f"ORDER BY depth_level, keyword LIMIT :lim OFFSET :off"
+                ),
+                params,
+            )
         )
-    ).mappings().all()
+        .mappings()
+        .all()
+    )
 
     return {
         "items": [_suggestion_row_to_dict(r) for r in rows],
@@ -230,9 +241,7 @@ async def list_suggestions(
 # ---------------------------------------------------------------------------
 
 
-def analyze_keyword_density(
-    content: str, keywords: list[str]
-) -> list[dict[str, Any]]:
+def analyze_keyword_density(content: str, keywords: list[str]) -> list[dict[str, Any]]:
     """Analyze keyword density in page content.
 
     Returns density info for each keyword:
@@ -271,12 +280,14 @@ def analyze_keyword_density(
         else:
             status = "stuffing"
 
-        results.append({
-            "keyword": kw,
-            "count": count,
-            "density": round(density, 2),
-            "status": status,
-        })
+        results.append(
+            {
+                "keyword": kw,
+                "count": count,
+                "density": round(density, 2),
+                "status": status,
+            }
+        )
 
     return results
 

@@ -92,34 +92,46 @@ async def get_pageview_stats(
 
     # Total views and unique visitors
     row = (
-        await db.execute(
-            text(
-                f"SELECT COUNT(*) AS total_views, "
-                f"COUNT(DISTINCT COALESCE(user_id::text, session_id)) AS unique_visitors "
-                f"FROM analytics.page_views WHERE {where}"
-            ),
-            params,
+        (
+            await db.execute(
+                text(
+                    f"SELECT COUNT(*) AS total_views, "
+                    f"COUNT(DISTINCT COALESCE(user_id::text, session_id)) AS unique_visitors "
+                    f"FROM analytics.page_views WHERE {where}"
+                ),
+                params,
+            )
         )
-    ).mappings().first()
+        .mappings()
+        .first()
+    )
 
     # Top pages
     top = (
-        await db.execute(
-            text(
-                f"SELECT path, COUNT(*) AS views, "
-                f"COUNT(DISTINCT COALESCE(user_id::text, session_id)) AS unique_visitors "
-                f"FROM analytics.page_views WHERE {where} "
-                f"GROUP BY path ORDER BY views DESC LIMIT :limit"
-            ),
-            params,
+        (
+            await db.execute(
+                text(
+                    f"SELECT path, COUNT(*) AS views, "
+                    f"COUNT(DISTINCT COALESCE(user_id::text, session_id)) AS unique_visitors "
+                    f"FROM analytics.page_views WHERE {where} "
+                    f"GROUP BY path ORDER BY views DESC LIMIT :limit"
+                ),
+                params,
+            )
         )
-    ).mappings().all()
+        .mappings()
+        .all()
+    )
 
     return {
         "total_views": row["total_views"] if row else 0,
         "unique_visitors": row["unique_visitors"] if row else 0,
         "top_pages": [
-            {"path": r["path"], "views": r["views"], "unique_visitors": r["unique_visitors"]}
+            {
+                "path": r["path"],
+                "views": r["views"],
+                "unique_visitors": r["unique_visitors"],
+            }
             for r in top
         ],
     }

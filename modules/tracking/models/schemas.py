@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field
 
 # ── Collection (inbound) ─────────────────────────────────
 
+
 class PageViewCreate(BaseModel):
     path: str
     referrer: str | None = None
@@ -30,6 +31,7 @@ class EventBatch(BaseModel):
 
 # ── Responses ────────────────────────────────────────────
 
+
 class TrackingResponse(BaseModel):
     recorded: int
     session_id: str
@@ -46,6 +48,7 @@ class ErrorResponse(BaseModel):
 
 
 # ── Admin: Page View Stats ───────────────────────────────
+
 
 class TopPage(BaseModel):
     path: str
@@ -64,6 +67,7 @@ class PageViewStats(BaseModel):
 
 # ── Admin: Session Stats ────────────────────────────────
 
+
 class SessionDayStat(BaseModel):
     date: str
     sessions: int
@@ -79,6 +83,7 @@ class SessionStats(BaseModel):
 
 # ── Admin: Event Stats ──────────────────────────────────
 
+
 class EventTypeStat(BaseModel):
     event_type: str
     count: int
@@ -92,6 +97,7 @@ class EventStats(BaseModel):
 
 
 # ── Admin: Source Stats ──────────────────────────────────
+
 
 class SourceStat(BaseModel):
     source: str
@@ -108,6 +114,7 @@ class SourceStats(BaseModel):
 
 # ── Admin: UTM Stats ────────────────────────────────────
 
+
 class UTMCampaignStat(BaseModel):
     utm_source: str | None = None
     utm_medium: str | None = None
@@ -123,6 +130,7 @@ class UTMStats(BaseModel):
 
 
 # ── Admin: Device / Browser Stats ──────────────────────
+
 
 class DeviceTypeStat(BaseModel):
     device_type: str
@@ -152,6 +160,7 @@ class DeviceStats(BaseModel):
 
 
 # ── Admin: Per-User Analytics ──────────────────────────
+
 
 class TrackedUser(BaseModel):
     user_id: str
@@ -202,6 +211,7 @@ class UserActivity(BaseModel):
 
 # ── Admin: Dashboard KPI Summary ────────────────────────
 
+
 class KPIMetric(BaseModel):
     current: float
     previous: float
@@ -224,6 +234,7 @@ class DashboardSummary(BaseModel):
 
 # ── Admin: Pageview Timeseries ───────────────────────────
 
+
 class TimeseriesPoint(BaseModel):
     timestamp: str
     pageviews: int
@@ -238,12 +249,14 @@ class PageviewTimeSeries(BaseModel):
 
 # ── Heartbeat (inbound) ─────────────────────────────────
 
+
 class HeartbeatCreate(BaseModel):
     path: str
     status: str = Field(default="active", pattern="^(active|idle)$")
 
 
 # ── Admin: Active Sessions ──────────────────────────────
+
 
 class ActiveSession(BaseModel):
     session_id: str
@@ -264,6 +277,7 @@ class ActiveSessionsResponse(BaseModel):
 
 # ── Admin: Page Engagement ───────────────────────────────
 
+
 class PageEngagement(BaseModel):
     path: str
     views: int
@@ -278,6 +292,7 @@ class PagesEngagementResponse(BaseModel):
 
 
 # ── Admin: Enriched User List ────────────────────────────
+
 
 class EnrichedUser(BaseModel):
     user_id: str
@@ -301,12 +316,14 @@ class EnrichedUserList(BaseModel):
 
 # ── Admin: User Top Page ────────────────────────────────
 
+
 class UserTopPage(BaseModel):
     path: str
     views: int
 
 
 # ── Admin: Session Detail / Journey ─────────────────────
+
 
 class SessionPageView(BaseModel):
     path: str

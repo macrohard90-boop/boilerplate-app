@@ -79,17 +79,13 @@ def load_modules(app: "FastAPI") -> list[str]:
         # Check for config.py with enabled flag
         config_file = module_path / "config.py"
         if not config_file.exists():
-            logger.debug(
-                "Module '%s' has no config.py, skipping", module_name
-            )
+            logger.debug("Module '%s' has no config.py, skipping", module_name)
             continue
 
         try:
             config_mod = importlib.import_module(f"modules.{module_name}.config")
             if not getattr(config_mod, "enabled", False):
-                logger.debug(
-                    "Module '%s' is disabled in its config.py", module_name
-                )
+                logger.debug("Module '%s' is disabled in its config.py", module_name)
                 continue
         except ImportError as e:
             logger.warning(
@@ -111,9 +107,7 @@ def load_modules(app: "FastAPI") -> list[str]:
                 )
         except ImportError:
             # Module has config but no routes yet — that's fine in early phases
-            logger.debug(
-                "Module '%s' has no routes package yet, skipping", module_name
-            )
+            logger.debug("Module '%s' has no routes package yet, skipping", module_name)
 
     logger.info("Loaded modules: %s", loaded if loaded else "[]")
     return loaded

@@ -145,15 +145,11 @@ class EmailProvider(ABC):
         scheduled_at: str | None = None,
     ) -> CampaignResult:
         """Create a marketing campaign in the ESP."""
-        raise NotImplementedError(
-            "Campaign management not supported by this provider"
-        )
+        raise NotImplementedError("Campaign management not supported by this provider")
 
     async def get_campaign_stats(
         self,
         provider_campaign_id: str,
     ) -> CampaignStats:
         """Pull campaign statistics from the ESP API."""
-        raise NotImplementedError(
-            "Campaign stats not supported by this provider"
-        )
+        raise NotImplementedError("Campaign stats not supported by this provider")

@@ -196,7 +196,8 @@ export const GEO_DIMENSIONS: Record<
     label: "Extractability",
     color: "text-accent-purple",
     bgColor: "bg-accent-purple/20",
-    description: "How easily AI engines can extract citable sentences from your content",
+    description:
+      "How easily AI engines can extract citable sentences from your content",
   },
   fact_density: {
     label: "Fact Density",
@@ -214,7 +215,8 @@ export const GEO_DIMENSIONS: Record<
     label: "Freshness",
     color: "text-amber-400",
     bgColor: "bg-amber-400/20",
-    description: "Content recency signals — AI engines strongly prefer recent content",
+    description:
+      "Content recency signals — AI engines strongly prefer recent content",
   },
   metadata: {
     label: "Metadata",

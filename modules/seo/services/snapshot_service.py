@@ -100,15 +100,19 @@ async def list_snapshots(
     ).scalar() or 0
 
     rows = (
-        await db.execute(
-            text(
-                "SELECT id, path, snapshot, trigger, changed_by, diff, created_at "
-                "FROM seo.page_snapshots WHERE path = :path "
-                "ORDER BY created_at DESC LIMIT :lim OFFSET :off"
-            ),
-            {"path": path, "lim": page_size, "off": offset},
+        (
+            await db.execute(
+                text(
+                    "SELECT id, path, snapshot, trigger, changed_by, diff, created_at "
+                    "FROM seo.page_snapshots WHERE path = :path "
+                    "ORDER BY created_at DESC LIMIT :lim OFFSET :off"
+                ),
+                {"path": path, "lim": page_size, "off": offset},
+            )
         )
-    ).mappings().all()
+        .mappings()
+        .all()
+    )
 
     return {
         "items": [
@@ -132,14 +136,18 @@ async def list_snapshots(
 async def get_snapshot(db: AsyncSession, snapshot_id: str) -> dict[str, Any] | None:
     """Get a single snapshot by ID."""
     row = (
-        await db.execute(
-            text(
-                "SELECT id, path, snapshot, trigger, changed_by, diff, created_at "
-                "FROM seo.page_snapshots WHERE id = :id"
-            ),
-            {"id": snapshot_id},
+        (
+            await db.execute(
+                text(
+                    "SELECT id, path, snapshot, trigger, changed_by, diff, created_at "
+                    "FROM seo.page_snapshots WHERE id = :id"
+                ),
+                {"id": snapshot_id},
+            )
         )
-    ).mappings().first()
+        .mappings()
+        .first()
+    )
 
     if not row:
         return None
@@ -155,19 +163,21 @@ async def get_snapshot(db: AsyncSession, snapshot_id: str) -> dict[str, Any] | N
     }
 
 
-async def _get_latest_snapshot(
-    db: AsyncSession, path: str
-) -> dict[str, Any] | None:
+async def _get_latest_snapshot(db: AsyncSession, path: str) -> dict[str, Any] | None:
     """Get the most recent snapshot for a path."""
     row = (
-        await db.execute(
-            text(
-                "SELECT snapshot FROM seo.page_snapshots "
-                "WHERE path = :path ORDER BY created_at DESC LIMIT 1"
-            ),
-            {"path": path},
+        (
+            await db.execute(
+                text(
+                    "SELECT snapshot FROM seo.page_snapshots "
+                    "WHERE path = :path ORDER BY created_at DESC LIMIT 1"
+                ),
+                {"path": path},
+            )
         )
-    ).mappings().first()
+        .mappings()
+        .first()
+    )
 
     if not row:
         return None
@@ -180,7 +190,14 @@ def _compute_diff(
     """Compute field-level diff between two snapshots."""
     diff: dict[str, Any] = {}
     # Compare simple fields
-    for field in ("title", "description", "robots", "canonical_url", "score", "is_custom"):
+    for field in (
+        "title",
+        "description",
+        "robots",
+        "canonical_url",
+        "score",
+        "is_custom",
+    ):
         old_val = prev.get(field)
         new_val = current.get(field)
         if old_val != new_val:

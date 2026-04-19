@@ -13,12 +13,18 @@ class Settings(BaseSettings):
     # Domain
     domain: str = "localhost"
     frontend_url: str = "http://localhost:3000"
-    internal_frontend_url: str = "http://nextjs:3000"  # Container-to-container URL for SSR verification
+    internal_frontend_url: str = (
+        "http://nextjs:3000"  # Container-to-container URL for SSR verification
+    )
     backend_url: str = "http://localhost:8000"
-    public_url: str = ""  # Public-facing URL for assets (e.g. https://mysite.com). When empty, image URLs are not sent to payment providers.
+    # Public-facing URL for assets (e.g. https://mysite.com).
+    # When empty, image URLs are not sent to payment providers.
+    public_url: str = ""
 
     # Database
-    database_url: str = "postgresql+asyncpg://boilerplate:change-me@postgres:5432/boilerplate_db"
+    database_url: str = (
+        "postgresql+asyncpg://boilerplate:change-me@postgres:5432/boilerplate_db"
+    )
     pool_size: int = 5
     max_overflow: int = 10
     pool_timeout: int = 30
@@ -91,7 +97,9 @@ class Settings(BaseSettings):
     seo_advisor_model: str = "claude-sonnet-4-20250514"  # For anthropic_api provider
     anthropic_api_key: str = ""  # For anthropic_api provider
     seo_advisor_max_searches: int = 5  # Web search limit per advisor request
-    frontend_app_dir: str = "/app/frontend/app"  # Path to Next.js app directory for page discovery
+    frontend_app_dir: str = (
+        "/app/frontend/app"  # Path to Next.js app directory for page discovery
+    )
 
     # GDPR
     gdpr_grace_period_days: int = 30
@@ -105,8 +113,12 @@ class Settings(BaseSettings):
 
     # Email / Notifications
     email_provider: str = "console"  # console (dev), brevo (production)
-    transactional_email_provider: str = ""  # Override for transactional; empty = use email_provider
-    marketing_email_provider: str = ""  # Override for marketing; empty = use email_provider
+    transactional_email_provider: str = (
+        ""  # Override for transactional; empty = use email_provider
+    )
+    marketing_email_provider: str = (
+        ""  # Override for marketing; empty = use email_provider
+    )
     from_email: str = "noreply@localhost"
     from_name: str = "Boilerplate App"
     brevo_api_key: str = ""

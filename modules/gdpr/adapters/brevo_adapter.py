@@ -40,9 +40,7 @@ class BrevoAdapter(EmailProvider):
         self._from_name = settings.from_name
 
         if not self._api_key:
-            raise ValueError(
-                "BREVO_API_KEY is required when EMAIL_PROVIDER=brevo"
-            )
+            raise ValueError("BREVO_API_KEY is required when EMAIL_PROVIDER=brevo")
 
     def _headers(self) -> dict[str, str]:
         return {
@@ -164,9 +162,7 @@ class BrevoAdapter(EmailProvider):
             # emailBlacklisted=true
             payload = {
                 "emailBlacklisted": True,
-                "jsonBody": [
-                    {"email": email} for email in suppressed_emails
-                ],
+                "jsonBody": [{"email": email} for email in suppressed_emails],
             }
             async with httpx.AsyncClient(timeout=30) as client:
                 resp = await client.post(
@@ -176,14 +172,10 @@ class BrevoAdapter(EmailProvider):
                 )
             if resp.status_code in (200, 201, 202):
                 synced = len(suppressed_emails)
-                logger.info(
-                    "Brevo: synced %d suppressed emails", synced
-                )
+                logger.info("Brevo: synced %d suppressed emails", synced)
             else:
                 errors.append(f"HTTP {resp.status_code}: {resp.text}")
-                logger.error(
-                    "Brevo: suppression sync failed: %s", resp.text
-                )
+                logger.error("Brevo: suppression sync failed: %s", resp.text)
         except Exception as e:
             errors.append(str(e))
             logger.exception("Brevo: suppression sync exception")
@@ -253,9 +245,7 @@ class BrevoAdapter(EmailProvider):
                 if resp.status_code in (200, 201):
                     data = resp.json()
                     campaign_id = str(data.get("id", ""))
-                    logger.info(
-                        "Brevo: created campaign %s (%s)", campaign_id, name
-                    )
+                    logger.info("Brevo: created campaign %s (%s)", campaign_id, name)
 
                     # Send immediately if not scheduled
                     if not scheduled_at:
@@ -279,9 +269,7 @@ class BrevoAdapter(EmailProvider):
                         resp.status_code,
                         resp.text,
                     )
-                    raise RuntimeError(
-                        f"Campaign creation failed: {resp.status_code}"
-                    )
+                    raise RuntimeError(f"Campaign creation failed: {resp.status_code}")
         except httpx.HTTPError as e:
             logger.exception("Brevo: create_campaign exception")
             raise RuntimeError(f"Campaign creation failed: {e}") from e
@@ -306,10 +294,7 @@ class BrevoAdapter(EmailProvider):
                     delivered=stats.get("delivered", 0),
                     opened=stats.get("uniqueOpens", 0),
                     clicked=stats.get("uniqueClicks", 0),
-                    bounced=(
-                        stats.get("hardBounces", 0)
-                        + stats.get("softBounces", 0)
-                    ),
+                    bounced=(stats.get("hardBounces", 0) + stats.get("softBounces", 0)),
                     unsubscribed=stats.get("unsubscriptions", 0),
                     fetched_at=datetime.now(timezone.utc).isoformat(),
                 )

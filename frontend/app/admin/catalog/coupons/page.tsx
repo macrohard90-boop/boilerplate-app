@@ -9,7 +9,9 @@ import LoadingSpinner from "../../../../components/LoadingSpinner";
 import Modal from "../../../../components/Modal";
 import { useToast } from "../../../../components/Toast";
 import SyncStatusBadge from "../../../../components/admin/SyncStatusBadge";
-import CouponForm, { type CouponFormData } from "../../../../components/admin/CouponForm";
+import CouponForm, {
+  type CouponFormData,
+} from "../../../../components/admin/CouponForm";
 
 interface Discount {
   id: string;
@@ -82,14 +84,16 @@ export default function AdminCouponsPage() {
     setLoading(true);
     const statusParam = statusFilter !== "all" ? `&status=${statusFilter}` : "";
     apiFetch<DiscountListResponse>(
-      `/ecommerce/admin/discounts?page=${page}&page_size=20${statusParam}`
+      `/ecommerce/admin/discounts?page=${page}&page_size=20${statusParam}`,
     )
       .then(setData)
       .catch(() => showToast("Failed to load coupons", "error"))
       .finally(() => setLoading(false));
   }, [page, statusFilter, showToast]);
 
-  useEffect(() => { fetchCoupons(); }, [fetchCoupons]);
+  useEffect(() => {
+    fetchCoupons();
+  }, [fetchCoupons]);
 
   const handleStatusFilterChange = (value: string) => {
     setStatusFilter(value);
@@ -104,7 +108,10 @@ export default function AdminCouponsPage() {
         body: JSON.stringify(formData),
       });
       if (created.stripe_sync_status === "error") {
-        showToast(`Coupon created, but Stripe sync failed: ${created.stripe_sync_error}`, "error");
+        showToast(
+          `Coupon created, but Stripe sync failed: ${created.stripe_sync_error}`,
+          "error",
+        );
       } else {
         showToast("Coupon created", "success");
       }
@@ -151,7 +158,9 @@ export default function AdminCouponsPage() {
               {f.label}
             </button>
           ))}
-          {data && <span className="text-text-muted text-xs ml-2">({data.total})</span>}
+          {data && (
+            <span className="text-text-muted text-xs ml-2">({data.total})</span>
+          )}
         </div>
         <button
           onClick={() => setShowCreate(true)}
@@ -164,7 +173,9 @@ export default function AdminCouponsPage() {
       {!data || data.items.length === 0 ? (
         <div className="text-text-secondary glass rounded-xl p-12 text-center">
           <p className="text-lg mb-2">No coupons yet</p>
-          <p className="text-sm text-text-muted mb-4">Create your first coupon to offer discounts.</p>
+          <p className="text-sm text-text-muted mb-4">
+            Create your first coupon to offer discounts.
+          </p>
           <button
             onClick={() => setShowCreate(true)}
             className="btn-primary px-4 py-2 rounded-lg text-sm"
@@ -178,38 +189,76 @@ export default function AdminCouponsPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-glass-border">
-                  <th className="text-left p-4 text-text-muted font-medium">Code</th>
-                  <th className="text-left p-4 text-text-muted font-medium">Type</th>
-                  <th className="text-left p-4 text-text-muted font-medium">Value</th>
-                  <th className="text-left p-4 text-text-muted font-medium">Min Order</th>
-                  <th className="text-left p-4 text-text-muted font-medium">Applies To</th>
-                  <th className="text-left p-4 text-text-muted font-medium">Restrictions</th>
-                  <th className="text-left p-4 text-text-muted font-medium">Usage</th>
-                  <th className="text-left p-4 text-text-muted font-medium">Valid Until</th>
-                  <th className="text-left p-4 text-text-muted font-medium">Status</th>
-                  <th className="text-left p-4 text-text-muted font-medium">Stripe</th>
-                  <th className="text-right p-4 text-text-muted font-medium">Actions</th>
+                  <th className="text-left p-4 text-text-muted font-medium">
+                    Code
+                  </th>
+                  <th className="text-left p-4 text-text-muted font-medium">
+                    Type
+                  </th>
+                  <th className="text-left p-4 text-text-muted font-medium">
+                    Value
+                  </th>
+                  <th className="text-left p-4 text-text-muted font-medium">
+                    Min Order
+                  </th>
+                  <th className="text-left p-4 text-text-muted font-medium">
+                    Applies To
+                  </th>
+                  <th className="text-left p-4 text-text-muted font-medium">
+                    Restrictions
+                  </th>
+                  <th className="text-left p-4 text-text-muted font-medium">
+                    Usage
+                  </th>
+                  <th className="text-left p-4 text-text-muted font-medium">
+                    Valid Until
+                  </th>
+                  <th className="text-left p-4 text-text-muted font-medium">
+                    Status
+                  </th>
+                  <th className="text-left p-4 text-text-muted font-medium">
+                    Stripe
+                  </th>
+                  <th className="text-right p-4 text-text-muted font-medium">
+                    Actions
+                  </th>
                 </tr>
               </thead>
               <tbody>
                 {data.items.map((d) => {
                   const status = getStatusInfo(d);
                   return (
-                    <tr key={d.id} className="border-b border-glass-border/50 hover:bg-glass-hover transition-colors">
-                      <td className="p-4 text-text-primary font-mono font-medium">{d.code}</td>
-                      <td className="p-4 text-text-secondary capitalize">{d.type.replace("_", " ")}</td>
-                      <td className="p-4 text-text-primary">{formatValue(d)}</td>
-                      <td className="p-4 text-text-muted">
-                        {d.min_order_amount > 0 ? formatPrice(d.min_order_amount, d.currency) : "\u2014"}
+                    <tr
+                      key={d.id}
+                      className="border-b border-glass-border/50 hover:bg-glass-hover transition-colors"
+                    >
+                      <td className="p-4 text-text-primary font-mono font-medium">
+                        {d.code}
                       </td>
                       <td className="p-4 text-text-secondary capitalize">
-                        {d.applies_to === "one_time" ? "One-time" : d.applies_to === "recurring" ? "Recurring" : "All"}
+                        {d.type.replace("_", " ")}
+                      </td>
+                      <td className="p-4 text-text-primary">
+                        {formatValue(d)}
+                      </td>
+                      <td className="p-4 text-text-muted">
+                        {d.min_order_amount > 0
+                          ? formatPrice(d.min_order_amount, d.currency)
+                          : "\u2014"}
+                      </td>
+                      <td className="p-4 text-text-secondary capitalize">
+                        {d.applies_to === "one_time"
+                          ? "One-time"
+                          : d.applies_to === "recurring"
+                            ? "Recurring"
+                            : "All"}
                       </td>
                       <td className="p-4">
                         <div className="flex flex-wrap gap-1">
                           {d.product_ids?.length > 0 && (
                             <span className="text-[10px] px-1.5 py-0.5 rounded bg-accent-blue/10 text-accent-blue">
-                              {d.product_ids.length} product{d.product_ids.length !== 1 ? "s" : ""}
+                              {d.product_ids.length} product
+                              {d.product_ids.length !== 1 ? "s" : ""}
                             </span>
                           )}
                           {d.restricted_to_customer_id && (
@@ -227,9 +276,14 @@ export default function AdminCouponsPage() {
                               {d.max_uses_per_customer}/customer
                             </span>
                           )}
-                          {!d.product_ids?.length && !d.restricted_to_customer_id && !d.first_time_transaction_only && d.max_uses_per_customer == null && (
-                            <span className="text-text-muted text-xs">None</span>
-                          )}
+                          {!d.product_ids?.length &&
+                            !d.restricted_to_customer_id &&
+                            !d.first_time_transaction_only &&
+                            d.max_uses_per_customer == null && (
+                              <span className="text-text-muted text-xs">
+                                None
+                              </span>
+                            )}
                         </div>
                       </td>
                       <td className="p-4 text-text-secondary">
@@ -245,12 +299,17 @@ export default function AdminCouponsPage() {
                         {d.type === "free_shipping" ? (
                           <span className="text-xs text-text-muted">N/A</span>
                         ) : (
-                          <SyncStatusBadge status={d.stripe_sync_status} error={d.stripe_sync_error} />
+                          <SyncStatusBadge
+                            status={d.stripe_sync_status}
+                            error={d.stripe_sync_error}
+                          />
                         )}
                       </td>
                       <td className="p-4 text-right whitespace-nowrap">
                         <button
-                          onClick={() => router.push(`/admin/catalog/coupons/${d.id}`)}
+                          onClick={() =>
+                            router.push(`/admin/catalog/coupons/${d.id}`)
+                          }
                           className="text-xs text-accent-blue hover:text-accent-blue/80 mr-3"
                         >
                           Edit
@@ -272,14 +331,23 @@ export default function AdminCouponsPage() {
           </div>
           {data.total_pages > 1 && (
             <div className="mt-6">
-              <Pagination currentPage={data.page} totalPages={data.total_pages} onPageChange={setPage} />
+              <Pagination
+                currentPage={data.page}
+                totalPages={data.total_pages}
+                onPageChange={setPage}
+              />
             </div>
           )}
         </>
       )}
 
       {/* Create Coupon Modal */}
-      <Modal isOpen={showCreate} onClose={() => setShowCreate(false)} title="Create Coupon" size="lg">
+      <Modal
+        isOpen={showCreate}
+        onClose={() => setShowCreate(false)}
+        title="Create Coupon"
+        size="lg"
+      >
         <CouponForm
           onSubmit={handleCreate}
           onCancel={() => setShowCreate(false)}
@@ -289,9 +357,15 @@ export default function AdminCouponsPage() {
       </Modal>
 
       {/* Deactivate Confirmation Modal */}
-      <Modal isOpen={!!deactivateId} onClose={() => setDeactivateId(null)} title="Deactivate Coupon" size="sm">
+      <Modal
+        isOpen={!!deactivateId}
+        onClose={() => setDeactivateId(null)}
+        title="Deactivate Coupon"
+        size="sm"
+      >
         <p className="text-text-secondary text-sm mb-4">
-          Are you sure you want to deactivate this coupon? It will no longer be usable at checkout.
+          Are you sure you want to deactivate this coupon? It will no longer be
+          usable at checkout.
         </p>
         <div className="flex justify-end gap-3">
           <button

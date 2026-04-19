@@ -40,10 +40,14 @@ _BOT_PATTERNS = re.compile(
 )
 
 # Mobile patterns
-_MOBILE_PATTERNS = re.compile(r"Mobile|Android|iPhone|iPod|Opera Mini|IEMobile", re.IGNORECASE)
+_MOBILE_PATTERNS = re.compile(
+    r"Mobile|Android|iPhone|iPod|Opera Mini|IEMobile", re.IGNORECASE
+)
 
 # Tablet patterns
-_TABLET_PATTERNS = re.compile(r"iPad|Android(?!.*Mobile)|Tablet|PlayBook|Silk", re.IGNORECASE)
+_TABLET_PATTERNS = re.compile(
+    r"iPad|Android(?!.*Mobile)|Tablet|PlayBook|Silk", re.IGNORECASE
+)
 
 
 class DefaultAgentParser(AgentParser):

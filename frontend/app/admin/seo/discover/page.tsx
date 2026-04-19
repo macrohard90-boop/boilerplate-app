@@ -146,7 +146,7 @@ export default function DiscoverPage() {
         const [cfg, meta] = await Promise.all([
           apiFetch<SEOConfig>("/seo/admin/seo/config").catch(() => null),
           apiFetch<{ items: MetaOverride[] }>("/seo/admin/seo/meta").catch(
-            () => ({ items: [] })
+            () => ({ items: [] }),
           ),
         ]);
         setConfig(cfg);
@@ -154,13 +154,13 @@ export default function DiscoverPage() {
 
         if (enable_seo_scoring) {
           const scoreData = await apiFetch<{ items: PageScore[] }>(
-            "/seo/admin/seo/scores?page_size=50"
+            "/seo/admin/seo/scores?page_size=50",
           ).catch(() => ({ items: [] }));
           setScores(scoreData.items || []);
 
           if (enable_tracking) {
             const traffic = await apiFetch<TrafficReport>(
-              "/seo/admin/seo/analytics/traffic?days=30&limit=20"
+              "/seo/admin/seo/analytics/traffic?days=30&limit=20",
             ).catch(() => null);
             setTrafficData(traffic);
           }
@@ -175,7 +175,7 @@ export default function DiscoverPage() {
   async function fetchTargets(pg: number = targetsPage) {
     try {
       const res = await apiFetch<TargetKeywordList>(
-        `/seo/admin/seo/keywords/targets?page=${pg}&page_size=20`
+        `/seo/admin/seo/keywords/targets?page=${pg}&page_size=20`,
       );
       setTargets(res);
     } catch {}
@@ -189,9 +189,7 @@ export default function DiscoverPage() {
   /* ── Overview handlers ── */
   function navigateToPage(path: string) {
     const normalized = path.replace(/^\//, "");
-    router.push(
-      "/admin/seo/optimize?page=" + encodeURIComponent(normalized)
-    );
+    router.push("/admin/seo/optimize?page=" + encodeURIComponent(normalized));
   }
 
   async function handleRegenerate() {
@@ -200,7 +198,7 @@ export default function DiscoverPage() {
       await apiFetch("/seo/admin/seo/sitemap/regenerate", { method: "POST" });
       showToast(
         "Sitemap refreshed! Search engines will see the updated version on their next visit.",
-        "success"
+        "success",
       );
     } catch (e) {
       showToast((e as ApiError).message || "Failed", "error");
@@ -213,11 +211,11 @@ export default function DiscoverPage() {
     try {
       const res = await apiFetch<{ message: string }>(
         "/seo/admin/seo/scores/batch",
-        { method: "POST" }
+        { method: "POST" },
       );
       showToast(res.message, "success");
       const scoreData = await apiFetch<{ items: PageScore[] }>(
-        "/seo/admin/seo/scores?page_size=50"
+        "/seo/admin/seo/scores?page_size=50",
       ).catch(() => ({ items: [] }));
       setScores(scoreData.items || []);
     } catch (e) {
@@ -308,7 +306,7 @@ export default function DiscoverPage() {
         {
           method: "POST",
           body: JSON.stringify({ seed, depth, limit: 50 }),
-        }
+        },
       );
       setSuggestions(res.items || []);
       if (!res.items?.length) showToast("No suggestions found", "info");
@@ -326,7 +324,8 @@ export default function DiscoverPage() {
 
   /* ── Helpers ── */
   function scoreBadge(score: number) {
-    if (score >= 80) return "bg-green-500/20 text-green-400 border-green-500/30";
+    if (score >= 80)
+      return "bg-green-500/20 text-green-400 border-green-500/30";
     if (score >= 50)
       return "bg-yellow-500/20 text-yellow-400 border-yellow-500/30";
     return "bg-red-500/20 text-red-400 border-red-500/30";
@@ -478,7 +477,9 @@ export default function DiscoverPage() {
           <p className="text-xs text-text-muted uppercase tracking-wider mb-1">
             Pages Scored
           </p>
-          <p className="text-3xl font-bold text-text-primary">{scores.length}</p>
+          <p className="text-3xl font-bold text-text-primary">
+            {scores.length}
+          </p>
           <p className="text-xs text-text-muted mt-2">public pages analyzed</p>
         </div>
         <div className="glass rounded-xl p-5">
@@ -632,7 +633,8 @@ export default function DiscoverPage() {
             Sitemap
           </h2>
           <p className="text-sm text-text-secondary mb-4">
-            Regenerate the cached sitemap.xml (TTL: {config?.sitemap_cache_ttl}s)
+            Regenerate the cached sitemap.xml (TTL: {config?.sitemap_cache_ttl}
+            s)
           </p>
           <button
             onClick={handleRegenerate}
@@ -714,9 +716,9 @@ export default function DiscoverPage() {
               {!kwInfoCollapsed && (
                 <div className="px-6 pb-5 border-t border-glass-border/50">
                   <p className="text-sm text-text-secondary mt-4 mb-4">
-                    Target keywords connect your SEO scoring, content optimization,
-                    and AI advisor into one workflow. Here&apos;s how the pieces fit
-                    together:
+                    Target keywords connect your SEO scoring, content
+                    optimization, and AI advisor into one workflow. Here&apos;s
+                    how the pieces fit together:
                   </p>
                   <div className="space-y-4 text-sm">
                     <div className="flex gap-3">
@@ -724,13 +726,16 @@ export default function DiscoverPage() {
                         1
                       </span>
                       <div>
-                        <p className="text-text-primary font-medium">Discover</p>
+                        <p className="text-text-primary font-medium">
+                          Discover
+                        </p>
                         <p className="text-text-secondary text-xs mt-0.5">
-                          Enter a seed keyword (e.g., &ldquo;leather shoes&rdquo;) to
-                          find related search terms via Google Autocomplete. The depth
-                          setting controls how many levels of related terms to explore:
-                          Direct (exact completions), Related (completions of completions),
-                          or Adjacent (one more level out).
+                          Enter a seed keyword (e.g., &ldquo;leather
+                          shoes&rdquo;) to find related search terms via Google
+                          Autocomplete. The depth setting controls how many
+                          levels of related terms to explore: Direct (exact
+                          completions), Related (completions of completions), or
+                          Adjacent (one more level out).
                         </p>
                       </div>
                     </div>
@@ -741,10 +746,11 @@ export default function DiscoverPage() {
                       <div>
                         <p className="text-text-primary font-medium">Assign</p>
                         <p className="text-text-secondary text-xs mt-0.5">
-                          Pick promising keywords from the results and assign them to
-                          specific pages. Set priority (1&ndash;10) to control which
-                          keyword the scoring engine checks first. Leave the page field
-                          blank to make a keyword apply site-wide.
+                          Pick promising keywords from the results and assign
+                          them to specific pages. Set priority (1&ndash;10) to
+                          control which keyword the scoring engine checks first.
+                          Leave the page field blank to make a keyword apply
+                          site-wide.
                         </p>
                       </div>
                     </div>
@@ -756,11 +762,11 @@ export default function DiscoverPage() {
                         <p className="text-text-primary font-medium">Score</p>
                         <p className="text-text-secondary text-xs mt-0.5">
                           When a page is scored, the engine checks if your
-                          highest-priority keyword appears in the page&apos;s title,
-                          meta description, and H1 heading (must appear in at least 2
-                          of 3). It also checks keyword density in the body text
-                          (ideal: 0.5&ndash;3%). Without assigned keywords, these rules
-                          auto-pass.
+                          highest-priority keyword appears in the page&apos;s
+                          title, meta description, and H1 heading (must appear
+                          in at least 2 of 3). It also checks keyword density in
+                          the body text (ideal: 0.5&ndash;3%). Without assigned
+                          keywords, these rules auto-pass.
                         </p>
                       </div>
                     </div>
@@ -769,23 +775,27 @@ export default function DiscoverPage() {
                         4
                       </span>
                       <div>
-                        <p className="text-text-primary font-medium">Optimize</p>
+                        <p className="text-text-primary font-medium">
+                          Optimize
+                        </p>
                         <p className="text-text-secondary text-xs mt-0.5">
-                          Go to the Optimize tab, select a page, and use the inline
-                          editor to update the title, description, and other fields to
-                          include your target keyword. The AI Advisor also receives your
-                          keywords and gives targeted suggestions based on what
-                          competitors rank for.
+                          Go to the Optimize tab, select a page, and use the
+                          inline editor to update the title, description, and
+                          other fields to include your target keyword. The AI
+                          Advisor also receives your keywords and gives targeted
+                          suggestions based on what competitors rank for.
                         </p>
                       </div>
                     </div>
                   </div>
                   <div className="mt-4 p-3 rounded-lg bg-base-100/50 border border-glass-border/30">
                     <p className="text-xs text-text-muted">
-                      <strong className="text-text-secondary">Data source:</strong>{" "}
-                      Keywords are discovered using Google Autocomplete (free, no API
-                      key required). Assigned keywords are stored in the database and
-                      persist across scoring runs.
+                      <strong className="text-text-secondary">
+                        Data source:
+                      </strong>{" "}
+                      Keywords are discovered using Google Autocomplete (free,
+                      no API key required). Assigned keywords are stored in the
+                      database and persist across scoring runs.
                     </p>
                   </div>
                 </div>
@@ -804,15 +814,16 @@ export default function DiscoverPage() {
               </div>
 
               <p className="text-sm text-text-secondary mb-4">
-                Assign keywords to pages so the scoring engine checks whether each
-                page&apos;s title, description, and H1 include the target keyword.
+                Assign keywords to pages so the scoring engine checks whether
+                each page&apos;s title, description, and H1 include the target
+                keyword.
               </p>
 
               <div className="glass rounded-xl overflow-hidden">
                 {!targets || targets.items.length === 0 ? (
                   <p className="p-6 text-sm text-text-muted">
-                    No target keywords yet. Assign keywords to pages to track SEO
-                    optimization for specific search terms.
+                    No target keywords yet. Assign keywords to pages to track
+                    SEO optimization for specific search terms.
                   </p>
                 ) : (
                   <div className="overflow-x-auto">
@@ -896,8 +907,9 @@ export default function DiscoverPage() {
               </h2>
 
               <p className="text-sm text-text-secondary mb-4">
-                Enter a seed keyword to discover related search terms using Google
-                Autocomplete. Assign promising suggestions as target keywords.
+                Enter a seed keyword to discover related search terms using
+                Google Autocomplete. Assign promising suggestions as target
+                keywords.
               </p>
 
               <div className="glass rounded-xl p-6">
@@ -985,7 +997,8 @@ export default function DiscoverPage() {
                               </td>
                               <td className="py-2 px-3 text-center">
                                 <span className="inline-block px-2 py-0.5 rounded-full text-xs bg-glass-bg">
-                                  {DEPTH_LABELS[s.depth_level] || `L${s.depth_level}`}
+                                  {DEPTH_LABELS[s.depth_level] ||
+                                    `L${s.depth_level}`}
                                 </span>
                               </td>
                               <td
@@ -1031,7 +1044,9 @@ export default function DiscoverPage() {
           {modalOpen && (
             <Modal
               isOpen={modalOpen}
-              title={editingId ? "Edit Target Keyword" : "Assign Target Keyword"}
+              title={
+                editingId ? "Edit Target Keyword" : "Assign Target Keyword"
+              }
               onClose={() => setModalOpen(false)}
             >
               <div className="space-y-4">
@@ -1042,7 +1057,9 @@ export default function DiscoverPage() {
                   <input
                     type="text"
                     value={form.keyword}
-                    onChange={(e) => setForm({ ...form, keyword: e.target.value })}
+                    onChange={(e) =>
+                      setForm({ ...form, keyword: e.target.value })
+                    }
                     disabled={!!editingId}
                     placeholder="e.g., energy conference Calgary"
                     className="w-full bg-glass-bg border border-glass-border rounded-lg px-3 py-2 text-sm text-text-primary disabled:opacity-50"
@@ -1084,7 +1101,9 @@ export default function DiscoverPage() {
                   </label>
                   <textarea
                     value={form.notes}
-                    onChange={(e) => setForm({ ...form, notes: e.target.value })}
+                    onChange={(e) =>
+                      setForm({ ...form, notes: e.target.value })
+                    }
                     rows={2}
                     placeholder="Why this keyword matters..."
                     className="w-full bg-glass-bg border border-glass-border rounded-lg px-3 py-2 text-sm text-text-primary resize-none"

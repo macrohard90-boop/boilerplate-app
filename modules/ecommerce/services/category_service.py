@@ -12,7 +12,9 @@ def _slugify(name: str) -> str:
     return re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")
 
 
-async def _unique_slug(db: AsyncSession, base_slug: str, exclude_id: str | None = None) -> str:
+async def _unique_slug(
+    db: AsyncSession, base_slug: str, exclude_id: str | None = None
+) -> str:
     slug = base_slug
     suffix = 1
     while True:
@@ -31,19 +33,23 @@ async def _unique_slug(db: AsyncSession, base_slug: str, exclude_id: str | None 
 async def list_categories_tree(db: AsyncSession) -> list[dict[str, Any]]:
     """Return all categories as a nested tree with product counts."""
     rows = (
-        await db.execute(
-            text(
-                "SELECT c.*, COALESCE(pc.cnt, 0) AS product_count "
-                "FROM ecommerce.categories c "
-                "LEFT JOIN ("
-                "  SELECT category_id, COUNT(*) AS cnt "
-                "  FROM ecommerce.product_categories "
-                "  GROUP BY category_id"
-                ") pc ON pc.category_id = c.id "
-                "ORDER BY c.sort_order, c.name"
+        (
+            await db.execute(
+                text(
+                    "SELECT c.*, COALESCE(pc.cnt, 0) AS product_count "
+                    "FROM ecommerce.categories c "
+                    "LEFT JOIN ("
+                    "  SELECT category_id, COUNT(*) AS cnt "
+                    "  FROM ecommerce.product_categories "
+                    "  GROUP BY category_id"
+                    ") pc ON pc.category_id = c.id "
+                    "ORDER BY c.sort_order, c.name"
+                )
             )
         )
-    ).mappings().all()
+        .mappings()
+        .all()
+    )
     categories = [dict(r) for r in rows]
     return _build_tree(categories)
 
@@ -63,47 +69,65 @@ def _build_tree(categories: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
 async def get_category_by_slug(db: AsyncSession, slug: str) -> dict[str, Any] | None:
     row = (
-        await db.execute(
-            text("SELECT * FROM ecommerce.categories WHERE slug = :slug"),
-            {"slug": slug},
+        (
+            await db.execute(
+                text("SELECT * FROM ecommerce.categories WHERE slug = :slug"),
+                {"slug": slug},
+            )
         )
-    ).mappings().first()
+        .mappings()
+        .first()
+    )
     return dict(row) if row else None
 
 
-async def get_category_by_id(db: AsyncSession, category_id: str) -> dict[str, Any] | None:
+async def get_category_by_id(
+    db: AsyncSession, category_id: str
+) -> dict[str, Any] | None:
     row = (
-        await db.execute(
-            text("SELECT * FROM ecommerce.categories WHERE id = :id"),
-            {"id": category_id},
+        (
+            await db.execute(
+                text("SELECT * FROM ecommerce.categories WHERE id = :id"),
+                {"id": category_id},
+            )
         )
-    ).mappings().first()
+        .mappings()
+        .first()
+    )
     return dict(row) if row else None
 
 
 async def create_category(db: AsyncSession, data: dict[str, Any]) -> dict[str, Any]:
     slug = await _unique_slug(db, _slugify(data["name"]))
     row = (
-        await db.execute(
-            text(
-                "INSERT INTO ecommerce.categories (name, slug, parent_id, description, sort_order) "
-                "VALUES (:name, :slug, :parent_id, :description, :sort_order) "
-                "RETURNING *"
-            ),
-            {
-                "name": data["name"],
-                "slug": slug,
-                "parent_id": str(data["parent_id"]) if data.get("parent_id") else None,
-                "description": data.get("description"),
-                "sort_order": data.get("sort_order", 0),
-            },
+        (
+            await db.execute(
+                text(
+                    "INSERT INTO ecommerce.categories (name, slug, parent_id, description, sort_order) "
+                    "VALUES (:name, :slug, :parent_id, :description, :sort_order) "
+                    "RETURNING *"
+                ),
+                {
+                    "name": data["name"],
+                    "slug": slug,
+                    "parent_id": (
+                        str(data["parent_id"]) if data.get("parent_id") else None
+                    ),
+                    "description": data.get("description"),
+                    "sort_order": data.get("sort_order", 0),
+                },
+            )
         )
-    ).mappings().first()
+        .mappings()
+        .first()
+    )
     await db.commit()
     return dict(row)
 
 
-async def update_category(db: AsyncSession, category_id: str, data: dict[str, Any]) -> dict[str, Any]:
+async def update_category(
+    db: AsyncSession, category_id: str, data: dict[str, Any]
+) -> dict[str, Any]:
     existing = await get_category_by_id(db, category_id)
     if not existing:
         raise ValueError("Category not found")
@@ -111,7 +135,9 @@ async def update_category(db: AsyncSession, category_id: str, data: dict[str, An
     fields: dict[str, Any] = {}
     if data.get("name") is not None:
         fields["name"] = data["name"]
-        fields["slug"] = await _unique_slug(db, _slugify(data["name"]), exclude_id=category_id)
+        fields["slug"] = await _unique_slug(
+            db, _slugify(data["name"]), exclude_id=category_id
+        )
     if "parent_id" in data:
         fields["parent_id"] = str(data["parent_id"]) if data["parent_id"] else None
     if "description" in data:
@@ -125,11 +151,17 @@ async def update_category(db: AsyncSession, category_id: str, data: dict[str, An
     set_clause = ", ".join(f"{k} = :{k}" for k in fields)
     fields["id"] = category_id
     row = (
-        await db.execute(
-            text(f"UPDATE ecommerce.categories SET {set_clause} WHERE id = :id RETURNING *"),
-            fields,
+        (
+            await db.execute(
+                text(
+                    f"UPDATE ecommerce.categories SET {set_clause} WHERE id = :id RETURNING *"
+                ),
+                fields,
+            )
         )
-    ).mappings().first()
+        .mappings()
+        .first()
+    )
     await db.commit()
     return dict(row)
 
@@ -143,7 +175,9 @@ async def delete_category(db: AsyncSession, category_id: str) -> None:
     # Block if products are assigned
     product_count = (
         await db.execute(
-            text("SELECT COUNT(*) FROM ecommerce.product_categories WHERE category_id = :cid"),
+            text(
+                "SELECT COUNT(*) FROM ecommerce.product_categories WHERE category_id = :cid"
+            ),
             {"cid": category_id},
         )
     ).scalar() or 0
@@ -198,13 +232,22 @@ async def get_category_products(
         "ORDER BY p.created_at DESC LIMIT :limit OFFSET :offset"
     )
     rows = (
-        await db.execute(text(items_q), {"cid": category_id, "limit": page_size, "offset": offset})
-    ).mappings().all()
+        (
+            await db.execute(
+                text(items_q),
+                {"cid": category_id, "limit": page_size, "offset": offset},
+            )
+        )
+        .mappings()
+        .all()
+    )
     items = [dict(r) for r in rows]
 
     # Attach images and categories for each product
     if items:
-        from modules.ecommerce.services.product_service import _attach_images_and_categories
+        from modules.ecommerce.services.product_service import (
+            _attach_images_and_categories,
+        )
 
         items = await _attach_images_and_categories(db, items)
 

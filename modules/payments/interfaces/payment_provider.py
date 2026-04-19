@@ -140,9 +140,7 @@ class PaymentProvider(ABC):
         ...
 
     @abstractmethod
-    async def create_merchant(
-        self, merchant_data: dict[str, Any]
-    ) -> MerchantAccount:
+    async def create_merchant(self, merchant_data: dict[str, Any]) -> MerchantAccount:
         """Create a merchant/connected account for payouts."""
         ...
 
@@ -152,9 +150,7 @@ class PaymentProvider(ABC):
         ...
 
     @abstractmethod
-    async def verify_webhook(
-        self, payload: bytes, signature: str
-    ) -> dict[str, Any]:
+    async def verify_webhook(self, payload: bytes, signature: str) -> dict[str, Any]:
         """Verify webhook signature and return parsed event.
 
         Returns dict with keys: ``id`` (event ID), ``type`` (event type),
@@ -197,7 +193,11 @@ class PaymentProvider(ABC):
     # ------------------------------------------------------------------
 
     async def create_customer(
-        self, email: str, *, name: str | None = None, metadata: dict[str, Any] | None = None
+        self,
+        email: str,
+        *,
+        name: str | None = None,
+        metadata: dict[str, Any] | None = None,
     ) -> CustomerResult:
         """Create a customer record in the provider."""
         raise NotImplementedError

@@ -119,8 +119,7 @@ def build_geo_prompt(
 
     # Intent
     intent_section = (
-        intent
-        or "General GEO audit — improve this page's AI citation likelihood."
+        intent or "General GEO audit — improve this page's AI citation likelihood."
     )
 
     return f"""## Business Context

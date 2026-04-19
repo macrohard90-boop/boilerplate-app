@@ -1,6 +1,5 @@
 """Pydantic request/response models for GDPR module."""
 
-from datetime import datetime
 from typing import Any
 
 from pydantic import BaseModel, Field
@@ -52,6 +51,7 @@ class ConsentHistoryResponse(BaseModel):
 
 # ── Cookie Preferences ──────────────────────────────────────
 
+
 class CookiePreferencesUpdate(BaseModel):
     analytics: bool = False
     marketing: bool = False
@@ -68,6 +68,7 @@ class CookiePreferencesResponse(BaseModel):
 
 # ── Data Export ──────────────────────────────────────────────
 
+
 class ExportStatusResponse(BaseModel):
     id: str
     status: str
@@ -79,6 +80,7 @@ class ExportStatusResponse(BaseModel):
 
 # ── Data Deletion ────────────────────────────────────────────
 
+
 class DeletionStatusResponse(BaseModel):
     id: str
     status: str
@@ -88,6 +90,7 @@ class DeletionStatusResponse(BaseModel):
 
 
 # ── Email Preferences ────────────────────────────────────────
+
 
 class EmailPreferencesUpdate(BaseModel):
     marketing_email: bool = False
@@ -106,6 +109,7 @@ class UnsubscribeRequest(BaseModel):
 
 
 # ── Admin ────────────────────────────────────────────────────
+
 
 class ExportListItem(BaseModel):
     id: str
@@ -168,6 +172,7 @@ class AuditLogResponse(BaseModel):
 
 
 # ── Common ───────────────────────────────────────────────────
+
 
 class MessageResponse(BaseModel):
     message: str

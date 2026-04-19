@@ -58,20 +58,33 @@ export default function AdminGdprPage() {
 
   useEffect(() => {
     Promise.all([
-      apiFetch<{ stats: ConsentTypeStat[] }>("/gdpr/admin/consent-stats").catch(() => ({ stats: [] })),
-      apiFetch<{ items: ExportRequest[] }>("/gdpr/admin/exports").catch(() => ({ items: [] })),
-      apiFetch<{ items: DeletionRequest[] }>("/gdpr/admin/deletions").catch(() => ({ items: [] })),
-    ]).then(([stats, exp, del]) => {
-      setConsentStats(stats.stats || []);
-      setExports(exp.items || []);
-      setDeletions(del.items || []);
-    }).finally(() => setLoading(false));
+      apiFetch<{ stats: ConsentTypeStat[] }>("/gdpr/admin/consent-stats").catch(
+        () => ({ stats: [] }),
+      ),
+      apiFetch<{ items: ExportRequest[] }>("/gdpr/admin/exports").catch(() => ({
+        items: [],
+      })),
+      apiFetch<{ items: DeletionRequest[] }>("/gdpr/admin/deletions").catch(
+        () => ({ items: [] }),
+      ),
+    ])
+      .then(([stats, exp, del]) => {
+        setConsentStats(stats.stats || []);
+        setExports(exp.items || []);
+        setDeletions(del.items || []);
+      })
+      .finally(() => setLoading(false));
   }, []);
 
   useEffect(() => {
-    const params = new URLSearchParams({ page: String(auditPage), page_size: "10" });
+    const params = new URLSearchParams({
+      page: String(auditPage),
+      page_size: "10",
+    });
     if (auditFilter) params.set("consent_type", auditFilter);
-    apiFetch<{ items: AuditLogItem[]; total: number }>(`/gdpr/admin/audit?${params}`)
+    apiFetch<{ items: AuditLogItem[]; total: number }>(
+      `/gdpr/admin/audit?${params}`,
+    )
       .then((d) => {
         setAuditItems(d.items || []);
         setAuditTotal(d.total || 0);
@@ -94,14 +107,17 @@ export default function AdminGdprPage() {
 
       {/* Consent Stats */}
       <div className="glass rounded-xl p-6 mb-6">
-        <h2 className="text-lg font-semibold text-text-primary mb-4">Consent Statistics</h2>
+        <h2 className="text-lg font-semibold text-text-primary mb-4">
+          Consent Statistics
+        </h2>
         {consentStats.length === 0 ? (
           <p className="text-sm text-text-muted">No consent data yet</p>
         ) : (
           <div className="space-y-4">
             {consentStats.map((stat) => {
               const total = stat.total_grants + stat.total_revokes;
-              const rate = total > 0 ? Math.round((stat.total_grants / total) * 100) : 0;
+              const rate =
+                total > 0 ? Math.round((stat.total_grants / total) * 100) : 0;
               return (
                 <div key={stat.consent_type}>
                   <div className="flex items-center justify-between mb-1">
@@ -109,9 +125,15 @@ export default function AdminGdprPage() {
                       {getConsentLabel(stat.consent_type)}
                     </span>
                     <div className="flex items-center gap-3 text-xs text-text-muted">
-                      <span className="text-accent-green">{stat.total_grants} grants</span>
-                      <span className="text-accent-pink">{stat.total_revokes} revokes</span>
-                      <span className="font-medium text-text-primary">{rate}%</span>
+                      <span className="text-accent-green">
+                        {stat.total_grants} grants
+                      </span>
+                      <span className="text-accent-pink">
+                        {stat.total_revokes} revokes
+                      </span>
+                      <span className="font-medium text-text-primary">
+                        {rate}%
+                      </span>
                     </div>
                   </div>
                   <div className="w-full h-2 rounded-full bg-glass-bg overflow-hidden">
@@ -130,15 +152,22 @@ export default function AdminGdprPage() {
       {/* Consent Audit Log */}
       <div className="glass rounded-xl p-6 mb-6">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold text-text-primary">Consent Audit Log</h2>
+          <h2 className="text-lg font-semibold text-text-primary">
+            Consent Audit Log
+          </h2>
           <select
             value={auditFilter}
-            onChange={(e) => { setAuditFilter(e.target.value); setAuditPage(1); }}
+            onChange={(e) => {
+              setAuditFilter(e.target.value);
+              setAuditPage(1);
+            }}
             className="text-xs bg-glass-bg border border-glass-border rounded-lg px-3 py-1.5 text-text-secondary focus:outline-none focus:border-accent-purple/50"
           >
             <option value="">All types</option>
             {CONSENT_TYPES.map((ct) => (
-              <option key={ct.key} value={ct.key}>{ct.label}</option>
+              <option key={ct.key} value={ct.key}>
+                {ct.label}
+              </option>
             ))}
           </select>
         </div>
@@ -160,7 +189,10 @@ export default function AdminGdprPage() {
                 </thead>
                 <tbody>
                   {auditItems.map((item) => (
-                    <tr key={item.id} className="border-b border-glass-border/30 last:border-0">
+                    <tr
+                      key={item.id}
+                      className="border-b border-glass-border/30 last:border-0"
+                    >
                       <td className="py-2 pr-4 text-xs text-text-muted whitespace-nowrap">
                         {formatDate(item.created_at)}
                       </td>
@@ -168,7 +200,13 @@ export default function AdminGdprPage() {
                         {item.user_id.slice(0, 8)}
                       </td>
                       <td className="py-2 pr-4">
-                        <span className={item.action === "grant" ? "badge-green" : "badge-pink"}>
+                        <span
+                          className={
+                            item.action === "grant"
+                              ? "badge-green"
+                              : "badge-pink"
+                          }
+                        >
                           {item.action}
                         </span>
                       </td>
@@ -199,7 +237,9 @@ export default function AdminGdprPage() {
                     Prev
                   </button>
                   <button
-                    onClick={() => setAuditPage((p) => Math.min(auditTotalPages, p + 1))}
+                    onClick={() =>
+                      setAuditPage((p) => Math.min(auditTotalPages, p + 1))
+                    }
                     disabled={auditPage >= auditTotalPages}
                     className="btn-secondary text-xs !px-3 !py-1 disabled:opacity-30"
                   >
@@ -214,18 +254,33 @@ export default function AdminGdprPage() {
 
       {/* Export Requests */}
       <div className="glass rounded-xl p-6 mb-6">
-        <h2 className="text-lg font-semibold text-text-primary mb-4">Data Export Requests</h2>
+        <h2 className="text-lg font-semibold text-text-primary mb-4">
+          Data Export Requests
+        </h2>
         {exports.length === 0 ? (
           <p className="text-sm text-text-muted">No export requests</p>
         ) : (
           <div className="space-y-2">
             {exports.map((req) => (
-              <div key={req.id} className="flex justify-between items-center py-2 border-b border-glass-border/50 last:border-0">
+              <div
+                key={req.id}
+                className="flex justify-between items-center py-2 border-b border-glass-border/50 last:border-0"
+              >
                 <div>
-                  <p className="text-sm text-text-primary font-mono">{req.user_id.slice(0, 8)}</p>
-                  <p className="text-xs text-text-muted">{formatDate(req.requested_at)}</p>
+                  <p className="text-sm text-text-primary font-mono">
+                    {req.user_id.slice(0, 8)}
+                  </p>
+                  <p className="text-xs text-text-muted">
+                    {formatDate(req.requested_at)}
+                  </p>
                 </div>
-                <span className={req.status === "completed" ? "badge-green" : "badge-blue"}>{req.status}</span>
+                <span
+                  className={
+                    req.status === "completed" ? "badge-green" : "badge-blue"
+                  }
+                >
+                  {req.status}
+                </span>
               </div>
             ))}
           </div>
@@ -234,23 +289,42 @@ export default function AdminGdprPage() {
 
       {/* Deletion Requests */}
       <div className="glass rounded-xl p-6">
-        <h2 className="text-lg font-semibold text-accent-pink mb-4">Deletion Requests</h2>
+        <h2 className="text-lg font-semibold text-accent-pink mb-4">
+          Deletion Requests
+        </h2>
         {deletions.length === 0 ? (
           <p className="text-sm text-text-muted">No deletion requests</p>
         ) : (
           <div className="space-y-2">
             {deletions.map((req) => (
-              <div key={req.id} className="flex justify-between items-center py-2 border-b border-glass-border/50 last:border-0">
+              <div
+                key={req.id}
+                className="flex justify-between items-center py-2 border-b border-glass-border/50 last:border-0"
+              >
                 <div>
-                  <p className="text-sm text-text-primary font-mono">{req.user_id.slice(0, 8)}</p>
+                  <p className="text-sm text-text-primary font-mono">
+                    {req.user_id.slice(0, 8)}
+                  </p>
                   <p className="text-xs text-text-muted">
                     Requested: {formatDate(req.requested_at)}
                     {req.grace_period_ends && (
-                      <span className="ml-2">| Grace ends: {formatDate(req.grace_period_ends)}</span>
+                      <span className="ml-2">
+                        | Grace ends: {formatDate(req.grace_period_ends)}
+                      </span>
                     )}
                   </p>
                 </div>
-                <span className={req.status === "completed" ? "badge-green" : req.status === "grace_period" ? "badge-pink" : "badge-blue"}>{req.status}</span>
+                <span
+                  className={
+                    req.status === "completed"
+                      ? "badge-green"
+                      : req.status === "grace_period"
+                        ? "badge-pink"
+                        : "badge-blue"
+                  }
+                >
+                  {req.status}
+                </span>
               </div>
             ))}
           </div>

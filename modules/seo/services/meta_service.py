@@ -40,14 +40,18 @@ async def get_meta_tags(db: AsyncSession, path: str) -> dict[str, Any]:
 
     # Check for custom override first
     override = (
-        await db.execute(
-            text(
-                "SELECT id, path, title, description, robots_index, robots_follow, "
-                "canonical_url FROM seo.meta_overrides WHERE path = :path"
-            ),
-            {"path": path},
+        (
+            await db.execute(
+                text(
+                    "SELECT id, path, title, description, robots_index, robots_follow, "
+                    "canonical_url FROM seo.meta_overrides WHERE path = :path"
+                ),
+                {"path": path},
+            )
         )
-    ).mappings().first()
+        .mappings()
+        .first()
+    )
 
     if override:
         result = {
@@ -56,7 +60,9 @@ async def get_meta_tags(db: AsyncSession, path: str) -> dict[str, Any]:
             "description": override["description"],
             "canonical_url": override["canonical_url"]
             or f"{settings.frontend_url}/{path.lstrip('/')}",
-            "robots": _build_robots(override["robots_index"], override["robots_follow"]),
+            "robots": _build_robots(
+                override["robots_index"], override["robots_follow"]
+            ),
             "is_custom": True,
             "og_tags": None,
             "twitter_tags": None,
@@ -98,15 +104,19 @@ async def _auto_generate(db: AsyncSession, path: str) -> dict[str, Any]:
     if match:
         slug = match.group(1)
         product = (
-            await db.execute(
-                text(
-                    "SELECT name, description, base_price, currency "
-                    "FROM ecommerce.products "
-                    "WHERE slug = :slug AND status = 'active' AND deleted_at IS NULL"
-                ),
-                {"slug": slug},
+            (
+                await db.execute(
+                    text(
+                        "SELECT name, description, base_price, currency "
+                        "FROM ecommerce.products "
+                        "WHERE slug = :slug AND status = 'active' AND deleted_at IS NULL"
+                    ),
+                    {"slug": slug},
+                )
             )
-        ).mappings().first()
+            .mappings()
+            .first()
+        )
 
         if product:
             title = _truncate(product["name"], 60)
@@ -131,14 +141,18 @@ async def _auto_generate(db: AsyncSession, path: str) -> dict[str, Any]:
     if match:
         slug = match.group(1)
         category = (
-            await db.execute(
-                text(
-                    "SELECT name, description FROM ecommerce.categories "
-                    "WHERE slug = :slug"
-                ),
-                {"slug": slug},
+            (
+                await db.execute(
+                    text(
+                        "SELECT name, description FROM ecommerce.categories "
+                        "WHERE slug = :slug"
+                    ),
+                    {"slug": slug},
+                )
             )
-        ).mappings().first()
+            .mappings()
+            .first()
+        )
 
         if category:
             title = _truncate(category["name"], 60)
@@ -240,11 +254,15 @@ async def set_meta_override(
     description = _truncate(description, 160)
 
     existing = (
-        await db.execute(
-            text("SELECT id FROM seo.meta_overrides WHERE path = :path"),
-            {"path": path},
+        (
+            await db.execute(
+                text("SELECT id FROM seo.meta_overrides WHERE path = :path"),
+                {"path": path},
+            )
         )
-    ).mappings().first()
+        .mappings()
+        .first()
+    )
 
     if existing:
         await db.execute(
@@ -334,16 +352,20 @@ async def list_meta_overrides(
     ).scalar() or 0
 
     rows = (
-        await db.execute(
-            text(
-                "SELECT id, path, title, description, robots_index, robots_follow, "
-                "canonical_url, created_at, updated_at "
-                "FROM seo.meta_overrides ORDER BY path "
-                "LIMIT :lim OFFSET :off"
-            ),
-            {"lim": page_size, "off": offset},
+        (
+            await db.execute(
+                text(
+                    "SELECT id, path, title, description, robots_index, robots_follow, "
+                    "canonical_url, created_at, updated_at "
+                    "FROM seo.meta_overrides ORDER BY path "
+                    "LIMIT :lim OFFSET :off"
+                ),
+                {"lim": page_size, "off": offset},
+            )
         )
-    ).mappings().all()
+        .mappings()
+        .all()
+    )
 
     return {
         "items": [

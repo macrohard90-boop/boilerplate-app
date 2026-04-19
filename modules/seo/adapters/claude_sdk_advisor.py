@@ -9,7 +9,6 @@ avoiding the starlette version conflict between ``mcp`` and FastAPI.
 """
 
 import asyncio
-import json
 import logging
 import shutil
 
@@ -29,11 +28,12 @@ _MAX_TURNS = 5
 _ADVISOR_TIMEOUT = 90  # seconds
 
 # Backward-compatible aliases for test imports
-from modules.seo.adapters.advisor_utils import (  # noqa: E402, F811
+from modules.seo.adapters.advisor_utils import (  # noqa: E402, F401
     truncate_html as _truncate_html,
     build_prompt as _build_prompt,
     parse_suggestions as _parse_suggestions,
 )
+
 _SYSTEM_PROMPT = SYSTEM_PROMPT
 _MAX_BODY_LINES = 150
 
@@ -61,8 +61,13 @@ class ClaudeSDKAdvisor(SEOAdvisorProvider):
             return False, "claude binary not found"
         try:
             proc = await asyncio.create_subprocess_exec(
-                cli_path, "-p", "respond with ok", "--max-turns", "1",
-                "--output-format", "text",
+                cli_path,
+                "-p",
+                "respond with ok",
+                "--max-turns",
+                "1",
+                "--output-format",
+                "text",
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
                 env={
@@ -73,7 +78,8 @@ class ClaudeSDKAdvisor(SEOAdvisorProvider):
                 },
             )
             stdout, stderr = await asyncio.wait_for(
-                proc.communicate(), timeout=10,
+                proc.communicate(),
+                timeout=10,
             )
             if proc.returncode == 0:
                 return True, ""
@@ -93,15 +99,16 @@ class ClaudeSDKAdvisor(SEOAdvisorProvider):
         """Spawn ``claude -p`` with the prompt and parse the output."""
         cli_path = shutil.which("claude")
 
-        full_prompt = (
-            f"<system>\n{SYSTEM_PROMPT}\n</system>\n\n{prompt}"
-        )
+        full_prompt = f"<system>\n{SYSTEM_PROMPT}\n</system>\n\n{prompt}"
 
         proc = await asyncio.create_subprocess_exec(
             cli_path,
-            "-p", full_prompt,
-            "--max-turns", str(_MAX_TURNS),
-            "--output-format", "text",
+            "-p",
+            full_prompt,
+            "--max-turns",
+            str(_MAX_TURNS),
+            "--output-format",
+            "text",
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
             env={
@@ -174,8 +181,13 @@ class ClaudeSDKAdvisor(SEOAdvisorProvider):
             )
 
         prompt = build_prompt(
-            path, html, scores, rule_results, target_keywords,
-            business_context, intent,
+            path,
+            html,
+            scores,
+            rule_results,
+            target_keywords,
+            business_context,
+            intent,
         )
 
         try:

@@ -64,8 +64,12 @@ export default function PrivacyPage() {
     setMarketingLoading(false);
   }, [enable_marketing]);
 
-  useEffect(() => { fetchConsents(); }, []);
-  useEffect(() => { fetchMarketingPrefs(); }, [fetchMarketingPrefs]);
+  useEffect(() => {
+    fetchConsents();
+  }, []);
+  useEffect(() => {
+    fetchMarketingPrefs();
+  }, [fetchMarketingPrefs]);
 
   async function toggleConsent(type: string, granted: boolean) {
     const ct = CONSENT_TYPES.find((c) => c.key === type);
@@ -80,12 +84,18 @@ export default function PrivacyPage() {
         const exists = prev.find((c) => c.consent_type === type);
         if (exists) {
           return prev.map((c) =>
-            c.consent_type === type ? { ...c, granted } : c
+            c.consent_type === type ? { ...c, granted } : c,
           );
         }
-        return [...prev, { consent_type: type, granted, updated_at: new Date().toISOString() }];
+        return [
+          ...prev,
+          { consent_type: type, granted, updated_at: new Date().toISOString() },
+        ];
       });
-      showToast(`${ct?.label ?? type} consent ${granted ? "granted" : "revoked"}`, "info");
+      showToast(
+        `${ct?.label ?? type} consent ${granted ? "granted" : "revoked"}`,
+        "info",
+      );
 
       // Sync cookie preferences if this is a cookie-related consent
       if (type in CONSENT_TO_COOKIE_MAP) {
@@ -103,7 +113,9 @@ export default function PrivacyPage() {
 
   async function syncCookiePreferences(changedType: string, granted: boolean) {
     const cookiePrefs: Record<string, boolean> = { necessary: true };
-    for (const [consentKey, cookieKey] of Object.entries(CONSENT_TO_COOKIE_MAP)) {
+    for (const [consentKey, cookieKey] of Object.entries(
+      CONSENT_TO_COOKIE_MAP,
+    )) {
       if (consentKey === changedType) {
         cookiePrefs[cookieKey] = granted;
       } else {
@@ -126,15 +138,21 @@ export default function PrivacyPage() {
     try {
       await apiFetch("/marketing/preferences", {
         method: "PUT",
-        body: JSON.stringify({ preferences: [{ communication_type_id: typeId, allowed }] }),
+        body: JSON.stringify({
+          preferences: [{ communication_type_id: typeId, allowed }],
+        }),
       });
       setMarketingPrefs((prev) =>
-        prev.map((p) => (p.communication_type_id === typeId ? { ...p, allowed } : p))
+        prev.map((p) =>
+          p.communication_type_id === typeId ? { ...p, allowed } : p,
+        ),
       );
-      const pref = marketingPrefs.find((p) => p.communication_type_id === typeId);
+      const pref = marketingPrefs.find(
+        (p) => p.communication_type_id === typeId,
+      );
       showToast(
         `${pref?.communication_type_name ?? "Preference"} ${allowed ? "enabled" : "disabled"}`,
-        "info"
+        "info",
       );
     } catch {
       showToast("Failed to update marketing preference", "error");
@@ -157,7 +175,10 @@ export default function PrivacyPage() {
     setDeleting(true);
     try {
       await apiFetch("/gdpr/delete", { method: "POST" });
-      showToast("Deletion request submitted. 30-day grace period applies.", "success");
+      showToast(
+        "Deletion request submitted. 30-day grace period applies.",
+        "success",
+      );
       setDeleteConfirm(false);
     } catch (e) {
       const err = e as ApiError;
@@ -169,7 +190,9 @@ export default function PrivacyPage() {
   if (loading) return <LoadingSpinner className="py-20" />;
 
   // Group consent types by category
-  const categories = Array.from(new Set(CONSENT_TYPES.map((ct) => ct.category)));
+  const categories = Array.from(
+    new Set(CONSENT_TYPES.map((ct) => ct.category)),
+  );
 
   return (
     <div>
@@ -179,7 +202,9 @@ export default function PrivacyPage() {
 
       {/* Consent Management */}
       <div className="glass rounded-xl p-6 mb-6">
-        <h2 className="text-lg font-semibold text-text-primary mb-4">Consent Preferences</h2>
+        <h2 className="text-lg font-semibold text-text-primary mb-4">
+          Consent Preferences
+        </h2>
         <div className="space-y-6">
           {categories.map((category) => (
             <div key={category}>
@@ -187,38 +212,51 @@ export default function PrivacyPage() {
                 {CATEGORY_LABELS[category] ?? category}
               </h3>
               <div className="space-y-3">
-                {CONSENT_TYPES.filter((ct) => ct.category === category).map((ct) => {
-                  const consent = consents.find((c) => c.consent_type === ct.key);
-                  const isGranted = ct.required ? true : (consent?.granted ?? ct.defaultValue);
-                  return (
-                    <div key={ct.key} className="flex items-center justify-between py-2">
-                      <div>
-                        <p className="text-sm font-medium text-text-primary">
-                          {ct.label}
-                          {ct.required && (
-                            <span className="ml-2 text-xs text-text-muted">(Required)</span>
-                          )}
-                        </p>
-                        <p className="text-xs text-text-muted">{ct.description}</p>
-                      </div>
-                      <button
-                        onClick={() => toggleConsent(ct.key, !isGranted)}
-                        disabled={ct.required}
-                        className={`relative w-12 h-6 rounded-full transition-colors shrink-0 ${
-                          isGranted
-                            ? "bg-accent-green/30"
-                            : "bg-glass-bg"
-                        } ${ct.required ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
+                {CONSENT_TYPES.filter((ct) => ct.category === category).map(
+                  (ct) => {
+                    const consent = consents.find(
+                      (c) => c.consent_type === ct.key,
+                    );
+                    const isGranted = ct.required
+                      ? true
+                      : (consent?.granted ?? ct.defaultValue);
+                    return (
+                      <div
+                        key={ct.key}
+                        className="flex items-center justify-between py-2"
                       >
-                        <div className={`absolute top-0.5 w-5 h-5 rounded-full transition-all ${
-                          isGranted
-                            ? "left-6 bg-accent-green"
-                            : "left-0.5 bg-text-muted"
-                        }`} />
-                      </button>
-                    </div>
-                  );
-                })}
+                        <div>
+                          <p className="text-sm font-medium text-text-primary">
+                            {ct.label}
+                            {ct.required && (
+                              <span className="ml-2 text-xs text-text-muted">
+                                (Required)
+                              </span>
+                            )}
+                          </p>
+                          <p className="text-xs text-text-muted">
+                            {ct.description}
+                          </p>
+                        </div>
+                        <button
+                          onClick={() => toggleConsent(ct.key, !isGranted)}
+                          disabled={ct.required}
+                          className={`relative w-12 h-6 rounded-full transition-colors shrink-0 ${
+                            isGranted ? "bg-accent-green/30" : "bg-glass-bg"
+                          } ${ct.required ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
+                        >
+                          <div
+                            className={`absolute top-0.5 w-5 h-5 rounded-full transition-all ${
+                              isGranted
+                                ? "left-6 bg-accent-green"
+                                : "left-0.5 bg-text-muted"
+                            }`}
+                          />
+                        </button>
+                      </div>
+                    );
+                  },
+                )}
               </div>
             </div>
           ))}
@@ -228,9 +266,12 @@ export default function PrivacyPage() {
       {/* Marketing Preferences */}
       {enable_marketing && (
         <div className="glass rounded-xl p-6 mb-6">
-          <h2 className="text-lg font-semibold text-text-primary mb-1">Marketing Preferences</h2>
+          <h2 className="text-lg font-semibold text-text-primary mb-1">
+            Marketing Preferences
+          </h2>
           <p className="text-sm text-text-secondary mb-4">
-            Choose which types of marketing communications you&apos;d like to receive.
+            Choose which types of marketing communications you&apos;d like to
+            receive.
           </p>
 
           {marketingLoading ? (
@@ -239,35 +280,49 @@ export default function PrivacyPage() {
             <div className="p-4 rounded-lg bg-accent-blue/10 border border-accent-blue/20">
               <p className="text-sm text-accent-blue">
                 Marketing emails are turned off. Enable the{" "}
-                <strong>Marketing Email</strong> consent above to manage
-                your communication preferences.
+                <strong>Marketing Email</strong> consent above to manage your
+                communication preferences.
               </p>
             </div>
           ) : marketingPrefs.length === 0 ? (
-            <p className="text-sm text-text-muted">No communication types available.</p>
+            <p className="text-sm text-text-muted">
+              No communication types available.
+            </p>
           ) : (
             <div className="space-y-3">
               {marketingPrefs.map((pref) => (
-                <div key={pref.communication_type_id} className="flex items-center justify-between py-2">
+                <div
+                  key={pref.communication_type_id}
+                  className="flex items-center justify-between py-2"
+                >
                   <div>
                     <p className="text-sm font-medium text-text-primary capitalize">
                       {pref.communication_type_name}
                     </p>
                     {pref.description && (
-                      <p className="text-xs text-text-muted">{pref.description}</p>
+                      <p className="text-xs text-text-muted">
+                        {pref.description}
+                      </p>
                     )}
                   </div>
                   <button
-                    onClick={() => toggleMarketingPref(pref.communication_type_id, !pref.allowed)}
+                    onClick={() =>
+                      toggleMarketingPref(
+                        pref.communication_type_id,
+                        !pref.allowed,
+                      )
+                    }
                     className={`relative w-12 h-6 rounded-full transition-colors shrink-0 cursor-pointer ${
                       pref.allowed ? "bg-accent-green/30" : "bg-glass-bg"
                     }`}
                   >
-                    <div className={`absolute top-0.5 w-5 h-5 rounded-full transition-all ${
-                      pref.allowed
-                        ? "left-6 bg-accent-green"
-                        : "left-0.5 bg-text-muted"
-                    }`} />
+                    <div
+                      className={`absolute top-0.5 w-5 h-5 rounded-full transition-all ${
+                        pref.allowed
+                          ? "left-6 bg-accent-green"
+                          : "left-0.5 bg-text-muted"
+                      }`}
+                    />
                   </button>
                 </div>
               ))}
@@ -278,33 +333,58 @@ export default function PrivacyPage() {
 
       {/* Data Export */}
       <div className="glass rounded-xl p-6 mb-6">
-        <h2 className="text-lg font-semibold text-text-primary mb-2">Data Export</h2>
+        <h2 className="text-lg font-semibold text-text-primary mb-2">
+          Data Export
+        </h2>
         <p className="text-sm text-text-secondary mb-4">
-          Request a copy of all your personal data (Right of Access, GDPR Art. 15).
+          Request a copy of all your personal data (Right of Access, GDPR Art.
+          15).
         </p>
-        <button onClick={handleExport} disabled={exporting} className="btn-secondary text-sm disabled:opacity-50">
+        <button
+          onClick={handleExport}
+          disabled={exporting}
+          className="btn-secondary text-sm disabled:opacity-50"
+        >
           {exporting ? "Requesting..." : "Request Data Export"}
         </button>
       </div>
 
       {/* Account Deletion */}
       <div className="glass rounded-xl p-6 border-accent-pink/20">
-        <h2 className="text-lg font-semibold text-accent-pink mb-2">Delete Account</h2>
+        <h2 className="text-lg font-semibold text-accent-pink mb-2">
+          Delete Account
+        </h2>
         <p className="text-sm text-text-secondary mb-4">
-          Permanently delete your account and all associated data (Right to Erasure, GDPR Art. 17). There is a 30-day grace period during which you can cancel.
+          Permanently delete your account and all associated data (Right to
+          Erasure, GDPR Art. 17). There is a 30-day grace period during which
+          you can cancel.
         </p>
         {deleteConfirm ? (
           <div className="p-4 rounded-lg bg-accent-pink/10 border border-accent-pink/20">
-            <p className="text-sm text-accent-pink mb-3">Are you sure? This cannot be undone after 30 days.</p>
+            <p className="text-sm text-accent-pink mb-3">
+              Are you sure? This cannot be undone after 30 days.
+            </p>
             <div className="flex gap-3">
-              <button onClick={handleDelete} disabled={deleting} className="px-4 py-2 rounded-lg bg-accent-pink text-white text-sm font-medium disabled:opacity-50">
+              <button
+                onClick={handleDelete}
+                disabled={deleting}
+                className="px-4 py-2 rounded-lg bg-accent-pink text-white text-sm font-medium disabled:opacity-50"
+              >
                 {deleting ? "Deleting..." : "Yes, Delete My Account"}
               </button>
-              <button onClick={() => setDeleteConfirm(false)} className="btn-secondary text-sm">Cancel</button>
+              <button
+                onClick={() => setDeleteConfirm(false)}
+                className="btn-secondary text-sm"
+              >
+                Cancel
+              </button>
             </div>
           </div>
         ) : (
-          <button onClick={() => setDeleteConfirm(true)} className="px-4 py-2 rounded-lg border border-accent-pink/30 text-accent-pink text-sm hover:bg-accent-pink/10 transition-colors">
+          <button
+            onClick={() => setDeleteConfirm(true)}
+            className="px-4 py-2 rounded-lg border border-accent-pink/30 text-accent-pink text-sm hover:bg-accent-pink/10 transition-colors"
+          >
             Request Account Deletion
           </button>
         )}

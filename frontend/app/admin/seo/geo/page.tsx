@@ -86,7 +86,9 @@ export default function GeoPage() {
       setLoading(false);
       return;
     }
-    apiFetch<{ items: GEOPageScore[] }>("/seo/admin/seo/geo/scores?page_size=50")
+    apiFetch<{ items: GEOPageScore[] }>(
+      "/seo/admin/seo/geo/scores?page_size=50",
+    )
       .then((data) => setScores(data.items || []))
       .catch(() => {})
       .finally(() => setLoading(false));
@@ -103,7 +105,7 @@ export default function GeoPage() {
     try {
       await apiFetch("/seo/admin/seo/geo/scores/batch", { method: "POST" });
       const data = await apiFetch<{ items: GEOPageScore[] }>(
-        "/seo/admin/seo/geo/scores?page_size=50"
+        "/seo/admin/seo/geo/scores?page_size=50",
       );
       setScores(data.items || []);
       showToast("GEO scoring complete", "success");
@@ -331,7 +333,7 @@ export default function GeoPage() {
                     key={page.id}
                     onClick={() =>
                       setExpandedPath(
-                        expandedPath === page.path ? null : page.path
+                        expandedPath === page.path ? null : page.path,
                       )
                     }
                     className={`border-b border-glass-border/50 cursor-pointer transition-colors ${
@@ -364,9 +366,7 @@ export default function GeoPage() {
                                 style={{ width: `${val}%` }}
                               />
                             </div>
-                            <span
-                              className={`text-[10px] ${scoreColor(val)}`}
-                            >
+                            <span className={`text-[10px] ${scoreColor(val)}`}>
                               {val}
                             </span>
                           </div>
@@ -404,16 +404,14 @@ export default function GeoPage() {
             {DIMENSION_ORDER.map((dim) => {
               const dimConfig = GEO_DIMENSIONS[dim];
               const dimRules = expandedPage.rule_results.filter(
-                (r) => r.category === dim
+                (r) => r.category === dim,
               );
               const dimScore = expandedPage.dimension_scores?.[dim] ?? 0;
 
               return (
                 <div key={dim}>
                   <div className="flex items-center gap-2 mb-2">
-                    <span
-                      className={`text-xs font-bold ${dimConfig.color}`}
-                    >
+                    <span className={`text-xs font-bold ${dimConfig.color}`}>
                       {dimConfig.label}
                     </span>
                     <span className={`text-xs ${scoreColor(dimScore)}`}>
@@ -436,7 +434,7 @@ export default function GeoPage() {
                               setExpandedDescRule(
                                 expandedDescRule === r.rule_id
                                   ? null
-                                  : r.rule_id
+                                  : r.rule_id,
                               );
                             }}
                           >
@@ -465,13 +463,15 @@ export default function GeoPage() {
                           </button>
 
                           {/* Recommendation */}
-                          {!r.passed && r.recommendation && expandedDescRule !== r.rule_id && (
-                            <div className="ml-9 mt-1 mb-1">
-                              <p className="text-[11px] text-text-muted leading-relaxed">
-                                {r.recommendation}
-                              </p>
-                            </div>
-                          )}
+                          {!r.passed &&
+                            r.recommendation &&
+                            expandedDescRule !== r.rule_id && (
+                              <div className="ml-9 mt-1 mb-1">
+                                <p className="text-[11px] text-text-muted leading-relaxed">
+                                  {r.recommendation}
+                                </p>
+                              </div>
+                            )}
 
                           {/* Educational panel */}
                           {expandedDescRule === r.rule_id && desc && (

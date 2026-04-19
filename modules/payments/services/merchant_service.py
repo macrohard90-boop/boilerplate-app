@@ -25,14 +25,18 @@ async def onboard_merchant(
     """
     # Check for existing merchant account
     existing = (
-        await db.execute(
-            text(
-                "SELECT * FROM ecommerce.merchant_accounts "
-                "WHERE user_id = :uid LIMIT 1"
-            ),
-            {"uid": user_id},
+        (
+            await db.execute(
+                text(
+                    "SELECT * FROM ecommerce.merchant_accounts "
+                    "WHERE user_id = :uid LIMIT 1"
+                ),
+                {"uid": user_id},
+            )
         )
-    ).mappings().first()
+        .mappings()
+        .first()
+    )
 
     if existing:
         acct = dict(existing)
@@ -51,20 +55,26 @@ async def onboard_merchant(
 
     # Get user email
     user_row = (
-        await db.execute(
-            text("SELECT email FROM core.users WHERE id = :uid"),
-            {"uid": user_id},
+        (
+            await db.execute(
+                text("SELECT email FROM core.users WHERE id = :uid"),
+                {"uid": user_id},
+            )
         )
-    ).mappings().first()
+        .mappings()
+        .first()
+    )
     email = user_row["email"] if user_row else None
 
     # Create via provider
     provider = get_payment_provider()
-    result = await provider.create_merchant({
-        "email": email,
-        "business_type": business_type,
-        "country": country,
-    })
+    result = await provider.create_merchant(
+        {
+            "email": email,
+            "business_type": business_type,
+            "country": country,
+        }
+    )
 
     # Store in DB
     await db.execute(
@@ -89,19 +99,21 @@ async def onboard_merchant(
     }
 
 
-async def get_merchant_status(
-    db: AsyncSession, user_id: str
-) -> dict[str, Any] | None:
+async def get_merchant_status(db: AsyncSession, user_id: str) -> dict[str, Any] | None:
     """Get merchant account status."""
     row = (
-        await db.execute(
-            text(
-                "SELECT * FROM ecommerce.merchant_accounts "
-                "WHERE user_id = :uid LIMIT 1"
-            ),
-            {"uid": user_id},
+        (
+            await db.execute(
+                text(
+                    "SELECT * FROM ecommerce.merchant_accounts "
+                    "WHERE user_id = :uid LIMIT 1"
+                ),
+                {"uid": user_id},
+            )
         )
-    ).mappings().first()
+        .mappings()
+        .first()
+    )
 
     if not row:
         return None
@@ -116,19 +128,21 @@ async def get_merchant_status(
     }
 
 
-async def get_dashboard_link(
-    db: AsyncSession, user_id: str
-) -> str | None:
+async def get_dashboard_link(db: AsyncSession, user_id: str) -> str | None:
     """Generate a Stripe Express dashboard login link for the merchant."""
     row = (
-        await db.execute(
-            text(
-                "SELECT stripe_account_id FROM ecommerce.merchant_accounts "
-                "WHERE user_id = :uid AND status IN ('active', 'restricted') LIMIT 1"
-            ),
-            {"uid": user_id},
+        (
+            await db.execute(
+                text(
+                    "SELECT stripe_account_id FROM ecommerce.merchant_accounts "
+                    "WHERE user_id = :uid AND status IN ('active', 'restricted') LIMIT 1"
+                ),
+                {"uid": user_id},
+            )
         )
-    ).mappings().first()
+        .mappings()
+        .first()
+    )
 
     if not row:
         return None

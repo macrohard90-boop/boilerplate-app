@@ -96,9 +96,7 @@ def build_prompt(
         for r in failing[:15]
     )
 
-    keywords_str = (
-        ", ".join(target_keywords) if target_keywords else "(none assigned)"
-    )
+    keywords_str = ", ".join(target_keywords) if target_keywords else "(none assigned)"
 
     # Business context section
     ctx_parts = [f"Site: {settings.site_name}"]
@@ -111,6 +109,14 @@ def build_prompt(
     # Intent section
     intent_section = (
         intent or "General SEO audit — improve this page's search visibility."
+    )
+
+    keyword_instruction = (
+        f"Search for the target keywords ({keywords_str}) to see what currently"
+        " ranks. Note competitor patterns and incorporate insights into your"
+        " suggestions.\n"
+        if target_keywords
+        else ""
     )
 
     return f"""## Business Context
@@ -131,8 +137,7 @@ Score: {scores.get('score', 'N/A')}/100 | Target Keywords: {keywords_str}
 ```
 
 ## Instructions
-{f"Search for the target keywords ({keywords_str}) to see what currently ranks. Note competitor patterns and incorporate insights into your suggestions." if target_keywords else ""}
-Provide 5-8 specific, actionable suggestions. Focus on:
+{keyword_instruction}Provide 5-8 specific, actionable suggestions. Focus on:
 1. Fixing the highest-weight failing rules first
 2. Content improvements informed by competitor analysis (if keywords searched)
 3. Specific rewrite text (write actual better titles, descriptions, headings)

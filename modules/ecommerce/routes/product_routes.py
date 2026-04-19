@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, Form, HTTPException, Query, UploadFile, 
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.core.database import get_db
-from backend.core.dependencies import get_current_user, require_role
+from backend.core.dependencies import require_role
 from modules.ecommerce.models.schemas import (
     ImageCreate,
     ImageResponse,
@@ -47,8 +47,13 @@ async def list_products(
     db: AsyncSession = Depends(get_db),
 ) -> Any:
     return await product_service.list_products(
-        db, page=page, page_size=page_size, status=status,
-        category_id=category_id, search=search, product_type=type,
+        db,
+        page=page,
+        page_size=page_size,
+        status=status,
+        category_id=category_id,
+        search=search,
+        product_type=type,
         pricing_type=pricing_type,
     )
 
@@ -57,7 +62,14 @@ async def list_products(
 async def get_product(slug: str, db: AsyncSession = Depends(get_db)) -> Any:
     product = await product_service.get_product_by_slug(db, slug)
     if not product:
-        raise HTTPException(status_code=404, detail={"error": "not_found", "message": "Product not found", "details": None})
+        raise HTTPException(
+            status_code=404,
+            detail={
+                "error": "not_found",
+                "message": "Product not found",
+                "details": None,
+            },
+        )
 
     categories = await product_service.get_product_categories(db, str(product["id"]))
     variants = await variant_service.list_variants(db, str(product["id"]))
@@ -75,7 +87,10 @@ async def create_product(
     try:
         return await product_service.create_product(db, body.model_dump())
     except ValueError as e:
-        raise HTTPException(status_code=409, detail={"error": "conflict", "message": str(e), "details": None})
+        raise HTTPException(
+            status_code=409,
+            detail={"error": "conflict", "message": str(e), "details": None},
+        )
 
 
 @router.put("/{product_id}", response_model=ProductResponse)
@@ -86,9 +101,14 @@ async def update_product(
     db: AsyncSession = Depends(get_db),
 ) -> Any:
     try:
-        return await product_service.update_product(db, product_id, body.model_dump(exclude_unset=True))
+        return await product_service.update_product(
+            db, product_id, body.model_dump(exclude_unset=True)
+        )
     except ValueError as e:
-        raise HTTPException(status_code=404, detail={"error": "not_found", "message": str(e), "details": None})
+        raise HTTPException(
+            status_code=404,
+            detail={"error": "not_found", "message": str(e), "details": None},
+        )
 
 
 @router.post("/{product_id}/sync", response_model=ProductResponse)
@@ -120,8 +140,14 @@ async def delete_product(
     except ValueError as e:
         msg = str(e)
         if "Cannot delete" in msg:
-            raise HTTPException(status_code=409, detail={"error": "conflict", "message": msg, "details": None})
-        raise HTTPException(status_code=404, detail={"error": "not_found", "message": msg, "details": None})
+            raise HTTPException(
+                status_code=409,
+                detail={"error": "conflict", "message": msg, "details": None},
+            )
+        raise HTTPException(
+            status_code=404,
+            detail={"error": "not_found", "message": msg, "details": None},
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -135,10 +161,19 @@ async def list_variants(product_id: str, db: AsyncSession = Depends(get_db)) -> 
 
 
 @router.get("/{product_id}/variants/{variant_id}", response_model=VariantResponse)
-async def get_variant(product_id: str, variant_id: str, db: AsyncSession = Depends(get_db)) -> Any:
+async def get_variant(
+    product_id: str, variant_id: str, db: AsyncSession = Depends(get_db)
+) -> Any:
     v = await variant_service.get_variant(db, variant_id)
     if not v or str(v["product_id"]) != product_id:
-        raise HTTPException(status_code=404, detail={"error": "not_found", "message": "Variant not found", "details": None})
+        raise HTTPException(
+            status_code=404,
+            detail={
+                "error": "not_found",
+                "message": "Variant not found",
+                "details": None,
+            },
+        )
     return v
 
 
@@ -151,7 +186,14 @@ async def create_variant(
 ) -> Any:
     product = await product_service.get_product_by_id(db, product_id)
     if not product:
-        raise HTTPException(status_code=404, detail={"error": "not_found", "message": "Product not found", "details": None})
+        raise HTTPException(
+            status_code=404,
+            detail={
+                "error": "not_found",
+                "message": "Product not found",
+                "details": None,
+            },
+        )
     return await variant_service.create_variant(db, product_id, body.model_dump())
 
 
@@ -164,11 +206,23 @@ async def update_variant(
     db: AsyncSession = Depends(get_db),
 ) -> Any:
     try:
-        v = await variant_service.update_variant(db, variant_id, body.model_dump(exclude_unset=True))
+        v = await variant_service.update_variant(
+            db, variant_id, body.model_dump(exclude_unset=True)
+        )
     except ValueError as e:
-        raise HTTPException(status_code=404, detail={"error": "not_found", "message": str(e), "details": None})
+        raise HTTPException(
+            status_code=404,
+            detail={"error": "not_found", "message": str(e), "details": None},
+        )
     if str(v["product_id"]) != product_id:
-        raise HTTPException(status_code=404, detail={"error": "not_found", "message": "Variant not found", "details": None})
+        raise HTTPException(
+            status_code=404,
+            detail={
+                "error": "not_found",
+                "message": "Variant not found",
+                "details": None,
+            },
+        )
     return v
 
 
@@ -182,7 +236,10 @@ async def delete_variant(
     try:
         await variant_service.delete_variant(db, variant_id)
     except ValueError as e:
-        raise HTTPException(status_code=404, detail={"error": "not_found", "message": str(e), "details": None})
+        raise HTTPException(
+            status_code=404,
+            detail={"error": "not_found", "message": str(e), "details": None},
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -204,7 +261,14 @@ async def create_image(
 ) -> Any:
     product = await product_service.get_product_by_id(db, product_id)
     if not product:
-        raise HTTPException(status_code=404, detail={"error": "not_found", "message": "Product not found", "details": None})
+        raise HTTPException(
+            status_code=404,
+            detail={
+                "error": "not_found",
+                "message": "Product not found",
+                "details": None,
+            },
+        )
     result = await image_service.create_image(db, product_id, body.model_dump())
     await catalog_sync_service.sync_product_images_to_catalog(db, product_id)
     return result
@@ -219,11 +283,23 @@ async def update_image(
     db: AsyncSession = Depends(get_db),
 ) -> Any:
     try:
-        img = await image_service.update_image(db, image_id, body.model_dump(exclude_unset=True))
+        img = await image_service.update_image(
+            db, image_id, body.model_dump(exclude_unset=True)
+        )
     except ValueError as e:
-        raise HTTPException(status_code=404, detail={"error": "not_found", "message": str(e), "details": None})
+        raise HTTPException(
+            status_code=404,
+            detail={"error": "not_found", "message": str(e), "details": None},
+        )
     if str(img["product_id"]) != product_id:
-        raise HTTPException(status_code=404, detail={"error": "not_found", "message": "Image not found", "details": None})
+        raise HTTPException(
+            status_code=404,
+            detail={
+                "error": "not_found",
+                "message": "Image not found",
+                "details": None,
+            },
+        )
     return img
 
 
@@ -237,7 +313,10 @@ async def delete_image(
     try:
         await image_service.delete_image(db, image_id)
     except ValueError as e:
-        raise HTTPException(status_code=404, detail={"error": "not_found", "message": str(e), "details": None})
+        raise HTTPException(
+            status_code=404,
+            detail={"error": "not_found", "message": str(e), "details": None},
+        )
     await catalog_sync_service.sync_product_images_to_catalog(db, product_id)
 
 
@@ -245,7 +324,9 @@ ALLOWED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp", "image/gif"}
 MAX_IMAGE_SIZE = 5 * 1024 * 1024  # 5 MB
 
 
-@router.post("/{product_id}/images/upload", response_model=ImageResponse, status_code=201)
+@router.post(
+    "/{product_id}/images/upload", response_model=ImageResponse, status_code=201
+)
 async def upload_image(
     product_id: str,
     file: UploadFile = File(...),
@@ -256,29 +337,53 @@ async def upload_image(
     """Upload an image file for a product (optionally linked to a variant)."""
     product = await product_service.get_product_by_id(db, product_id)
     if not product:
-        raise HTTPException(status_code=404, detail={"error": "not_found", "message": "Product not found", "details": None})
+        raise HTTPException(
+            status_code=404,
+            detail={
+                "error": "not_found",
+                "message": "Product not found",
+                "details": None,
+            },
+        )
 
     if file.content_type not in ALLOWED_IMAGE_TYPES:
-        raise HTTPException(status_code=400, detail={
-            "error": "invalid_file", "message": f"File type {file.content_type} not allowed. Use JPEG, PNG, WebP, or GIF.", "details": None,
-        })
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "error": "invalid_file",
+                "message": f"File type {file.content_type} not allowed. Use JPEG, PNG, WebP, or GIF.",
+                "details": None,
+            },
+        )
 
     file_bytes = await file.read()
     if len(file_bytes) > MAX_IMAGE_SIZE:
-        raise HTTPException(status_code=400, detail={
-            "error": "file_too_large", "message": "File exceeds 5 MB limit.", "details": None,
-        })
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "error": "file_too_large",
+                "message": "File exceeds 5 MB limit.",
+                "details": None,
+            },
+        )
 
     from modules.ecommerce.adapters import get_storage_provider
-    storage = get_storage_provider()
-    result = await storage.upload(file_bytes, file.filename or "image.jpg", file.content_type)
 
-    img = await image_service.create_image(db, product_id, {
-        "url": result.public_url,
-        "storage_path": result.storage_path,
-        "alt_text": file.filename,
-        "is_primary": False,
-        "variant_id": variant_id,
-    })
+    storage = get_storage_provider()
+    result = await storage.upload(
+        file_bytes, file.filename or "image.jpg", file.content_type
+    )
+
+    img = await image_service.create_image(
+        db,
+        product_id,
+        {
+            "url": result.public_url,
+            "storage_path": result.storage_path,
+            "alt_text": file.filename,
+            "is_primary": False,
+            "variant_id": variant_id,
+        },
+    )
     await catalog_sync_service.sync_product_images_to_catalog(db, product_id)
     return img

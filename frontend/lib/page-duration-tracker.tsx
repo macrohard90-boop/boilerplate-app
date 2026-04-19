@@ -61,7 +61,11 @@ let initialReferrerSent = false;
 
 function sendPageview(path: string, durationMs: number, trigger: Trigger) {
   if (durationMs < MIN_DURATION_MS) return;
-  const body: Record<string, unknown> = { path, duration_ms: Math.round(durationMs), trigger };
+  const body: Record<string, unknown> = {
+    path,
+    duration_ms: Math.round(durationMs),
+    trigger,
+  };
   // Send document.referrer on the very first pageview of the session
   // so the backend can classify the traffic source (direct, google, etc.)
   if (!initialReferrerSent) {
@@ -83,7 +87,7 @@ export default function PageDurationTracker() {
   const activeAccum = useRef(0);
   // Timestamp when the current active segment started, or 0 if paused
   const activeSince = useRef(
-    document.visibilityState === "visible" ? Date.now() : 0
+    document.visibilityState === "visible" ? Date.now() : 0,
   );
   // Whether the user is currently idle (no interaction for IDLE_TIMEOUT_MS)
   const isIdle = useRef(false);

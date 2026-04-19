@@ -40,15 +40,19 @@ async def _build_sitemap(db: AsyncSession) -> str:
 
     # Get all non-dynamic pages from the registry
     rows = (
-        await db.execute(
-            text(
-                "SELECT path, changefreq, priority "
-                "FROM seo.page_registry "
-                "WHERE is_dynamic = FALSE "
-                "ORDER BY path"
+        (
+            await db.execute(
+                text(
+                    "SELECT path, changefreq, priority "
+                    "FROM seo.page_registry "
+                    "WHERE is_dynamic = FALSE "
+                    "ORDER BY path"
+                )
             )
         )
-    ).mappings().all()
+        .mappings()
+        .all()
+    )
 
     urls: list[dict] = []
 
@@ -56,13 +60,17 @@ async def _build_sitemap(db: AsyncSession) -> str:
     product_dates: dict[str, str] = {}
     try:
         product_rows = (
-            await db.execute(
-                text(
-                    "SELECT slug, updated_at FROM ecommerce.products "
-                    "WHERE status = 'active' AND deleted_at IS NULL"
+            (
+                await db.execute(
+                    text(
+                        "SELECT slug, updated_at FROM ecommerce.products "
+                        "WHERE status = 'active' AND deleted_at IS NULL"
+                    )
                 )
             )
-        ).mappings().all()
+            .mappings()
+            .all()
+        )
         for p in product_rows:
             if p["updated_at"]:
                 product_dates[p["slug"]] = str(p["updated_at"])[:10]
@@ -81,7 +89,7 @@ async def _build_sitemap(db: AsyncSession) -> str:
 
         # Add lastmod for product pages
         if path.startswith("products/"):
-            slug = path[len("products/"):]
+            slug = path[len("products/") :]
             if slug in product_dates:
                 entry["lastmod"] = product_dates[slug]
 

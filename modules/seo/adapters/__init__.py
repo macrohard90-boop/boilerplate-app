@@ -57,7 +57,9 @@ def get_geo_advisor():
     provider = settings.geo_advisor_provider or settings.seo_advisor_provider
 
     if provider == "anthropic_api":
-        from modules.seo.adapters.anthropic_api_geo_advisor import AnthropicAPIGEOAdvisor
+        from modules.seo.adapters.anthropic_api_geo_advisor import (
+            AnthropicAPIGEOAdvisor,
+        )
 
         return AnthropicAPIGEOAdvisor()
 
@@ -69,6 +71,8 @@ def get_geo_advisor():
 
 def get_seo_analytics_provider() -> SEOAnalyticsProvider:
     """Return the configured SEO analytics provider."""
-    from modules.seo.adapters.internal_analytics_provider import InternalAnalyticsProvider
+    from modules.seo.adapters.internal_analytics_provider import (
+        InternalAnalyticsProvider,
+    )
 
     return InternalAnalyticsProvider()

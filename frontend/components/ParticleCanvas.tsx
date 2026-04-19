@@ -17,7 +17,11 @@ const PARTICLE_COLORS = ["#ff6b9d", "#c084fc", "#38bdf8", "#34d399"];
 const PARTICLE_COUNT = 60;
 const CONNECTION_DISTANCE = 150;
 
-export default function ParticleCanvas({ className = "" }: { className?: string }) {
+export default function ParticleCanvas({
+  className = "",
+}: {
+  className?: string;
+}) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const particlesRef = useRef<Particle[]>([]);
   const animRef = useRef<number>(0);
@@ -41,7 +45,8 @@ export default function ParticleCanvas({ className = "" }: { className?: string 
       y: Math.random() * canvas.height,
       speedX: (Math.random() - 0.5) * 0.5,
       speedY: (Math.random() - 0.5) * 0.5,
-      color: PARTICLE_COLORS[Math.floor(Math.random() * PARTICLE_COLORS.length)],
+      color:
+        PARTICLE_COLORS[Math.floor(Math.random() * PARTICLE_COLORS.length)],
       alpha: Math.random() * 0.5 + 0.2,
       pulse: Math.random() * Math.PI * 2,
       size: Math.random() * 2 + 1,

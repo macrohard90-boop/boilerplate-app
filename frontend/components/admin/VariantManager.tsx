@@ -28,7 +28,13 @@ interface VariantManagerProps {
   refreshKey?: number;
 }
 
-export default function VariantManager({ productId, productBasePrice, currency, onVariantsChange, refreshKey }: VariantManagerProps) {
+export default function VariantManager({
+  productId,
+  productBasePrice,
+  currency,
+  onVariantsChange,
+  refreshKey,
+}: VariantManagerProps) {
   const [variants, setVariants] = useState<Variant[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -45,15 +51,21 @@ export default function VariantManager({ productId, productBasePrice, currency, 
 
   const fetchVariants = useCallback(async () => {
     try {
-      const data = await apiFetch<Variant[]>(`/ecommerce/products/${productId}/variants`);
+      const data = await apiFetch<Variant[]>(
+        `/ecommerce/products/${productId}/variants`,
+      );
       setVariants(data);
       onVariantsChange?.(data.map((v) => ({ id: v.id, name: v.name })));
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
     setLoading(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [productId, onVariantsChange, refreshKey]);
 
-  useEffect(() => { fetchVariants(); }, [fetchVariants]);
+  useEffect(() => {
+    fetchVariants();
+  }, [fetchVariants]);
 
   const resetForm = () => {
     setFormName("");
@@ -68,7 +80,9 @@ export default function VariantManager({ productId, productBasePrice, currency, 
     setEditingId(v.id);
     setFormName(v.name);
     setFormSku(v.sku || "");
-    setFormPriceOverride(v.price_override != null ? (v.price_override / 100).toFixed(2) : "");
+    setFormPriceOverride(
+      v.price_override != null ? (v.price_override / 100).toFixed(2) : "",
+    );
     setFormStock(String(v.stock_quantity));
     setShowForm(true);
   };
@@ -91,10 +105,13 @@ export default function VariantManager({ productId, productBasePrice, currency, 
 
     try {
       if (editingId) {
-        await apiFetch(`/ecommerce/products/${productId}/variants/${editingId}`, {
-          method: "PUT",
-          body: JSON.stringify(body),
-        });
+        await apiFetch(
+          `/ecommerce/products/${productId}/variants/${editingId}`,
+          {
+            method: "PUT",
+            body: JSON.stringify(body),
+          },
+        );
       } else {
         await apiFetch(`/ecommerce/products/${productId}/variants`, {
           method: "POST",
@@ -103,7 +120,9 @@ export default function VariantManager({ productId, productBasePrice, currency, 
       }
       resetForm();
       fetchVariants();
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
     setFormSaving(false);
   };
 
@@ -111,10 +130,14 @@ export default function VariantManager({ productId, productBasePrice, currency, 
     if (!deleteId) return;
     setDeleteLoading(true);
     try {
-      await apiFetch(`/ecommerce/products/${productId}/variants/${deleteId}`, { method: "DELETE" });
+      await apiFetch(`/ecommerce/products/${productId}/variants/${deleteId}`, {
+        method: "DELETE",
+      });
       setDeleteId(null);
       fetchVariants();
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
     setDeleteLoading(false);
   };
 
@@ -124,7 +147,10 @@ export default function VariantManager({ productId, productBasePrice, currency, 
         <h3 className="text-lg font-semibold text-text-primary">Variants</h3>
         {!showForm && (
           <button
-            onClick={() => { resetForm(); setShowForm(true); }}
+            onClick={() => {
+              resetForm();
+              setShowForm(true);
+            }}
             className="btn-primary px-3 py-1.5 rounded-lg text-sm"
           >
             + Add Variant
@@ -137,7 +163,9 @@ export default function VariantManager({ productId, productBasePrice, currency, 
         <div className="glass rounded-xl p-4 mb-4 space-y-3">
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs text-text-muted mb-1">Name *</label>
+              <label className="block text-xs text-text-muted mb-1">
+                Name *
+              </label>
               <input
                 type="text"
                 value={formName}
@@ -162,7 +190,10 @@ export default function VariantManager({ productId, productBasePrice, currency, 
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs text-text-muted mb-1">
-                Price Override <span className="opacity-60">(blank = base {formatPrice(productBasePrice, currency)})</span>
+                Price Override{" "}
+                <span className="opacity-60">
+                  (blank = base {formatPrice(productBasePrice, currency)})
+                </span>
               </label>
               <div className="flex items-center gap-1">
                 <span className="text-text-muted text-sm">$</span>
@@ -179,7 +210,9 @@ export default function VariantManager({ productId, productBasePrice, currency, 
               </div>
             </div>
             <div>
-              <label className="block text-xs text-text-muted mb-1">Stock Quantity</label>
+              <label className="block text-xs text-text-muted mb-1">
+                Stock Quantity
+              </label>
               <input
                 type="number"
                 min="0"
@@ -191,10 +224,18 @@ export default function VariantManager({ productId, productBasePrice, currency, 
             </div>
           </div>
           <div className="flex justify-end gap-2">
-            <button onClick={resetForm} className="btn-secondary px-3 py-1.5 rounded-lg text-sm" disabled={formSaving}>
+            <button
+              onClick={resetForm}
+              className="btn-secondary px-3 py-1.5 rounded-lg text-sm"
+              disabled={formSaving}
+            >
               Cancel
             </button>
-            <button onClick={handleSave} className="btn-primary px-3 py-1.5 rounded-lg text-sm" disabled={formSaving || !formName.trim()}>
+            <button
+              onClick={handleSave}
+              className="btn-primary px-3 py-1.5 rounded-lg text-sm"
+              disabled={formSaving || !formName.trim()}
+            >
               {formSaving ? "Saving..." : editingId ? "Update" : "Add"}
             </button>
           </div>
@@ -204,7 +245,8 @@ export default function VariantManager({ productId, productBasePrice, currency, 
       {/* Info note for auto-created default variant */}
       {!loading && variants.length === 1 && variants[0].name === "Default" && (
         <p className="text-text-secondary text-sm glass rounded-xl p-4 mb-4">
-          A default variant was created automatically. You can rename it, adjust stock, or add more variants (e.g., sizes, colors).
+          A default variant was created automatically. You can rename it, adjust
+          stock, or add more variants (e.g., sizes, colors).
         </p>
       )}
 
@@ -213,35 +255,63 @@ export default function VariantManager({ productId, productBasePrice, currency, 
         <p className="text-text-muted text-sm">Loading variants...</p>
       ) : variants.length === 0 ? (
         <p className="text-text-secondary text-sm glass rounded-xl p-4 text-center">
-          No variants yet. Add at least one variant with stock to make this product purchasable.
+          No variants yet. Add at least one variant with stock to make this
+          product purchasable.
         </p>
       ) : (
         <div className="glass rounded-xl overflow-hidden">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-glass-border">
-                <th className="text-left p-3 text-text-muted font-medium">Name</th>
-                <th className="text-left p-3 text-text-muted font-medium">SKU</th>
-                <th className="text-left p-3 text-text-muted font-medium">Price</th>
-                <th className="text-left p-3 text-text-muted font-medium">Stock</th>
-                <th className="text-left p-3 text-text-muted font-medium">Sync</th>
-                <th className="text-right p-3 text-text-muted font-medium">Actions</th>
+                <th className="text-left p-3 text-text-muted font-medium">
+                  Name
+                </th>
+                <th className="text-left p-3 text-text-muted font-medium">
+                  SKU
+                </th>
+                <th className="text-left p-3 text-text-muted font-medium">
+                  Price
+                </th>
+                <th className="text-left p-3 text-text-muted font-medium">
+                  Stock
+                </th>
+                <th className="text-left p-3 text-text-muted font-medium">
+                  Sync
+                </th>
+                <th className="text-right p-3 text-text-muted font-medium">
+                  Actions
+                </th>
               </tr>
             </thead>
             <tbody>
               {variants.map((v) => (
-                <tr key={v.id} className="border-b border-glass-border/50 hover:bg-glass-hover transition-colors">
-                  <td className="p-3 text-text-primary font-medium">{v.name}</td>
-                  <td className="p-3 text-text-muted font-mono text-xs">{v.sku || "—"}</td>
+                <tr
+                  key={v.id}
+                  className="border-b border-glass-border/50 hover:bg-glass-hover transition-colors"
+                >
+                  <td className="p-3 text-text-primary font-medium">
+                    {v.name}
+                  </td>
+                  <td className="p-3 text-text-muted font-mono text-xs">
+                    {v.sku || "—"}
+                  </td>
                   <td className="p-3 text-text-primary">
                     {v.price_override != null ? (
                       formatPrice(v.price_override, currency)
                     ) : (
-                      <span className="text-text-muted">{formatPrice(productBasePrice, currency)} (base)</span>
+                      <span className="text-text-muted">
+                        {formatPrice(productBasePrice, currency)} (base)
+                      </span>
                     )}
                   </td>
                   <td className="p-3">
-                    <span className={v.stock_quantity <= 0 ? "text-accent-pink" : "text-text-primary"}>
+                    <span
+                      className={
+                        v.stock_quantity <= 0
+                          ? "text-accent-pink"
+                          : "text-text-primary"
+                      }
+                    >
                       {v.stock_quantity}
                     </span>
                   </td>
@@ -270,9 +340,15 @@ export default function VariantManager({ productId, productBasePrice, currency, 
       )}
 
       {/* Delete Confirmation Modal */}
-      <Modal isOpen={!!deleteId} onClose={() => setDeleteId(null)} title="Delete Variant" size="sm">
+      <Modal
+        isOpen={!!deleteId}
+        onClose={() => setDeleteId(null)}
+        title="Delete Variant"
+        size="sm"
+      >
         <p className="text-text-secondary text-sm mb-4">
-          This will permanently delete this variant and any images assigned to it. This action cannot be undone.
+          This will permanently delete this variant and any images assigned to
+          it. This action cannot be undone.
         </p>
         <div className="flex justify-end gap-3">
           <button

@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.core.database import get_db
 from backend.core.dependencies import get_current_user
-from modules.gdpr.models.schemas import ExportStatusResponse, MessageResponse
+from modules.gdpr.models.schemas import ExportStatusResponse
 from modules.gdpr.services import export_service
 
 router = APIRouter(tags=["gdpr-export"])
@@ -20,11 +20,14 @@ async def request_export(
     try:
         result = await export_service.request_export(db, user["user_id"])
     except ValueError as e:
-        raise HTTPException(status_code=429, detail={
-            "error": "rate_limited",
-            "message": str(e),
-            "details": None,
-        })
+        raise HTTPException(
+            status_code=429,
+            detail={
+                "error": "rate_limited",
+                "message": str(e),
+                "details": None,
+            },
+        )
 
     return ExportStatusResponse(**result)
 
@@ -37,14 +40,15 @@ async def get_export_status(
 ):
     """Check export status and download data if completed."""
     try:
-        result = await export_service.get_export_status(
-            db, user["user_id"], export_id
-        )
+        result = await export_service.get_export_status(db, user["user_id"], export_id)
     except ValueError as e:
-        raise HTTPException(status_code=404, detail={
-            "error": "not_found",
-            "message": str(e),
-            "details": None,
-        })
+        raise HTTPException(
+            status_code=404,
+            detail={
+                "error": "not_found",
+                "message": str(e),
+                "details": None,
+            },
+        )
 
     return ExportStatusResponse(**result)

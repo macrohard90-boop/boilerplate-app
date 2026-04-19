@@ -51,7 +51,12 @@ export default function ConditionalDurationTracker() {
               const existing = localStorage.getItem(COOKIE_KEY);
               const consent = existing
                 ? JSON.parse(existing)
-                : { necessary: true, analytics: false, marketing: false, preferences: false };
+                : {
+                    necessary: true,
+                    analytics: false,
+                    marketing: false,
+                    preferences: false,
+                  };
               consent.analytics = true;
               localStorage.setItem(COOKIE_KEY, JSON.stringify(consent));
             } catch {
@@ -61,7 +66,10 @@ export default function ConditionalDurationTracker() {
         })
         .catch((err) => {
           // Log but don't crash — will retry on next auth state change
-          console.warn("[ConditionalDurationTracker] Failed to check server consent:", err);
+          console.warn(
+            "[ConditionalDurationTracker] Failed to check server consent:",
+            err,
+          );
           serverChecked.current = false;
         });
     }

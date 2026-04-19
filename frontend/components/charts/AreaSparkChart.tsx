@@ -93,7 +93,10 @@ export default function AreaSparkChart({
 
   return (
     <ResponsiveContainer width="100%" height={height}>
-      <AreaChart data={data} margin={{ top: 5, right: hasValue3 ? 10 : 5, left: -20, bottom: 0 }}>
+      <AreaChart
+        data={data}
+        margin={{ top: 5, right: hasValue3 ? 10 : 5, left: -20, bottom: 0 }}
+      >
         <defs>
           <linearGradient id={id1} x1="0" y1="0" x2="0" y2="1">
             <stop offset="5%" stopColor={color} stopOpacity={0.3} />
@@ -126,7 +129,17 @@ export default function AreaSparkChart({
           axisLine={false}
           tickLine={false}
           allowDecimals={false}
-          label={valueLabel ? { value: valueLabel, angle: -90, position: "insideLeft", offset: 20, style: { fontSize: 11, fill: "rgba(255,255,255,0.35)" } } : undefined}
+          label={
+            valueLabel
+              ? {
+                  value: valueLabel,
+                  angle: -90,
+                  position: "insideLeft",
+                  offset: 20,
+                  style: { fontSize: 11, fill: "rgba(255,255,255,0.35)" },
+                }
+              : undefined
+          }
         />
         {hasValue3 && (
           <YAxis
@@ -137,7 +150,17 @@ export default function AreaSparkChart({
             axisLine={false}
             tickLine={false}
             tickFormatter={(v: number) => `${v}%`}
-            label={valueLabel3 ? { value: valueLabel3, angle: 90, position: "insideRight", offset: 10, style: { fontSize: 11, fill: "rgba(255,255,255,0.3)" } } : undefined}
+            label={
+              valueLabel3
+                ? {
+                    value: valueLabel3,
+                    angle: 90,
+                    position: "insideRight",
+                    offset: 10,
+                    style: { fontSize: 11, fill: "rgba(255,255,255,0.3)" },
+                  }
+                : undefined
+            }
           />
         )}
         <Tooltip

@@ -3,7 +3,6 @@
 import logging
 from typing import Optional
 
-import redis.asyncio as aioredis
 from redis.asyncio import ConnectionPool, Redis
 
 from backend.core.config import settings

@@ -119,7 +119,9 @@ class TemplateListResponse(BaseModel):
 
 
 class TemplateCloneRequest(BaseModel):
-    new_name: str = Field(..., min_length=1, max_length=100, pattern=r"^[a-z][a-z0-9_]*$")
+    new_name: str = Field(
+        ..., min_length=1, max_length=100, pattern=r"^[a-z][a-z0-9_]*$"
+    )
     new_display_name: str = Field(..., min_length=1, max_length=255)
 
 

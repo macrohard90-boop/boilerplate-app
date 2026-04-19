@@ -17,13 +17,17 @@ async def store_user_agent(
     """
     # Check if already stored for this session
     existing = (
-        await db.execute(
-            text(
-                "SELECT id FROM analytics.user_agents WHERE session_id = :sid LIMIT 1"
-            ),
-            {"sid": session_id},
+        (
+            await db.execute(
+                text(
+                    "SELECT id FROM analytics.user_agents WHERE session_id = :sid LIMIT 1"
+                ),
+                {"sid": session_id},
+            )
         )
-    ).mappings().first()
+        .mappings()
+        .first()
+    )
 
     if existing:
         return

@@ -7,8 +7,11 @@ from dataclasses import dataclass
 @dataclass
 class StorageResult:
     """Result of a file upload operation."""
+
     storage_path: str  # Relative path within storage (e.g. "images/uuid_file.jpg")
-    public_url: str    # Full URL to access the file (e.g. "/uploads/images/uuid_file.jpg")
+    public_url: (
+        str  # Full URL to access the file (e.g. "/uploads/images/uuid_file.jpg")
+    )
 
 
 class StorageProvider(ABC):

@@ -92,17 +92,21 @@ async def list_users(
 async def get_user_detail(db: AsyncSession, user_id: str) -> dict[str, Any] | None:
     """Return a single user with is_merchant flag."""
     row = (
-        await db.execute(
-            text(
-                "SELECT u.id, u.email, u.first_name, u.last_name, r.name AS role, "
-                "u.is_verified, u.is_active, u.deleted_at, u.created_at "
-                "FROM core.users u "
-                "JOIN core.roles r ON r.id = u.role_id "
-                "WHERE u.id = :user_id"
-            ),
-            {"user_id": user_id},
+        (
+            await db.execute(
+                text(
+                    "SELECT u.id, u.email, u.first_name, u.last_name, r.name AS role, "
+                    "u.is_verified, u.is_active, u.deleted_at, u.created_at "
+                    "FROM core.users u "
+                    "JOIN core.roles r ON r.id = u.role_id "
+                    "WHERE u.id = :user_id"
+                ),
+                {"user_id": user_id},
+            )
         )
-    ).mappings().first()
+        .mappings()
+        .first()
+    )
 
     if not row:
         return None
@@ -158,7 +162,9 @@ async def update_user_role(
         raise ValueError(f"Role '{new_role}' does not exist")
 
     await db.execute(
-        text("UPDATE core.users SET role_id = :role_id, updated_at = NOW() WHERE id = :uid"),
+        text(
+            "UPDATE core.users SET role_id = :role_id, updated_at = NOW() WHERE id = :uid"
+        ),
         {"role_id": role_row, "uid": user_id},
     )
     await db.commit()
@@ -184,7 +190,9 @@ async def toggle_user_active(
         raise ValueError("Cannot change your own status")
 
     await db.execute(
-        text("UPDATE core.users SET is_active = :active, updated_at = NOW() WHERE id = :uid"),
+        text(
+            "UPDATE core.users SET is_active = :active, updated_at = NOW() WHERE id = :uid"
+        ),
         {"active": active, "uid": user_id},
     )
     await db.commit()

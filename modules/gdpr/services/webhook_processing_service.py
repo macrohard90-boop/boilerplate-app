@@ -43,8 +43,7 @@ async def process_webhook(
         existing = (
             await db.execute(
                 text(
-                    "SELECT id FROM gdpr.email_webhook_events "
-                    "WHERE event_id = :eid"
+                    "SELECT id FROM gdpr.email_webhook_events " "WHERE event_id = :eid"
                 ),
                 {"eid": event_id},
             )
@@ -104,9 +103,7 @@ async def _handle_bounce(db: AsyncSession, event: WebhookEvent) -> None:
 
     # Suppress user by email address
     if event.recipient_email:
-        await _suppress_user_by_email(
-            db, event.recipient_email, "bounce"
-        )
+        await _suppress_user_by_email(db, event.recipient_email, "bounce")
 
 
 async def _handle_complaint(db: AsyncSession, event: WebhookEvent) -> None:
@@ -129,9 +126,7 @@ async def _handle_complaint(db: AsyncSession, event: WebhookEvent) -> None:
 
     # Suppress user by email address
     if event.recipient_email:
-        await _suppress_user_by_email(
-            db, event.recipient_email, "complaint"
-        )
+        await _suppress_user_by_email(db, event.recipient_email, "complaint")
 
 
 async def _handle_delivery(db: AsyncSession, event: WebhookEvent) -> None:
@@ -156,11 +151,15 @@ async def _handle_unsubscribe(db: AsyncSession, event: WebhookEvent) -> None:
     if event.recipient_email:
         # Look up user and disable marketing
         user = (
-            await db.execute(
-                text("SELECT id FROM core.users WHERE email = :email"),
-                {"email": event.recipient_email},
+            (
+                await db.execute(
+                    text("SELECT id FROM core.users WHERE email = :email"),
+                    {"email": event.recipient_email},
+                )
             )
-        ).mappings().first()
+            .mappings()
+            .first()
+        )
 
         if user:
             await db.execute(
@@ -173,16 +172,18 @@ async def _handle_unsubscribe(db: AsyncSession, event: WebhookEvent) -> None:
             )
 
 
-async def _suppress_user_by_email(
-    db: AsyncSession, email: str, reason: str
-) -> None:
+async def _suppress_user_by_email(db: AsyncSession, email: str, reason: str) -> None:
     """Suppress a user by their email address."""
     user = (
-        await db.execute(
-            text("SELECT id FROM core.users WHERE email = :email"),
-            {"email": email},
+        (
+            await db.execute(
+                text("SELECT id FROM core.users WHERE email = :email"),
+                {"email": email},
+            )
         )
-    ).mappings().first()
+        .mappings()
+        .first()
+    )
 
     if not user:
         logger.warning("Webhook: user not found for email %s", email)
@@ -192,14 +193,18 @@ async def _suppress_user_by_email(
 
     # Check if already suppressed
     existing = (
-        await db.execute(
-            text(
-                "SELECT suppressed_at FROM gdpr.email_preferences "
-                "WHERE user_id = :uid"
-            ),
-            {"uid": user_id},
+        (
+            await db.execute(
+                text(
+                    "SELECT suppressed_at FROM gdpr.email_preferences "
+                    "WHERE user_id = :uid"
+                ),
+                {"uid": user_id},
+            )
         )
-    ).mappings().first()
+        .mappings()
+        .first()
+    )
 
     if existing and existing["suppressed_at"]:
         return  # Already suppressed

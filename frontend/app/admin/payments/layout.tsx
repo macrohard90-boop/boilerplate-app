@@ -8,7 +8,11 @@ const PAYMENT_TABS = [
   { href: "/admin/payments/fees", label: "Fee Tiers" },
 ];
 
-export default function PaymentsLayout({ children }: { children: React.ReactNode }) {
+export default function PaymentsLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   const pathname = usePathname();
 
   return (

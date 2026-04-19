@@ -15,21 +15,28 @@ logger = logging.getLogger(__name__)
 # Helpers for product restrictions and per-customer usage
 # ---------------------------------------------------------------------------
 
+
 async def get_restricted_product_ids(db: AsyncSession, discount_id: str) -> list[str]:
     """Return product IDs this discount is restricted to (empty = all products)."""
     rows = (
-        await db.execute(
-            text(
-                "SELECT product_id FROM ecommerce.discount_product_restrictions "
-                "WHERE discount_code_id = :did"
-            ),
-            {"did": discount_id},
+        (
+            await db.execute(
+                text(
+                    "SELECT product_id FROM ecommerce.discount_product_restrictions "
+                    "WHERE discount_code_id = :did"
+                ),
+                {"did": discount_id},
+            )
         )
-    ).mappings().all()
+        .mappings()
+        .all()
+    )
     return [str(r["product_id"]) for r in rows]
 
 
-async def increment_customer_uses(db: AsyncSession, discount_id: str, user_id: str) -> None:
+async def increment_customer_uses(
+    db: AsyncSession, discount_id: str, user_id: str
+) -> None:
     """Increment per-customer usage count (UPSERT)."""
     await db.execute(
         text(
@@ -44,11 +51,15 @@ async def increment_customer_uses(db: AsyncSession, discount_id: str, user_id: s
 
 
 async def _save_product_restrictions(
-    db: AsyncSession, discount_id: str, product_ids: list[str],
+    db: AsyncSession,
+    discount_id: str,
+    product_ids: list[str],
 ) -> None:
     """Replace product restrictions for a discount."""
     await db.execute(
-        text("DELETE FROM ecommerce.discount_product_restrictions WHERE discount_code_id = :did"),
+        text(
+            "DELETE FROM ecommerce.discount_product_restrictions WHERE discount_code_id = :did"
+        ),
         {"did": discount_id},
     )
     for pid in product_ids:
@@ -65,6 +76,7 @@ async def _save_product_restrictions(
 # Validation
 # ---------------------------------------------------------------------------
 
+
 async def validate_discount(
     db: AsyncSession,
     code: str,
@@ -79,11 +91,15 @@ async def validate_discount(
     any restriction (customer, first-time, per-customer usage, products).
     """
     row = (
-        await db.execute(
-            text("SELECT * FROM ecommerce.discount_codes WHERE code = :code"),
-            {"code": code.upper()},
+        (
+            await db.execute(
+                text("SELECT * FROM ecommerce.discount_codes WHERE code = :code"),
+                {"code": code.upper()},
+            )
         )
-    ).mappings().first()
+        .mappings()
+        .first()
+    )
 
     if not row:
         raise ValueError("Invalid discount code")
@@ -102,7 +118,9 @@ async def validate_discount(
         raise ValueError("Discount code has reached maximum uses")
 
     if subtotal < d["min_order_amount"]:
-        raise ValueError(f"Minimum order amount of {d['min_order_amount']} cents required")
+        raise ValueError(
+            f"Minimum order amount of {d['min_order_amount']} cents required"
+        )
 
     # --- New restriction checks ---
 
@@ -128,17 +146,23 @@ async def validate_discount(
     # Per-customer usage limit
     if d.get("max_uses_per_customer") is not None and user_id:
         cust_uses_row = (
-            await db.execute(
-                text(
-                    "SELECT uses_count FROM ecommerce.discount_customer_uses "
-                    "WHERE discount_code_id = :did AND user_id = :uid"
-                ),
-                {"did": str(d["id"]), "uid": user_id},
+            (
+                await db.execute(
+                    text(
+                        "SELECT uses_count FROM ecommerce.discount_customer_uses "
+                        "WHERE discount_code_id = :did AND user_id = :uid"
+                    ),
+                    {"did": str(d["id"]), "uid": user_id},
+                )
             )
-        ).mappings().first()
+            .mappings()
+            .first()
+        )
         cust_uses = cust_uses_row["uses_count"] if cust_uses_row else 0
         if cust_uses >= d["max_uses_per_customer"]:
-            raise ValueError("You have already used this coupon the maximum number of times")
+            raise ValueError(
+                "You have already used this coupon the maximum number of times"
+            )
 
     # Product restriction
     restricted_pids = await get_restricted_product_ids(db, str(d["id"]))
@@ -146,9 +170,7 @@ async def validate_discount(
         restricted_set = set(restricted_pids)
         cart_set = set(cart_product_ids)
         if not cart_set.issubset(restricted_set):
-            raise ValueError(
-                "This coupon is not valid for all items in your cart"
-            )
+            raise ValueError("This coupon is not valid for all items in your cart")
 
     return d
 
@@ -164,13 +186,19 @@ def calculate_discount(discount: dict[str, Any], subtotal: int) -> int:
     return 0
 
 
-async def get_discount_by_id(db: AsyncSession, discount_id: str) -> dict[str, Any] | None:
+async def get_discount_by_id(
+    db: AsyncSession, discount_id: str
+) -> dict[str, Any] | None:
     row = (
-        await db.execute(
-            text("SELECT * FROM ecommerce.discount_codes WHERE id = :id"),
-            {"id": discount_id},
+        (
+            await db.execute(
+                text("SELECT * FROM ecommerce.discount_codes WHERE id = :id"),
+                {"id": discount_id},
+            )
         )
-    ).mappings().first()
+        .mappings()
+        .first()
+    )
     if not row:
         return None
     d = dict(row)
@@ -180,7 +208,9 @@ async def get_discount_by_id(db: AsyncSession, discount_id: str) -> dict[str, An
 
 async def increment_uses(db: AsyncSession, discount_id: str) -> None:
     await db.execute(
-        text("UPDATE ecommerce.discount_codes SET uses_count = uses_count + 1 WHERE id = :id"),
+        text(
+            "UPDATE ecommerce.discount_codes SET uses_count = uses_count + 1 WHERE id = :id"
+        ),
         {"id": discount_id},
     )
 
@@ -188,6 +218,7 @@ async def increment_uses(db: AsyncSession, discount_id: str) -> None:
 # ---------------------------------------------------------------------------
 # Stripe coupon sync helper
 # ---------------------------------------------------------------------------
+
 
 async def _sync_coupon_to_stripe(
     db: AsyncSession, discount: dict[str, Any]
@@ -209,18 +240,24 @@ async def _sync_coupon_to_stripe(
         provider = get_payment_provider()
 
         # Look up Stripe product IDs for product restrictions
-        restricted_pids = discount.get("product_ids") or await get_restricted_product_ids(
-            db, str(discount["id"])
-        )
+        restricted_pids = discount.get(
+            "product_ids"
+        ) or await get_restricted_product_ids(db, str(discount["id"]))
         stripe_product_ids: list[str] = []
         if restricted_pids:
             for pid in restricted_pids:
                 prod_row = (
-                    await db.execute(
-                        text("SELECT stripe_product_id FROM ecommerce.products WHERE id = :pid"),
-                        {"pid": str(pid)},
+                    (
+                        await db.execute(
+                            text(
+                                "SELECT stripe_product_id FROM ecommerce.products WHERE id = :pid"
+                            ),
+                            {"pid": str(pid)},
+                        )
                     )
-                ).mappings().first()
+                    .mappings()
+                    .first()
+                )
                 if prod_row and prod_row["stripe_product_id"]:
                     stripe_product_ids.append(prod_row["stripe_product_id"])
 
@@ -242,14 +279,18 @@ async def _sync_coupon_to_stripe(
             stripe_customer_id = None
             if discount.get("restricted_to_customer_id"):
                 cust_row = (
-                    await db.execute(
-                        text(
-                            "SELECT stripe_customer_id FROM ecommerce.stripe_customers "
-                            "WHERE user_id = :uid"
-                        ),
-                        {"uid": str(discount["restricted_to_customer_id"])},
+                    (
+                        await db.execute(
+                            text(
+                                "SELECT stripe_customer_id FROM ecommerce.stripe_customers "
+                                "WHERE user_id = :uid"
+                            ),
+                            {"uid": str(discount["restricted_to_customer_id"])},
+                        )
                     )
-                ).mappings().first()
+                    .mappings()
+                    .first()
+                )
                 if cust_row:
                     stripe_customer_id = cust_row["stripe_customer_id"]
                 else:
@@ -262,15 +303,21 @@ async def _sync_coupon_to_stripe(
                 stripe_coupon_id,
                 discount["code"],
                 customer=stripe_customer_id,
-                first_time_transaction=discount.get("first_time_transaction_only", False),
+                first_time_transaction=discount.get(
+                    "first_time_transaction_only", False
+                ),
             )
         except Exception:
             # Clean up orphaned coupon before re-raising
-            logger.warning("Promo code failed; cleaning up orphaned coupon %s", stripe_coupon_id)
+            logger.warning(
+                "Promo code failed; cleaning up orphaned coupon %s", stripe_coupon_id
+            )
             try:
                 await provider.delete_coupon(stripe_coupon_id)
             except Exception:
-                logger.exception("Failed to clean up orphaned Stripe coupon %s", stripe_coupon_id)
+                logger.exception(
+                    "Failed to clean up orphaned Stripe coupon %s", stripe_coupon_id
+                )
             raise
 
         # Success: update DB with Stripe IDs and sync status
@@ -293,7 +340,9 @@ async def _sync_coupon_to_stripe(
         discount["stripe_promotion_code_id"] = promo_result["stripe_promotion_code_id"]
         discount["stripe_sync_status"] = "synced"
         discount["stripe_sync_error"] = None
-        logger.info("Synced coupon %s to Stripe: %s", discount["code"], stripe_coupon_id)
+        logger.info(
+            "Synced coupon %s to Stripe: %s", discount["code"], stripe_coupon_id
+        )
 
     except Exception as e:
         error_msg = str(e)
@@ -349,8 +398,13 @@ async def _delete_stripe_coupon(discount: dict[str, Any]) -> None:
 # Admin CRUD (Wave 3)
 # ---------------------------------------------------------------------------
 
+
 async def list_discounts(
-    db: AsyncSession, *, page: int = 1, page_size: int = 20, status: str | None = None,
+    db: AsyncSession,
+    *,
+    page: int = 1,
+    page_size: int = 20,
+    status: str | None = None,
 ) -> dict[str, Any]:
     where = ""
     params: dict[str, Any] = {"limit": page_size, "offset": (page - 1) * page_size}
@@ -359,13 +413,22 @@ async def list_discounts(
     elif status == "archived":
         where = " WHERE active = FALSE"
 
-    total = (await db.execute(text(f"SELECT COUNT(*) FROM ecommerce.discount_codes{where}"))).scalar() or 0
+    total = (
+        await db.execute(text(f"SELECT COUNT(*) FROM ecommerce.discount_codes{where}"))
+    ).scalar() or 0
     rows = (
-        await db.execute(
-            text(f"SELECT * FROM ecommerce.discount_codes{where} ORDER BY created_at DESC LIMIT :limit OFFSET :offset"),
-            params,
+        (
+            await db.execute(
+                text(
+                    f"SELECT * FROM ecommerce.discount_codes{where} "
+                    f"ORDER BY created_at DESC LIMIT :limit OFFSET :offset"
+                ),
+                params,
+            )
         )
-    ).mappings().all()
+        .mappings()
+        .all()
+    )
 
     items = []
     for r in rows:
@@ -390,35 +453,41 @@ async def create_discount(db: AsyncSession, data: dict[str, Any]) -> dict[str, A
         data["stripe_duration_in_months"] = None
 
     row = (
-        await db.execute(
-            text(
-                "INSERT INTO ecommerce.discount_codes "
-                "(code, type, value, currency, min_order_amount, max_uses, "
-                " valid_from, valid_until, applies_to, stripe_duration, stripe_duration_in_months, "
-                " restricted_to_customer_id, first_time_transaction_only, max_uses_per_customer) "
-                "VALUES (:code, :type, :value, :currency, :min_order_amount, :max_uses, "
-                " :valid_from, :valid_until, :applies_to, :stripe_duration, :stripe_duration_in_months, "
-                " :restricted_to_customer_id, :first_time_transaction_only, :max_uses_per_customer) "
-                "RETURNING *"
-            ),
-            {
-                "code": data["code"].upper(),
-                "type": data["type"],
-                "value": data["value"],
-                "currency": data.get("currency", "USD"),
-                "min_order_amount": data.get("min_order_amount", 0),
-                "max_uses": data.get("max_uses"),
-                "valid_from": data.get("valid_from") or datetime.now(timezone.utc),
-                "valid_until": data.get("valid_until"),
-                "applies_to": applies_to,
-                "stripe_duration": data.get("stripe_duration", "once"),
-                "stripe_duration_in_months": data.get("stripe_duration_in_months"),
-                "restricted_to_customer_id": data.get("restricted_to_customer_id"),
-                "first_time_transaction_only": data.get("first_time_transaction_only", False),
-                "max_uses_per_customer": data.get("max_uses_per_customer"),
-            },
+        (
+            await db.execute(
+                text(
+                    "INSERT INTO ecommerce.discount_codes "
+                    "(code, type, value, currency, min_order_amount, max_uses, "
+                    " valid_from, valid_until, applies_to, stripe_duration, stripe_duration_in_months, "
+                    " restricted_to_customer_id, first_time_transaction_only, max_uses_per_customer) "
+                    "VALUES (:code, :type, :value, :currency, :min_order_amount, :max_uses, "
+                    " :valid_from, :valid_until, :applies_to, :stripe_duration, :stripe_duration_in_months, "
+                    " :restricted_to_customer_id, :first_time_transaction_only, :max_uses_per_customer) "
+                    "RETURNING *"
+                ),
+                {
+                    "code": data["code"].upper(),
+                    "type": data["type"],
+                    "value": data["value"],
+                    "currency": data.get("currency", "USD"),
+                    "min_order_amount": data.get("min_order_amount", 0),
+                    "max_uses": data.get("max_uses"),
+                    "valid_from": data.get("valid_from") or datetime.now(timezone.utc),
+                    "valid_until": data.get("valid_until"),
+                    "applies_to": applies_to,
+                    "stripe_duration": data.get("stripe_duration", "once"),
+                    "stripe_duration_in_months": data.get("stripe_duration_in_months"),
+                    "restricted_to_customer_id": data.get("restricted_to_customer_id"),
+                    "first_time_transaction_only": data.get(
+                        "first_time_transaction_only", False
+                    ),
+                    "max_uses_per_customer": data.get("max_uses_per_customer"),
+                },
+            )
         )
-    ).mappings().first()
+        .mappings()
+        .first()
+    )
     await db.commit()
 
     discount = dict(row)
@@ -426,7 +495,9 @@ async def create_discount(db: AsyncSession, data: dict[str, Any]) -> dict[str, A
     # Save product restrictions
     product_ids = data.get("product_ids", [])
     if product_ids:
-        await _save_product_restrictions(db, str(discount["id"]), [str(p) for p in product_ids])
+        await _save_product_restrictions(
+            db, str(discount["id"]), [str(p) for p in product_ids]
+        )
         await db.commit()
     discount["product_ids"] = [str(p) for p in product_ids]
 
@@ -436,7 +507,9 @@ async def create_discount(db: AsyncSession, data: dict[str, Any]) -> dict[str, A
     return discount
 
 
-async def update_discount(db: AsyncSession, discount_id: str, data: dict[str, Any]) -> dict[str, Any]:
+async def update_discount(
+    db: AsyncSession, discount_id: str, data: dict[str, Any]
+) -> dict[str, Any]:
     existing = await get_discount_by_id(db, discount_id)
     if not existing:
         raise ValueError("Discount not found")
@@ -472,12 +545,20 @@ async def update_discount(db: AsyncSession, discount_id: str, data: dict[str, An
 
     # Check if promotion code restrictions changed — Stripe promo codes are also immutable
     restrictions_changed = (
-        ("restricted_to_customer_id" in fields
-         and str(fields["restricted_to_customer_id"] or "") != str(existing.get("restricted_to_customer_id") or ""))
-        or ("first_time_transaction_only" in fields
-            and fields["first_time_transaction_only"] != existing.get("first_time_transaction_only", False))
-        or ("max_uses_per_customer" in fields
-            and fields["max_uses_per_customer"] != existing.get("max_uses_per_customer"))
+        (
+            "restricted_to_customer_id" in fields
+            and str(fields["restricted_to_customer_id"] or "")
+            != str(existing.get("restricted_to_customer_id") or "")
+        )
+        or (
+            "first_time_transaction_only" in fields
+            and fields["first_time_transaction_only"]
+            != existing.get("first_time_transaction_only", False)
+        )
+        or (
+            "max_uses_per_customer" in fields
+            and fields["max_uses_per_customer"] != existing.get("max_uses_per_customer")
+        )
         or ("code" in fields and fields.get("code") != existing.get("code"))
     )
 
@@ -485,11 +566,17 @@ async def update_discount(db: AsyncSession, discount_id: str, data: dict[str, An
         set_clause = ", ".join(f"{k} = :{k}" for k in fields)
         fields["id"] = discount_id
         row = (
-            await db.execute(
-                text(f"UPDATE ecommerce.discount_codes SET {set_clause} WHERE id = :id RETURNING *"),
-                fields,
+            (
+                await db.execute(
+                    text(
+                        f"UPDATE ecommerce.discount_codes SET {set_clause} WHERE id = :id RETURNING *"
+                    ),
+                    fields,
+                )
             )
-        ).mappings().first()
+            .mappings()
+            .first()
+        )
         await db.commit()
         discount = dict(row)
     else:
@@ -505,9 +592,8 @@ async def update_discount(db: AsyncSession, discount_id: str, data: dict[str, An
 
     # Determine if Stripe sync is needed
     needs_recreate = (
-        (value_changed or products_changed or restrictions_changed)
-        and existing.get("stripe_coupon_id")
-    )
+        value_changed or products_changed or restrictions_changed
+    ) and existing.get("stripe_coupon_id")
     needs_initial_sync = (
         existing.get("stripe_sync_status") in ("error", "unsynced")
         and discount["type"] != "free_shipping"

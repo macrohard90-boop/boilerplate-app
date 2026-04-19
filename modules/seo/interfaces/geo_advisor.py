@@ -14,14 +14,18 @@ from dataclasses import dataclass, field
 class GEOSuggestion:
     """A single actionable GEO suggestion."""
 
-    dimension: str  # "extractability", "fact_density", "authority", "freshness", "metadata"
+    dimension: (
+        str  # "extractability", "fact_density", "authority", "freshness", "metadata"
+    )
     priority: str  # "high", "medium", "low"
     title: str
     description: str
     current_value: str | None = None
     suggested_value: str | None = None
     rule_id: str | None = None  # Links to existing GEO scoring rule
-    ai_insight: bool = False  # True if from the meta-question about AI citation behaviour
+    ai_insight: bool = (
+        False  # True if from the meta-question about AI citation behaviour
+    )
 
 
 @dataclass

@@ -46,6 +46,7 @@ class LoginRequest(BaseModel):
 
 class RefreshRequest(BaseModel):
     """Body is optional — refresh token comes from httpOnly cookie."""
+
     pass
 
 

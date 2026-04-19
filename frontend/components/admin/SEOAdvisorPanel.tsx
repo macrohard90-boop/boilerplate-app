@@ -62,7 +62,9 @@ export default function SEOAdvisorPanel({
   const { site_name, site_description } = useConfig();
   const [businessContext, setBusinessContext] = useState(loadBusinessContext);
   const [intent, setIntent] = useState("");
-  const [contextExpanded, setContextExpanded] = useState(!loadBusinessContext());
+  const [contextExpanded, setContextExpanded] = useState(
+    !loadBusinessContext(),
+  );
 
   const [suggestions, setSuggestions] = useState<SEOSuggestion[]>([]);
   const [provider, setProvider] = useState<string | null>(null);
@@ -92,7 +94,7 @@ export default function SEOAdvisorPanel({
             intent: intent || null,
           }),
           signal: controller.signal,
-        }
+        },
       );
       setSuggestions(res.suggestions);
       setProvider(res.provider);
@@ -100,7 +102,7 @@ export default function SEOAdvisorPanel({
     } catch (e) {
       if (controller.signal.aborted) {
         setError(
-          "Analysis timed out. Try simplifying your request or removing the intent."
+          "Analysis timed out. Try simplifying your request or removing the intent.",
         );
       } else {
         setError((e as ApiError).message || "Advisor request failed");
@@ -117,9 +119,7 @@ export default function SEOAdvisorPanel({
     <div className="glass rounded-xl p-6">
       <div className="flex items-center justify-between mb-4">
         <div>
-          <h3 className="text-sm font-medium text-text-primary">
-            SEO Advisor
-          </h3>
+          <h3 className="text-sm font-medium text-text-primary">SEO Advisor</h3>
           <p className="text-[11px] text-text-muted mt-0.5">
             AI-powered analysis with web search
           </p>
@@ -173,7 +173,8 @@ export default function SEOAdvisorPanel({
               placeholder="Describe your business and industry. e.g., 'Online store selling handmade Italian leather shoes. Target audience is professionals aged 25-45 who value craftsmanship...'"
             />
             <p className="text-[10px] text-text-muted mt-1">
-              Persisted across sessions. Helps the advisor understand your business.
+              Persisted across sessions. Helps the advisor understand your
+              business.
             </p>
           </div>
         )}
@@ -200,7 +201,11 @@ export default function SEOAdvisorPanel({
         disabled={loading}
         className="w-full btn-primary text-sm disabled:opacity-50 mb-4"
       >
-        {loading ? "Analyzing..." : suggestions.length > 0 ? "Re-analyze" : "Analyze Page"}
+        {loading
+          ? "Analyzing..."
+          : suggestions.length > 0
+            ? "Re-analyze"
+            : "Analyze Page"}
       </button>
 
       {/* Loading state */}
@@ -220,20 +225,23 @@ export default function SEOAdvisorPanel({
       {error && suggestions.length === 0 && !loading && (
         <div className="p-4 rounded-lg bg-yellow-500/10 border border-yellow-500/30">
           <p className="text-sm font-medium text-yellow-400 mb-1">
-            {error.includes("Claude SDK") ? "SEO Advisor Unavailable" : "Analysis Error"}
+            {error.includes("Claude SDK")
+              ? "SEO Advisor Unavailable"
+              : "Analysis Error"}
           </p>
           <p className="text-xs text-text-secondary">{error}</p>
           {error.includes("Claude SDK") && (
             <p className="text-xs text-text-muted mt-2">
-              The SEO Advisor requires the Claude CLI to be installed and authenticated.
-              Run{" "}
+              The SEO Advisor requires the Claude CLI to be installed and
+              authenticated. Run{" "}
               <code className="font-mono bg-base-100 px-1 rounded">
                 claude login
               </code>{" "}
               on the server, then install{" "}
               <code className="font-mono bg-base-100 px-1 rounded">
                 claude-agent-sdk
-              </code>.
+              </code>
+              .
             </p>
           )}
         </div>
@@ -248,9 +256,7 @@ export default function SEOAdvisorPanel({
                 {suggestions.length} suggestion
                 {suggestions.length !== 1 ? "s" : ""}
               </p>
-              {error && (
-                <p className="text-[10px] text-yellow-400">{error}</p>
-              )}
+              {error && <p className="text-[10px] text-yellow-400">{error}</p>}
             </div>
           )}
 
@@ -336,7 +342,8 @@ export default function SEOAdvisorPanel({
       {/* Empty state */}
       {!loading && suggestions.length === 0 && !error && (
         <p className="text-xs text-text-muted text-center py-2">
-          Add context above, then click &quot;Analyze Page&quot; to get suggestions.
+          Add context above, then click &quot;Analyze Page&quot; to get
+          suggestions.
         </p>
       )}
     </div>

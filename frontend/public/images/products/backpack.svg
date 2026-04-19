@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#1a1a2e"/>
+      <stop offset="100%" stop-color="#16213e"/>
+    </linearGradient>
+  </defs>
+  <rect width="400" height="400" rx="24" fill="url(#bg)"/>
+  <!-- Backpack body -->
+  <path d="M130 130 Q125 125 130 110 Q140 80 200 75 Q260 80 270 110 Q275 125 270 130 L275 290 Q275 310 260 315 L140 315 Q125 310 125 290 Z" fill="#374151" stroke="#4b5563" stroke-width="2"/>
+  <!-- Top handle -->
+  <path d="M175 78 Q175 60 200 58 Q225 60 225 78" fill="none" stroke="#6b7280" stroke-width="6" stroke-linecap="round"/>
+  <!-- Front pocket -->
+  <path d="M145 180 L145 275 Q145 285 155 287 L245 287 Q255 285 255 275 L255 180 Q255 170 245 168 L155 168 Q145 170 145 180 Z" fill="#2d3748" stroke="#4b5563" stroke-width="1.5"/>
+  <!-- Pocket zipper -->
+  <line x1="155" y1="175" x2="245" y2="175" stroke="#6b7280" stroke-width="1.5"/>
+  <circle cx="230" cy="175" r="3" fill="#9ca3af"/>
+  <!-- Main zipper -->
+  <path d="M135 130 Q200 120 265 130" fill="none" stroke="#6b7280" stroke-width="1.5"/>
+  <circle cx="200" cy="124" r="3" fill="#9ca3af"/>
+  <!-- Straps (visible from sides) -->
+  <path d="M135 140 Q115 145 115 180 L118 260" stroke="#4b5563" stroke-width="5" fill="none" stroke-linecap="round"/>
+  <path d="M265 140 Q285 145 285 180 L282 260" stroke="#4b5563" stroke-width="5" fill="none" stroke-linecap="round"/>
+  <!-- USB port -->
+  <rect x="258" y="200" width="6" height="8" rx="2" fill="#6b7280"/>
+  <!-- Label -->
+  <text x="200" y="350" text-anchor="middle" fill="#666" font-family="system-ui,sans-serif" font-size="14" font-weight="500">BACKPACK</text>
+</svg>

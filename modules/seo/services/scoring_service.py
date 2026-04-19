@@ -95,16 +95,20 @@ async def get_latest_scores(
 
     # Use DISTINCT ON to get the latest score per path
     rows = (
-        await db.execute(
-            text(
-                "SELECT DISTINCT ON (path) id, path, score, rule_results, "
-                "provider, scored_at "
-                "FROM seo.page_scores ORDER BY path, scored_at DESC "
-                "LIMIT :lim OFFSET :off"
-            ),
-            {"lim": page_size, "off": offset},
+        (
+            await db.execute(
+                text(
+                    "SELECT DISTINCT ON (path) id, path, score, rule_results, "
+                    "provider, scored_at "
+                    "FROM seo.page_scores ORDER BY path, scored_at DESC "
+                    "LIMIT :lim OFFSET :off"
+                ),
+                {"lim": page_size, "off": offset},
+            )
         )
-    ).mappings().all()
+        .mappings()
+        .all()
+    )
 
     total = (
         await db.execute(
@@ -140,16 +144,20 @@ async def get_score_trend(
 ) -> dict[str, Any]:
     """Get score history for a single page."""
     rows = (
-        await db.execute(
-            text(
-                "SELECT score, scored_at FROM seo.page_scores "
-                "WHERE path = :path "
-                "AND scored_at >= NOW() - INTERVAL '1 day' * :days "
-                "ORDER BY scored_at ASC"
-            ),
-            {"path": path, "days": days},
+        (
+            await db.execute(
+                text(
+                    "SELECT score, scored_at FROM seo.page_scores "
+                    "WHERE path = :path "
+                    "AND scored_at >= NOW() - INTERVAL '1 day' * :days "
+                    "ORDER BY scored_at ASC"
+                ),
+                {"path": path, "days": days},
+            )
         )
-    ).mappings().all()
+        .mappings()
+        .all()
+    )
 
     return {
         "path": path,
@@ -166,39 +174,43 @@ async def _collect_all_paths(db: AsyncSession) -> list[str]:
     return await collect_all_paths(db)
 
 
-async def _get_latest_crawl_data(
-    db: AsyncSession, path: str
-) -> dict[str, Any] | None:
+async def _get_latest_crawl_data(db: AsyncSession, path: str) -> dict[str, Any] | None:
     """Get the latest crawl result's rendered_meta for a path."""
     row = (
-        await db.execute(
-            text(
-                "SELECT rendered_meta FROM seo.crawl_results "
-                "WHERE path = :path ORDER BY crawled_at DESC LIMIT 1"
-            ),
-            {"path": path},
+        (
+            await db.execute(
+                text(
+                    "SELECT rendered_meta FROM seo.crawl_results "
+                    "WHERE path = :path ORDER BY crawled_at DESC LIMIT 1"
+                ),
+                {"path": path},
+            )
         )
-    ).mappings().first()
+        .mappings()
+        .first()
+    )
     if row and row["rendered_meta"]:
         return row["rendered_meta"]
     return None
 
 
-async def _get_target_keywords(
-    db: AsyncSession, path: str
-) -> list[str]:
+async def _get_target_keywords(db: AsyncSession, path: str) -> list[str]:
     """Get target keywords assigned to this page (or site-wide)."""
     try:
         rows = (
-            await db.execute(
-                text(
-                    "SELECT keyword FROM seo.target_keywords "
-                    "WHERE path = :path OR path IS NULL "
-                    "ORDER BY priority DESC, created_at ASC"
-                ),
-                {"path": path},
+            (
+                await db.execute(
+                    text(
+                        "SELECT keyword FROM seo.target_keywords "
+                        "WHERE path = :path OR path IS NULL "
+                        "ORDER BY priority DESC, created_at ASC"
+                    ),
+                    {"path": path},
+                )
             )
-        ).scalars().all()
+            .scalars()
+            .all()
+        )
         return list(rows)
     except Exception:
         # Table may not exist yet (migration not run)

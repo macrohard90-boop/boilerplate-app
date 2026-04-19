@@ -63,9 +63,14 @@ export default function AdminSubscribersPage() {
   const fetchSubscriptions = useCallback(async () => {
     setLoading(true);
     try {
-      const params = new URLSearchParams({ page: String(page), page_size: "20" });
+      const params = new URLSearchParams({
+        page: String(page),
+        page_size: "20",
+      });
       if (statusFilter !== "all") params.set("status", statusFilter);
-      const res = await apiFetch(`/ecommerce/admin/subscriptions?${params}`) as SubscriptionListResponse;
+      const res = (await apiFetch(
+        `/ecommerce/admin/subscriptions?${params}`,
+      )) as SubscriptionListResponse;
       setData(res);
     } catch {
       setData(null);
@@ -87,7 +92,9 @@ export default function AdminSubscribersPage() {
     if (!cancelId) return;
     setCanceling(true);
     try {
-      await apiFetch(`/ecommerce/admin/subscriptions/${cancelId}/cancel`, { method: "POST" });
+      await apiFetch(`/ecommerce/admin/subscriptions/${cancelId}/cancel`, {
+        method: "POST",
+      });
       showToast("Subscription canceled at period end", "success");
       setCancelId(null);
       fetchSubscriptions();
@@ -114,7 +121,9 @@ export default function AdminSubscribersPage() {
               {f.label}
             </button>
           ))}
-          {data && <span className="text-text-muted text-xs ml-2">({data.total})</span>}
+          {data && (
+            <span className="text-text-muted text-xs ml-2">({data.total})</span>
+          )}
         </div>
       </div>
 
@@ -124,7 +133,8 @@ export default function AdminSubscribersPage() {
         <div className="glass rounded-xl p-12 text-center">
           <p className="text-text-muted">No subscriptions found</p>
           <p className="text-xs text-text-muted mt-1">
-            Subscriptions appear here when customers subscribe to recurring products
+            Subscriptions appear here when customers subscribe to recurring
+            products
           </p>
         </div>
       ) : (
@@ -133,53 +143,77 @@ export default function AdminSubscribersPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-glass-border">
-                  <th className="text-left p-4 text-text-muted font-medium">Customer</th>
-                  <th className="text-left p-4 text-text-muted font-medium">Product</th>
-                  <th className="text-left p-4 text-text-muted font-medium">Status</th>
-                  <th className="text-left p-4 text-text-muted font-medium">Current Period</th>
-                  <th className="text-left p-4 text-text-muted font-medium">Created</th>
-                  <th className="text-right p-4 text-text-muted font-medium">Actions</th>
+                  <th className="text-left p-4 text-text-muted font-medium">
+                    Customer
+                  </th>
+                  <th className="text-left p-4 text-text-muted font-medium">
+                    Product
+                  </th>
+                  <th className="text-left p-4 text-text-muted font-medium">
+                    Status
+                  </th>
+                  <th className="text-left p-4 text-text-muted font-medium">
+                    Current Period
+                  </th>
+                  <th className="text-left p-4 text-text-muted font-medium">
+                    Created
+                  </th>
+                  <th className="text-right p-4 text-text-muted font-medium">
+                    Actions
+                  </th>
                 </tr>
               </thead>
               <tbody>
                 {data.items.map((sub) => (
-                  <tr key={sub.id} className="border-b border-glass-border/50 hover:bg-glass-hover transition-colors">
+                  <tr
+                    key={sub.id}
+                    className="border-b border-glass-border/50 hover:bg-glass-hover transition-colors"
+                  >
                     <td className="p-4 text-text-primary">{sub.user_email}</td>
-                    <td className="p-4 text-text-secondary">{sub.product_name}</td>
+                    <td className="p-4 text-text-secondary">
+                      {sub.product_name}
+                    </td>
                     <td className="p-4">
                       <span
                         className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${
-                          STATUS_STYLES[sub.status] || "bg-gray-500/10 text-gray-400"
+                          STATUS_STYLES[sub.status] ||
+                          "bg-gray-500/10 text-gray-400"
                         }`}
                       >
                         {sub.status}
-                        {sub.cancel_at_period_end && sub.status === "active" ? " (canceling)" : ""}
+                        {sub.cancel_at_period_end && sub.status === "active"
+                          ? " (canceling)"
+                          : ""}
                       </span>
                     </td>
                     <td className="p-4 text-text-muted text-xs">
                       {sub.current_period_start && sub.current_period_end ? (
                         <>
-                          {formatDate(sub.current_period_start)} &mdash; {formatDate(sub.current_period_end)}
+                          {formatDate(sub.current_period_start)} &mdash;{" "}
+                          {formatDate(sub.current_period_end)}
                         </>
                       ) : (
                         "—"
                       )}
                     </td>
-                    <td className="p-4 text-text-muted">{formatDate(sub.created_at)}</td>
+                    <td className="p-4 text-text-muted">
+                      {formatDate(sub.created_at)}
+                    </td>
                     <td className="p-4 text-right whitespace-nowrap">
                       {sub.stripe_subscription_id && (
                         <span className="text-xs font-mono text-text-muted mr-3">
                           {sub.stripe_subscription_id.slice(0, 16)}...
                         </span>
                       )}
-                      {(sub.status === "active" || sub.status === "trialing") && !sub.cancel_at_period_end && (
-                        <button
-                          onClick={() => setCancelId(sub.id)}
-                          className="text-xs text-accent-pink hover:text-accent-pink/80"
-                        >
-                          Cancel
-                        </button>
-                      )}
+                      {(sub.status === "active" || sub.status === "trialing") &&
+                        !sub.cancel_at_period_end && (
+                          <button
+                            onClick={() => setCancelId(sub.id)}
+                            className="text-xs text-accent-pink hover:text-accent-pink/80"
+                          >
+                            Cancel
+                          </button>
+                        )}
                     </td>
                   </tr>
                 ))}
@@ -188,16 +222,26 @@ export default function AdminSubscribersPage() {
           </div>
           {data.total_pages > 1 && (
             <div className="mt-6">
-              <Pagination currentPage={data.page} totalPages={data.total_pages} onPageChange={setPage} />
+              <Pagination
+                currentPage={data.page}
+                totalPages={data.total_pages}
+                onPageChange={setPage}
+              />
             </div>
           )}
         </>
       )}
 
       {/* Cancel Confirmation Modal */}
-      <Modal isOpen={!!cancelId} onClose={() => setCancelId(null)} title="Cancel Subscription" size="sm">
+      <Modal
+        isOpen={!!cancelId}
+        onClose={() => setCancelId(null)}
+        title="Cancel Subscription"
+        size="sm"
+      >
         <p className="text-text-secondary text-sm mb-4">
-          Are you sure you want to cancel this subscription? It will remain active until the end of the current billing period.
+          Are you sure you want to cancel this subscription? It will remain
+          active until the end of the current billing period.
         </p>
         <div className="flex justify-end gap-3">
           <button

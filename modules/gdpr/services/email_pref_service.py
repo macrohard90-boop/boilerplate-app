@@ -53,20 +53,22 @@ def _validate_unsubscribe_token(token: str) -> str | None:
         return None
 
 
-async def get_preferences(
-    db: AsyncSession, user_id: str
-) -> dict[str, Any] | None:
+async def get_preferences(db: AsyncSession, user_id: str) -> dict[str, Any] | None:
     """Get current email preferences for a user."""
     row = (
-        await db.execute(
-            text(
-                "SELECT marketing_email, transactional_email, "
-                "suppressed_at, suppression_reason "
-                "FROM gdpr.email_preferences WHERE user_id = :uid"
-            ),
-            {"uid": user_id},
+        (
+            await db.execute(
+                text(
+                    "SELECT marketing_email, transactional_email, "
+                    "suppressed_at, suppression_reason "
+                    "FROM gdpr.email_preferences WHERE user_id = :uid"
+                ),
+                {"uid": user_id},
+            )
         )
-    ).mappings().first()
+        .mappings()
+        .first()
+    )
 
     if not row:
         return None
@@ -87,13 +89,15 @@ async def update_preferences(
 ) -> dict[str, Any]:
     """Create or update email preferences."""
     existing = (
-        await db.execute(
-            text(
-                "SELECT id FROM gdpr.email_preferences WHERE user_id = :uid"
-            ),
-            {"uid": user_id},
+        (
+            await db.execute(
+                text("SELECT id FROM gdpr.email_preferences WHERE user_id = :uid"),
+                {"uid": user_id},
+            )
         )
-    ).mappings().first()
+        .mappings()
+        .first()
+    )
 
     if existing:
         await db.execute(
@@ -120,11 +124,15 @@ async def update_preferences(
     if not marketing_email:
         try:
             user_row = (
-                await db.execute(
-                    text("SELECT email FROM core.users WHERE id = :uid"),
-                    {"uid": user_id},
+                (
+                    await db.execute(
+                        text("SELECT email FROM core.users WHERE id = :uid"),
+                        {"uid": user_id},
+                    )
                 )
-            ).mappings().first()
+                .mappings()
+                .first()
+            )
             if user_row:
                 from modules.gdpr.adapters import get_email_provider
 
@@ -144,9 +152,7 @@ async def update_preferences(
     }
 
 
-async def unsubscribe_by_token(
-    db: AsyncSession, token: str
-) -> dict[str, Any]:
+async def unsubscribe_by_token(db: AsyncSession, token: str) -> dict[str, Any]:
     """Process one-click unsubscribe via HMAC token."""
     user_id = _validate_unsubscribe_token(token)
     if not user_id:
@@ -154,11 +160,15 @@ async def unsubscribe_by_token(
 
     # Upsert: set marketing_email=false, suppress
     existing = (
-        await db.execute(
-            text("SELECT id FROM gdpr.email_preferences WHERE user_id = :uid"),
-            {"uid": user_id},
+        (
+            await db.execute(
+                text("SELECT id FROM gdpr.email_preferences WHERE user_id = :uid"),
+                {"uid": user_id},
+            )
         )
-    ).mappings().first()
+        .mappings()
+        .first()
+    )
 
     if existing:
         await db.execute(
@@ -189,12 +199,16 @@ async def unsubscribe_by_token(
 async def is_suppressed(db: AsyncSession, user_id: str) -> bool:
     """Check if a user's email is suppressed."""
     row = (
-        await db.execute(
-            text(
-                "SELECT suppressed_at FROM gdpr.email_preferences "
-                "WHERE user_id = :uid AND suppressed_at IS NOT NULL"
-            ),
-            {"uid": user_id},
+        (
+            await db.execute(
+                text(
+                    "SELECT suppressed_at FROM gdpr.email_preferences "
+                    "WHERE user_id = :uid AND suppressed_at IS NOT NULL"
+                ),
+                {"uid": user_id},
+            )
         )
-    ).mappings().first()
+        .mappings()
+        .first()
+    )
     return row is not None

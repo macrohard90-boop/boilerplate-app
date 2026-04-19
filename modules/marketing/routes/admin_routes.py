@@ -49,7 +49,9 @@ async def list_campaigns(
     per_page: int = Query(20, ge=1, le=100),
 ):
     """List all marketing campaigns (paginated, filterable by status)."""
-    return await campaign_service.list_campaigns(db, status=status, page=page, per_page=per_page)
+    return await campaign_service.list_campaigns(
+        db, status=status, page=page, per_page=per_page
+    )
 
 
 @router.post("/campaigns", response_model=CampaignResponse, status_code=201)
@@ -145,17 +147,21 @@ async def list_email_logs(
     ).scalar() or 0
 
     rows = (
-        await db.execute(
-            text(
-                f"SELECT id, user_id, email_type, template_id, provider, "
-                f"provider_message_id, status, skip_reason, "
-                f"sent_at, delivered_at, created_at "
-                f"FROM gdpr.email_events {where} "
-                f"ORDER BY created_at DESC LIMIT :lim OFFSET :off"
-            ),
-            params,
+        (
+            await db.execute(
+                text(
+                    f"SELECT id, user_id, email_type, template_id, provider, "
+                    f"provider_message_id, status, skip_reason, "
+                    f"sent_at, delivered_at, created_at "
+                    f"FROM gdpr.email_events {where} "
+                    f"ORDER BY created_at DESC LIMIT :lim OFFSET :off"
+                ),
+                params,
+            )
         )
-    ).mappings().all()
+        .mappings()
+        .all()
+    )
 
     return {
         "items": [
@@ -188,21 +194,24 @@ async def resend_failed_email(
 ):
     """Resend a failed email by pushing it back to the retry queue."""
     row = (
-        await db.execute(
-            text(
-                "SELECT id, user_id, template_id, email_type, status "
-                "FROM gdpr.email_events WHERE id = :eid"
-            ),
-            {"eid": event_id},
+        (
+            await db.execute(
+                text(
+                    "SELECT id, user_id, template_id, email_type, status "
+                    "FROM gdpr.email_events WHERE id = :eid"
+                ),
+                {"eid": event_id},
+            )
         )
-    ).mappings().first()
+        .mappings()
+        .first()
+    )
 
     if not row:
         raise HTTPException(status_code=404, detail="Email event not found")
     if row["status"] not in ("bounced", "complained", "skipped"):
         raise HTTPException(
-            status_code=400,
-            detail=f"Cannot resend email with status '{row['status']}'"
+            status_code=400, detail=f"Cannot resend email with status '{row['status']}'"
         )
 
     from modules.gdpr.services.email_send_service import send_email
@@ -243,18 +252,22 @@ async def list_suppressed_users(
     ).scalar() or 0
 
     rows = (
-        await db.execute(
-            text(
-                "SELECT ep.user_id, u.email, ep.suppressed_at, ep.suppression_reason "
-                "FROM gdpr.email_preferences ep "
-                "JOIN core.users u ON u.id = ep.user_id "
-                "WHERE ep.suppressed_at IS NOT NULL "
-                "ORDER BY ep.suppressed_at DESC "
-                "LIMIT :lim OFFSET :off"
-            ),
-            {"lim": page_size, "off": offset},
+        (
+            await db.execute(
+                text(
+                    "SELECT ep.user_id, u.email, ep.suppressed_at, ep.suppression_reason "
+                    "FROM gdpr.email_preferences ep "
+                    "JOIN core.users u ON u.id = ep.user_id "
+                    "WHERE ep.suppressed_at IS NOT NULL "
+                    "ORDER BY ep.suppressed_at DESC "
+                    "LIMIT :lim OFFSET :off"
+                ),
+                {"lim": page_size, "off": offset},
+            )
         )
-    ).mappings().all()
+        .mappings()
+        .all()
+    )
 
     return {
         "items": [
@@ -328,7 +341,11 @@ async def update_comm_type(
     """Update an existing communication type."""
     try:
         return await update_communication_type(
-            db, type_id, name=body.name, description=body.description, enabled=body.enabled
+            db,
+            type_id,
+            name=body.name,
+            description=body.description,
+            enabled=body.enabled,
         )
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
@@ -443,7 +460,9 @@ async def delete_template(
         raise HTTPException(status_code=status, detail=str(e))
 
 
-@router.post("/templates/{template_id}/clone", response_model=TemplateResponse, status_code=201)
+@router.post(
+    "/templates/{template_id}/clone", response_model=TemplateResponse, status_code=201
+)
 async def clone_template(
     template_id: str,
     body: TemplateCloneRequest,
@@ -477,11 +496,15 @@ async def send_test_email(
 
     # Look up admin's email
     admin_row = (
-        await db.execute(
-            text("SELECT email FROM core.users WHERE id = :uid"),
-            {"uid": user["user_id"]},
+        (
+            await db.execute(
+                text("SELECT email FROM core.users WHERE id = :uid"),
+                {"uid": user["user_id"]},
+            )
         )
-    ).mappings().first()
+        .mappings()
+        .first()
+    )
 
     if not admin_row:
         raise HTTPException(status_code=400, detail="Admin user not found")
@@ -498,6 +521,9 @@ async def send_test_email(
             to_email=admin_row["email"],
             force=True,
         )
-        return {"status": result.get("status", "sent"), "event_id": result.get("event_id")}
+        return {
+            "status": result.get("status", "sent"),
+            "event_id": result.get("event_id"),
+        }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Send failed: {e}")

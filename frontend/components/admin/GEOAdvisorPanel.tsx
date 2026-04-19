@@ -66,7 +66,9 @@ export default function GEOAdvisorPanel({
   const { site_name, site_description } = useConfig();
   const [businessContext, setBusinessContext] = useState(loadBusinessContext);
   const [intent, setIntent] = useState("");
-  const [contextExpanded, setContextExpanded] = useState(!loadBusinessContext());
+  const [contextExpanded, setContextExpanded] = useState(
+    !loadBusinessContext(),
+  );
 
   const [suggestions, setSuggestions] = useState<GEOSuggestion[]>([]);
   const [provider, setProvider] = useState<string | null>(null);
@@ -96,7 +98,7 @@ export default function GEOAdvisorPanel({
             intent: intent || null,
           }),
           signal: controller.signal,
-        }
+        },
       );
       setSuggestions(res.suggestions);
       setProvider(res.provider);
@@ -104,7 +106,7 @@ export default function GEOAdvisorPanel({
     } catch (e) {
       if (controller.signal.aborted) {
         setError(
-          "Analysis timed out. Try simplifying your request or removing the intent."
+          "Analysis timed out. Try simplifying your request or removing the intent.",
         );
       } else {
         setError((e as ApiError).message || "GEO Advisor request failed");
@@ -121,9 +123,7 @@ export default function GEOAdvisorPanel({
     <div className="glass rounded-xl p-6">
       <div className="flex items-center justify-between mb-4">
         <div>
-          <h3 className="text-sm font-medium text-text-primary">
-            GEO Advisor
-          </h3>
+          <h3 className="text-sm font-medium text-text-primary">GEO Advisor</h3>
           <p className="text-[11px] text-text-muted mt-0.5">
             AI-powered analysis with citation self-reflection
           </p>
@@ -230,7 +230,9 @@ export default function GEOAdvisorPanel({
       {error && suggestions.length === 0 && !loading && (
         <div className="p-4 rounded-lg bg-yellow-500/10 border border-yellow-500/30">
           <p className="text-sm font-medium text-yellow-400 mb-1">
-            {error.includes("Claude") ? "GEO Advisor Unavailable" : "Analysis Error"}
+            {error.includes("Claude")
+              ? "GEO Advisor Unavailable"
+              : "Analysis Error"}
           </p>
           <p className="text-xs text-text-secondary">{error}</p>
           {error.includes("Claude CLI") && (
@@ -255,9 +257,7 @@ export default function GEOAdvisorPanel({
                 {suggestions.length} suggestion
                 {suggestions.length !== 1 ? "s" : ""}
               </p>
-              {error && (
-                <p className="text-[10px] text-yellow-400">{error}</p>
-              )}
+              {error && <p className="text-[10px] text-yellow-400">{error}</p>}
             </div>
           )}
 
@@ -266,8 +266,7 @@ export default function GEOAdvisorPanel({
             const prioStyle =
               PRIORITY_STYLES[s.priority] || PRIORITY_STYLES.medium;
             const dimConfig = GEO_DIMENSIONS[s.dimension];
-            const dimIcon =
-              DIMENSION_ICONS[s.dimension] || "\uD83D\uDCCB";
+            const dimIcon = DIMENSION_ICONS[s.dimension] || "\uD83D\uDCCB";
 
             return (
               <div
@@ -362,8 +361,9 @@ export default function GEOAdvisorPanel({
       {/* Empty state */}
       {!loading && suggestions.length === 0 && !error && (
         <p className="text-xs text-text-muted text-center py-2">
-          Add context above, then click &quot;Analyze Page&quot; to get AI-powered
-          GEO suggestions — including what the AI itself would prioritize citing.
+          Add context above, then click &quot;Analyze Page&quot; to get
+          AI-powered GEO suggestions — including what the AI itself would
+          prioritize citing.
         </p>
       )}
     </div>

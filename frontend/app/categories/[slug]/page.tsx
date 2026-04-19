@@ -58,7 +58,7 @@ function findCategory(cats: Category[], slug: string): Category | null {
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
   const seoData = await serverFetch<SEOMetaResponse>(
-    `/api/seo/meta/categories/${slug}`
+    `/api/seo/meta/categories/${slug}`,
   );
 
   if (!seoData || !seoData.title) {
@@ -118,7 +118,7 @@ export default async function CategoryPage({ params }: Props) {
 
   // Fetch initial products for the category
   const products = await serverFetch<ProductResponse>(
-    `/api/ecommerce/products?category_id=${category.id}&status=active&page=1&page_size=12`
+    `/api/ecommerce/products?category_id=${category.id}&status=active&page=1&page_size=12`,
   );
 
   return (

@@ -60,9 +60,7 @@ def render_template(template_id: str, data: dict | None = None) -> str:
         raise
 
 
-def render_from_content(
-    html_content: str, data: dict | None = None
-) -> str:
+def render_from_content(html_content: str, data: dict | None = None) -> str:
     """Render arbitrary HTML content (from DB or preview).
 
     If content starts with '{%', it's treated as a full Jinja2 template
@@ -77,9 +75,7 @@ def render_from_content(
         else:
             wrapped = (
                 '{% extends "base.html" %}\n'
-                "{% block content %}\n"
-                + html_content
-                + "\n{% endblock %}"
+                "{% block content %}\n" + html_content + "\n{% endblock %}"
             )
             template = _env.from_string(wrapped)
         return template.render(**context)
@@ -109,14 +105,18 @@ async def render_template_hybrid(
     # 1. Check DB
     try:
         row = (
-            await db.execute(
-                text(
-                    "SELECT html_content, subject "
-                    "FROM marketing.email_templates WHERE name = :name"
-                ),
-                {"name": template_id},
+            (
+                await db.execute(
+                    text(
+                        "SELECT html_content, subject "
+                        "FROM marketing.email_templates WHERE name = :name"
+                    ),
+                    {"name": template_id},
+                )
             )
-        ).mappings().first()
+            .mappings()
+            .first()
+        )
     except Exception:
         # DB table may not exist yet (fresh install before migration)
         row = None
@@ -124,9 +124,7 @@ async def render_template_hybrid(
     if row:
         html = render_from_content(row["html_content"], data)
         subject = (
-            _render_jinja_string(row["subject"], context)
-            if row["subject"]
-            else None
+            _render_jinja_string(row["subject"], context) if row["subject"] else None
         )
         return html, subject
 

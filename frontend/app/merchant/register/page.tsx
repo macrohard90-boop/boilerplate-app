@@ -18,9 +18,16 @@ export default function MerchantRegisterPage() {
   if (!isAuthenticated) {
     return (
       <div className="max-w-md mx-auto px-4 py-20 text-center">
-        <h1 className="font-serif text-2xl font-bold gradient-text mb-4">Become a Merchant</h1>
-        <p className="text-text-secondary mb-6">Sign in to your account first, then upgrade to a merchant account.</p>
-        <Link href="/auth/login?redirect=/merchant/register" className="btn-primary text-sm">
+        <h1 className="font-serif text-2xl font-bold gradient-text mb-4">
+          Become a Merchant
+        </h1>
+        <p className="text-text-secondary mb-6">
+          Sign in to your account first, then upgrade to a merchant account.
+        </p>
+        <Link
+          href="/auth/login?redirect=/merchant/register"
+          className="btn-primary text-sm"
+        >
           Sign In
         </Link>
       </div>
@@ -30,11 +37,20 @@ export default function MerchantRegisterPage() {
   if (user?.role === "merchant") {
     return (
       <div className="max-w-md mx-auto px-4 py-20 text-center">
-        <h1 className="font-serif text-2xl font-bold gradient-text mb-4">Already a Merchant</h1>
-        <p className="text-text-secondary mb-6">Your account is already a merchant account. Continue to onboarding or your dashboard.</p>
+        <h1 className="font-serif text-2xl font-bold gradient-text mb-4">
+          Already a Merchant
+        </h1>
+        <p className="text-text-secondary mb-6">
+          Your account is already a merchant account. Continue to onboarding or
+          your dashboard.
+        </p>
         <div className="flex gap-4 justify-center">
-          <Link href="/merchant/onboard" className="btn-primary text-sm">Start Onboarding</Link>
-          <Link href="/merchant/dashboard" className="btn-secondary text-sm">Dashboard</Link>
+          <Link href="/merchant/onboard" className="btn-primary text-sm">
+            Start Onboarding
+          </Link>
+          <Link href="/merchant/dashboard" className="btn-secondary text-sm">
+            Dashboard
+          </Link>
         </div>
       </div>
     );
@@ -43,9 +59,15 @@ export default function MerchantRegisterPage() {
   if (user?.role === "admin") {
     return (
       <div className="max-w-md mx-auto px-4 py-20 text-center">
-        <h1 className="font-serif text-2xl font-bold text-red-400 mb-4">Not Available</h1>
-        <p className="text-text-secondary mb-6">Admin accounts cannot be converted to merchant accounts.</p>
-        <Link href="/dashboard" className="btn-primary text-sm">Back to Dashboard</Link>
+        <h1 className="font-serif text-2xl font-bold text-red-400 mb-4">
+          Not Available
+        </h1>
+        <p className="text-text-secondary mb-6">
+          Admin accounts cannot be converted to merchant accounts.
+        </p>
+        <Link href="/dashboard" className="btn-primary text-sm">
+          Back to Dashboard
+        </Link>
       </div>
     );
   }
@@ -63,7 +85,8 @@ export default function MerchantRegisterPage() {
       });
       if (res.ok) {
         const data = await res.json();
-        const { setAccessToken, setCsrfToken } = await import("../../../lib/api");
+        const { setAccessToken, setCsrfToken } =
+          await import("../../../lib/api");
         setAccessToken(data.access_token);
         if (data.csrf_token) setCsrfToken(data.csrf_token);
       }
@@ -80,10 +103,12 @@ export default function MerchantRegisterPage() {
   return (
     <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
       <div className="glass rounded-2xl p-8">
-        <h1 className="font-serif text-3xl font-bold gradient-text mb-2">Become a Merchant</h1>
+        <h1 className="font-serif text-3xl font-bold gradient-text mb-2">
+          Become a Merchant
+        </h1>
         <p className="text-text-secondary mb-8">
-          Upgrade your account to start selling on our platform. You&apos;ll be guided through
-          Stripe Connect setup to receive payments directly.
+          Upgrade your account to start selling on our platform. You&apos;ll be
+          guided through Stripe Connect setup to receive payments directly.
         </p>
 
         <div className="space-y-4 mb-8">
@@ -92,8 +117,12 @@ export default function MerchantRegisterPage() {
               <span className="text-accent-purple text-sm font-bold">1</span>
             </div>
             <div>
-              <p className="text-text-primary font-medium">Upgrade your account</p>
-              <p className="text-sm text-text-muted">Your customer account will be converted to a merchant account.</p>
+              <p className="text-text-primary font-medium">
+                Upgrade your account
+              </p>
+              <p className="text-sm text-text-muted">
+                Your customer account will be converted to a merchant account.
+              </p>
             </div>
           </div>
           <div className="flex items-start gap-3">
@@ -101,8 +130,12 @@ export default function MerchantRegisterPage() {
               <span className="text-accent-blue text-sm font-bold">2</span>
             </div>
             <div>
-              <p className="text-text-primary font-medium">Connect with Stripe</p>
-              <p className="text-sm text-text-muted">Set up your Stripe Express account to receive payments securely.</p>
+              <p className="text-text-primary font-medium">
+                Connect with Stripe
+              </p>
+              <p className="text-sm text-text-muted">
+                Set up your Stripe Express account to receive payments securely.
+              </p>
             </div>
           </div>
           <div className="flex items-start gap-3">
@@ -111,7 +144,9 @@ export default function MerchantRegisterPage() {
             </div>
             <div>
               <p className="text-text-primary font-medium">Start selling</p>
-              <p className="text-sm text-text-muted">Once verified, you can list products and receive payments.</p>
+              <p className="text-sm text-text-muted">
+                Once verified, you can list products and receive payments.
+              </p>
             </div>
           </div>
         </div>

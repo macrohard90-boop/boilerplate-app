@@ -8,9 +8,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.core.config import settings
 from backend.core.database import get_db
-from backend.core.dependencies import get_current_user, require_role, validate_csrf
-
-logger = logging.getLogger(__name__)
+from backend.core.dependencies import get_current_user, validate_csrf
+from modules.ecommerce.services import order_service
 from modules.payments.adapters import get_payment_provider
 from modules.payments.models.schemas import (
     CheckoutRequest,
@@ -22,8 +21,13 @@ from modules.payments.models.schemas import (
     RefundRequest,
     RefundResponse,
 )
-from modules.payments.services import checkout_service, payment_service, subscription_checkout_service
-from modules.ecommerce.services import order_service
+from modules.payments.services import (
+    checkout_service,
+    payment_service,
+    subscription_checkout_service,
+)
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -50,24 +54,48 @@ async def create_checkout(
             db,
             user_id=str(user["user_id"]),
             email=user.get("email", ""),
-            shipping_address=data.shipping_address.model_dump() if data.shipping_address else None,
-            billing_address=data.billing_address.model_dump() if data.billing_address else None,
+            shipping_address=(
+                data.shipping_address.model_dump() if data.shipping_address else None
+            ),
+            billing_address=(
+                data.billing_address.model_dump() if data.billing_address else None
+            ),
             discount_code=data.discount_code,
         )
         if settings.enable_tracking and not x_session_id:
-            _row = (await db.execute(text(
-                "SELECT session_id FROM analytics.analytics_sessions "
-                "WHERE user_id = :uid ORDER BY ended_at DESC NULLS FIRST LIMIT 1"
-            ), {"uid": user["user_id"]})).mappings().first()
+            _row = (
+                (
+                    await db.execute(
+                        text(
+                            "SELECT session_id FROM analytics.analytics_sessions "
+                            "WHERE user_id = :uid ORDER BY ended_at DESC NULLS FIRST LIMIT 1"
+                        ),
+                        {"uid": user["user_id"]},
+                    )
+                )
+                .mappings()
+                .first()
+            )
             if _row:
                 x_session_id = _row["session_id"]
         if settings.enable_tracking and x_session_id:
             try:
                 from modules.tracking.services.event_service import record_event
-                await record_event(db, x_session_id, "checkout_started", {
-                    "cart_total": float(result.get("amount", 0)) if isinstance(result, dict) else 0,
-                    "checkout_type": "one_time",
-                }, user_id=user["user_id"])
+
+                await record_event(
+                    db,
+                    x_session_id,
+                    "checkout_started",
+                    {
+                        "cart_total": (
+                            float(result.get("amount", 0))
+                            if isinstance(result, dict)
+                            else 0
+                        ),
+                        "checkout_type": "one_time",
+                    },
+                    user_id=user["user_id"],
+                )
             except Exception:
                 logger.debug("Failed to record checkout_started event", exc_info=True)
         return result
@@ -96,32 +124,54 @@ async def create_checkout_session(
     Returns a session URL to redirect the user to Stripe-hosted checkout.
     """
     try:
-        result = await subscription_checkout_service.create_subscription_checkout_session(
-            db,
-            user_id=str(user["user_id"]),
-            email=user.get("email", ""),
-            discount_code=data.discount_code,
+        result = (
+            await subscription_checkout_service.create_subscription_checkout_session(
+                db,
+                user_id=str(user["user_id"]),
+                email=user.get("email", ""),
+                discount_code=data.discount_code,
+            )
         )
         if settings.enable_tracking and not x_session_id:
-            _row = (await db.execute(text(
-                "SELECT session_id FROM analytics.analytics_sessions "
-                "WHERE user_id = :uid ORDER BY ended_at DESC NULLS FIRST LIMIT 1"
-            ), {"uid": user["user_id"]})).mappings().first()
+            _row = (
+                (
+                    await db.execute(
+                        text(
+                            "SELECT session_id FROM analytics.analytics_sessions "
+                            "WHERE user_id = :uid ORDER BY ended_at DESC NULLS FIRST LIMIT 1"
+                        ),
+                        {"uid": user["user_id"]},
+                    )
+                )
+                .mappings()
+                .first()
+            )
             if _row:
                 x_session_id = _row["session_id"]
         if settings.enable_tracking and x_session_id:
             try:
                 from modules.tracking.services.event_service import record_event
-                await record_event(db, x_session_id, "checkout_started", {
-                    "checkout_type": "subscription",
-                }, user_id=user["user_id"])
+
+                await record_event(
+                    db,
+                    x_session_id,
+                    "checkout_started",
+                    {
+                        "checkout_type": "subscription",
+                    },
+                    user_id=user["user_id"],
+                )
             except Exception:
                 logger.debug("Failed to record checkout_started event", exc_info=True)
         return result
     except ValueError as e:
         raise HTTPException(
             status_code=400,
-            detail={"error": "checkout_session_failed", "message": str(e), "details": None},
+            detail={
+                "error": "checkout_session_failed",
+                "message": str(e),
+                "details": None,
+            },
         )
 
 
@@ -140,7 +190,11 @@ async def get_payment_status(
     if not order:
         raise HTTPException(
             status_code=404,
-            detail={"error": "not_found", "message": "Order not found", "details": None},
+            detail={
+                "error": "not_found",
+                "message": "Order not found",
+                "details": None,
+            },
         )
 
     payment = await payment_service.get_payment_by_order(db, order_id)
@@ -190,7 +244,11 @@ async def refund_order(
     if not order:
         raise HTTPException(
             status_code=404,
-            detail={"error": "not_found", "message": "Order not found", "details": None},
+            detail={
+                "error": "not_found",
+                "message": "Order not found",
+                "details": None,
+            },
         )
 
     if order["status"] not in ("completed", "accepted"):

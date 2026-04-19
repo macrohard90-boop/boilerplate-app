@@ -99,15 +99,19 @@ async def get_source_stats(
     where = " AND ".join(where_clauses) if where_clauses else "1=1"
 
     rows = (
-        await db.execute(
-            text(
-                f"SELECT source, medium, COUNT(*) AS sessions "
-                f"FROM analytics.referral_sources WHERE {where} "
-                f"GROUP BY source, medium ORDER BY sessions DESC LIMIT 50"
-            ),
-            params,
+        (
+            await db.execute(
+                text(
+                    f"SELECT source, medium, COUNT(*) AS sessions "
+                    f"FROM analytics.referral_sources WHERE {where} "
+                    f"GROUP BY source, medium ORDER BY sessions DESC LIMIT 50"
+                ),
+                params,
+            )
         )
-    ).mappings().all()
+        .mappings()
+        .all()
+    )
 
     return {
         "total_sources": len(rows),

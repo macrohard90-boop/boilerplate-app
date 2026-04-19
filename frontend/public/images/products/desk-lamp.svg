@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#1a1a2e"/>
+      <stop offset="100%" stop-color="#16213e"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="200" cy="160" r="120" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#fbbf24" stop-opacity="0.15"/>
+      <stop offset="100%" stop-color="#fbbf24" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="400" height="400" rx="24" fill="url(#bg)"/>
+  <!-- Light glow -->
+  <circle cx="200" cy="160" r="100" fill="url(#glow)"/>
+  <!-- Lamp arm -->
+  <line x1="200" y1="290" x2="185" y2="180" stroke="#9ca3af" stroke-width="5" stroke-linecap="round"/>
+  <line x1="185" y1="180" x2="210" y2="115" stroke="#9ca3af" stroke-width="5" stroke-linecap="round"/>
+  <!-- Joint -->
+  <circle cx="185" cy="180" r="6" fill="#6b7280"/>
+  <!-- Lamp head -->
+  <path d="M160 115 Q165 100 210 105 L225 115 Q220 130 165 128 Z" fill="#6b7280" stroke="#9ca3af" stroke-width="1"/>
+  <!-- Light surface -->
+  <path d="M168 128 Q170 135 220 133 L225 115 Q220 130 165 128 Z" fill="#fbbf24" opacity="0.6"/>
+  <!-- Base -->
+  <ellipse cx="200" cy="295" rx="50" ry="8" fill="#4b5563" stroke="#6b7280" stroke-width="1"/>
+  <!-- USB port on base -->
+  <rect x="215" y="289" width="8" height="5" rx="1" fill="#374151" stroke="#555" stroke-width="0.5"/>
+  <!-- Label -->
+  <text x="200" y="340" text-anchor="middle" fill="#666" font-family="system-ui,sans-serif" font-size="14" font-weight="500">DESK LAMP</text>
+  <text x="200" y="358" text-anchor="middle" fill="#555" font-family="system-ui,sans-serif" font-size="12">LED Adjustable</text>
+</svg>

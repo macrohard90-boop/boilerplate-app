@@ -10,7 +10,7 @@ const INTERNAL_API_URL =
 
 export async function serverFetch<T = unknown>(
   path: string,
-  options?: { revalidate?: number }
+  options?: { revalidate?: number },
 ): Promise<T | null> {
   const url = `${INTERNAL_API_URL}${path.startsWith("/") ? path : `/${path}`}`;
   try {

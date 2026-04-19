@@ -10,7 +10,10 @@ import Pagination from "../../../components/Pagination";
 import Modal from "../../../components/Modal";
 import { formatDate, formatRelativeTime, truncate } from "../../../lib/format";
 
-const TemplateEditor = dynamic(() => import("../../../components/TemplateEditor"), { ssr: false });
+const TemplateEditor = dynamic(
+  () => import("../../../components/TemplateEditor"),
+  { ssr: false },
+);
 
 // ── Interfaces ──────────────────────────────────────────
 
@@ -123,19 +126,36 @@ interface AudienceResponse {
 
 function statusBadge(status: string): string {
   switch (status) {
-    case "draft": return "badge-blue";
-    case "scheduled": return "badge-purple";
-    case "sending": return "badge-blue";
-    case "sent": case "delivered": return "badge-green";
-    case "cancelled": case "bounced": case "complained": case "failed": return "badge-pink";
-    case "skipped": return "badge-purple";
-    default: return "badge-purple";
+    case "draft":
+      return "badge-blue";
+    case "scheduled":
+      return "badge-purple";
+    case "sending":
+      return "badge-blue";
+    case "sent":
+    case "delivered":
+      return "badge-green";
+    case "cancelled":
+    case "bounced":
+    case "complained":
+    case "failed":
+      return "badge-pink";
+    case "skipped":
+      return "badge-purple";
+    default:
+      return "badge-purple";
   }
 }
 
 // ── Tab types ───────────────────────────────────────────
 
-type TabId = "templates" | "campaigns" | "email_logs" | "suppressed" | "comm_types" | "audience";
+type TabId =
+  | "templates"
+  | "campaigns"
+  | "email_logs"
+  | "suppressed"
+  | "comm_types"
+  | "audience";
 
 const TABS: { id: TabId; label: string }[] = [
   { id: "templates", label: "Templates" },
@@ -155,7 +175,10 @@ export default function AdminMarketingPage() {
   if (!enable_marketing) {
     return (
       <div className="glass rounded-xl p-8 text-center">
-        <p className="text-text-muted">Marketing is disabled. Enable it via <code className="text-accent-pink">ENABLE_MARKETING=true</code>.</p>
+        <p className="text-text-muted">
+          Marketing is disabled. Enable it via{" "}
+          <code className="text-accent-pink">ENABLE_MARKETING=true</code>.
+        </p>
       </div>
     );
   }
@@ -201,10 +224,14 @@ export default function AdminMarketingPage() {
 
 function categoryBadge(category: string): string {
   switch (category) {
-    case "transactional": return "badge-blue";
-    case "campaign": return "badge-purple";
-    case "automation": return "badge-green";
-    default: return "badge-purple";
+    case "transactional":
+      return "badge-blue";
+    case "campaign":
+      return "badge-purple";
+    case "automation":
+      return "badge-green";
+    default:
+      return "badge-purple";
   }
 }
 
@@ -219,7 +246,9 @@ function TemplatesTab() {
 
   // Editor state
   const [editorOpen, setEditorOpen] = useState(false);
-  const [editingTemplate, setEditingTemplate] = useState<EmailTemplate | null>(null);
+  const [editingTemplate, setEditingTemplate] = useState<EmailTemplate | null>(
+    null,
+  );
   const [saving, setSaving] = useState(false);
 
   // Form fields
@@ -239,9 +268,14 @@ function TemplatesTab() {
   const fetchTemplates = useCallback(async () => {
     setLoading(true);
     try {
-      const params = new URLSearchParams({ page: String(page), per_page: String(perPage) });
+      const params = new URLSearchParams({
+        page: String(page),
+        per_page: String(perPage),
+      });
       if (categoryFilter) params.set("category", categoryFilter);
-      const data = await apiFetch<TemplateList>(`/marketing/admin/templates?${params}`);
+      const data = await apiFetch<TemplateList>(
+        `/marketing/admin/templates?${params}`,
+      );
       setTemplates(data.items);
       setTotal(data.total);
     } catch {
@@ -250,7 +284,9 @@ function TemplatesTab() {
     setLoading(false);
   }, [page, categoryFilter, showToast]);
 
-  useEffect(() => { fetchTemplates(); }, [fetchTemplates]);
+  useEffect(() => {
+    fetchTemplates();
+  }, [fetchTemplates]);
 
   function openCreate() {
     setEditingTemplate(null);
@@ -259,13 +295,15 @@ function TemplatesTab() {
     setFormSubject("");
     setFormCategory("campaign");
     setFormDescription("");
-    setFormHtml('<h1>Hello {{ first_name }}</h1>\n<p>Your content here.</p>');
+    setFormHtml("<h1>Hello {{ first_name }}</h1>\n<p>Your content here.</p>");
     setEditorOpen(true);
   }
 
   async function openEdit(t: EmailTemplate) {
     try {
-      const full = await apiFetch<EmailTemplate>(`/marketing/admin/templates/${t.id}`);
+      const full = await apiFetch<EmailTemplate>(
+        `/marketing/admin/templates/${t.id}`,
+      );
       setEditingTemplate(full);
       setFormName(full.name);
       setFormDisplayName(full.display_name);
@@ -327,9 +365,12 @@ function TemplatesTab() {
   }
 
   async function handleDelete(t: EmailTemplate) {
-    if (!confirm(`Delete template "${t.display_name}"? This cannot be undone.`)) return;
+    if (!confirm(`Delete template "${t.display_name}"? This cannot be undone.`))
+      return;
     try {
-      await apiFetch(`/marketing/admin/templates/${t.id}`, { method: "DELETE" });
+      await apiFetch(`/marketing/admin/templates/${t.id}`, {
+        method: "DELETE",
+      });
       showToast("Template deleted", "success");
       fetchTemplates();
     } catch {
@@ -339,7 +380,9 @@ function TemplatesTab() {
 
   async function handleSendTest(t: EmailTemplate) {
     try {
-      await apiFetch(`/marketing/admin/templates/${t.id}/send-test`, { method: "POST" });
+      await apiFetch(`/marketing/admin/templates/${t.id}/send-test`, {
+        method: "POST",
+      });
       showToast("Test email sent to your address", "success");
     } catch {
       showToast("Failed to send test email", "error");
@@ -361,7 +404,10 @@ function TemplatesTab() {
     try {
       await apiFetch(`/marketing/admin/templates/${cloneSource!.id}/clone`, {
         method: "POST",
-        body: JSON.stringify({ new_name: cloneName, new_display_name: cloneDisplayName }),
+        body: JSON.stringify({
+          new_name: cloneName,
+          new_display_name: cloneDisplayName,
+        }),
       });
       showToast("Template cloned", "success");
       setCloneSource(null);
@@ -380,14 +426,19 @@ function TemplatesTab() {
           <select
             className="input-glass text-sm py-1.5 px-3"
             value={categoryFilter}
-            onChange={(e) => { setCategoryFilter(e.target.value); setPage(1); }}
+            onChange={(e) => {
+              setCategoryFilter(e.target.value);
+              setPage(1);
+            }}
           >
             <option value="">All categories</option>
             <option value="transactional">Transactional</option>
             <option value="campaign">Campaign</option>
             <option value="automation">Automation</option>
           </select>
-          <span className="text-xs text-text-muted">{total} template{total !== 1 ? "s" : ""}</span>
+          <span className="text-xs text-text-muted">
+            {total} template{total !== 1 ? "s" : ""}
+          </span>
         </div>
         <button className="btn-primary text-sm" onClick={openCreate}>
           + New Template
@@ -398,42 +449,91 @@ function TemplatesTab() {
       {loading ? (
         <LoadingSpinner className="py-16" />
       ) : templates.length === 0 ? (
-        <div className="glass rounded-xl p-8 text-center text-text-muted">No templates found.</div>
+        <div className="glass rounded-xl p-8 text-center text-text-muted">
+          No templates found.
+        </div>
       ) : (
         <div className="glass rounded-xl overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-glass-border">
-                <th className="text-left p-3 text-text-muted font-medium">Name</th>
-                <th className="text-left p-3 text-text-muted font-medium">Category</th>
-                <th className="text-left p-3 text-text-muted font-medium">Subject</th>
-                <th className="text-left p-3 text-text-muted font-medium">Version</th>
-                <th className="text-left p-3 text-text-muted font-medium">Updated</th>
-                <th className="text-right p-3 text-text-muted font-medium">Actions</th>
+                <th className="text-left p-3 text-text-muted font-medium">
+                  Name
+                </th>
+                <th className="text-left p-3 text-text-muted font-medium">
+                  Category
+                </th>
+                <th className="text-left p-3 text-text-muted font-medium">
+                  Subject
+                </th>
+                <th className="text-left p-3 text-text-muted font-medium">
+                  Version
+                </th>
+                <th className="text-left p-3 text-text-muted font-medium">
+                  Updated
+                </th>
+                <th className="text-right p-3 text-text-muted font-medium">
+                  Actions
+                </th>
               </tr>
             </thead>
             <tbody>
               {templates.map((t) => (
-                <tr key={t.id} className="border-b border-glass-border/50 hover:bg-glass-hover transition-colors">
+                <tr
+                  key={t.id}
+                  className="border-b border-glass-border/50 hover:bg-glass-hover transition-colors"
+                >
                   <td className="p-3">
-                    <div className="text-text-primary font-medium">{t.display_name}</div>
-                    <div className="text-text-muted font-mono text-xs">{t.name}</div>
+                    <div className="text-text-primary font-medium">
+                      {t.display_name}
+                    </div>
+                    <div className="text-text-muted font-mono text-xs">
+                      {t.name}
+                    </div>
                   </td>
                   <td className="p-3">
-                    <span className={`badge ${categoryBadge(t.category)}`}>{t.category}</span>
+                    <span className={`badge ${categoryBadge(t.category)}`}>
+                      {t.category}
+                    </span>
                   </td>
-                  <td className="p-3 text-text-secondary text-xs">{t.subject ? truncate(t.subject, 35) : "-"}</td>
+                  <td className="p-3 text-text-secondary text-xs">
+                    {t.subject ? truncate(t.subject, 35) : "-"}
+                  </td>
                   <td className="p-3 text-text-muted text-xs">
                     v{t.version}
-                    {t.is_builtin && <span className="badge badge-blue ml-2">built-in</span>}
+                    {t.is_builtin && (
+                      <span className="badge badge-blue ml-2">built-in</span>
+                    )}
                   </td>
-                  <td className="p-3 text-text-muted text-xs">{formatRelativeTime(t.updated_at)}</td>
+                  <td className="p-3 text-text-muted text-xs">
+                    {formatRelativeTime(t.updated_at)}
+                  </td>
                   <td className="p-3 text-right space-x-2">
-                    <button onClick={() => openEdit(t)} className="text-accent-blue hover:underline text-xs">Edit</button>
-                    <button onClick={() => openClone(t)} className="text-accent-purple hover:underline text-xs">Clone</button>
-                    <button onClick={() => handleSendTest(t)} className="text-accent-green hover:underline text-xs">Test</button>
+                    <button
+                      onClick={() => openEdit(t)}
+                      className="text-accent-blue hover:underline text-xs"
+                    >
+                      Edit
+                    </button>
+                    <button
+                      onClick={() => openClone(t)}
+                      className="text-accent-purple hover:underline text-xs"
+                    >
+                      Clone
+                    </button>
+                    <button
+                      onClick={() => handleSendTest(t)}
+                      className="text-accent-green hover:underline text-xs"
+                    >
+                      Test
+                    </button>
                     {!t.is_builtin && (
-                      <button onClick={() => handleDelete(t)} className="text-accent-pink hover:underline text-xs">Delete</button>
+                      <button
+                        onClick={() => handleDelete(t)}
+                        className="text-accent-pink hover:underline text-xs"
+                      >
+                        Delete
+                      </button>
                     )}
                   </td>
                 </tr>
@@ -444,16 +544,31 @@ function TemplatesTab() {
       )}
 
       <div className="mt-4">
-        <Pagination currentPage={page} totalPages={Math.ceil(total / perPage)} onPageChange={setPage} />
+        <Pagination
+          currentPage={page}
+          totalPages={Math.ceil(total / perPage)}
+          onPageChange={setPage}
+        />
       </div>
 
       {/* Editor modal (full-screen) */}
-      <Modal isOpen={editorOpen} onClose={() => setEditorOpen(false)} title={editingTemplate ? `Edit: ${editingTemplate.display_name}` : "New Template"} size="full">
+      <Modal
+        isOpen={editorOpen}
+        onClose={() => setEditorOpen(false)}
+        title={
+          editingTemplate
+            ? `Edit: ${editingTemplate.display_name}`
+            : "New Template"
+        }
+        size="full"
+      >
         <div className="space-y-4">
           {/* Meta fields row */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             <div>
-              <label className="text-xs text-text-muted block mb-1">Template ID</label>
+              <label className="text-xs text-text-muted block mb-1">
+                Template ID
+              </label>
               <input
                 className="input-glass w-full font-mono text-sm"
                 value={formName}
@@ -463,7 +578,9 @@ function TemplatesTab() {
               />
             </div>
             <div>
-              <label className="text-xs text-text-muted block mb-1">Display Name</label>
+              <label className="text-xs text-text-muted block mb-1">
+                Display Name
+              </label>
               <input
                 className="input-glass w-full"
                 value={formDisplayName}
@@ -472,7 +589,9 @@ function TemplatesTab() {
               />
             </div>
             <div>
-              <label className="text-xs text-text-muted block mb-1">Subject Line</label>
+              <label className="text-xs text-text-muted block mb-1">
+                Subject Line
+              </label>
               <input
                 className="input-glass w-full"
                 value={formSubject}
@@ -481,8 +600,14 @@ function TemplatesTab() {
               />
             </div>
             <div>
-              <label className="text-xs text-text-muted block mb-1">Category</label>
-              <select className="input-glass w-full" value={formCategory} onChange={(e) => setFormCategory(e.target.value)}>
+              <label className="text-xs text-text-muted block mb-1">
+                Category
+              </label>
+              <select
+                className="input-glass w-full"
+                value={formCategory}
+                onChange={(e) => setFormCategory(e.target.value)}
+              >
                 <option value="transactional">Transactional</option>
                 <option value="campaign">Campaign</option>
                 <option value="automation">Automation</option>
@@ -492,7 +617,9 @@ function TemplatesTab() {
 
           {/* Description */}
           <div>
-            <label className="text-xs text-text-muted block mb-1">Description (optional)</label>
+            <label className="text-xs text-text-muted block mb-1">
+              Description (optional)
+            </label>
             <input
               className="input-glass w-full text-sm"
               value={formDescription}
@@ -510,29 +637,53 @@ function TemplatesTab() {
 
           {/* Footer */}
           <div className="flex justify-end gap-3 pt-2">
-            <button className="btn-secondary text-sm" onClick={() => setEditorOpen(false)}>Cancel</button>
-            <button className="btn-primary text-sm" onClick={handleSave} disabled={saving}>
-              {saving ? "Saving..." : editingTemplate ? "Update Template" : "Create Template"}
+            <button
+              className="btn-secondary text-sm"
+              onClick={() => setEditorOpen(false)}
+            >
+              Cancel
+            </button>
+            <button
+              className="btn-primary text-sm"
+              onClick={handleSave}
+              disabled={saving}
+            >
+              {saving
+                ? "Saving..."
+                : editingTemplate
+                  ? "Update Template"
+                  : "Create Template"}
             </button>
           </div>
         </div>
       </Modal>
 
       {/* Clone modal */}
-      <Modal isOpen={!!cloneSource} onClose={() => setCloneSource(null)} title={`Clone: ${cloneSource?.display_name}`} size="sm">
+      <Modal
+        isOpen={!!cloneSource}
+        onClose={() => setCloneSource(null)}
+        title={`Clone: ${cloneSource?.display_name}`}
+        size="sm"
+      >
         <div className="space-y-4">
           <div>
-            <label className="text-xs text-text-muted block mb-1">New Template ID</label>
+            <label className="text-xs text-text-muted block mb-1">
+              New Template ID
+            </label>
             <input
               className="input-glass w-full font-mono text-sm"
               value={cloneName}
               onChange={(e) => setCloneName(e.target.value)}
               placeholder="my_custom_welcome"
             />
-            <p className="text-xs text-text-muted mt-1">Lowercase, underscores only (e.g. cart_abandonment)</p>
+            <p className="text-xs text-text-muted mt-1">
+              Lowercase, underscores only (e.g. cart_abandonment)
+            </p>
           </div>
           <div>
-            <label className="text-xs text-text-muted block mb-1">Display Name</label>
+            <label className="text-xs text-text-muted block mb-1">
+              Display Name
+            </label>
             <input
               className="input-glass w-full"
               value={cloneDisplayName}
@@ -541,8 +692,17 @@ function TemplatesTab() {
             />
           </div>
           <div className="flex justify-end gap-3 pt-2">
-            <button className="btn-secondary text-sm" onClick={() => setCloneSource(null)}>Cancel</button>
-            <button className="btn-primary text-sm" onClick={handleClone} disabled={cloning}>
+            <button
+              className="btn-secondary text-sm"
+              onClick={() => setCloneSource(null)}
+            >
+              Cancel
+            </button>
+            <button
+              className="btn-primary text-sm"
+              onClick={handleClone}
+              disabled={cloning}
+            >
               {cloning ? "Cloning..." : "Clone Template"}
             </button>
           </div>
@@ -571,16 +731,23 @@ function CampaignsTab() {
   const [formSubject, setFormSubject] = useState("");
   const [formTemplate, setFormTemplate] = useState("");
   const [formScheduled, setFormScheduled] = useState("");
-  const [availableTemplates, setAvailableTemplates] = useState<EmailTemplate[]>([]);
+  const [availableTemplates, setAvailableTemplates] = useState<EmailTemplate[]>(
+    [],
+  );
 
   const perPage = 15;
 
   const fetchCampaigns = useCallback(async () => {
     setLoading(true);
     try {
-      const params = new URLSearchParams({ page: String(page), per_page: String(perPage) });
+      const params = new URLSearchParams({
+        page: String(page),
+        per_page: String(perPage),
+      });
       if (statusFilter) params.set("status", statusFilter);
-      const data = await apiFetch<CampaignList>(`/marketing/admin/campaigns?${params}`);
+      const data = await apiFetch<CampaignList>(
+        `/marketing/admin/campaigns?${params}`,
+      );
       setCampaigns(data.items);
       setTotal(data.total);
     } catch {
@@ -589,7 +756,9 @@ function CampaignsTab() {
     setLoading(false);
   }, [page, statusFilter, showToast]);
 
-  useEffect(() => { fetchCampaigns(); }, [fetchCampaigns]);
+  useEffect(() => {
+    fetchCampaigns();
+  }, [fetchCampaigns]);
 
   // Load templates for the dropdown when create modal opens
   useEffect(() => {
@@ -624,7 +793,10 @@ function CampaignsTab() {
       });
       showToast("Campaign created", "success");
       setShowCreate(false);
-      setFormName(""); setFormSubject(""); setFormTemplate(""); setFormScheduled("");
+      setFormName("");
+      setFormSubject("");
+      setFormTemplate("");
+      setFormScheduled("");
       fetchCampaigns();
     } catch {
       showToast("Failed to create campaign", "error");
@@ -635,7 +807,9 @@ function CampaignsTab() {
   async function handleSend(id: string) {
     if (!confirm("Send this campaign now?")) return;
     try {
-      await apiFetch(`/marketing/admin/campaigns/${id}/send`, { method: "POST" });
+      await apiFetch(`/marketing/admin/campaigns/${id}/send`, {
+        method: "POST",
+      });
       showToast("Campaign sent", "success");
       fetchCampaigns();
     } catch {
@@ -656,7 +830,9 @@ function CampaignsTab() {
 
   async function handleStats(c: Campaign) {
     try {
-      const data = await apiFetch<CampaignStats>(`/marketing/admin/campaigns/${c.id}/stats`);
+      const data = await apiFetch<CampaignStats>(
+        `/marketing/admin/campaigns/${c.id}/stats`,
+      );
       setStatsModal(data);
       setStatsName(c.name);
     } catch {
@@ -672,7 +848,10 @@ function CampaignsTab() {
           <select
             className="input-glass text-sm py-1.5 px-3"
             value={statusFilter}
-            onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
+            onChange={(e) => {
+              setStatusFilter(e.target.value);
+              setPage(1);
+            }}
           >
             <option value="">All statuses</option>
             <option value="draft">Draft</option>
@@ -680,9 +859,14 @@ function CampaignsTab() {
             <option value="sent">Sent</option>
             <option value="cancelled">Cancelled</option>
           </select>
-          <span className="text-xs text-text-muted">{total} campaign{total !== 1 ? "s" : ""}</span>
+          <span className="text-xs text-text-muted">
+            {total} campaign{total !== 1 ? "s" : ""}
+          </span>
         </div>
-        <button className="btn-primary text-sm" onClick={() => setShowCreate(true)}>
+        <button
+          className="btn-primary text-sm"
+          onClick={() => setShowCreate(true)}
+        >
           + New Campaign
         </button>
       </div>
@@ -691,41 +875,85 @@ function CampaignsTab() {
       {loading ? (
         <LoadingSpinner className="py-16" />
       ) : campaigns.length === 0 ? (
-        <div className="glass rounded-xl p-8 text-center text-text-muted">No campaigns found.</div>
+        <div className="glass rounded-xl p-8 text-center text-text-muted">
+          No campaigns found.
+        </div>
       ) : (
         <div className="glass rounded-xl overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-glass-border">
-                <th className="text-left p-3 text-text-muted font-medium">Name</th>
-                <th className="text-left p-3 text-text-muted font-medium">Subject</th>
-                <th className="text-left p-3 text-text-muted font-medium">Template</th>
-                <th className="text-left p-3 text-text-muted font-medium">Status</th>
-                <th className="text-left p-3 text-text-muted font-medium">Date</th>
-                <th className="text-right p-3 text-text-muted font-medium">Actions</th>
+                <th className="text-left p-3 text-text-muted font-medium">
+                  Name
+                </th>
+                <th className="text-left p-3 text-text-muted font-medium">
+                  Subject
+                </th>
+                <th className="text-left p-3 text-text-muted font-medium">
+                  Template
+                </th>
+                <th className="text-left p-3 text-text-muted font-medium">
+                  Status
+                </th>
+                <th className="text-left p-3 text-text-muted font-medium">
+                  Date
+                </th>
+                <th className="text-right p-3 text-text-muted font-medium">
+                  Actions
+                </th>
               </tr>
             </thead>
             <tbody>
               {campaigns.map((c) => (
-                <tr key={c.id} className="border-b border-glass-border/50 hover:bg-glass-hover transition-colors">
-                  <td className="p-3 text-text-primary">{truncate(c.name, 30)}</td>
-                  <td className="p-3 text-text-secondary">{truncate(c.subject, 30)}</td>
-                  <td className="p-3 text-text-muted font-mono text-xs">{c.template_id}</td>
+                <tr
+                  key={c.id}
+                  className="border-b border-glass-border/50 hover:bg-glass-hover transition-colors"
+                >
+                  <td className="p-3 text-text-primary">
+                    {truncate(c.name, 30)}
+                  </td>
+                  <td className="p-3 text-text-secondary">
+                    {truncate(c.subject, 30)}
+                  </td>
+                  <td className="p-3 text-text-muted font-mono text-xs">
+                    {c.template_id}
+                  </td>
                   <td className="p-3">
-                    <span className={`badge ${statusBadge(c.status)}`}>{c.status}</span>
+                    <span className={`badge ${statusBadge(c.status)}`}>
+                      {c.status}
+                    </span>
                   </td>
                   <td className="p-3 text-text-muted text-xs">
-                    {c.sent_at ? formatRelativeTime(c.sent_at) : c.scheduled_at ? `Sched: ${formatDate(c.scheduled_at)}` : formatRelativeTime(c.created_at)}
+                    {c.sent_at
+                      ? formatRelativeTime(c.sent_at)
+                      : c.scheduled_at
+                        ? `Sched: ${formatDate(c.scheduled_at)}`
+                        : formatRelativeTime(c.created_at)}
                   </td>
                   <td className="p-3 text-right space-x-2">
                     {(c.status === "draft" || c.status === "scheduled") && (
                       <>
-                        <button onClick={() => handleSend(c.id)} className="text-accent-green hover:underline text-xs">Send</button>
-                        <button onClick={() => handleCancel(c.id)} className="text-accent-pink hover:underline text-xs">Cancel</button>
+                        <button
+                          onClick={() => handleSend(c.id)}
+                          className="text-accent-green hover:underline text-xs"
+                        >
+                          Send
+                        </button>
+                        <button
+                          onClick={() => handleCancel(c.id)}
+                          className="text-accent-pink hover:underline text-xs"
+                        >
+                          Cancel
+                        </button>
                       </>
                     )}
                     {(c.status === "sent" || c.status === "sending") && (
-                      <button onClick={() => handleStats(c)} className="text-accent-blue hover:underline text-xs">Stats</button>
+                      <button
+                        onClick={() => handleStats(c)}
+                        className="text-accent-blue hover:underline text-xs"
+                      >
+                        Stats
+                      </button>
                     )}
                   </td>
                 </tr>
@@ -736,36 +964,85 @@ function CampaignsTab() {
       )}
 
       <div className="mt-4">
-        <Pagination currentPage={page} totalPages={Math.ceil(total / perPage)} onPageChange={setPage} />
+        <Pagination
+          currentPage={page}
+          totalPages={Math.ceil(total / perPage)}
+          onPageChange={setPage}
+        />
       </div>
 
       {/* Create modal */}
-      <Modal isOpen={showCreate} onClose={() => setShowCreate(false)} title="New Campaign" size="md">
+      <Modal
+        isOpen={showCreate}
+        onClose={() => setShowCreate(false)}
+        title="New Campaign"
+        size="md"
+      >
         <div className="space-y-4">
           <div>
-            <label className="text-xs text-text-muted block mb-1">Campaign Name</label>
-            <input className="input-glass w-full" value={formName} onChange={(e) => setFormName(e.target.value)} placeholder="Spring Sale 2026" />
+            <label className="text-xs text-text-muted block mb-1">
+              Campaign Name
+            </label>
+            <input
+              className="input-glass w-full"
+              value={formName}
+              onChange={(e) => setFormName(e.target.value)}
+              placeholder="Spring Sale 2026"
+            />
           </div>
           <div>
-            <label className="text-xs text-text-muted block mb-1">Email Subject</label>
-            <input className="input-glass w-full" value={formSubject} onChange={(e) => setFormSubject(e.target.value)} placeholder="Don't miss our spring collection!" />
+            <label className="text-xs text-text-muted block mb-1">
+              Email Subject
+            </label>
+            <input
+              className="input-glass w-full"
+              value={formSubject}
+              onChange={(e) => setFormSubject(e.target.value)}
+              placeholder="Don't miss our spring collection!"
+            />
           </div>
           <div>
-            <label className="text-xs text-text-muted block mb-1">Template</label>
-            <select className="input-glass w-full" value={formTemplate} onChange={(e) => setFormTemplate(e.target.value)}>
-              {availableTemplates.length === 0 && <option value="">Loading...</option>}
+            <label className="text-xs text-text-muted block mb-1">
+              Template
+            </label>
+            <select
+              className="input-glass w-full"
+              value={formTemplate}
+              onChange={(e) => setFormTemplate(e.target.value)}
+            >
+              {availableTemplates.length === 0 && (
+                <option value="">Loading...</option>
+              )}
               {availableTemplates.map((t) => (
-                <option key={t.name} value={t.name}>{t.display_name} ({t.name})</option>
+                <option key={t.name} value={t.name}>
+                  {t.display_name} ({t.name})
+                </option>
               ))}
             </select>
           </div>
           <div>
-            <label className="text-xs text-text-muted block mb-1">Schedule (optional)</label>
-            <input type="datetime-local" className="input-glass w-full" value={formScheduled} onChange={(e) => setFormScheduled(e.target.value)} />
+            <label className="text-xs text-text-muted block mb-1">
+              Schedule (optional)
+            </label>
+            <input
+              type="datetime-local"
+              className="input-glass w-full"
+              value={formScheduled}
+              onChange={(e) => setFormScheduled(e.target.value)}
+            />
           </div>
           <div className="flex justify-end gap-3 pt-2">
-            <button className="btn-secondary text-sm" onClick={() => setShowCreate(false)}>Cancel</button>
-            <button className="btn-primary text-sm" onClick={handleCreate} disabled={creating}>
+            <button
+              className="btn-secondary text-sm"
+              onClick={() => setShowCreate(false)}
+            >
+              Cancel
+            </button>
+            <button
+              className="btn-primary text-sm"
+              onClick={handleCreate}
+              disabled={creating}
+            >
               {creating ? "Creating..." : "Create Campaign"}
             </button>
           </div>
@@ -773,22 +1050,31 @@ function CampaignsTab() {
       </Modal>
 
       {/* Stats modal */}
-      <Modal isOpen={!!statsModal} onClose={() => setStatsModal(null)} title={`Stats: ${statsName}`} size="md">
+      <Modal
+        isOpen={!!statsModal}
+        onClose={() => setStatsModal(null)}
+        title={`Stats: ${statsName}`}
+        size="md"
+      >
         {statsModal && (
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-            {([
-              ["Sent", statsModal.sent, "accent-blue"],
-              ["Delivered", statsModal.delivered, "accent-green"],
-              ["Opened", statsModal.opened, "accent-purple"],
-              ["Clicked", statsModal.clicked, "accent-pink"],
-              ["Bounced", statsModal.bounced, "accent-pink"],
-              ["Unsubscribed", statsModal.unsubscribed, "accent-pink"],
-            ] as [string, number, string][]).map(([label, val, color]) => (
+            {(
+              [
+                ["Sent", statsModal.sent, "accent-blue"],
+                ["Delivered", statsModal.delivered, "accent-green"],
+                ["Opened", statsModal.opened, "accent-purple"],
+                ["Clicked", statsModal.clicked, "accent-pink"],
+                ["Bounced", statsModal.bounced, "accent-pink"],
+                ["Unsubscribed", statsModal.unsubscribed, "accent-pink"],
+              ] as [string, number, string][]
+            ).map(([label, val, color]) => (
               <div key={label} className="glass rounded-lg p-3 text-center">
                 <p className="text-xs text-text-muted mb-1">{label}</p>
                 <p className={`text-xl font-bold text-${color}`}>{val}</p>
                 {statsModal.sent > 0 && label !== "Sent" && (
-                  <p className="text-xs text-text-muted">{((val / statsModal.sent) * 100).toFixed(1)}%</p>
+                  <p className="text-xs text-text-muted">
+                    {((val / statsModal.sent) * 100).toFixed(1)}%
+                  </p>
                 )}
               </div>
             ))}
@@ -815,11 +1101,16 @@ function EmailLogsTab() {
   const fetchLogs = useCallback(async () => {
     setLoading(true);
     try {
-      const params = new URLSearchParams({ page: String(page), page_size: String(pageSize) });
+      const params = new URLSearchParams({
+        page: String(page),
+        page_size: String(pageSize),
+      });
       if (typeFilter) params.set("email_type", typeFilter);
       if (statusFilter) params.set("status", statusFilter);
       if (userFilter.trim()) params.set("user_id", userFilter.trim());
-      const data = await apiFetch<EmailLogList>(`/marketing/admin/email-logs?${params}`);
+      const data = await apiFetch<EmailLogList>(
+        `/marketing/admin/email-logs?${params}`,
+      );
       setLogs(data.items);
       setTotal(data.total);
     } catch {
@@ -828,7 +1119,9 @@ function EmailLogsTab() {
     setLoading(false);
   }, [page, typeFilter, statusFilter, userFilter, showToast]);
 
-  useEffect(() => { fetchLogs(); }, [fetchLogs]);
+  useEffect(() => {
+    fetchLogs();
+  }, [fetchLogs]);
 
   async function handleResend(eventId: string) {
     if (!confirm("Resend this email?")) return;
@@ -845,12 +1138,26 @@ function EmailLogsTab() {
     <>
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-3 mb-4">
-        <select className="input-glass text-sm py-1.5 px-3" value={typeFilter} onChange={(e) => { setTypeFilter(e.target.value); setPage(1); }}>
+        <select
+          className="input-glass text-sm py-1.5 px-3"
+          value={typeFilter}
+          onChange={(e) => {
+            setTypeFilter(e.target.value);
+            setPage(1);
+          }}
+        >
           <option value="">All types</option>
           <option value="transactional_email">Transactional</option>
           <option value="marketing_email">Marketing</option>
         </select>
-        <select className="input-glass text-sm py-1.5 px-3" value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}>
+        <select
+          className="input-glass text-sm py-1.5 px-3"
+          value={statusFilter}
+          onChange={(e) => {
+            setStatusFilter(e.target.value);
+            setPage(1);
+          }}
+        >
           <option value="">All statuses</option>
           <option value="sent">Sent</option>
           <option value="delivered">Delivered</option>
@@ -864,45 +1171,96 @@ function EmailLogsTab() {
           placeholder="Filter by user ID..."
           value={userFilter}
           onChange={(e) => setUserFilter(e.target.value)}
-          onKeyDown={(e) => { if (e.key === "Enter") { setPage(1); fetchLogs(); } }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              setPage(1);
+              fetchLogs();
+            }
+          }}
         />
-        <span className="text-xs text-text-muted">{total} event{total !== 1 ? "s" : ""}</span>
+        <span className="text-xs text-text-muted">
+          {total} event{total !== 1 ? "s" : ""}
+        </span>
       </div>
 
       {/* Table */}
       {loading ? (
         <LoadingSpinner className="py-16" />
       ) : logs.length === 0 ? (
-        <div className="glass rounded-xl p-8 text-center text-text-muted">No email events found.</div>
+        <div className="glass rounded-xl p-8 text-center text-text-muted">
+          No email events found.
+        </div>
       ) : (
         <div className="glass rounded-xl overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-glass-border">
-                <th className="text-left p-3 text-text-muted font-medium">Time</th>
-                <th className="text-left p-3 text-text-muted font-medium">User</th>
-                <th className="text-left p-3 text-text-muted font-medium">Type</th>
-                <th className="text-left p-3 text-text-muted font-medium">Template</th>
-                <th className="text-left p-3 text-text-muted font-medium">Provider</th>
-                <th className="text-left p-3 text-text-muted font-medium">Status</th>
-                <th className="text-right p-3 text-text-muted font-medium">Actions</th>
+                <th className="text-left p-3 text-text-muted font-medium">
+                  Time
+                </th>
+                <th className="text-left p-3 text-text-muted font-medium">
+                  User
+                </th>
+                <th className="text-left p-3 text-text-muted font-medium">
+                  Type
+                </th>
+                <th className="text-left p-3 text-text-muted font-medium">
+                  Template
+                </th>
+                <th className="text-left p-3 text-text-muted font-medium">
+                  Provider
+                </th>
+                <th className="text-left p-3 text-text-muted font-medium">
+                  Status
+                </th>
+                <th className="text-right p-3 text-text-muted font-medium">
+                  Actions
+                </th>
               </tr>
             </thead>
             <tbody>
               {logs.map((log) => (
-                <tr key={log.id} className="border-b border-glass-border/50 hover:bg-glass-hover transition-colors">
-                  <td className="p-3 text-text-muted text-xs">{formatRelativeTime(log.created_at)}</td>
-                  <td className="p-3 text-text-secondary font-mono text-xs">{truncate(log.user_id, 8)}</td>
-                  <td className="p-3 text-text-secondary text-xs">{log.email_type === "marketing_email" ? "Marketing" : "Transactional"}</td>
-                  <td className="p-3 text-text-muted font-mono text-xs">{log.template_id}</td>
-                  <td className="p-3 text-text-muted text-xs">{log.provider || "-"}</td>
+                <tr
+                  key={log.id}
+                  className="border-b border-glass-border/50 hover:bg-glass-hover transition-colors"
+                >
+                  <td className="p-3 text-text-muted text-xs">
+                    {formatRelativeTime(log.created_at)}
+                  </td>
+                  <td className="p-3 text-text-secondary font-mono text-xs">
+                    {truncate(log.user_id, 8)}
+                  </td>
+                  <td className="p-3 text-text-secondary text-xs">
+                    {log.email_type === "marketing_email"
+                      ? "Marketing"
+                      : "Transactional"}
+                  </td>
+                  <td className="p-3 text-text-muted font-mono text-xs">
+                    {log.template_id}
+                  </td>
+                  <td className="p-3 text-text-muted text-xs">
+                    {log.provider || "-"}
+                  </td>
                   <td className="p-3">
-                    <span className={`badge ${statusBadge(log.status)}`}>{log.status}</span>
-                    {log.skip_reason && <span className="text-xs text-text-muted ml-1">({log.skip_reason})</span>}
+                    <span className={`badge ${statusBadge(log.status)}`}>
+                      {log.status}
+                    </span>
+                    {log.skip_reason && (
+                      <span className="text-xs text-text-muted ml-1">
+                        ({log.skip_reason})
+                      </span>
+                    )}
                   </td>
                   <td className="p-3 text-right">
-                    {["bounced", "complained", "skipped"].includes(log.status) && (
-                      <button onClick={() => handleResend(log.id)} className="text-accent-blue hover:underline text-xs">Resend</button>
+                    {["bounced", "complained", "skipped"].includes(
+                      log.status,
+                    ) && (
+                      <button
+                        onClick={() => handleResend(log.id)}
+                        className="text-accent-blue hover:underline text-xs"
+                      >
+                        Resend
+                      </button>
                     )}
                   </td>
                 </tr>
@@ -913,7 +1271,11 @@ function EmailLogsTab() {
       )}
 
       <div className="mt-4">
-        <Pagination currentPage={page} totalPages={Math.ceil(total / pageSize)} onPageChange={setPage} />
+        <Pagination
+          currentPage={page}
+          totalPages={Math.ceil(total / pageSize)}
+          onPageChange={setPage}
+        />
       </div>
     </>
   );
@@ -932,7 +1294,9 @@ function SuppressedTab() {
   const fetchSuppressed = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await apiFetch<SuppressedList>(`/marketing/admin/suppressed?page=${page}&page_size=${pageSize}`);
+      const data = await apiFetch<SuppressedList>(
+        `/marketing/admin/suppressed?page=${page}&page_size=${pageSize}`,
+      );
       setUsers(data.items);
       setTotal(data.total);
     } catch {
@@ -941,34 +1305,59 @@ function SuppressedTab() {
     setLoading(false);
   }, [page, showToast]);
 
-  useEffect(() => { fetchSuppressed(); }, [fetchSuppressed]);
+  useEffect(() => {
+    fetchSuppressed();
+  }, [fetchSuppressed]);
 
   return (
     <>
-      <p className="text-xs text-text-muted mb-4">{total} suppressed user{total !== 1 ? "s" : ""}</p>
+      <p className="text-xs text-text-muted mb-4">
+        {total} suppressed user{total !== 1 ? "s" : ""}
+      </p>
 
       {loading ? (
         <LoadingSpinner className="py-16" />
       ) : users.length === 0 ? (
-        <div className="glass rounded-xl p-8 text-center text-text-muted">No suppressed users. This is a good thing!</div>
+        <div className="glass rounded-xl p-8 text-center text-text-muted">
+          No suppressed users. This is a good thing!
+        </div>
       ) : (
         <div className="glass rounded-xl overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-glass-border">
-                <th className="text-left p-3 text-text-muted font-medium">Email</th>
-                <th className="text-left p-3 text-text-muted font-medium">User ID</th>
-                <th className="text-left p-3 text-text-muted font-medium">Suppressed</th>
-                <th className="text-left p-3 text-text-muted font-medium">Reason</th>
+                <th className="text-left p-3 text-text-muted font-medium">
+                  Email
+                </th>
+                <th className="text-left p-3 text-text-muted font-medium">
+                  User ID
+                </th>
+                <th className="text-left p-3 text-text-muted font-medium">
+                  Suppressed
+                </th>
+                <th className="text-left p-3 text-text-muted font-medium">
+                  Reason
+                </th>
               </tr>
             </thead>
             <tbody>
               {users.map((u) => (
-                <tr key={u.user_id} className="border-b border-glass-border/50 hover:bg-glass-hover transition-colors">
+                <tr
+                  key={u.user_id}
+                  className="border-b border-glass-border/50 hover:bg-glass-hover transition-colors"
+                >
                   <td className="p-3 text-text-primary">{u.email}</td>
-                  <td className="p-3 text-text-muted font-mono text-xs">{truncate(u.user_id, 8)}</td>
-                  <td className="p-3 text-text-muted text-xs">{formatRelativeTime(u.suppressed_at)}</td>
-                  <td className="p-3"><span className="badge badge-pink">{u.suppression_reason || "unknown"}</span></td>
+                  <td className="p-3 text-text-muted font-mono text-xs">
+                    {truncate(u.user_id, 8)}
+                  </td>
+                  <td className="p-3 text-text-muted text-xs">
+                    {formatRelativeTime(u.suppressed_at)}
+                  </td>
+                  <td className="p-3">
+                    <span className="badge badge-pink">
+                      {u.suppression_reason || "unknown"}
+                    </span>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -977,7 +1366,11 @@ function SuppressedTab() {
       )}
 
       <div className="mt-4">
-        <Pagination currentPage={page} totalPages={Math.ceil(total / pageSize)} onPageChange={setPage} />
+        <Pagination
+          currentPage={page}
+          totalPages={Math.ceil(total / pageSize)}
+          onPageChange={setPage}
+        />
       </div>
     </>
   );
@@ -1002,7 +1395,9 @@ function CommTypesTab() {
   const fetchTypes = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await apiFetch<CommunicationType[]>(`/marketing/admin/communication-types?include_disabled=${showDisabled}`);
+      const data = await apiFetch<CommunicationType[]>(
+        `/marketing/admin/communication-types?include_disabled=${showDisabled}`,
+      );
       setTypes(data);
     } catch {
       showToast("Failed to load communication types", "error");
@@ -1010,7 +1405,9 @@ function CommTypesTab() {
     setLoading(false);
   }, [showDisabled, showToast]);
 
-  useEffect(() => { fetchTypes(); }, [fetchTypes]);
+  useEffect(() => {
+    fetchTypes();
+  }, [fetchTypes]);
 
   function openEdit(t: CommunicationType) {
     setEditing(t);
@@ -1037,13 +1434,21 @@ function CommTypesTab() {
       if (editing) {
         await apiFetch(`/marketing/admin/communication-types/${editing.id}`, {
           method: "PUT",
-          body: JSON.stringify({ name: formName, description: formDesc || null, enabled: formEnabled }),
+          body: JSON.stringify({
+            name: formName,
+            description: formDesc || null,
+            enabled: formEnabled,
+          }),
         });
         showToast("Updated", "success");
       } else {
         await apiFetch("/marketing/admin/communication-types", {
           method: "POST",
-          body: JSON.stringify({ name: formName, description: formDesc || null, enabled: formEnabled }),
+          body: JSON.stringify({
+            name: formName,
+            description: formDesc || null,
+            enabled: formEnabled,
+          }),
         });
         showToast("Created", "success");
       }
@@ -1060,51 +1465,115 @@ function CommTypesTab() {
     <>
       <div className="flex items-center justify-between mb-4">
         <label className="flex items-center gap-2 text-sm text-text-secondary cursor-pointer">
-          <input type="checkbox" checked={showDisabled} onChange={(e) => setShowDisabled(e.target.checked)} className="rounded" />
+          <input
+            type="checkbox"
+            checked={showDisabled}
+            onChange={(e) => setShowDisabled(e.target.checked)}
+            className="rounded"
+          />
           Show disabled
         </label>
-        <button className="btn-primary text-sm" onClick={openCreate}>+ New Type</button>
+        <button className="btn-primary text-sm" onClick={openCreate}>
+          + New Type
+        </button>
       </div>
 
       {loading ? (
         <LoadingSpinner className="py-16" />
       ) : types.length === 0 ? (
-        <div className="glass rounded-xl p-8 text-center text-text-muted">No communication types found.</div>
+        <div className="glass rounded-xl p-8 text-center text-text-muted">
+          No communication types found.
+        </div>
       ) : (
         <div className="grid gap-3">
           {types.map((t) => (
-            <div key={t.id} className="glass rounded-xl p-4 flex items-center justify-between">
+            <div
+              key={t.id}
+              className="glass rounded-xl p-4 flex items-center justify-between"
+            >
               <div>
                 <div className="flex items-center gap-2">
-                  <span className="text-text-primary font-medium">{t.name}</span>
-                  <span className={`badge ${t.enabled ? "badge-green" : "badge-pink"}`}>{t.enabled ? "enabled" : "disabled"}</span>
+                  <span className="text-text-primary font-medium">
+                    {t.name}
+                  </span>
+                  <span
+                    className={`badge ${t.enabled ? "badge-green" : "badge-pink"}`}
+                  >
+                    {t.enabled ? "enabled" : "disabled"}
+                  </span>
                 </div>
-                {t.description && <p className="text-xs text-text-muted mt-1">{t.description}</p>}
+                {t.description && (
+                  <p className="text-xs text-text-muted mt-1">
+                    {t.description}
+                  </p>
+                )}
               </div>
-              <button onClick={() => openEdit(t)} className="text-accent-blue hover:underline text-sm">Edit</button>
+              <button
+                onClick={() => openEdit(t)}
+                className="text-accent-blue hover:underline text-sm"
+              >
+                Edit
+              </button>
             </div>
           ))}
         </div>
       )}
 
       {/* Create/Edit modal */}
-      <Modal isOpen={showCreate || !!editing} onClose={() => { setShowCreate(false); setEditing(null); }} title={editing ? "Edit Communication Type" : "New Communication Type"} size="sm">
+      <Modal
+        isOpen={showCreate || !!editing}
+        onClose={() => {
+          setShowCreate(false);
+          setEditing(null);
+        }}
+        title={editing ? "Edit Communication Type" : "New Communication Type"}
+        size="sm"
+      >
         <div className="space-y-4">
           <div>
             <label className="text-xs text-text-muted block mb-1">Name</label>
-            <input className="input-glass w-full" value={formName} onChange={(e) => setFormName(e.target.value)} placeholder="weekly_digest" />
+            <input
+              className="input-glass w-full"
+              value={formName}
+              onChange={(e) => setFormName(e.target.value)}
+              placeholder="weekly_digest"
+            />
           </div>
           <div>
-            <label className="text-xs text-text-muted block mb-1">Description</label>
-            <textarea className="input-glass w-full h-20 resize-none" value={formDesc} onChange={(e) => setFormDesc(e.target.value)} placeholder="What this type is for..." />
+            <label className="text-xs text-text-muted block mb-1">
+              Description
+            </label>
+            <textarea
+              className="input-glass w-full h-20 resize-none"
+              value={formDesc}
+              onChange={(e) => setFormDesc(e.target.value)}
+              placeholder="What this type is for..."
+            />
           </div>
           <label className="flex items-center gap-2 text-sm text-text-secondary cursor-pointer">
-            <input type="checkbox" checked={formEnabled} onChange={(e) => setFormEnabled(e.target.checked)} className="rounded" />
+            <input
+              type="checkbox"
+              checked={formEnabled}
+              onChange={(e) => setFormEnabled(e.target.checked)}
+              className="rounded"
+            />
             Enabled
           </label>
           <div className="flex justify-end gap-3 pt-2">
-            <button className="btn-secondary text-sm" onClick={() => { setShowCreate(false); setEditing(null); }}>Cancel</button>
-            <button className="btn-primary text-sm" onClick={handleSave} disabled={saving}>
+            <button
+              className="btn-secondary text-sm"
+              onClick={() => {
+                setShowCreate(false);
+                setEditing(null);
+              }}
+            >
+              Cancel
+            </button>
+            <button
+              className="btn-primary text-sm"
+              onClick={handleSave}
+              disabled={saving}
+            >
               {saving ? "Saving..." : editing ? "Update" : "Create"}
             </button>
           </div>
@@ -1127,7 +1596,9 @@ function AudienceTab() {
   useEffect(() => {
     (async () => {
       try {
-        const data = await apiFetch<CommunicationType[]>("/marketing/admin/communication-types");
+        const data = await apiFetch<CommunicationType[]>(
+          "/marketing/admin/communication-types",
+        );
         setTypes(data);
       } catch {
         showToast("Failed to load types", "error");
@@ -1139,8 +1610,12 @@ function AudienceTab() {
   const fetchAudience = useCallback(async () => {
     setLoading(true);
     try {
-      const params = selectedType ? `?communication_type_id=${selectedType}` : "";
-      const data = await apiFetch<AudienceResponse>(`/marketing/admin/audience${params}`);
+      const params = selectedType
+        ? `?communication_type_id=${selectedType}`
+        : "";
+      const data = await apiFetch<AudienceResponse>(
+        `/marketing/admin/audience${params}`,
+      );
       setAudience(data);
     } catch {
       showToast("Failed to load audience", "error");
@@ -1148,7 +1623,9 @@ function AudienceTab() {
     setLoading(false);
   }, [selectedType, showToast]);
 
-  useEffect(() => { fetchAudience(); }, [fetchAudience]);
+  useEffect(() => {
+    fetchAudience();
+  }, [fetchAudience]);
 
   return (
     <>
@@ -1156,10 +1633,16 @@ function AudienceTab() {
         {typesLoading ? (
           <LoadingSpinner size="sm" />
         ) : (
-          <select className="input-glass text-sm py-1.5 px-3" value={selectedType} onChange={(e) => setSelectedType(e.target.value)}>
+          <select
+            className="input-glass text-sm py-1.5 px-3"
+            value={selectedType}
+            onChange={(e) => setSelectedType(e.target.value)}
+          >
             <option value="">All eligible users</option>
             {types.map((t) => (
-              <option key={t.id} value={t.id}>{t.name}</option>
+              <option key={t.id} value={t.id}>
+                {t.name}
+              </option>
             ))}
           </select>
         )}
@@ -1170,8 +1653,12 @@ function AudienceTab() {
       ) : audience ? (
         <>
           <div className="glass rounded-xl p-4 mb-4 text-center">
-            <span className="text-2xl font-bold text-accent-green">{audience.count}</span>
-            <span className="text-text-muted ml-2">eligible recipient{audience.count !== 1 ? "s" : ""}</span>
+            <span className="text-2xl font-bold text-accent-green">
+              {audience.count}
+            </span>
+            <span className="text-text-muted ml-2">
+              eligible recipient{audience.count !== 1 ? "s" : ""}
+            </span>
           </div>
 
           {audience.recipients.length > 0 && (
@@ -1179,15 +1666,24 @@ function AudienceTab() {
               <table className="w-full text-sm">
                 <thead className="sticky top-0 bg-glass-bg">
                   <tr className="border-b border-glass-border">
-                    <th className="text-left p-3 text-text-muted font-medium">Email</th>
-                    <th className="text-left p-3 text-text-muted font-medium">User ID</th>
+                    <th className="text-left p-3 text-text-muted font-medium">
+                      Email
+                    </th>
+                    <th className="text-left p-3 text-text-muted font-medium">
+                      User ID
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
                   {audience.recipients.map((r) => (
-                    <tr key={r.user_id} className="border-b border-glass-border/50">
+                    <tr
+                      key={r.user_id}
+                      className="border-b border-glass-border/50"
+                    >
                       <td className="p-3 text-text-primary">{r.email}</td>
-                      <td className="p-3 text-text-muted font-mono text-xs">{truncate(r.user_id, 8)}</td>
+                      <td className="p-3 text-text-muted font-mono text-xs">
+                        {truncate(r.user_id, 8)}
+                      </td>
                     </tr>
                   ))}
                 </tbody>

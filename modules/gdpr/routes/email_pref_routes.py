@@ -59,10 +59,13 @@ async def one_click_unsubscribe(
     try:
         result = await email_pref_service.unsubscribe_by_token(db, data.token)
     except ValueError as e:
-        raise HTTPException(status_code=400, detail={
-            "error": "bad_request",
-            "message": str(e),
-            "details": None,
-        })
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "error": "bad_request",
+                "message": str(e),
+                "details": None,
+            },
+        )
 
     return MessageResponse(**result)

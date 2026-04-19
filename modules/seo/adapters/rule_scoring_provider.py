@@ -239,7 +239,7 @@ def _check_keyword_in_content(data: PageSEOData) -> RuleResult:
     rec = None
     if not passed:
         rec = (
-            f"Target keyword \"{data.target_keywords[0]}\" missing from: "
+            f'Target keyword "{data.target_keywords[0]}" missing from: '
             f"{', '.join(missing)}. Include it in at least 2 of: title, description, H1."
         )
     return RuleResult(
@@ -269,9 +269,11 @@ def _check_canonical(data: PageSEOData) -> RuleResult:
         points=60 if passed else 0,
         max_points=60,
         category="technical",
-        recommendation=None
-        if passed
-        else "Set a canonical URL to prevent duplicate content issues.",
+        recommendation=(
+            None
+            if passed
+            else "Set a canonical URL to prevent duplicate content issues."
+        ),
     )
 
 
@@ -305,9 +307,9 @@ def _check_canonical_self_ref(data: PageSEOData) -> RuleResult:
         points=30 if passed else 0,
         max_points=30,
         category="technical",
-        recommendation=None
-        if passed
-        else "Canonical URL should point to this page's own URL.",
+        recommendation=(
+            None if passed else "Canonical URL should point to this page's own URL."
+        ),
     )
 
 
@@ -321,9 +323,11 @@ def _check_indexable(data: PageSEOData) -> RuleResult:
         points=40 if passed else 0,
         max_points=40,
         category="technical",
-        recommendation=None
-        if passed
-        else "Page is set to noindex. Remove noindex if this page should appear in search results.",
+        recommendation=(
+            None
+            if passed
+            else "Page is set to noindex. Remove noindex if this page should appear in search results."
+        ),
     )
 
 
@@ -439,7 +443,9 @@ def _check_https_enforced(data: PageSEOData) -> RuleResult:
             max_points=30,
             category="technical",
         )
-    is_localhost = "localhost" in data.canonical_url or "127.0.0.1" in data.canonical_url
+    is_localhost = (
+        "localhost" in data.canonical_url or "127.0.0.1" in data.canonical_url
+    )
     if is_localhost:
         # Dev environment — auto-pass
         return RuleResult(
@@ -460,9 +466,11 @@ def _check_https_enforced(data: PageSEOData) -> RuleResult:
         points=30 if passed else 0,
         max_points=30,
         category="technical",
-        recommendation=None
-        if passed
-        else "Page canonical URL uses HTTP. Enforce HTTPS for security and SEO ranking.",
+        recommendation=(
+            None
+            if passed
+            else "Page canonical URL uses HTTP. Enforce HTTPS for security and SEO ranking."
+        ),
     )
 
 
@@ -492,9 +500,11 @@ def _check_viewport_present(data: PageSEOData) -> RuleResult:
         points=40 if passed else 0,
         max_points=40,
         category="technical",
-        recommendation=None
-        if passed
-        else 'Add <meta name="viewport" content="width=device-width, initial-scale=1"> for mobile rendering.',
+        recommendation=(
+            None
+            if passed
+            else 'Add <meta name="viewport" content="width=device-width, initial-scale=1"> for mobile rendering.'
+        ),
     )
 
 
@@ -519,9 +529,11 @@ def _check_lang_attribute(data: PageSEOData) -> RuleResult:
         points=30 if passed else 0,
         max_points=30,
         category="technical",
-        recommendation=None
-        if passed
-        else 'Add a lang attribute to the <html> element (e.g. <html lang="en">) for accessibility and SEO.',
+        recommendation=(
+            None
+            if passed
+            else 'Add a lang attribute to the <html> element (e.g. <html lang="en">) for accessibility and SEO.'
+        ),
     )
 
 
@@ -546,9 +558,11 @@ def _check_favicon_present(data: PageSEOData) -> RuleResult:
         points=20 if passed else 0,
         max_points=20,
         category="technical",
-        recommendation=None
-        if passed
-        else 'Add a favicon (<link rel="icon">) for brand recognition in browser tabs and bookmarks.',
+        recommendation=(
+            None
+            if passed
+            else 'Add a favicon (<link rel="icon">) for brand recognition in browser tabs and bookmarks.'
+        ),
     )
 
 
@@ -601,11 +615,7 @@ def _check_keyword_density(data: PageSEOData) -> RuleResult:
 
     Auto-passes when no target keywords are assigned or body text is unavailable.
     """
-    if (
-        not data.target_keywords
-        or data.body_text is None
-        or len(data.body_text) < 100
-    ):
+    if not data.target_keywords or data.body_text is None or len(data.body_text) < 100:
         return RuleResult(
             rule_id="keyword_density",
             name="Keyword density optimal",
@@ -680,9 +690,12 @@ def _check_external_links_present(data: PageSEOData) -> RuleResult:
         points=20 if passed else 0,
         max_points=20,
         category="content",
-        recommendation=None
-        if passed
-        else "Add at least one outbound link to a relevant, authoritative source. Link diversity signals content quality.",
+        recommendation=(
+            None
+            if passed
+            else "Add at least one outbound link to a relevant, authoritative "
+            "source. Link diversity signals content quality."
+        ),
     )
 
 
@@ -726,9 +739,11 @@ def _check_title_h1_differentiated(data: PageSEOData) -> RuleResult:
         points=20 if passed else 0,
         max_points=20,
         category="content",
-        recommendation=None
-        if passed
-        else "Title and H1 are identical. Differentiate them to target slightly different keyword variations.",
+        recommendation=(
+            None
+            if passed
+            else "Title and H1 are identical. Differentiate them to target slightly different keyword variations."
+        ),
     )
 
 
@@ -757,9 +772,11 @@ def _check_meta_desc_complete(data: PageSEOData) -> RuleResult:
         points=20 if passed else 0,
         max_points=20,
         category="content",
-        recommendation=None
-        if passed
-        else "Meta description appears truncated — it should end with proper punctuation (., !, or ?).",
+        recommendation=(
+            None
+            if passed
+            else "Meta description appears truncated — it should end with proper punctuation (., !, or ?)."
+        ),
     )
 
 
@@ -838,9 +855,11 @@ def _check_og_url_valid(data: PageSEOData) -> RuleResult:
         points=20 if passed else 0,
         max_points=20,
         category="social",
-        recommendation=None
-        if passed
-        else f'OG image URL "{og_image}" appears invalid. Use a full URL or absolute path to a real image.',
+        recommendation=(
+            None
+            if passed
+            else f'OG image URL "{og_image}" appears invalid. Use a full URL or absolute path to a real image.'
+        ),
     )
 
 
@@ -926,9 +945,11 @@ def _check_og_image_custom(data: PageSEOData) -> RuleResult:
         points=40 if passed else 0,
         max_points=40,
         category="social",
-        recommendation=None
-        if passed
-        else "Using default OG image. Set a page-specific image for better social sharing.",
+        recommendation=(
+            None
+            if passed
+            else "Using default OG image. Set a page-specific image for better social sharing."
+        ),
     )
 
 
@@ -951,9 +972,11 @@ def _check_structured_data(data: PageSEOData) -> RuleResult:
         points=80 if passed else 0,
         max_points=80,
         category="performance",
-        recommendation=None
-        if passed
-        else "Add page-specific structured data (e.g., Product, BreadcrumbList).",
+        recommendation=(
+            None
+            if passed
+            else "Add page-specific structured data (e.g., Product, BreadcrumbList)."
+        ),
     )
 
 

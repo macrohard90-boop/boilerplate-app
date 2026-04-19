@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import logging
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from html.parser import HTMLParser
 from urllib.parse import urlparse
 
@@ -71,10 +71,7 @@ class _SignalExtractor(HTMLParser):
         # <link rel="icon" ...> / <link rel="shortcut icon" ...> / apple-touch-icon
         elif tag_lower == "link":
             rel = attr_dict.get("rel", "").lower()
-            if any(
-                kw in rel
-                for kw in ("icon", "shortcut icon", "apple-touch-icon")
-            ):
+            if any(kw in rel for kw in ("icon", "shortcut icon", "apple-touch-icon")):
                 self.signals.has_favicon = True
 
         # <body>

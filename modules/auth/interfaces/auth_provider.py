@@ -7,6 +7,7 @@ from dataclasses import dataclass
 @dataclass
 class OAuthUserInfo:
     """Normalized user info returned by all OAuth providers."""
+
     provider: str
     provider_user_id: str
     email: str

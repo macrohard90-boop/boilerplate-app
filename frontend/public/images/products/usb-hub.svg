@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#1a1a2e"/>
+      <stop offset="100%" stop-color="#16213e"/>
+    </linearGradient>
+    <linearGradient id="body" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#4b5563"/>
+      <stop offset="100%" stop-color="#374151"/>
+    </linearGradient>
+  </defs>
+  <rect width="400" height="400" rx="24" fill="url(#bg)"/>
+  <!-- Hub body -->
+  <rect x="80" y="160" width="240" height="80" rx="16" fill="url(#body)" stroke="#6b7280" stroke-width="1.5"/>
+  <!-- USB-C cable -->
+  <path d="M320 200 Q350 200 360 195 L370 195" stroke="#9ca3af" stroke-width="4" fill="none" stroke-linecap="round"/>
+  <rect x="366" y="190" width="14" height="10" rx="2" fill="#6b7280"/>
+  <!-- Ports on left side -->
+  <!-- USB-A ports -->
+  <rect x="100" y="175" width="18" height="10" rx="2" fill="#1f2937" stroke="#4b5563" stroke-width="1"/>
+  <rect x="100" y="195" width="18" height="10" rx="2" fill="#1f2937" stroke="#4b5563" stroke-width="1"/>
+  <!-- HDMI port -->
+  <rect x="135" y="178" width="22" height="14" rx="2" fill="#1f2937" stroke="#4b5563" stroke-width="1"/>
+  <path d="M139 178 L142 174 L153 174 L156 178" fill="#1f2937" stroke="#4b5563" stroke-width="1"/>
+  <!-- SD card slot -->
+  <rect x="175" y="180" width="16" height="12" rx="1" fill="#1f2937" stroke="#4b5563" stroke-width="1"/>
+  <!-- TF card slot -->
+  <rect x="200" y="182" width="12" height="10" rx="1" fill="#1f2937" stroke="#4b5563" stroke-width="1"/>
+  <!-- USB-C port -->
+  <rect x="230" y="183" width="14" height="8" rx="4" fill="#1f2937" stroke="#4b5563" stroke-width="1"/>
+  <!-- LED indicator -->
+  <circle cx="265" cy="188" r="3" fill="#22c55e" opacity="0.8"/>
+  <!-- Port labels -->
+  <text x="109" y="224" text-anchor="middle" fill="#4b5563" font-family="system-ui,sans-serif" font-size="7">USB</text>
+  <text x="146" y="224" text-anchor="middle" fill="#4b5563" font-family="system-ui,sans-serif" font-size="7">HDMI</text>
+  <text x="183" y="224" text-anchor="middle" fill="#4b5563" font-family="system-ui,sans-serif" font-size="7">SD</text>
+  <!-- Label -->
+  <text x="200" y="310" text-anchor="middle" fill="#666" font-family="system-ui,sans-serif" font-size="14" font-weight="500">USB-C HUB</text>
+  <text x="200" y="328" text-anchor="middle" fill="#555" font-family="system-ui,sans-serif" font-size="12">7-in-1</text>
+</svg>

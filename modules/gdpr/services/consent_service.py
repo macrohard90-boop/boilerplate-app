@@ -15,43 +15,49 @@ CONSENT_TYPES = [
 ]
 
 
-async def get_consent_state(
-    db: AsyncSession, user_id: str
-) -> list[dict[str, Any]]:
+async def get_consent_state(db: AsyncSession, user_id: str) -> list[dict[str, Any]]:
     """Get current consent state for all 6 types.
 
     Returns the most recent record for each consent type.
     Types with no record default to granted=False.
     """
     rows = (
-        await db.execute(
-            text(
-                "SELECT DISTINCT ON (consent_type) "
-                "consent_type, granted, created_at "
-                "FROM gdpr.consent_records "
-                "WHERE user_id = :uid "
-                "ORDER BY consent_type, created_at DESC"
-            ),
-            {"uid": user_id},
+        (
+            await db.execute(
+                text(
+                    "SELECT DISTINCT ON (consent_type) "
+                    "consent_type, granted, created_at "
+                    "FROM gdpr.consent_records "
+                    "WHERE user_id = :uid "
+                    "ORDER BY consent_type, created_at DESC"
+                ),
+                {"uid": user_id},
+            )
         )
-    ).mappings().all()
+        .mappings()
+        .all()
+    )
 
     state_map = {r["consent_type"]: r for r in rows}
 
     result = []
     for ct in CONSENT_TYPES:
         if ct in state_map:
-            result.append({
-                "consent_type": ct,
-                "granted": state_map[ct]["granted"],
-                "updated_at": str(state_map[ct]["created_at"]),
-            })
+            result.append(
+                {
+                    "consent_type": ct,
+                    "granted": state_map[ct]["granted"],
+                    "updated_at": str(state_map[ct]["created_at"]),
+                }
+            )
         else:
-            result.append({
-                "consent_type": ct,
-                "granted": False,
-                "updated_at": None,
-            })
+            result.append(
+                {
+                    "consent_type": ct,
+                    "granted": False,
+                    "updated_at": None,
+                }
+            )
     return result
 
 
@@ -69,15 +75,19 @@ async def update_consent(
 
     # Get current value for audit log
     current = (
-        await db.execute(
-            text(
-                "SELECT granted FROM gdpr.consent_records "
-                "WHERE user_id = :uid AND consent_type = :ct "
-                "ORDER BY created_at DESC LIMIT 1"
-            ),
-            {"uid": user_id, "ct": consent_type},
+        (
+            await db.execute(
+                text(
+                    "SELECT granted FROM gdpr.consent_records "
+                    "WHERE user_id = :uid AND consent_type = :ct "
+                    "ORDER BY created_at DESC LIMIT 1"
+                ),
+                {"uid": user_id, "ct": consent_type},
+            )
         )
-    ).mappings().first()
+        .mappings()
+        .first()
+    )
 
     old_value = current["granted"] if current else None
 
@@ -129,25 +139,27 @@ async def get_consent_history(
 
     total = (
         await db.execute(
-            text(
-                "SELECT COUNT(*) FROM gdpr.consent_records WHERE user_id = :uid"
-            ),
+            text("SELECT COUNT(*) FROM gdpr.consent_records WHERE user_id = :uid"),
             {"uid": user_id},
         )
     ).scalar() or 0
 
     rows = (
-        await db.execute(
-            text(
-                "SELECT id, consent_type, granted, version, ip_address, created_at "
-                "FROM gdpr.consent_records "
-                "WHERE user_id = :uid "
-                "ORDER BY created_at DESC "
-                "LIMIT :lim OFFSET :off"
-            ),
-            {"uid": user_id, "lim": page_size, "off": offset},
+        (
+            await db.execute(
+                text(
+                    "SELECT id, consent_type, granted, version, ip_address, created_at "
+                    "FROM gdpr.consent_records "
+                    "WHERE user_id = :uid "
+                    "ORDER BY created_at DESC "
+                    "LIMIT :lim OFFSET :off"
+                ),
+                {"uid": user_id, "lim": page_size, "off": offset},
+            )
         )
-    ).mappings().all()
+        .mappings()
+        .all()
+    )
 
     return {
         "items": [
@@ -167,22 +179,24 @@ async def get_consent_history(
     }
 
 
-async def check_marketing_consent(
-    db: AsyncSession, user_id: str
-) -> bool:
+async def check_marketing_consent(db: AsyncSession, user_id: str) -> bool:
     """Check if user has granted marketing_email consent.
 
     Used by abandoned cart and other modules before sending marketing emails.
     """
     row = (
-        await db.execute(
-            text(
-                "SELECT granted FROM gdpr.consent_records "
-                "WHERE user_id = :uid AND consent_type = 'marketing_email' "
-                "ORDER BY created_at DESC LIMIT 1"
-            ),
-            {"uid": user_id},
+        (
+            await db.execute(
+                text(
+                    "SELECT granted FROM gdpr.consent_records "
+                    "WHERE user_id = :uid AND consent_type = 'marketing_email' "
+                    "ORDER BY created_at DESC LIMIT 1"
+                ),
+                {"uid": user_id},
+            )
         )
-    ).mappings().first()
+        .mappings()
+        .first()
+    )
 
     return bool(row["granted"]) if row else False

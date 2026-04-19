@@ -7,12 +7,20 @@ import { useConfig } from "../../../lib/config-context";
 const CATALOG_TABS = [
   { href: "/admin/catalog/products", label: "All Products" },
   { href: "/admin/catalog/categories", label: "Categories" },
-  { href: "/admin/catalog/coupons", label: "Coupons", feature: "coupons" as const },
+  {
+    href: "/admin/catalog/coupons",
+    label: "Coupons",
+    feature: "coupons" as const,
+  },
   { href: "/admin/catalog/shipping", label: "Shipping Rates" },
   { href: "/admin/catalog/tax", label: "Tax Rates" },
 ];
 
-export default function CatalogLayout({ children }: { children: React.ReactNode }) {
+export default function CatalogLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   const pathname = usePathname();
   const { enable_coupons } = useConfig();
 

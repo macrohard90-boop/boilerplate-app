@@ -52,14 +52,18 @@ async def get_or_create_session(
 
         # Check if session exists in DB (could be expired Redis key)
         existing = (
-            await db.execute(
-                text(
-                    "SELECT id FROM analytics.analytics_sessions "
-                    "WHERE session_id = :sid"
-                ),
-                {"sid": session_id},
+            (
+                await db.execute(
+                    text(
+                        "SELECT id FROM analytics.analytics_sessions "
+                        "WHERE session_id = :sid"
+                    ),
+                    {"sid": session_id},
+                )
             )
-        ).mappings().first()
+            .mappings()
+            .first()
+        )
 
         if existing:
             # Re-activate existing session
@@ -105,26 +109,34 @@ async def get_session_stats(
 
     # Totals
     row = (
-        await db.execute(
-            text(
-                f"SELECT COUNT(*) AS total, COALESCE(AVG(page_count), 0) AS avg_pages "
-                f"FROM analytics.analytics_sessions WHERE {where}"
-            ),
-            params,
+        (
+            await db.execute(
+                text(
+                    f"SELECT COUNT(*) AS total, COALESCE(AVG(page_count), 0) AS avg_pages "
+                    f"FROM analytics.analytics_sessions WHERE {where}"
+                ),
+                params,
+            )
         )
-    ).mappings().first()
+        .mappings()
+        .first()
+    )
 
     # By day
     rows = (
-        await db.execute(
-            text(
-                f"SELECT DATE(started_at) AS date, COUNT(*) AS sessions "
-                f"FROM analytics.analytics_sessions WHERE {where} "
-                f"GROUP BY DATE(started_at) ORDER BY date DESC LIMIT 30"
-            ),
-            params,
+        (
+            await db.execute(
+                text(
+                    f"SELECT DATE(started_at) AS date, COUNT(*) AS sessions "
+                    f"FROM analytics.analytics_sessions WHERE {where} "
+                    f"GROUP BY DATE(started_at) ORDER BY date DESC LIMIT 30"
+                ),
+                params,
+            )
         )
-    ).mappings().all()
+        .mappings()
+        .all()
+    )
 
     return {
         "total_sessions": row["total"] if row else 0,

@@ -8,7 +8,12 @@ import { useConfig } from "../../../lib/config-context";
 
 const MAIN_TABS = [
   { id: "seo", label: "SEO", href: "/admin/seo/discover", feature: null },
-  { id: "geo", label: "GEO", href: "/admin/seo/geo", feature: "geo_scoring" as const },
+  {
+    id: "geo",
+    label: "GEO",
+    href: "/admin/seo/geo",
+    feature: "geo_scoring" as const,
+  },
 ];
 
 /* ── SEO sub-tabs (stage-based) ────────────────────────────────── */

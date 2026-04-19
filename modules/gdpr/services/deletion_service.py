@@ -20,15 +20,19 @@ async def request_deletion(
     """Request account deletion. Immediately revokes all sessions."""
     # Check for existing active deletion request
     existing = (
-        await db.execute(
-            text(
-                "SELECT id, status FROM gdpr.deletion_requests "
-                "WHERE user_id = :uid AND status IN ('pending', 'grace_period') "
-                "LIMIT 1"
-            ),
-            {"uid": user_id},
+        (
+            await db.execute(
+                text(
+                    "SELECT id, status FROM gdpr.deletion_requests "
+                    "WHERE user_id = :uid AND status IN ('pending', 'grace_period') "
+                    "LIMIT 1"
+                ),
+                {"uid": user_id},
+            )
         )
-    ).mappings().first()
+        .mappings()
+        .first()
+    )
 
     if existing:
         raise ValueError("Active deletion request already exists")
@@ -38,20 +42,25 @@ async def request_deletion(
 
     # Create deletion request
     row = (
-        await db.execute(
-            text(
-                "INSERT INTO gdpr.deletion_requests "
-                "(user_id, status, grace_period_ends) "
-                "VALUES (:uid, 'grace_period', :grace_end) "
-                "RETURNING id, status, requested_at, grace_period_ends"
-            ),
-            {"uid": user_id, "grace_end": grace_end},
+        (
+            await db.execute(
+                text(
+                    "INSERT INTO gdpr.deletion_requests "
+                    "(user_id, status, grace_period_ends) "
+                    "VALUES (:uid, 'grace_period', :grace_end) "
+                    "RETURNING id, status, requested_at, grace_period_ends"
+                ),
+                {"uid": user_id, "grace_end": grace_end},
+            )
         )
-    ).mappings().first()
+        .mappings()
+        .first()
+    )
     await db.commit()
 
     # Immediately revoke all sessions
     from modules.auth.services.session_service import invalidate_all_sessions
+
     await invalidate_all_sessions(redis, user_id)
 
     return {
@@ -68,15 +77,19 @@ async def get_deletion_status(
 ) -> dict[str, Any]:
     """Get deletion request status. Checks grace period expiry on-demand."""
     row = (
-        await db.execute(
-            text(
-                "SELECT id, status, requested_at, grace_period_ends, completed_at "
-                "FROM gdpr.deletion_requests "
-                "WHERE id = :did AND user_id = :uid"
-            ),
-            {"did": deletion_id, "uid": user_id},
+        (
+            await db.execute(
+                text(
+                    "SELECT id, status, requested_at, grace_period_ends, completed_at "
+                    "FROM gdpr.deletion_requests "
+                    "WHERE id = :did AND user_id = :uid"
+                ),
+                {"did": deletion_id, "uid": user_id},
+            )
         )
-    ).mappings().first()
+        .mappings()
+        .first()
+    )
 
     if not row:
         raise ValueError("Deletion request not found")
@@ -94,7 +107,9 @@ async def get_deletion_status(
         "id": str(row["id"]),
         "status": status,
         "requested_at": str(row["requested_at"]),
-        "grace_period_ends": str(row["grace_period_ends"]) if row["grace_period_ends"] else None,
+        "grace_period_ends": (
+            str(row["grace_period_ends"]) if row["grace_period_ends"] else None
+        ),
         "completed_at": str(row["completed_at"]) if row["completed_at"] else None,
     }
 
@@ -104,14 +119,18 @@ async def cancel_deletion(
 ) -> dict[str, Any]:
     """Cancel a deletion request during grace period."""
     row = (
-        await db.execute(
-            text(
-                "SELECT id, status FROM gdpr.deletion_requests "
-                "WHERE id = :did AND user_id = :uid"
-            ),
-            {"did": deletion_id, "uid": user_id},
+        (
+            await db.execute(
+                text(
+                    "SELECT id, status FROM gdpr.deletion_requests "
+                    "WHERE id = :did AND user_id = :uid"
+                ),
+                {"did": deletion_id, "uid": user_id},
+            )
         )
-    ).mappings().first()
+        .mappings()
+        .first()
+    )
 
     if not row:
         raise ValueError("Deletion request not found")
@@ -135,15 +154,11 @@ async def cancel_deletion(
     }
 
 
-async def _process_deletion(
-    db: AsyncSession, user_id: str, deletion_id: str
-) -> None:
+async def _process_deletion(db: AsyncSession, user_id: str, deletion_id: str) -> None:
     """Anonymize personal data. Keep orders for legal/tax retention."""
     # Update status to processing
     await db.execute(
-        text(
-            "UPDATE gdpr.deletion_requests SET status = 'processing' WHERE id = :did"
-        ),
+        text("UPDATE gdpr.deletion_requests SET status = 'processing' WHERE id = :did"),
         {"did": deletion_id},
     )
     await db.commit()

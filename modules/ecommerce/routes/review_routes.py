@@ -24,10 +24,14 @@ async def list_reviews(
     page_size: int = Query(default=20, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
 ) -> Any:
-    return await review_service.list_reviews(db, product_id, page=page, page_size=page_size)
+    return await review_service.list_reviews(
+        db, product_id, page=page, page_size=page_size
+    )
 
 
-@router.post("/products/{product_id}/reviews", response_model=ReviewResponse, status_code=201)
+@router.post(
+    "/products/{product_id}/reviews", response_model=ReviewResponse, status_code=201
+)
 async def create_review(
     product_id: str,
     body: ReviewCreate,
@@ -36,8 +40,15 @@ async def create_review(
 ) -> Any:
     try:
         return await review_service.create_review(
-            db, product_id, user["user_id"],
-            body.rating, body.title, body.body,
+            db,
+            product_id,
+            user["user_id"],
+            body.rating,
+            body.title,
+            body.body,
         )
     except ValueError as e:
-        raise HTTPException(status_code=409, detail={"error": "conflict", "message": str(e), "details": None})
+        raise HTTPException(
+            status_code=409,
+            detail={"error": "conflict", "message": str(e), "details": None},
+        )

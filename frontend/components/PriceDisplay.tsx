@@ -7,7 +7,12 @@ interface PriceDisplayProps {
   size?: "sm" | "md" | "lg";
 }
 
-export default function PriceDisplay({ cents, currency = "USD", className = "", size = "md" }: PriceDisplayProps) {
+export default function PriceDisplay({
+  cents,
+  currency = "USD",
+  className = "",
+  size = "md",
+}: PriceDisplayProps) {
   const sizeClasses = {
     sm: "text-sm",
     md: "text-lg",
@@ -15,7 +20,9 @@ export default function PriceDisplay({ cents, currency = "USD", className = "", 
   };
 
   return (
-    <span className={`font-semibold text-text-primary ${sizeClasses[size]} ${className}`}>
+    <span
+      className={`font-semibold text-text-primary ${sizeClasses[size]} ${className}`}
+    >
       {formatPrice(cents, currency)}
     </span>
   );

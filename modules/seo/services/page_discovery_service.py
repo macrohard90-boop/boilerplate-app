@@ -86,13 +86,17 @@ async def sync_page_registry(db: AsyncSession) -> dict[str, Any]:
     # 2. Active products → products/{slug}
     try:
         product_rows = (
-            await db.execute(
-                text(
-                    "SELECT slug FROM ecommerce.products "
-                    "WHERE status = 'active' AND deleted_at IS NULL"
+            (
+                await db.execute(
+                    text(
+                        "SELECT slug FROM ecommerce.products "
+                        "WHERE status = 'active' AND deleted_at IS NULL"
+                    )
                 )
             )
-        ).scalars().all()
+            .scalars()
+            .all()
+        )
         for slug in product_rows:
             path = f"products/{slug}"
             all_pages[path] = {
@@ -107,8 +111,10 @@ async def sync_page_registry(db: AsyncSession) -> dict[str, Any]:
     # 3. Categories → categories/{slug}
     try:
         cat_rows = (
-            await db.execute(text("SELECT slug FROM ecommerce.categories"))
-        ).scalars().all()
+            (await db.execute(text("SELECT slug FROM ecommerce.categories")))
+            .scalars()
+            .all()
+        )
         for slug in cat_rows:
             path = f"categories/{slug}"
             all_pages[path] = {
@@ -123,8 +129,10 @@ async def sync_page_registry(db: AsyncSession) -> dict[str, Any]:
     # 4. Meta overrides (may include custom paths not from filesystem or DB)
     try:
         override_rows = (
-            await db.execute(text("SELECT path FROM seo.meta_overrides"))
-        ).scalars().all()
+            (await db.execute(text("SELECT path FROM seo.meta_overrides")))
+            .scalars()
+            .all()
+        )
         for path in override_rows:
             if path not in all_pages:
                 all_pages[path] = {
@@ -182,14 +190,18 @@ async def collect_all_paths(db: AsyncSession) -> list[str]:
     of truth used by scoring, sitemap, audit, crawler, and rescorer.
     """
     rows = (
-        await db.execute(
-            text(
-                "SELECT path FROM seo.page_registry "
-                "WHERE is_dynamic = FALSE "
-                "ORDER BY path"
+        (
+            await db.execute(
+                text(
+                    "SELECT path FROM seo.page_registry "
+                    "WHERE is_dynamic = FALSE "
+                    "ORDER BY path"
+                )
             )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
     return list(rows)
 
 
@@ -204,16 +216,20 @@ async def get_page_registry(
     ).scalar() or 0
 
     rows = (
-        await db.execute(
-            text(
-                "SELECT id, path, source, is_dynamic, changefreq, priority, "
-                "created_at, updated_at "
-                "FROM seo.page_registry ORDER BY path "
-                "LIMIT :lim OFFSET :off"
-            ),
-            {"lim": page_size, "off": offset},
+        (
+            await db.execute(
+                text(
+                    "SELECT id, path, source, is_dynamic, changefreq, priority, "
+                    "created_at, updated_at "
+                    "FROM seo.page_registry ORDER BY path "
+                    "LIMIT :lim OFFSET :off"
+                ),
+                {"lim": page_size, "off": offset},
+            )
         )
-    ).mappings().all()
+        .mappings()
+        .all()
+    )
 
     return {
         "items": [

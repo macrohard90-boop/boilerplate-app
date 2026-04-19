@@ -48,25 +48,44 @@ export default function OrdersPage() {
       ) : !data || data.items.length === 0 ? (
         <div className="glass rounded-xl p-8 text-center">
           <p className="text-text-secondary">No orders yet.</p>
-          <Link href="/products" className="btn-primary text-sm mt-4 inline-block">Start Shopping</Link>
+          <Link
+            href="/products"
+            className="btn-primary text-sm mt-4 inline-block"
+          >
+            Start Shopping
+          </Link>
         </div>
       ) : (
         <>
           <div className="space-y-3">
             {data.items.map((order) => (
-              <Link key={order.id} href={`/dashboard/orders/${order.id}`} className="glass rounded-xl p-5 flex items-center justify-between group hover:border-accent-purple/20 transition-all block">
+              <Link
+                key={order.id}
+                href={`/dashboard/orders/${order.id}`}
+                className="glass rounded-xl p-5 flex items-center justify-between group hover:border-accent-purple/20 transition-all block"
+              >
                 <div>
                   <p className="text-sm font-medium text-text-primary group-hover:text-accent-blue transition-colors">
                     Order #{order.id.slice(0, 8)}
                   </p>
-                  <p className="text-xs text-text-muted mt-1">{formatDate(order.created_at)}</p>
+                  <p className="text-xs text-text-muted mt-1">
+                    {formatDate(order.created_at)}
+                  </p>
                 </div>
                 <div className="text-right">
-                  <p className="text-lg font-semibold text-text-primary">{formatPrice(order.total, order.currency)}</p>
-                  <span className={`text-xs ${
-                    order.status === "completed" || order.status === "delivered" ? "badge-green" :
-                    order.status === "cancelled" ? "badge-pink" : "badge-blue"
-                  }`}>
+                  <p className="text-lg font-semibold text-text-primary">
+                    {formatPrice(order.total, order.currency)}
+                  </p>
+                  <span
+                    className={`text-xs ${
+                      order.status === "completed" ||
+                      order.status === "delivered"
+                        ? "badge-green"
+                        : order.status === "cancelled"
+                          ? "badge-pink"
+                          : "badge-blue"
+                    }`}
+                  >
                     {order.status}
                   </span>
                 </div>
@@ -75,7 +94,11 @@ export default function OrdersPage() {
           </div>
           {data.total_pages > 1 && (
             <div className="mt-8">
-              <Pagination currentPage={data.page} totalPages={data.total_pages} onPageChange={setPage} />
+              <Pagination
+                currentPage={data.page}
+                totalPages={data.total_pages}
+                onPageChange={setPage}
+              />
             </div>
           )}
         </>

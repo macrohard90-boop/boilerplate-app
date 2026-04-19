@@ -14,7 +14,6 @@ from modules.ecommerce.models.schemas import (
     DigitalAssetCreate,
     DigitalAssetResponse,
     DigitalAssetUpdate,
-    DownloadUrlResponse,
     FeeTierCreate,
     FeeTierResponse,
     FeeTierUpdate,
@@ -66,7 +65,14 @@ async def admin_get_order(
 ) -> Any:
     order = await order_service.get_order(db, order_id)
     if not order:
-        raise HTTPException(status_code=404, detail={"error": "not_found", "message": "Order not found", "details": None})
+        raise HTTPException(
+            status_code=404,
+            detail={
+                "error": "not_found",
+                "message": "Order not found",
+                "details": None,
+            },
+        )
     return order
 
 
@@ -80,7 +86,10 @@ async def admin_update_order_status(
     try:
         return await order_service.update_order_status(db, order_id, body.status)
     except ValueError as e:
-        raise HTTPException(status_code=404, detail={"error": "not_found", "message": str(e), "details": None})
+        raise HTTPException(
+            status_code=404,
+            detail={"error": "not_found", "message": str(e), "details": None},
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -95,7 +104,9 @@ async def admin_adjust_inventory(
     user: dict = Depends(require_role("admin")),
     db: AsyncSession = Depends(get_db),
 ) -> Any:
-    return await inventory_service.adjust_stock(db, variant_id, body.quantity_change, body.reason)
+    return await inventory_service.adjust_stock(
+        db, variant_id, body.quantity_change, body.reason
+    )
 
 
 @router.get("/inventory/low-stock", response_model=list[LowStockResponse])
@@ -120,7 +131,9 @@ async def admin_list_subscriptions(
     user: dict = Depends(require_role("admin")),
     db: AsyncSession = Depends(get_db),
 ) -> Any:
-    return await subscription_service.list_all_subscriptions(db, page=page, page_size=page_size, status=status)
+    return await subscription_service.list_all_subscriptions(
+        db, page=page, page_size=page_size, status=status
+    )
 
 
 @router.post("/subscriptions/{subscription_id}/cancel")
@@ -132,7 +145,10 @@ async def admin_cancel_subscription(
     try:
         return await subscription_service.admin_cancel_subscription(db, subscription_id)
     except ValueError as e:
-        raise HTTPException(status_code=400, detail={"error": "bad_request", "message": str(e), "details": None})
+        raise HTTPException(
+            status_code=400,
+            detail={"error": "bad_request", "message": str(e), "details": None},
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -150,7 +166,10 @@ async def admin_moderate_review(
     try:
         return await review_service.moderate_review(db, review_id, body.status)
     except ValueError as e:
-        raise HTTPException(status_code=404, detail={"error": "not_found", "message": str(e), "details": None})
+        raise HTTPException(
+            status_code=404,
+            detail={"error": "not_found", "message": str(e), "details": None},
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -175,9 +194,14 @@ async def admin_update_asset(
     db: AsyncSession = Depends(get_db),
 ) -> Any:
     try:
-        return await digital_asset_service.update_asset(db, asset_id, body.model_dump(exclude_unset=True))
+        return await digital_asset_service.update_asset(
+            db, asset_id, body.model_dump(exclude_unset=True)
+        )
     except ValueError as e:
-        raise HTTPException(status_code=404, detail={"error": "not_found", "message": str(e), "details": None})
+        raise HTTPException(
+            status_code=404,
+            detail={"error": "not_found", "message": str(e), "details": None},
+        )
 
 
 @router.delete("/digital-assets/{asset_id}", status_code=204)
@@ -189,7 +213,10 @@ async def admin_delete_asset(
     try:
         await digital_asset_service.delete_asset(db, asset_id)
     except ValueError as e:
-        raise HTTPException(status_code=404, detail={"error": "not_found", "message": str(e), "details": None})
+        raise HTTPException(
+            status_code=404,
+            detail={"error": "not_found", "message": str(e), "details": None},
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -206,21 +233,48 @@ async def download_file(
 ) -> Any:
     data = digital_asset_service.verify_download_token(token)
     if not data or data["user_id"] != user["user_id"]:
-        raise HTTPException(status_code=403, detail={"error": "forbidden", "message": "Invalid or expired download link", "details": None})
+        raise HTTPException(
+            status_code=403,
+            detail={
+                "error": "forbidden",
+                "message": "Invalid or expired download link",
+                "details": None,
+            },
+        )
 
     asset = await digital_asset_service.get_asset(db, data["asset_id"])
     if not asset:
-        raise HTTPException(status_code=404, detail={"error": "not_found", "message": "Asset not found", "details": None})
+        raise HTTPException(
+            status_code=404,
+            detail={
+                "error": "not_found",
+                "message": "Asset not found",
+                "details": None,
+            },
+        )
 
     allowed = await digital_asset_service.check_download_limit(
-        redis, data["asset_id"], data["user_id"], asset.get("download_limit"),
+        redis,
+        data["asset_id"],
+        data["user_id"],
+        asset.get("download_limit"),
     )
     if not allowed:
-        raise HTTPException(status_code=429, detail={"error": "too_many_requests", "message": "Download limit reached", "details": None})
+        raise HTTPException(
+            status_code=429,
+            detail={
+                "error": "too_many_requests",
+                "message": "Download limit reached",
+                "details": None,
+            },
+        )
 
-    await digital_asset_service.increment_download_count(redis, data["asset_id"], data["user_id"])
+    await digital_asset_service.increment_download_count(
+        redis, data["asset_id"], data["user_id"]
+    )
 
     from fastapi.responses import RedirectResponse
+
     return RedirectResponse(url=asset["file_url"])
 
 
@@ -254,9 +308,14 @@ async def admin_update_fee_tier(
     db: AsyncSession = Depends(get_db),
 ) -> Any:
     try:
-        return await fee_tier_service.update_tier(db, tier_id, body.model_dump(exclude_unset=True))
+        return await fee_tier_service.update_tier(
+            db, tier_id, body.model_dump(exclude_unset=True)
+        )
     except ValueError as e:
-        raise HTTPException(status_code=404, detail={"error": "not_found", "message": str(e), "details": None})
+        raise HTTPException(
+            status_code=404,
+            detail={"error": "not_found", "message": str(e), "details": None},
+        )
 
 
 @router.delete("/fee-tiers/{tier_id}", status_code=204)
@@ -268,7 +327,10 @@ async def admin_delete_fee_tier(
     try:
         await fee_tier_service.delete_tier(db, tier_id)
     except ValueError as e:
-        raise HTTPException(status_code=404, detail={"error": "not_found", "message": str(e), "details": None})
+        raise HTTPException(
+            status_code=404,
+            detail={"error": "not_found", "message": str(e), "details": None},
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -276,7 +338,10 @@ async def admin_delete_fee_tier(
 # ---------------------------------------------------------------------------
 
 
-@router.get("/merchants/{merchant_id}/fee-overrides", response_model=list[MerchantFeeOverrideResponse])
+@router.get(
+    "/merchants/{merchant_id}/fee-overrides",
+    response_model=list[MerchantFeeOverrideResponse],
+)
 async def admin_get_merchant_fee_overrides(
     merchant_id: str,
     user: dict = Depends(require_role("admin")),
@@ -285,7 +350,10 @@ async def admin_get_merchant_fee_overrides(
     return await fee_tier_service.get_merchant_overrides(db, merchant_id)
 
 
-@router.put("/merchants/{merchant_id}/fee-overrides", response_model=list[MerchantFeeOverrideResponse])
+@router.put(
+    "/merchants/{merchant_id}/fee-overrides",
+    response_model=list[MerchantFeeOverrideResponse],
+)
 async def admin_set_merchant_fee_overrides(
     merchant_id: str,
     body: MerchantFeeOverrideRequest,

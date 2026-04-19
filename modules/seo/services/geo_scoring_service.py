@@ -54,7 +54,9 @@ async def score_page_geo(db: AsyncSession, path: str) -> GEOScoreResult:
         paragraph_count=geo_signals.paragraph_count if geo_signals else 0,
         # Extractability
         first_paragraph_text=geo_signals.first_paragraph_text if geo_signals else "",
-        first_paragraph_word_count=geo_signals.first_paragraph_word_count if geo_signals else 0,
+        first_paragraph_word_count=(
+            geo_signals.first_paragraph_word_count if geo_signals else 0
+        ),
         h2_headings=geo_signals.h2_headings if geo_signals else [],
         h2_question_count=geo_signals.h2_question_count if geo_signals else 0,
         h2_sections=geo_signals.h2_sections if geo_signals else [],
@@ -63,7 +65,9 @@ async def score_page_geo(db: AsyncSession, path: str) -> GEOScoreResult:
         has_data_tables=geo_signals.has_data_tables if geo_signals else False,
         # Authority
         has_blockquotes=geo_signals.has_blockquotes if geo_signals else False,
-        quote_attribution_count=geo_signals.quote_attribution_count if geo_signals else 0,
+        quote_attribution_count=(
+            geo_signals.quote_attribution_count if geo_signals else 0
+        ),
         authority_domain_count=geo_signals.authority_domain_count if geo_signals else 0,
         stale_year_references=geo_signals.stale_year_references if geo_signals else [],
         # Schema detection
@@ -115,16 +119,20 @@ async def get_latest_geo_scores(
     offset = (page - 1) * page_size
 
     rows = (
-        await db.execute(
-            text(
-                "SELECT DISTINCT ON (path) id, path, score, dimension_scores, "
-                "rule_results, provider, scored_at "
-                "FROM seo.geo_page_scores ORDER BY path, scored_at DESC "
-                "LIMIT :lim OFFSET :off"
-            ),
-            {"lim": page_size, "off": offset},
+        (
+            await db.execute(
+                text(
+                    "SELECT DISTINCT ON (path) id, path, score, dimension_scores, "
+                    "rule_results, provider, scored_at "
+                    "FROM seo.geo_page_scores ORDER BY path, scored_at DESC "
+                    "LIMIT :lim OFFSET :off"
+                ),
+                {"lim": page_size, "off": offset},
+            )
         )
-    ).mappings().all()
+        .mappings()
+        .all()
+    )
 
     total = (
         await db.execute(
@@ -156,21 +164,23 @@ async def get_latest_geo_scores(
     }
 
 
-async def get_geo_score_for_path(
-    db: AsyncSession, path: str
-) -> dict[str, Any] | None:
+async def get_geo_score_for_path(db: AsyncSession, path: str) -> dict[str, Any] | None:
     """Get the latest GEO score for a specific page."""
     row = (
-        await db.execute(
-            text(
-                "SELECT id, path, score, dimension_scores, rule_results, "
-                "provider, scored_at "
-                "FROM seo.geo_page_scores "
-                "WHERE path = :path ORDER BY scored_at DESC LIMIT 1"
-            ),
-            {"path": path},
+        (
+            await db.execute(
+                text(
+                    "SELECT id, path, score, dimension_scores, rule_results, "
+                    "provider, scored_at "
+                    "FROM seo.geo_page_scores "
+                    "WHERE path = :path ORDER BY scored_at DESC LIMIT 1"
+                ),
+                {"path": path},
+            )
         )
-    ).mappings().first()
+        .mappings()
+        .first()
+    )
 
     if not row:
         return None
@@ -191,17 +201,21 @@ async def get_geo_score_trend(
 ) -> dict[str, Any]:
     """Get GEO score history for a single page."""
     rows = (
-        await db.execute(
-            text(
-                "SELECT score, dimension_scores, scored_at "
-                "FROM seo.geo_page_scores "
-                "WHERE path = :path "
-                "AND scored_at >= NOW() - INTERVAL '1 day' * :days "
-                "ORDER BY scored_at ASC"
-            ),
-            {"path": path, "days": days},
+        (
+            await db.execute(
+                text(
+                    "SELECT score, dimension_scores, scored_at "
+                    "FROM seo.geo_page_scores "
+                    "WHERE path = :path "
+                    "AND scored_at >= NOW() - INTERVAL '1 day' * :days "
+                    "ORDER BY scored_at ASC"
+                ),
+                {"path": path, "days": days},
+            )
         )
-    ).mappings().all()
+        .mappings()
+        .all()
+    )
 
     return {
         "path": path,
@@ -269,7 +283,12 @@ def _analyze_structured_data(structured_data: list[dict]) -> dict[str, Any]:
                 if isinstance(main_entity, list):
                     info["faq_question_count"] = len(main_entity)
 
-            elif t_lower in ("article", "newsarticle", "blogposting", "technicalarticle"):
+            elif t_lower in (
+                "article",
+                "newsarticle",
+                "blogposting",
+                "technicalarticle",
+            ):
                 info["has_article_schema"] = True
                 seen_types.add("article")
                 info["article_has_author"] = bool(block.get("author"))
@@ -299,7 +318,10 @@ def _get_date_modified(structured_data: list[dict]) -> str | None:
         types = schema_type if isinstance(schema_type, list) else [schema_type]
         for t in types:
             if isinstance(t, str) and t.lower() in (
-                "article", "newsarticle", "blogposting", "technicalarticle"
+                "article",
+                "newsarticle",
+                "blogposting",
+                "technicalarticle",
             ):
                 dm = block.get("dateModified")
                 if dm:
@@ -311,14 +333,18 @@ async def _get_meta_updated_at(db: AsyncSession, path: str) -> str | None:
     """Fallback: get last meta override update time from DB."""
     try:
         row = (
-            await db.execute(
-                text(
-                    "SELECT updated_at FROM seo.meta_overrides "
-                    "WHERE path = :path ORDER BY updated_at DESC LIMIT 1"
-                ),
-                {"path": path},
+            (
+                await db.execute(
+                    text(
+                        "SELECT updated_at FROM seo.meta_overrides "
+                        "WHERE path = :path ORDER BY updated_at DESC LIMIT 1"
+                    ),
+                    {"path": path},
+                )
             )
-        ).scalars().first()
+            .scalars()
+            .first()
+        )
         return str(row) if row else None
     except Exception:
         return None

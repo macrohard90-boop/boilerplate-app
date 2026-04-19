@@ -11,7 +11,8 @@ export const CONSENT_TYPES: ConsentType[] = [
   {
     key: "transactional_email",
     label: "Transactional Emails",
-    description: "Order confirmations, password resets, and account notifications",
+    description:
+      "Order confirmations, password resets, and account notifications",
     category: "email",
     defaultValue: true,
     required: true,

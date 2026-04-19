@@ -49,7 +49,8 @@ class AnthropicAPIGEOAdvisor(GEOAdvisorProvider):
         self._api_key = api_key or settings.anthropic_api_key
         self._model = model or settings.seo_advisor_model
         self._max_searches = (
-            max_searches if max_searches is not None
+            max_searches
+            if max_searches is not None
             else settings.seo_advisor_max_searches
         )
 
@@ -77,11 +78,13 @@ class AnthropicAPIGEOAdvisor(GEOAdvisorProvider):
 
         tools = []
         if self._max_searches > 0:
-            tools.append({
-                "type": "web_search_20250305",
-                "name": "web_search",
-                "max_uses": self._max_searches,
-            })
+            tools.append(
+                {
+                    "type": "web_search_20250305",
+                    "name": "web_search",
+                    "max_uses": self._max_searches,
+                }
+            )
 
         try:
             response = await client.messages.create(
@@ -153,8 +156,7 @@ class AnthropicAPIGEOAdvisor(GEOAdvisorProvider):
                 suggestions=[],
                 provider="anthropic_api",
                 error=(
-                    "anthropic package not installed. "
-                    "Run: pip install anthropic"
+                    "anthropic package not installed. " "Run: pip install anthropic"
                 ),
             )
 
@@ -169,8 +171,13 @@ class AnthropicAPIGEOAdvisor(GEOAdvisorProvider):
             )
 
         prompt = build_geo_prompt(
-            path, html, scores, dimension_scores, rule_results,
-            business_context, intent,
+            path,
+            html,
+            scores,
+            dimension_scores,
+            rule_results,
+            business_context,
+            intent,
         )
 
         try:
@@ -193,7 +200,9 @@ class AnthropicAPIGEOAdvisor(GEOAdvisorProvider):
         except Exception as e:
             error_type = type(e).__name__
             logger.error(
-                "Anthropic API GEO advisor error: %s: %s", error_type, e,
+                "Anthropic API GEO advisor error: %s: %s",
+                error_type,
+                e,
             )
             return GEOAdvisorResult(
                 suggestions=[],

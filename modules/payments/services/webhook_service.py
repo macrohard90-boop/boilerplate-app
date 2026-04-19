@@ -11,7 +11,11 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.core.config import settings
-from modules.ecommerce.services import inventory_service, order_service, subscription_service
+from modules.ecommerce.services import (
+    inventory_service,
+    order_service,
+    subscription_service,
+)
 from modules.payments.adapters import get_payment_provider
 from modules.payments.services import payment_service
 
@@ -41,11 +45,15 @@ async def verify_and_process_webhook(
 
     # 2. Idempotency check
     existing = (
-        await db.execute(
-            text("SELECT id FROM ecommerce.webhook_events WHERE event_id = :eid"),
-            {"eid": event_id},
+        (
+            await db.execute(
+                text("SELECT id FROM ecommerce.webhook_events WHERE event_id = :eid"),
+                {"eid": event_id},
+            )
         )
-    ).mappings().first()
+        .mappings()
+        .first()
+    )
 
     if existing:
         logger.info("Duplicate webhook event skipped: %s", event_id)
@@ -119,9 +127,13 @@ async def _handle_payment_succeeded(
             user_id = payment_intent.get("metadata", {}).get("user_id")
             if user_id:
                 email_data = await _build_order_email_data(db, order_id)
-                from modules.gdpr.services.email_send_service import send_email_fire_and_forget
+                from modules.gdpr.services.email_send_service import (
+                    send_email_fire_and_forget,
+                )
+
                 await send_email_fire_and_forget(
-                    user_id, "order_confirmation",
+                    user_id,
+                    "order_confirmation",
                     email_data,
                     email_type="transactional_email",
                 )
@@ -129,41 +141,51 @@ async def _handle_payment_succeeded(
             logger.exception("Failed to send order confirmation for %s", order_id)
 
 
-async def _build_order_email_data(
-    db: AsyncSession, order_id: str
-) -> dict[str, Any]:
+async def _build_order_email_data(db: AsyncSession, order_id: str) -> dict[str, Any]:
     """Fetch order details + items for the confirmation email template."""
     order = (
-        await db.execute(
-            text(
-                "SELECT order_number, total, currency "
-                "FROM ecommerce.orders WHERE id = :oid"
-            ),
-            {"oid": order_id},
+        (
+            await db.execute(
+                text(
+                    "SELECT order_number, total, currency "
+                    "FROM ecommerce.orders WHERE id = :oid"
+                ),
+                {"oid": order_id},
+            )
         )
-    ).mappings().first()
+        .mappings()
+        .first()
+    )
 
     items_rows = (
-        await db.execute(
-            text(
-                "SELECT product_snapshot, quantity, unit_price "
-                "FROM ecommerce.order_items WHERE order_id = :oid"
-            ),
-            {"oid": order_id},
+        (
+            await db.execute(
+                text(
+                    "SELECT product_snapshot, quantity, unit_price "
+                    "FROM ecommerce.order_items WHERE order_id = :oid"
+                ),
+                {"oid": order_id},
+            )
         )
-    ).mappings().all()
+        .mappings()
+        .all()
+    )
 
     items = []
     for row in items_rows:
-        snap = row["product_snapshot"] if isinstance(row["product_snapshot"], dict) else {}
+        snap = (
+            row["product_snapshot"] if isinstance(row["product_snapshot"], dict) else {}
+        )
         name = snap.get("product_name", "Item")
         variant = snap.get("variant_name")
         label = f"{name} ({variant})" if variant else name
-        items.append({
-            "name": label,
-            "quantity": row["quantity"],
-            "price": f"${row['unit_price'] / 100:.2f}",
-        })
+        items.append(
+            {
+                "name": label,
+                "quantity": row["quantity"],
+                "price": f"${row['unit_price'] / 100:.2f}",
+            }
+        )
 
     currency = (order["currency"] if order else "USD").upper()
     total_cents = order["total"] if order else 0
@@ -192,14 +214,18 @@ async def _handle_payment_failed(
     if order_id:
         # Release inventory for all order items
         items = (
-            await db.execute(
-                text(
-                    "SELECT variant_id, quantity FROM ecommerce.order_items "
-                    "WHERE order_id = :oid"
-                ),
-                {"oid": order_id},
+            (
+                await db.execute(
+                    text(
+                        "SELECT variant_id, quantity FROM ecommerce.order_items "
+                        "WHERE order_id = :oid"
+                    ),
+                    {"oid": order_id},
+                )
             )
-        ).mappings().all()
+            .mappings()
+            .all()
+        )
 
         for item in items:
             await inventory_service.release_stock(
@@ -209,9 +235,7 @@ async def _handle_payment_failed(
         await order_service.update_order_status(db, order_id, "rejected")
 
 
-async def _handle_charge_succeeded(
-    db: AsyncSession, charge: dict[str, Any]
-) -> None:
+async def _handle_charge_succeeded(db: AsyncSession, charge: dict[str, Any]) -> None:
     """charge.succeeded -> store charge_id on payment record for audit trail."""
     charge_id = charge["id"]
     pi_id = charge.get("payment_intent")
@@ -231,9 +255,7 @@ async def _handle_charge_succeeded(
     await db.commit()
 
 
-async def _handle_charge_refunded(
-    db: AsyncSession, charge: dict[str, Any]
-) -> None:
+async def _handle_charge_refunded(db: AsyncSession, charge: dict[str, Any]) -> None:
     """charge.refunded -> create refund record, update order status."""
     pi_id = charge.get("payment_intent")
     refund_amount = charge.get("amount_refunded", 0)
@@ -266,9 +288,7 @@ async def _handle_charge_refunded(
     await order_service.update_order_status(db, order_id, "refunded")
 
 
-async def _handle_account_updated(
-    db: AsyncSession, account: dict[str, Any]
-) -> None:
+async def _handle_account_updated(db: AsyncSession, account: dict[str, Any]) -> None:
     """account.updated -> update merchant account status."""
     account_id = account["id"]
     charges_enabled = account.get("charges_enabled", False)
@@ -313,11 +333,17 @@ async def _handle_product_updated(
     logger.info("Product updated in Stripe: %s", stripe_product_id)
 
     row = (
-        await db.execute(
-            text("SELECT id, status FROM ecommerce.products WHERE stripe_product_id = :spid"),
-            {"spid": stripe_product_id},
+        (
+            await db.execute(
+                text(
+                    "SELECT id, status FROM ecommerce.products WHERE stripe_product_id = :spid"
+                ),
+                {"spid": stripe_product_id},
+            )
         )
-    ).mappings().first()
+        .mappings()
+        .first()
+    )
 
     if not row:
         logger.warning("No local product for Stripe product %s", stripe_product_id)
@@ -373,9 +399,7 @@ async def _handle_product_deleted(
     await db.commit()
 
 
-async def _handle_price_updated(
-    db: AsyncSession, price_data: dict[str, Any]
-) -> None:
+async def _handle_price_updated(db: AsyncSession, price_data: dict[str, Any]) -> None:
     """price.updated -> log the change. Prices are immutable so mainly tracks active status."""
     stripe_price_id = price_data.get("id")
     is_active = price_data.get("active", True)
@@ -386,9 +410,7 @@ async def _handle_price_updated(
         await _clear_stripe_price(db, stripe_price_id)
 
 
-async def _handle_price_deleted(
-    db: AsyncSession, price_data: dict[str, Any]
-) -> None:
+async def _handle_price_deleted(db: AsyncSession, price_data: dict[str, Any]) -> None:
     """price.deleted -> clear stripe_price_id from product/variant."""
     stripe_price_id = price_data.get("id")
     logger.info("Price deleted in Stripe: %s", stripe_price_id)
@@ -440,7 +462,9 @@ async def _handle_subscription_event(
 
     if stripe_sub_id:
         await subscription_service.update_subscription_from_webhook(
-            db, stripe_sub_id, status,
+            db,
+            stripe_sub_id,
+            status,
             current_period_start=period_start,
             current_period_end=period_end,
         )
@@ -456,7 +480,9 @@ async def _handle_invoice_payment_failed(
 
     logger.info("Invoice payment failed for subscription: %s", stripe_sub_id)
     await subscription_service.update_subscription_from_webhook(
-        db, stripe_sub_id, "past_due",
+        db,
+        stripe_sub_id,
+        "past_due",
     )
 
 
@@ -478,7 +504,10 @@ async def _handle_checkout_session_completed(
 
     logger.info(
         "Checkout session completed: %s mode=%s subscription=%s customer=%s",
-        session_id, mode, subscription_id, customer_id,
+        session_id,
+        mode,
+        subscription_id,
+        customer_id,
     )
 
     # For subscription mode, the customer.subscription.created event handles

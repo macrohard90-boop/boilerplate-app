@@ -90,15 +90,19 @@ async def get_event_stats(
 
     # By type
     rows = (
-        await db.execute(
-            text(
-                f"SELECT event_type, COUNT(*) AS count "
-                f"FROM analytics.events WHERE {where} "
-                f"GROUP BY event_type ORDER BY count DESC LIMIT 50"
-            ),
-            params,
+        (
+            await db.execute(
+                text(
+                    f"SELECT event_type, COUNT(*) AS count "
+                    f"FROM analytics.events WHERE {where} "
+                    f"GROUP BY event_type ORDER BY count DESC LIMIT 50"
+                ),
+                params,
+            )
         )
-    ).mappings().all()
+        .mappings()
+        .all()
+    )
 
     return {
         "total_events": total,

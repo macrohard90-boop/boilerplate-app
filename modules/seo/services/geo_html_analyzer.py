@@ -20,26 +20,28 @@ logger = logging.getLogger(__name__)
 
 # Domains considered authoritative for GEO citation signals
 AUTHORITY_TLDS = frozenset({".edu", ".gov"})
-AUTHORITY_DOMAINS = frozenset({
-    "wikipedia.org",
-    "arxiv.org",
-    "scholar.google.com",
-    "pubmed.ncbi.nlm.nih.gov",
-    "nature.com",
-    "sciencedirect.com",
-    "springer.com",
-    "jstor.org",
-    "ieee.org",
-    "acm.org",
-    "who.int",
-    "cdc.gov",
-    "nih.gov",
-    "un.org",
-    "worldbank.org",
-    "statista.com",
-    "reuters.com",
-    "apnews.com",
-})
+AUTHORITY_DOMAINS = frozenset(
+    {
+        "wikipedia.org",
+        "arxiv.org",
+        "scholar.google.com",
+        "pubmed.ncbi.nlm.nih.gov",
+        "nature.com",
+        "sciencedirect.com",
+        "springer.com",
+        "jstor.org",
+        "ieee.org",
+        "acm.org",
+        "who.int",
+        "cdc.gov",
+        "nih.gov",
+        "un.org",
+        "worldbank.org",
+        "statista.com",
+        "reuters.com",
+        "apnews.com",
+    }
+)
 
 # Patterns indicating statistics/data points in text
 STAT_PATTERNS = re.compile(
@@ -154,10 +156,12 @@ class _GEOSignalExtractor(HTMLParser):
             # Save previous section if any
             if self._current_h2_text:
                 section_text = " ".join(self._current_section_parts).strip()
-                self.signals.h2_sections.append({
-                    "heading": self._current_h2_text,
-                    "first_sentences": self._get_first_sentences(section_text, 2),
-                })
+                self.signals.h2_sections.append(
+                    {
+                        "heading": self._current_h2_text,
+                        "first_sentences": self._get_first_sentences(section_text, 2),
+                    }
+                )
             self._in_h2 = True
             self._h2_parts = []
             self._current_section_parts = []
@@ -220,10 +224,12 @@ class _GEOSignalExtractor(HTMLParser):
             # Save last section
             if self._current_h2_text:
                 section_text = " ".join(self._current_section_parts).strip()
-                self.signals.h2_sections.append({
-                    "heading": self._current_h2_text,
-                    "first_sentences": self._get_first_sentences(section_text, 2),
-                })
+                self.signals.h2_sections.append(
+                    {
+                        "heading": self._current_h2_text,
+                        "first_sentences": self._get_first_sentences(section_text, 2),
+                    }
+                )
             self._in_body = False
 
     def handle_data(self, data: str) -> None:
@@ -256,9 +262,7 @@ class _GEOSignalExtractor(HTMLParser):
         self.signals.stat_pattern_count = len(STAT_PATTERNS.findall(body_text))
 
         # Quote attribution count
-        self.signals.quote_attribution_count = len(
-            QUOTE_ATTRIBUTION.findall(body_text)
-        )
+        self.signals.quote_attribution_count = len(QUOTE_ATTRIBUTION.findall(body_text))
 
         # Stale year references
         current_year = datetime.now(timezone.utc).year
@@ -289,7 +293,9 @@ class _GEOSignalExtractor(HTMLParser):
 
             # Check if external
             domain_clean = re.sub(r"^www\.", "", domain)
-            own_clean = re.sub(r"^www\.", "", self._own_domain) if self._own_domain else ""
+            own_clean = (
+                re.sub(r"^www\.", "", self._own_domain) if self._own_domain else ""
+            )
             if own_clean and domain_clean == own_clean:
                 return  # Internal link
 
@@ -306,7 +312,9 @@ class _GEOSignalExtractor(HTMLParser):
                     break
             if not is_authority:
                 for auth_domain in AUTHORITY_DOMAINS:
-                    if domain_clean == auth_domain or domain_clean.endswith("." + auth_domain):
+                    if domain_clean == auth_domain or domain_clean.endswith(
+                        "." + auth_domain
+                    ):
                         is_authority = True
                         break
             if is_authority:

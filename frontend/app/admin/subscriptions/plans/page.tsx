@@ -8,7 +8,9 @@ import Pagination from "../../../../components/Pagination";
 import LoadingSpinner from "../../../../components/LoadingSpinner";
 import Modal from "../../../../components/Modal";
 import { useToast } from "../../../../components/Toast";
-import ProductForm, { type ProductFormData } from "../../../../components/admin/ProductForm";
+import ProductForm, {
+  type ProductFormData,
+} from "../../../../components/admin/ProductForm";
 import SyncStatusBadge from "../../../../components/admin/SyncStatusBadge";
 
 interface Plan {
@@ -169,7 +171,9 @@ export default function SubscriptionPlansPage() {
               {f.label}
             </button>
           ))}
-          {data && <span className="text-text-muted text-xs ml-2">({data.total})</span>}
+          {data && (
+            <span className="text-text-muted text-xs ml-2">({data.total})</span>
+          )}
         </div>
         <button
           onClick={() => setShowCreate(true)}
@@ -198,32 +202,64 @@ export default function SubscriptionPlansPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-glass-border">
-                  <th className="text-left p-4 text-text-muted font-medium">Name</th>
-                  <th className="text-left p-4 text-text-muted font-medium">Price</th>
-                  <th className="text-left p-4 text-text-muted font-medium">Interval</th>
-                  <th className="text-left p-4 text-text-muted font-medium">Trial</th>
-                  <th className="text-left p-4 text-text-muted font-medium">Subscribers</th>
-                  <th className="text-left p-4 text-text-muted font-medium">Status</th>
-                  <th className="text-left p-4 text-text-muted font-medium">Sync</th>
-                  <th className="text-right p-4 text-text-muted font-medium">Actions</th>
+                  <th className="text-left p-4 text-text-muted font-medium">
+                    Name
+                  </th>
+                  <th className="text-left p-4 text-text-muted font-medium">
+                    Price
+                  </th>
+                  <th className="text-left p-4 text-text-muted font-medium">
+                    Interval
+                  </th>
+                  <th className="text-left p-4 text-text-muted font-medium">
+                    Trial
+                  </th>
+                  <th className="text-left p-4 text-text-muted font-medium">
+                    Subscribers
+                  </th>
+                  <th className="text-left p-4 text-text-muted font-medium">
+                    Status
+                  </th>
+                  <th className="text-left p-4 text-text-muted font-medium">
+                    Sync
+                  </th>
+                  <th className="text-right p-4 text-text-muted font-medium">
+                    Actions
+                  </th>
                 </tr>
               </thead>
               <tbody>
                 {data.items.map((plan) => (
-                  <tr key={plan.id} className="border-b border-glass-border/50 hover:bg-glass-hover transition-colors">
-                    <td className="p-4 text-text-primary font-medium">{plan.name}</td>
-                    <td className="p-4 text-text-primary">{formatPrice(plan.base_price, plan.currency)}</td>
+                  <tr
+                    key={plan.id}
+                    className="border-b border-glass-border/50 hover:bg-glass-hover transition-colors"
+                  >
+                    <td className="p-4 text-text-primary font-medium">
+                      {plan.name}
+                    </td>
+                    <td className="p-4 text-text-primary">
+                      {formatPrice(plan.base_price, plan.currency)}
+                    </td>
                     <td className="p-4 text-text-secondary">
-                      {formatInterval(plan.recurring_interval, plan.recurring_interval_count)}
+                      {formatInterval(
+                        plan.recurring_interval,
+                        plan.recurring_interval_count,
+                      )}
                     </td>
                     <td className="p-4 text-text-muted">
-                      {plan.trial_period_days ? `${plan.trial_period_days} days` : "—"}
+                      {plan.trial_period_days
+                        ? `${plan.trial_period_days} days`
+                        : "—"}
                     </td>
                     <td className="p-4">
-                      <span className="text-text-primary font-medium">{plan.subscriber_count}</span>
+                      <span className="text-text-primary font-medium">
+                        {plan.subscriber_count}
+                      </span>
                     </td>
                     <td className="p-4">
-                      <span className={statusBadge(plan.status)}>{plan.status}</span>
+                      <span className={statusBadge(plan.status)}>
+                        {plan.status}
+                      </span>
                     </td>
                     <td className="p-4">
                       <SyncStatusBadge
@@ -237,12 +273,16 @@ export default function SubscriptionPlansPage() {
                         }
                       />
                       {syncingId === plan.id && (
-                        <span className="text-xs text-text-muted ml-1">Syncing...</span>
+                        <span className="text-xs text-text-muted ml-1">
+                          Syncing...
+                        </span>
                       )}
                     </td>
                     <td className="p-4 text-right whitespace-nowrap">
                       <button
-                        onClick={() => router.push(`/admin/subscriptions/plans/${plan.id}`)}
+                        onClick={() =>
+                          router.push(`/admin/subscriptions/plans/${plan.id}`)
+                        }
                         className="text-xs text-accent-blue hover:text-accent-blue/80 mr-3"
                       >
                         Edit
@@ -263,14 +303,23 @@ export default function SubscriptionPlansPage() {
           </div>
           {data.total_pages > 1 && (
             <div className="mt-6">
-              <Pagination currentPage={data.page} totalPages={data.total_pages} onPageChange={setPage} />
+              <Pagination
+                currentPage={data.page}
+                totalPages={data.total_pages}
+                onPageChange={setPage}
+              />
             </div>
           )}
         </>
       )}
 
       {/* Create Plan Modal */}
-      <Modal isOpen={showCreate} onClose={() => setShowCreate(false)} title="Create Subscription Plan" size="lg">
+      <Modal
+        isOpen={showCreate}
+        onClose={() => setShowCreate(false)}
+        title="Create Subscription Plan"
+        size="lg"
+      >
         <ProductForm
           initial={{
             pricing_type: "recurring",
@@ -286,10 +335,16 @@ export default function SubscriptionPlansPage() {
       </Modal>
 
       {/* Archive Confirmation Modal */}
-      <Modal isOpen={!!archiveId} onClose={() => setArchiveId(null)} title="Archive Plan" size="sm">
+      <Modal
+        isOpen={!!archiveId}
+        onClose={() => setArchiveId(null)}
+        title="Archive Plan"
+        size="sm"
+      >
         <p className="text-text-secondary text-sm mb-4">
-          Are you sure you want to archive this subscription plan? Existing subscribers will not be affected,
-          but no new subscriptions can be created for this plan.
+          Are you sure you want to archive this subscription plan? Existing
+          subscribers will not be affected, but no new subscriptions can be
+          created for this plan.
         </p>
         <div className="flex justify-end gap-3">
           <button

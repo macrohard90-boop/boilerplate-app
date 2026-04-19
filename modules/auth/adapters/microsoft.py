@@ -8,7 +8,9 @@ import httpx
 from modules.auth.interfaces.auth_provider import AuthProvider, OAuthUserInfo
 
 _TENANT = "common"
-_AUTHORIZATION_ENDPOINT = f"https://login.microsoftonline.com/{_TENANT}/oauth2/v2.0/authorize"
+_AUTHORIZATION_ENDPOINT = (
+    f"https://login.microsoftonline.com/{_TENANT}/oauth2/v2.0/authorize"
+)
 _TOKEN_ENDPOINT = f"https://login.microsoftonline.com/{_TENANT}/oauth2/v2.0/token"
 _USERINFO_ENDPOINT = "https://graph.microsoft.com/v1.0/me"
 _DEFAULT_SCOPES = "openid email profile User.Read"

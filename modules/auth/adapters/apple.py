@@ -47,7 +47,9 @@ class AppleAuthProvider(AuthProvider):
             "sub": self._client_id,
         }
         return jose_jwt.encode(
-            claims, self._private_key, algorithm="ES256",
+            claims,
+            self._private_key,
+            algorithm="ES256",
             headers={"kid": self._key_id},
         )
 
@@ -81,7 +83,9 @@ class AppleAuthProvider(AuthProvider):
         from jose import jwt as jose_jwt
 
         # Apple embeds identity in the id_token
-        claims = jose_jwt.decode(access_token, None, options={"verify_signature": False})
+        claims = jose_jwt.decode(
+            access_token, None, options={"verify_signature": False}
+        )
 
         return OAuthUserInfo(
             provider=self.name,

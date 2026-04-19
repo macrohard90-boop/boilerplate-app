@@ -41,22 +41,27 @@ def init_providers() -> None:
 
     if os.environ.get("GOOGLE_CLIENT_ID"):
         from modules.auth.adapters.google import GoogleAuthProvider
+
         register_provider(GoogleAuthProvider())
 
     if os.environ.get("GITHUB_CLIENT_ID"):
         from modules.auth.adapters.github_oauth import GitHubAuthProvider
+
         register_provider(GitHubAuthProvider())
 
     if os.environ.get("MICROSOFT_CLIENT_ID"):
         from modules.auth.adapters.microsoft import MicrosoftAuthProvider
+
         register_provider(MicrosoftAuthProvider())
 
     if os.environ.get("APPLE_CLIENT_ID"):
         from modules.auth.adapters.apple import AppleAuthProvider
+
         register_provider(AppleAuthProvider())
 
     if os.environ.get("OIDC_ISSUER_URL"):
         from modules.auth.adapters.oidc import OIDCAuthProvider
+
         register_provider(OIDCAuthProvider())
 
     logger.info("OAuth providers initialized: %s", list_providers())
@@ -92,11 +97,21 @@ async def validate_state_token(redis: Redis, state: str) -> str | None:
 async def _ensure_stripe_customer(db: AsyncSession, user: dict[str, Any]) -> None:
     """Sync OAuth user to Stripe as a customer if not already synced."""
     try:
-        from modules.ecommerce.services.subscription_service import get_or_create_stripe_customer
-        full_name = f"{user.get('first_name') or ''} {user.get('last_name') or ''}".strip() or None
-        await get_or_create_stripe_customer(db, str(user["id"]), user["email"], name=full_name)
+        from modules.ecommerce.services.subscription_service import (
+            get_or_create_stripe_customer,
+        )
+
+        full_name = (
+            f"{user.get('first_name') or ''} {user.get('last_name') or ''}".strip()
+            or None
+        )
+        await get_or_create_stripe_customer(
+            db, str(user["id"]), user["email"], name=full_name
+        )
     except Exception as e:
-        logger.warning("Failed to sync Stripe customer for OAuth user %s: %s", user["id"], e)
+        logger.warning(
+            "Failed to sync Stripe customer for OAuth user %s: %s", user["id"], e
+        )
 
 
 async def _backfill_name(
@@ -173,7 +188,11 @@ async def find_or_create_user(
                     "INSERT INTO core.oauth_identities (user_id, provider, provider_user_id) "
                     "VALUES (:uid, :provider, :pid) ON CONFLICT DO NOTHING"
                 ),
-                {"uid": str(row["id"]), "provider": info.provider, "pid": info.provider_user_id},
+                {
+                    "uid": str(row["id"]),
+                    "provider": info.provider,
+                    "pid": info.provider_user_id,
+                },
             )
             user = dict(row)
             await _backfill_name(db, user, info)

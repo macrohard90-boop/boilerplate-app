@@ -86,7 +86,11 @@ class StripeProvider(PaymentProvider, CatalogProvider):
 
         # If merchant account, use Connect with platform fee
         if merchant_account_id:
-            fee = fee_amount if fee_amount is not None else int(amount * self._platform_fee_percent / 100)
+            fee = (
+                fee_amount
+                if fee_amount is not None
+                else int(amount * self._platform_fee_percent / 100)
+            )
             if fee > 0:
                 intent_params["application_fee_amount"] = fee
             intent_params["stripe_account"] = merchant_account_id
@@ -207,9 +211,7 @@ class StripeProvider(PaymentProvider, CatalogProvider):
             metadata=pi.metadata or {},
         )
 
-    async def create_merchant(
-        self, merchant_data: dict[str, Any]
-    ) -> MerchantAccount:
+    async def create_merchant(self, merchant_data: dict[str, Any]) -> MerchantAccount:
         account = stripe.Account.create(
             type="express",
             country=merchant_data.get("country", "US"),
@@ -244,9 +246,7 @@ class StripeProvider(PaymentProvider, CatalogProvider):
     async def cancel_payment(self, payment_id: str) -> None:
         stripe.PaymentIntent.cancel(payment_id)
 
-    async def verify_webhook(
-        self, payload: bytes, signature: str
-    ) -> dict[str, Any]:
+    async def verify_webhook(self, payload: bytes, signature: str) -> dict[str, Any]:
         try:
             event = stripe.Webhook.construct_event(
                 payload, signature, settings.stripe_webhook_secret
@@ -309,13 +309,16 @@ class StripeProvider(PaymentProvider, CatalogProvider):
             for pi in intents.data
         ]
 
-
     # -----------------------------------------------------------------------
     # Customer & Subscription methods
     # -----------------------------------------------------------------------
 
     async def create_customer(
-        self, email: str, *, name: str | None = None, metadata: dict[str, Any] | None = None
+        self,
+        email: str,
+        *,
+        name: str | None = None,
+        metadata: dict[str, Any] | None = None,
     ) -> CustomerResult:
         params: dict[str, Any] = {"email": email, "metadata": metadata or {}}
         if name:

@@ -43,7 +43,11 @@ async def oauth_redirect(
     if not prov:
         raise HTTPException(
             status_code=404,
-            detail={"error": "not_found", "message": f"OAuth provider '{provider}' not configured", "details": None},
+            detail={
+                "error": "not_found",
+                "message": f"OAuth provider '{provider}' not configured",
+                "details": None,
+            },
         )
 
     # Capture returnTo from query params (default to /)
@@ -75,12 +79,23 @@ async def oauth_callback(
     if return_to is None:
         raise HTTPException(
             status_code=400,
-            detail={"error": "bad_request", "message": "Invalid or expired OAuth state", "details": None},
+            detail={
+                "error": "bad_request",
+                "message": "Invalid or expired OAuth state",
+                "details": None,
+            },
         )
 
     prov = oauth_service.get_provider(provider)
     if not prov:
-        raise HTTPException(status_code=404, detail={"error": "not_found", "message": "Provider not found", "details": None})
+        raise HTTPException(
+            status_code=404,
+            detail={
+                "error": "not_found",
+                "message": "Provider not found",
+                "details": None,
+            },
+        )
 
     callback_url = f"{settings.backend_url}/api/auth/oauth/{provider}/callback"
 
@@ -89,14 +104,28 @@ async def oauth_callback(
         tokens = await prov.exchange_code(code, redirect_uri=callback_url)
     except Exception as e:
         logger.error("OAuth code exchange failed for %s: %s", provider, e)
-        raise HTTPException(status_code=400, detail={"error": "oauth_error", "message": "Failed to exchange authorization code", "details": None})
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "error": "oauth_error",
+                "message": "Failed to exchange authorization code",
+                "details": None,
+            },
+        )
 
     # Get user info
     try:
         user_info = await prov.get_user_info(tokens["access_token"])
     except Exception as e:
         logger.error("OAuth user info failed for %s: %s", provider, e)
-        raise HTTPException(status_code=400, detail={"error": "oauth_error", "message": "Failed to get user info from provider", "details": None})
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "error": "oauth_error",
+                "message": "Failed to get user info from provider",
+                "details": None,
+            },
+        )
 
     # Find or create user
     user = await oauth_service.find_or_create_user(db, user_info)
@@ -104,25 +133,45 @@ async def oauth_callback(
 
     # Create session and tokens
     permissions = await auth_service.get_user_permissions(db, user_id)
-    ip = request.headers.get("x-forwarded-for", request.client.host if request.client else "unknown")
+    ip = request.headers.get(
+        "x-forwarded-for", request.client.host if request.client else "unknown"
+    )
     device = request.headers.get("user-agent", "")[:255]
 
     now_ts = int(datetime.now(timezone.utc).timestamp())
     consent = await _get_user_consent(db, user_id)
     session_id = await session_service.create_session(
-        redis, db, user_id, user["role"], device=device, ip=ip, user_agent=device,
-        auth_time=now_ts, amr=["oauth"],
+        redis,
+        db,
+        user_id,
+        user["role"],
+        device=device,
+        ip=ip,
+        user_agent=device,
+        auth_time=now_ts,
+        amr=["oauth"],
     )
 
     access = token_service.create_access_token(
-        user_id, user["role"], session_id, permissions,
-        auth_time=now_ts, amr=["oauth"], consent=consent, token_type="access",
+        user_id,
+        user["role"],
+        session_id,
+        permissions,
+        auth_time=now_ts,
+        amr=["oauth"],
+        consent=consent,
+        token_type="access",
     )
     refresh = await token_service.create_refresh_token(redis, user_id, session_id)
 
     await audit_service.log_audit(
-        db, user_id=user_id, action="oauth.login", resource="user",
-        resource_id=user_id, ip_address=ip, payload={"provider": provider},
+        db,
+        user_id=user_id,
+        action="oauth.login",
+        resource="user",
+        resource_id=user_id,
+        ip_address=ip,
+        payload={"provider": provider},
     )
 
     # Redirect to frontend with access token

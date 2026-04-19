@@ -8,7 +8,6 @@ background tasks to avoid adding latency.
 import asyncio
 import logging
 import uuid
-from typing import Any
 
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 from starlette.requests import Request
@@ -57,9 +56,7 @@ class TrackingMiddleware(BaseHTTPMiddleware):
 
         # Fire-and-forget tracking in background
         try:
-            asyncio.create_task(
-                _track_request(request, path)
-            )
+            asyncio.create_task(_track_request(request, path))
         except Exception:
             logger.debug("Failed to schedule tracking task", exc_info=True)
 
@@ -82,8 +79,7 @@ async def _track_request(request: Request, path: str) -> None:
         user = getattr(request.state, "user", None)
         user_id = user["user_id"] if user else None
         session_id = (
-            user.get("session_id") if user
-            else request.headers.get("x-session-id")
+            user.get("session_id") if user else request.headers.get("x-session-id")
         )
 
         if not session_id:

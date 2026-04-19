@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.core.database import get_db
-from backend.core.dependencies import get_current_user, require_role
+from backend.core.dependencies import require_role
 from modules.payments.models.schemas import (
     ErrorResponse,
     MerchantDashboardResponse,

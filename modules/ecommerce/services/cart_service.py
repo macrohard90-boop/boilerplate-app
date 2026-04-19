@@ -8,7 +8,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.core.config import settings
-from modules.ecommerce.services import discount_service, pricing_service
+from modules.ecommerce.services import discount_service
 
 _GUEST_PREFIX = "cart:guest:"
 
@@ -21,26 +21,36 @@ _GUEST_PREFIX = "cart:guest:"
 async def _get_variant_info(db: AsyncSession, variant_id: str) -> dict[str, Any] | None:
     """Fetch variant + product info needed for cart operations."""
     row = (
-        await db.execute(
-            text(
-                "SELECT v.id AS variant_id, v.product_id, v.name AS variant_name, "
-                "v.price_override, v.stock_quantity, v.sku, "
-                "p.name AS product_name, p.base_price, p.currency, p.status, p.pricing_type, "
-                "COALESCE("
-                "  (SELECT url FROM ecommerce.product_images WHERE variant_id = v.id ORDER BY is_primary DESC, sort_order LIMIT 1),"
-                "  (SELECT url FROM ecommerce.product_images WHERE product_id = v.product_id AND variant_id IS NULL ORDER BY is_primary DESC, sort_order LIMIT 1)"
-                ") AS image_url "
-                "FROM ecommerce.product_variants v "
-                "JOIN ecommerce.products p ON p.id = v.product_id "
-                "WHERE v.id = :vid AND p.deleted_at IS NULL"
-            ),
-            {"vid": variant_id},
+        (
+            await db.execute(
+                text(
+                    "SELECT v.id AS variant_id, v.product_id, v.name AS variant_name, "
+                    "v.price_override, v.stock_quantity, v.sku, "
+                    "p.name AS product_name, p.base_price, p.currency, p.status, p.pricing_type, "
+                    "COALESCE("
+                    "  (SELECT url FROM ecommerce.product_images"
+                    "   WHERE variant_id = v.id"
+                    "   ORDER BY is_primary DESC, sort_order LIMIT 1),"
+                    "  (SELECT url FROM ecommerce.product_images"
+                    "   WHERE product_id = v.product_id AND variant_id IS NULL"
+                    "   ORDER BY is_primary DESC, sort_order LIMIT 1)"
+                    ") AS image_url "
+                    "FROM ecommerce.product_variants v "
+                    "JOIN ecommerce.products p ON p.id = v.product_id "
+                    "WHERE v.id = :vid AND p.deleted_at IS NULL"
+                ),
+                {"vid": variant_id},
+            )
         )
-    ).mappings().first()
+        .mappings()
+        .first()
+    )
     if not row:
         return None
     d = dict(row)
-    d["effective_price"] = d["price_override"] if d["price_override"] is not None else d["base_price"]
+    d["effective_price"] = (
+        d["price_override"] if d["price_override"] is not None else d["base_price"]
+    )
     return d
 
 
@@ -75,49 +85,65 @@ async def _delete_guest_cart(redis: Redis, session_id: str) -> None:
 async def _get_or_create_auth_cart(db: AsyncSession, user_id: str) -> dict[str, Any]:
     """Get active cart for user, or create one."""
     row = (
-        await db.execute(
-            text(
-                "SELECT * FROM ecommerce.cart "
-                "WHERE user_id = :uid AND status = 'active' "
-                "ORDER BY created_at DESC LIMIT 1"
-            ),
-            {"uid": user_id},
+        (
+            await db.execute(
+                text(
+                    "SELECT * FROM ecommerce.cart "
+                    "WHERE user_id = :uid AND status = 'active' "
+                    "ORDER BY created_at DESC LIMIT 1"
+                ),
+                {"uid": user_id},
+            )
         )
-    ).mappings().first()
+        .mappings()
+        .first()
+    )
     if row:
         return dict(row)
 
     row = (
-        await db.execute(
-            text(
-                "INSERT INTO ecommerce.cart (user_id, status) "
-                "VALUES (:uid, 'active') RETURNING *"
-            ),
-            {"uid": user_id},
+        (
+            await db.execute(
+                text(
+                    "INSERT INTO ecommerce.cart (user_id, status) "
+                    "VALUES (:uid, 'active') RETURNING *"
+                ),
+                {"uid": user_id},
+            )
         )
-    ).mappings().first()
+        .mappings()
+        .first()
+    )
     await db.commit()
     return dict(row)
 
 
 async def _get_auth_cart_items(db: AsyncSession, cart_id: str) -> list[dict[str, Any]]:
     rows = (
-        await db.execute(
-            text(
-                "SELECT ci.*, p.name AS product_name, v.name AS variant_name, "
-                "p.currency, p.pricing_type, "
-                "COALESCE("
-                "  (SELECT url FROM ecommerce.product_images WHERE variant_id = ci.variant_id ORDER BY is_primary DESC, sort_order LIMIT 1),"
-                "  (SELECT url FROM ecommerce.product_images WHERE product_id = ci.product_id AND variant_id IS NULL ORDER BY is_primary DESC, sort_order LIMIT 1)"
-                ") AS image_url "
-                "FROM ecommerce.cart_items ci "
-                "JOIN ecommerce.products p ON p.id = ci.product_id "
-                "JOIN ecommerce.product_variants v ON v.id = ci.variant_id "
-                "WHERE ci.cart_id = :cid"
-            ),
-            {"cid": cart_id},
+        (
+            await db.execute(
+                text(
+                    "SELECT ci.*, p.name AS product_name, v.name AS variant_name, "
+                    "p.currency, p.pricing_type, "
+                    "COALESCE("
+                    "  (SELECT url FROM ecommerce.product_images"
+                    "   WHERE variant_id = ci.variant_id"
+                    "   ORDER BY is_primary DESC, sort_order LIMIT 1),"
+                    "  (SELECT url FROM ecommerce.product_images"
+                    "   WHERE product_id = ci.product_id AND variant_id IS NULL"
+                    "   ORDER BY is_primary DESC, sort_order LIMIT 1)"
+                    ") AS image_url "
+                    "FROM ecommerce.cart_items ci "
+                    "JOIN ecommerce.products p ON p.id = ci.product_id "
+                    "JOIN ecommerce.product_variants v ON v.id = ci.variant_id "
+                    "WHERE ci.cart_id = :cid"
+                ),
+                {"cid": cart_id},
+            )
         )
-    ).mappings().all()
+        .mappings()
+        .all()
+    )
     return [dict(r) for r in rows]
 
 
@@ -157,9 +183,15 @@ async def clear_cart(
         await db.commit()
         return _empty_cart()
     elif session_id:
-        await _save_guest_cart(redis, session_id, {
-            "items": [], "discount_code_id": None, "discount_code": None,
-        })
+        await _save_guest_cart(
+            redis,
+            session_id,
+            {
+                "items": [],
+                "discount_code_id": None,
+                "discount_code": None,
+            },
+        )
         return _empty_cart()
     else:
         return _empty_cart()
@@ -178,16 +210,20 @@ async def add_item(
     # Resolve default variant if none specified
     if not variant_id:
         row = (
-            await db.execute(
-                text(
-                    "SELECT v.id FROM ecommerce.product_variants v "
-                    "JOIN ecommerce.products p ON p.id = v.product_id "
-                    "WHERE v.product_id = :pid AND p.deleted_at IS NULL "
-                    "ORDER BY v.created_at LIMIT 1"
-                ),
-                {"pid": product_id},
+            (
+                await db.execute(
+                    text(
+                        "SELECT v.id FROM ecommerce.product_variants v "
+                        "JOIN ecommerce.products p ON p.id = v.product_id "
+                        "WHERE v.product_id = :pid AND p.deleted_at IS NULL "
+                        "ORDER BY v.created_at LIMIT 1"
+                    ),
+                    {"pid": product_id},
+                )
             )
-        ).mappings().first()
+            .mappings()
+            .first()
+        )
         if not row:
             raise ValueError("Product/variant not found")
         variant_id = str(row["id"])
@@ -203,10 +239,14 @@ async def add_item(
     unit_price = info["effective_price"]
 
     if user:
-        await _add_auth_item(db, user["user_id"], product_id, variant_id, quantity, unit_price)
+        await _add_auth_item(
+            db, user["user_id"], product_id, variant_id, quantity, unit_price
+        )
         return await _get_auth_cart_response(db, user["user_id"])
     elif session_id:
-        await _add_guest_item(redis, session_id, product_id, variant_id, quantity, unit_price, info)
+        await _add_guest_item(
+            redis, session_id, product_id, variant_id, quantity, unit_price, info
+        )
         return await _get_guest_cart_response(db, redis, session_id)
     else:
         raise ValueError("No user or session")
@@ -229,7 +269,12 @@ async def update_item(
                 "UPDATE ecommerce.cart_items SET quantity = :qty "
                 "WHERE cart_id = :cid AND product_id = :pid AND variant_id = :vid"
             ),
-            {"cid": str(cart["id"]), "pid": product_id, "vid": variant_id, "qty": quantity},
+            {
+                "cid": str(cart["id"]),
+                "pid": product_id,
+                "vid": variant_id,
+                "qty": quantity,
+            },
         )
         if result.rowcount == 0:
             raise ValueError("Item not in cart")
@@ -277,7 +322,8 @@ async def remove_item(
         guest_cart = await _get_guest_cart(redis, session_id)
         original_len = len(guest_cart["items"])
         guest_cart["items"] = [
-            i for i in guest_cart["items"]
+            i
+            for i in guest_cart["items"]
             if not (i["product_id"] == product_id and i["variant_id"] == variant_id)
         ]
         if len(guest_cart["items"]) == original_len:
@@ -305,7 +351,11 @@ async def apply_discount(
     uid = user["user_id"] if user else None
 
     discount = await discount_service.validate_discount(
-        db, code, subtotal, user_id=uid, cart_product_ids=cart_product_ids,
+        db,
+        code,
+        subtotal,
+        user_id=uid,
+        cart_product_ids=cart_product_ids,
     )
 
     if user:
@@ -434,18 +484,20 @@ async def _get_auth_cart_response(db: AsyncSession, user_id: str) -> dict[str, A
     for item in items:
         total = item["unit_price_at_add"] * item["quantity"]
         subtotal += total
-        cart_items.append({
-            "product_id": item["product_id"],
-            "variant_id": item["variant_id"],
-            "quantity": item["quantity"],
-            "unit_price": item["unit_price_at_add"],
-            "total_price": total,
-            "product_name": item["product_name"],
-            "variant_name": item["variant_name"],
-            "currency": item.get("currency", "USD"),
-            "pricing_type": item.get("pricing_type", "one_time"),
-            "image_url": item.get("image_url"),
-        })
+        cart_items.append(
+            {
+                "product_id": item["product_id"],
+                "variant_id": item["variant_id"],
+                "quantity": item["quantity"],
+                "unit_price": item["unit_price_at_add"],
+                "total_price": total,
+                "product_name": item["product_name"],
+                "variant_name": item["variant_name"],
+                "currency": item.get("currency", "USD"),
+                "pricing_type": item.get("pricing_type", "one_time"),
+                "image_url": item.get("image_url"),
+            }
+        )
 
     discount_amount = 0
     discount_code = None
@@ -457,12 +509,15 @@ async def _get_auth_cart_response(db: AsyncSession, user_id: str) -> dict[str, A
             if restricted_pids:
                 restricted_set = set(str(p) for p in restricted_pids)
                 applicable_subtotal = sum(
-                    ci["total_price"] for ci in cart_items
+                    ci["total_price"]
+                    for ci in cart_items
                     if str(ci["product_id"]) in restricted_set
                 )
             else:
                 applicable_subtotal = subtotal
-            discount_amount = discount_service.calculate_discount(d, applicable_subtotal)
+            discount_amount = discount_service.calculate_discount(
+                d, applicable_subtotal
+            )
             discount_code = d["code"]
 
     return {
@@ -477,7 +532,9 @@ async def _get_auth_cart_response(db: AsyncSession, user_id: str) -> dict[str, A
 
 
 async def _get_guest_cart_response(
-    db: AsyncSession, redis: Redis, session_id: str,
+    db: AsyncSession,
+    redis: Redis,
+    session_id: str,
 ) -> dict[str, Any]:
     guest_cart = await _get_guest_cart(redis, session_id)
     items = guest_cart.get("items", [])
@@ -489,33 +546,40 @@ async def _get_guest_cart_response(
 
     cart_items = []
     for i in items:
-        cart_items.append({
-            "product_id": i["product_id"],
-            "variant_id": i["variant_id"],
-            "quantity": i["quantity"],
-            "unit_price": i["unit_price"],
-            "total_price": i["unit_price"] * i["quantity"],
-            "product_name": i.get("product_name", ""),
-            "variant_name": i.get("variant_name", ""),
-            "currency": i.get("currency", "USD"),
-            "pricing_type": i.get("pricing_type", "one_time"),
-            "image_url": i.get("image_url"),
-        })
+        cart_items.append(
+            {
+                "product_id": i["product_id"],
+                "variant_id": i["variant_id"],
+                "quantity": i["quantity"],
+                "unit_price": i["unit_price"],
+                "total_price": i["unit_price"] * i["quantity"],
+                "product_name": i.get("product_name", ""),
+                "variant_name": i.get("variant_name", ""),
+                "currency": i.get("currency", "USD"),
+                "pricing_type": i.get("pricing_type", "one_time"),
+                "image_url": i.get("image_url"),
+            }
+        )
 
     if guest_cart.get("discount_code_id"):
-        d = await discount_service.get_discount_by_id(db, guest_cart["discount_code_id"])
+        d = await discount_service.get_discount_by_id(
+            db, guest_cart["discount_code_id"]
+        )
         if d and d["active"]:
             # For product-restricted coupons, only apply to qualifying items
             restricted_pids = d.get("product_ids", [])
             if restricted_pids:
                 restricted_set = set(str(p) for p in restricted_pids)
                 applicable_subtotal = sum(
-                    ci["total_price"] for ci in cart_items
+                    ci["total_price"]
+                    for ci in cart_items
                     if str(ci["product_id"]) in restricted_set
                 )
             else:
                 applicable_subtotal = subtotal
-            discount_amount = discount_service.calculate_discount(d, applicable_subtotal)
+            discount_amount = discount_service.calculate_discount(
+                d, applicable_subtotal
+            )
             discount_code = d["code"]
 
     return {
@@ -583,7 +647,13 @@ async def _add_auth_item(
                 "(cart_id, product_id, variant_id, quantity, unit_price_at_add) "
                 "VALUES (:cid, :pid, :vid, :qty, :price)"
             ),
-            {"cid": cart_id, "pid": product_id, "vid": variant_id, "qty": quantity, "price": unit_price},
+            {
+                "cid": cart_id,
+                "pid": product_id,
+                "vid": variant_id,
+                "qty": quantity,
+                "price": unit_price,
+            },
         )
     await db.commit()
 
@@ -606,15 +676,17 @@ async def _add_guest_item(
             await _save_guest_cart(redis, session_id, guest_cart)
             return
 
-    guest_cart["items"].append({
-        "product_id": product_id,
-        "variant_id": variant_id,
-        "quantity": quantity,
-        "unit_price": unit_price,
-        "product_name": info["product_name"],
-        "variant_name": info["variant_name"],
-        "currency": info.get("currency", "USD"),
-        "pricing_type": info.get("pricing_type", "one_time"),
-        "image_url": info.get("image_url"),
-    })
+    guest_cart["items"].append(
+        {
+            "product_id": product_id,
+            "variant_id": variant_id,
+            "quantity": quantity,
+            "unit_price": unit_price,
+            "product_name": info["product_name"],
+            "variant_name": info["variant_name"],
+            "currency": info.get("currency", "USD"),
+            "pricing_type": info.get("pricing_type", "one_time"),
+            "image_url": info.get("image_url"),
+        }
+    )
     await _save_guest_cart(redis, session_id, guest_cart)

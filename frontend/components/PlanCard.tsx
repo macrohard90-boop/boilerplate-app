@@ -53,9 +53,7 @@ export default function PlanCard({
   return (
     <div className="glass rounded-xl overflow-hidden transition-all duration-300 hover:border-accent-purple/30 hover:shadow-lg hover:shadow-accent-purple/5 p-6 flex flex-col h-full">
       {/* Plan Name */}
-      <h3 className="text-lg font-semibold text-text-primary">
-        {name}
-      </h3>
+      <h3 className="text-lg font-semibold text-text-primary">{name}</h3>
 
       {/* Price */}
       <div className="mt-3">
@@ -87,7 +85,10 @@ export default function PlanCard({
       {benefits.length > 0 && (
         <ul className="space-y-2.5 flex-1">
           {benefits.slice(0, 6).map((benefit, i) => (
-            <li key={i} className="flex items-start gap-2 text-sm text-text-secondary">
+            <li
+              key={i}
+              className="flex items-start gap-2 text-sm text-text-secondary"
+            >
               <svg
                 xmlns="http://www.w3.org/2000/svg"
                 className="h-4 w-4 text-accent-green shrink-0 mt-0.5"
@@ -96,7 +97,11 @@ export default function PlanCard({
                 stroke="currentColor"
                 strokeWidth={2.5}
               >
-                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M5 13l4 4L19 7"
+                />
               </svg>
               <span>{benefit.trim()}</span>
             </li>

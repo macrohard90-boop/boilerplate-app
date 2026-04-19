@@ -25,17 +25,21 @@ async def reap_stale_orders() -> int:
         timeout_minutes = settings.checkout_timeout
 
         rows = (
-            await db.execute(
-                text(
-                    "SELECT o.id AS order_id, pr.provider_payment_id "
-                    "FROM ecommerce.orders o "
-                    "LEFT JOIN ecommerce.payment_records pr ON pr.order_id = o.id "
-                    "WHERE o.status = 'processing' "
-                    "AND o.created_at < NOW() - MAKE_INTERVAL(mins => :timeout)"
-                ),
-                {"timeout": timeout_minutes},
+            (
+                await db.execute(
+                    text(
+                        "SELECT o.id AS order_id, pr.provider_payment_id "
+                        "FROM ecommerce.orders o "
+                        "LEFT JOIN ecommerce.payment_records pr ON pr.order_id = o.id "
+                        "WHERE o.status = 'processing' "
+                        "AND o.created_at < NOW() - MAKE_INTERVAL(mins => :timeout)"
+                    ),
+                    {"timeout": timeout_minutes},
+                )
             )
-        ).mappings().all()
+            .mappings()
+            .all()
+        )
 
         reaped = 0
         for row in rows:
@@ -45,23 +49,32 @@ async def reap_stale_orders() -> int:
             try:
                 # 1. Release inventory
                 items = (
-                    await db.execute(
-                        text(
-                            "SELECT variant_id, quantity FROM ecommerce.order_items "
-                            "WHERE order_id = :oid"
-                        ),
-                        {"oid": order_id},
+                    (
+                        await db.execute(
+                            text(
+                                "SELECT variant_id, quantity FROM ecommerce.order_items "
+                                "WHERE order_id = :oid"
+                            ),
+                            {"oid": order_id},
+                        )
                     )
-                ).mappings().all()
+                    .mappings()
+                    .all()
+                )
 
                 for item in items:
                     await inventory_service.release_stock(
-                        db, str(item["variant_id"]), item["quantity"], reference_id=order_id
+                        db,
+                        str(item["variant_id"]),
+                        item["quantity"],
+                        reference_id=order_id,
                     )
 
                 # 2. Update order status to 'expired'
                 await db.execute(
-                    text("UPDATE ecommerce.orders SET status = 'expired' WHERE id = :oid"),
+                    text(
+                        "UPDATE ecommerce.orders SET status = 'expired' WHERE id = :oid"
+                    ),
                     {"oid": order_id},
                 )
 
@@ -84,12 +97,16 @@ async def reap_stale_orders() -> int:
 
                         provider = get_payment_provider()
                         await provider.cancel_payment(pi_id)
-                        logger.info("Canceled payment %s for expired order %s", pi_id, order_id)
+                        logger.info(
+                            "Canceled payment %s for expired order %s", pi_id, order_id
+                        )
                     except Exception as e:
                         logger.warning("Failed to cancel payment %s: %s", pi_id, e)
 
                 reaped += 1
-                logger.info("Reaped stale order %s (age > %d min)", order_id, timeout_minutes)
+                logger.info(
+                    "Reaped stale order %s (age > %d min)", order_id, timeout_minutes
+                )
 
             except Exception:
                 logger.exception("Error reaping order %s", order_id)

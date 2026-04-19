@@ -49,11 +49,17 @@ const RULE_HTML_PATTERNS: Array<{ pattern: RegExp; ruleIds: string[] }> = [
     pattern: /<link\s[^>]*rel=["'](?:icon|shortcut icon|apple-touch-icon)["']/i,
     ruleIds: ["favicon_present"],
   },
-  { pattern: /<h1[\s>]/i, ruleIds: ["h1_present", "heading_hierarchy", "title_h1_differentiated"] },
+  {
+    pattern: /<h1[\s>]/i,
+    ruleIds: ["h1_present", "heading_hierarchy", "title_h1_differentiated"],
+  },
   { pattern: /<h[2-6][\s>]/i, ruleIds: ["heading_hierarchy"] },
   { pattern: /<img[\s>]/i, ruleIds: ["images_alt_text", "img_dimensions"] },
   { pattern: /<a\s[^>]*href=["']\//i, ruleIds: ["internal_links"] },
-  { pattern: /<a\s[^>]*href=["']https?:/i, ruleIds: ["external_links_present"] },
+  {
+    pattern: /<a\s[^>]*href=["']https?:/i,
+    ruleIds: ["external_links_present"],
+  },
   {
     pattern: /<script\s[^>]*type=["']application\/ld\+json["']/i,
     ruleIds: ["structured_data", "schema_complete"],
@@ -135,7 +141,7 @@ function tokenizeLine(raw: string): Token[] {
 
         // Attribute: name="value" or name='value' or name
         const attrMatch = remaining.match(
-          /^([a-zA-Z_:][a-zA-Z0-9_.:-]*)(\s*=\s*)(["'])([\s\S]*?)\3/
+          /^([a-zA-Z_:][a-zA-Z0-9_.:-]*)(\s*=\s*)(["'])([\s\S]*?)\3/,
         );
         if (attrMatch) {
           tokens.push({
@@ -237,10 +243,10 @@ export default function HtmlSourceViewer({
       let bgClass = "";
       if (uniqueRuleIds.length > 0) {
         const hasFailingRule = uniqueRuleIds.some(
-          (id) => rulePassMap[id] === false
+          (id) => rulePassMap[id] === false,
         );
         const hasPassingRule = uniqueRuleIds.some(
-          (id) => rulePassMap[id] === true
+          (id) => rulePassMap[id] === true,
         );
         if (hasFailingRule) {
           bgClass = "bg-red-500/10 border-l-2 border-l-red-500/50";
@@ -264,7 +270,7 @@ export default function HtmlSourceViewer({
   useEffect(() => {
     if (!highlightedRule || !viewerRef.current) return;
     const el = viewerRef.current.querySelector(
-      `[data-rule*="${highlightedRule}"]`
+      `[data-rule*="${highlightedRule}"]`,
     );
     if (el) {
       el.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -306,9 +312,7 @@ export default function HtmlSourceViewer({
             <span className="w-3 h-3 rounded-full bg-yellow-500/60" />
             <span className="w-3 h-3 rounded-full bg-green-500/60" />
           </div>
-          <h3 className="text-sm font-medium text-text-primary">
-            Page Source
-          </h3>
+          <h3 className="text-sm font-medium text-text-primary">Page Source</h3>
         </div>
         <span className="text-[10px] text-text-muted">
           {processedLines.length} lines

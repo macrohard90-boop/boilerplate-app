@@ -38,7 +38,6 @@ async def retry_failed_emails() -> int:
             continue
 
         event_id = item.get("event_id", "")
-        user_id = item.get("user_id", "")
         template_id = item.get("template_id", "")
         template_data = item.get("template_data", {})
         email_type = item.get("email_type", "transactional_email")

@@ -27,23 +27,27 @@ async def create_campaign(
 ) -> dict[str, Any]:
     """Create a draft campaign."""
     result = (
-        await db.execute(
-            text(
-                "INSERT INTO marketing.campaigns "
-                "(name, subject, template_id, template_data, created_by, scheduled_at) "
-                "VALUES (:name, :subj, :tid, :tdata, :uid, :sched) "
-                "RETURNING id, status, created_at"
-            ),
-            {
-                "name": name,
-                "subj": subject,
-                "tid": template_id,
-                "tdata": json.dumps(template_data),
-                "uid": created_by,
-                "sched": scheduled_at,
-            },
+        (
+            await db.execute(
+                text(
+                    "INSERT INTO marketing.campaigns "
+                    "(name, subject, template_id, template_data, created_by, scheduled_at) "
+                    "VALUES (:name, :subj, :tid, :tdata, :uid, :sched) "
+                    "RETURNING id, status, created_at"
+                ),
+                {
+                    "name": name,
+                    "subj": subject,
+                    "tid": template_id,
+                    "tdata": json.dumps(template_data),
+                    "uid": created_by,
+                    "sched": scheduled_at,
+                },
+            )
         )
-    ).mappings().first()
+        .mappings()
+        .first()
+    )
 
     await db.commit()
     logger.info("Campaign created: %s (%s)", result["id"], name)
@@ -59,20 +63,22 @@ async def create_campaign(
     }
 
 
-async def send_campaign(
-    db: AsyncSession, campaign_id: str
-) -> dict[str, Any]:
+async def send_campaign(db: AsyncSession, campaign_id: str) -> dict[str, Any]:
     """Send a campaign — render template, push to ESP, update status."""
     # Fetch campaign
     row = (
-        await db.execute(
-            text(
-                "SELECT * FROM marketing.campaigns "
-                "WHERE id = :cid AND status IN ('draft', 'scheduled')"
-            ),
-            {"cid": campaign_id},
+        (
+            await db.execute(
+                text(
+                    "SELECT * FROM marketing.campaigns "
+                    "WHERE id = :cid AND status IN ('draft', 'scheduled')"
+                ),
+                {"cid": campaign_id},
+            )
         )
-    ).mappings().first()
+        .mappings()
+        .first()
+    )
 
     if not row:
         raise ValueError("Campaign not found or already sent")
@@ -80,8 +86,12 @@ async def send_campaign(
     # Render the template (DB first, then filesystem fallback)
     from modules.gdpr.services.template_service import render_template_hybrid
 
-    template_data = row["template_data"] if isinstance(row["template_data"], dict) else {}
-    html_content, _ = await render_template_hybrid(db, row["template_id"], template_data)
+    template_data = (
+        row["template_data"] if isinstance(row["template_data"], dict) else {}
+    )
+    html_content, _ = await render_template_hybrid(
+        db, row["template_id"], template_data
+    )
 
     # Get the email provider
     from modules.gdpr.adapters import get_email_provider
@@ -127,19 +137,21 @@ async def send_campaign(
     }
 
 
-async def get_campaign_stats(
-    db: AsyncSession, campaign_id: str
-) -> dict[str, Any]:
+async def get_campaign_stats(db: AsyncSession, campaign_id: str) -> dict[str, Any]:
     """Get campaign stats — pull from ESP if stale, otherwise return cached."""
     row = (
-        await db.execute(
-            text(
-                "SELECT provider_campaign_id, stats_cache, stats_fetched_at "
-                "FROM marketing.campaigns WHERE id = :cid"
-            ),
-            {"cid": campaign_id},
+        (
+            await db.execute(
+                text(
+                    "SELECT provider_campaign_id, stats_cache, stats_fetched_at "
+                    "FROM marketing.campaigns WHERE id = :cid"
+                ),
+                {"cid": campaign_id},
+            )
         )
-    ).mappings().first()
+        .mappings()
+        .first()
+    )
 
     if not row:
         raise ValueError("Campaign not found")
@@ -150,13 +162,22 @@ async def get_campaign_stats(
     if row["stats_fetched_at"]:
         fetched_at = row["stats_fetched_at"]
         if isinstance(fetched_at, datetime):
-            age = (datetime.now(timezone.utc) - fetched_at.replace(tzinfo=timezone.utc)).total_seconds()
+            age = (
+                datetime.now(timezone.utc) - fetched_at.replace(tzinfo=timezone.utc)
+            ).total_seconds()
             if age < _STATS_CACHE_TTL and row["stats_cache"]:
                 return row["stats_cache"]
 
     # Pull fresh stats from ESP
     if not provider_campaign_id:
-        return {"sent": 0, "delivered": 0, "opened": 0, "clicked": 0, "bounced": 0, "unsubscribed": 0}
+        return {
+            "sent": 0,
+            "delivered": 0,
+            "opened": 0,
+            "clicked": 0,
+            "bounced": 0,
+            "unsubscribed": 0,
+        }
 
     from modules.gdpr.adapters import get_email_provider
 
@@ -187,7 +208,14 @@ async def get_campaign_stats(
 
         return stats_dict
     except NotImplementedError:
-        return {"sent": 0, "delivered": 0, "opened": 0, "clicked": 0, "bounced": 0, "unsubscribed": 0}
+        return {
+            "sent": 0,
+            "delivered": 0,
+            "opened": 0,
+            "clicked": 0,
+            "bounced": 0,
+            "unsubscribed": 0,
+        }
 
 
 async def list_campaigns(
@@ -206,24 +234,32 @@ async def list_campaigns(
         params["status"] = status
 
     rows = (
-        await db.execute(
-            text(
-                f"SELECT id, name, subject, template_id, status, "
-                f"provider_campaign_id, recipient_count, "
-                f"scheduled_at, sent_at, created_at "
-                f"FROM marketing.campaigns {where} "
-                f"ORDER BY created_at DESC LIMIT :limit OFFSET :offset"
-            ),
-            params,
+        (
+            await db.execute(
+                text(
+                    f"SELECT id, name, subject, template_id, status, "
+                    f"provider_campaign_id, recipient_count, "
+                    f"scheduled_at, sent_at, created_at "
+                    f"FROM marketing.campaigns {where} "
+                    f"ORDER BY created_at DESC LIMIT :limit OFFSET :offset"
+                ),
+                params,
+            )
         )
-    ).mappings().all()
+        .mappings()
+        .all()
+    )
 
     count_row = (
-        await db.execute(
-            text(f"SELECT COUNT(*) as total FROM marketing.campaigns {where}"),
-            params,
+        (
+            await db.execute(
+                text(f"SELECT COUNT(*) as total FROM marketing.campaigns {where}"),
+                params,
+            )
         )
-    ).mappings().first()
+        .mappings()
+        .first()
+    )
 
     return {
         "items": [
@@ -247,9 +283,7 @@ async def list_campaigns(
     }
 
 
-async def cancel_campaign(
-    db: AsyncSession, campaign_id: str
-) -> dict[str, Any]:
+async def cancel_campaign(db: AsyncSession, campaign_id: str) -> dict[str, Any]:
     """Cancel a draft or scheduled campaign."""
     result = await db.execute(
         text(

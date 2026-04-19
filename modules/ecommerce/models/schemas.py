@@ -11,6 +11,7 @@ from pydantic import BaseModel, Field, field_validator
 # Shared helpers
 # ---------------------------------------------------------------------------
 
+
 def _slugify(name: str) -> str:
     return re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")
 
@@ -18,6 +19,7 @@ def _slugify(name: str) -> str:
 # ---------------------------------------------------------------------------
 # Category
 # ---------------------------------------------------------------------------
+
 
 class CategoryCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=200)
@@ -51,6 +53,7 @@ class CategoryTreeResponse(CategoryResponse):
 # ---------------------------------------------------------------------------
 # Product
 # ---------------------------------------------------------------------------
+
 
 class ProductCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=300)
@@ -181,6 +184,7 @@ class ProductListResponse(BaseModel):
 # Variant
 # ---------------------------------------------------------------------------
 
+
 class VariantCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=200)
     sku: str | None = Field(default=None, max_length=100)
@@ -216,6 +220,7 @@ class VariantResponse(BaseModel):
 # Image
 # ---------------------------------------------------------------------------
 
+
 class ImageCreate(BaseModel):
     variant_id: UUID | None = None
     url: str = Field(..., min_length=1)
@@ -247,6 +252,7 @@ class ImageResponse(BaseModel):
 # ---------------------------------------------------------------------------
 # Cart
 # ---------------------------------------------------------------------------
+
 
 class CartItemAdd(BaseModel):
     product_id: UUID
@@ -288,6 +294,7 @@ class CartDiscountApply(BaseModel):
 # ---------------------------------------------------------------------------
 # Order
 # ---------------------------------------------------------------------------
+
 
 class OrderCreate(BaseModel):
     shipping_address: dict | None = None
@@ -336,7 +343,14 @@ class OrderStatusUpdate(BaseModel):
     @field_validator("status")
     @classmethod
     def valid_status(cls, v: str) -> str:
-        allowed = ("pending", "processing", "accepted", "completed", "rejected", "refunded")
+        allowed = (
+            "pending",
+            "processing",
+            "accepted",
+            "completed",
+            "rejected",
+            "refunded",
+        )
         if v not in allowed:
             raise ValueError(f"status must be one of {allowed}")
         return v
@@ -345,6 +359,7 @@ class OrderStatusUpdate(BaseModel):
 # ---------------------------------------------------------------------------
 # Discount
 # ---------------------------------------------------------------------------
+
 
 class DiscountCreate(BaseModel):
     code: str = Field(..., min_length=1, max_length=50)
@@ -463,6 +478,7 @@ class DiscountListResponse(BaseModel):
 # Inventory
 # ---------------------------------------------------------------------------
 
+
 class InventoryAdjust(BaseModel):
     quantity_change: int
     reason: str = Field(..., min_length=1, max_length=100)
@@ -489,6 +505,7 @@ class LowStockResponse(BaseModel):
 # ---------------------------------------------------------------------------
 # Wishlist
 # ---------------------------------------------------------------------------
+
 
 class WishlistCreate(BaseModel):
     name: str = Field(default="My Wishlist", min_length=1, max_length=100)
@@ -519,6 +536,7 @@ class WishlistItemResponse(BaseModel):
 # ---------------------------------------------------------------------------
 # Review
 # ---------------------------------------------------------------------------
+
 
 class ReviewCreate(BaseModel):
     rating: int = Field(..., ge=1, le=5)
@@ -560,6 +578,7 @@ class ReviewModerate(BaseModel):
 # Digital Assets
 # ---------------------------------------------------------------------------
 
+
 class DigitalAssetCreate(BaseModel):
     product_id: UUID
     file_url: str = Field(..., min_length=1)
@@ -593,6 +612,7 @@ class DownloadUrlResponse(BaseModel):
 # ---------------------------------------------------------------------------
 # Subscription
 # ---------------------------------------------------------------------------
+
 
 class SubscriptionCreate(BaseModel):
     product_id: UUID
@@ -633,6 +653,7 @@ class SubscriptionListResponse(BaseModel):
 # ---------------------------------------------------------------------------
 # Fee Tiers
 # ---------------------------------------------------------------------------
+
 
 class FeeTierCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=100)
@@ -683,6 +704,7 @@ class MerchantFeeOverrideResponse(BaseModel):
 # ---------------------------------------------------------------------------
 # Shared
 # ---------------------------------------------------------------------------
+
 
 class MessageResponse(BaseModel):
     message: str

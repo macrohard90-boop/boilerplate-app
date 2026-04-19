@@ -1,6 +1,13 @@
 "use client";
 
-import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from "react";
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useCallback,
+  useEffect,
+  useRef,
+} from "react";
 import { apiFetch } from "./api";
 import { useAuth } from "./auth-context";
 
@@ -34,8 +41,16 @@ interface Cart {
 interface CartState {
   cart: Cart;
   isLoading: boolean;
-  addItem: (productId: string, variantId?: string | null, quantity?: number) => Promise<void>;
-  updateQuantity: (productId: string, variantId: string, quantity: number) => Promise<void>;
+  addItem: (
+    productId: string,
+    variantId?: string | null,
+    quantity?: number,
+  ) => Promise<void>;
+  updateQuantity: (
+    productId: string,
+    variantId: string,
+    quantity: number,
+  ) => Promise<void>;
   removeItem: (productId: string, variantId: string) => Promise<void>;
   applyDiscount: (code: string) => Promise<void>;
   removeDiscount: () => Promise<void>;
@@ -81,62 +96,89 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     }
   }, [authLoading, isAuthenticated, refreshCart]);
 
-  const addItem = useCallback(async (productId: string, variantId?: string | null, quantity = 1) => {
-    const data = await apiFetch<Cart>("/ecommerce/cart/items", {
-      method: "POST",
-      body: JSON.stringify({
-        product_id: productId,
-        variant_id: variantId || null,
-        quantity,
-      }),
-    });
-    setCart(data);
-  }, []);
-
-  const updateQuantity = useCallback(async (productId: string, variantId: string, quantity: number) => {
-    const prev = cartRef.current;
-    setCart((c) => {
-      const items = c.items.map((it) =>
-        it.product_id === productId && it.variant_id === variantId
-          ? { ...it, quantity, total_price: it.unit_price * quantity }
-          : it,
-      );
-      const subtotal = items.reduce((s, it) => s + it.total_price, 0);
-      const itemCount = items.reduce((s, it) => s + it.quantity, 0);
-      return { ...c, items, subtotal, item_count: itemCount, total: subtotal - c.discount_amount };
-    });
-    try {
-      const data = await apiFetch<Cart>(`/ecommerce/cart/items/${productId}_${variantId}`, {
-        method: "PUT",
-        body: JSON.stringify({ quantity }),
+  const addItem = useCallback(
+    async (productId: string, variantId?: string | null, quantity = 1) => {
+      const data = await apiFetch<Cart>("/ecommerce/cart/items", {
+        method: "POST",
+        body: JSON.stringify({
+          product_id: productId,
+          variant_id: variantId || null,
+          quantity,
+        }),
       });
       setCart(data);
-    } catch (e) {
-      setCart(prev);
-      throw e;
-    }
-  }, []);
+    },
+    [],
+  );
 
-  const removeItem = useCallback(async (productId: string, variantId: string) => {
-    const prev = cartRef.current;
-    setCart((c) => {
-      const items = c.items.filter(
-        (it) => !(it.product_id === productId && it.variant_id === variantId),
-      );
-      const subtotal = items.reduce((s, it) => s + it.total_price, 0);
-      const itemCount = items.reduce((s, it) => s + it.quantity, 0);
-      return { ...c, items, subtotal, item_count: itemCount, total: subtotal - c.discount_amount };
-    });
-    try {
-      const data = await apiFetch<Cart>(`/ecommerce/cart/items/${productId}_${variantId}`, {
-        method: "DELETE",
+  const updateQuantity = useCallback(
+    async (productId: string, variantId: string, quantity: number) => {
+      const prev = cartRef.current;
+      setCart((c) => {
+        const items = c.items.map((it) =>
+          it.product_id === productId && it.variant_id === variantId
+            ? { ...it, quantity, total_price: it.unit_price * quantity }
+            : it,
+        );
+        const subtotal = items.reduce((s, it) => s + it.total_price, 0);
+        const itemCount = items.reduce((s, it) => s + it.quantity, 0);
+        return {
+          ...c,
+          items,
+          subtotal,
+          item_count: itemCount,
+          total: subtotal - c.discount_amount,
+        };
       });
-      setCart(data);
-    } catch (e) {
-      setCart(prev);
-      throw e;
-    }
-  }, []);
+      try {
+        const data = await apiFetch<Cart>(
+          `/ecommerce/cart/items/${productId}_${variantId}`,
+          {
+            method: "PUT",
+            body: JSON.stringify({ quantity }),
+          },
+        );
+        setCart(data);
+      } catch (e) {
+        setCart(prev);
+        throw e;
+      }
+    },
+    [],
+  );
+
+  const removeItem = useCallback(
+    async (productId: string, variantId: string) => {
+      const prev = cartRef.current;
+      setCart((c) => {
+        const items = c.items.filter(
+          (it) => !(it.product_id === productId && it.variant_id === variantId),
+        );
+        const subtotal = items.reduce((s, it) => s + it.total_price, 0);
+        const itemCount = items.reduce((s, it) => s + it.quantity, 0);
+        return {
+          ...c,
+          items,
+          subtotal,
+          item_count: itemCount,
+          total: subtotal - c.discount_amount,
+        };
+      });
+      try {
+        const data = await apiFetch<Cart>(
+          `/ecommerce/cart/items/${productId}_${variantId}`,
+          {
+            method: "DELETE",
+          },
+        );
+        setCart(data);
+      } catch (e) {
+        setCart(prev);
+        throw e;
+      }
+    },
+    [],
+  );
 
   const applyDiscount = useCallback(async (code: string) => {
     const data = await apiFetch<Cart>("/ecommerce/cart/discount", {

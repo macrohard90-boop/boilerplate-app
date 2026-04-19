@@ -21,9 +21,13 @@ router.include_router(review_router)
 router.include_router(admin_router)
 
 if settings.enable_subscriptions:
-    from modules.ecommerce.routes.subscription_routes import router as subscription_router
+    from modules.ecommerce.routes.subscription_routes import (
+        router as subscription_router,
+    )
+
     router.include_router(subscription_router)
 
 if settings.enable_coupons:
     from modules.ecommerce.routes.discount_routes import router as discount_router
+
     router.include_router(discount_router)

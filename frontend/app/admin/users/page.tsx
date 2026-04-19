@@ -121,7 +121,7 @@ export default function AdminUsersPage() {
       if (statusFilter) params.set("status", statusFilter);
 
       const data = await apiFetch<UserListResponse>(
-        `/auth/admin/users?${params.toString()}`
+        `/auth/admin/users?${params.toString()}`,
       );
       setUsers(data.items);
       setTotal(data.total);
@@ -323,9 +323,7 @@ export default function AdminUsersPage() {
                           <div className="flex items-center gap-2">
                             <button
                               onClick={() =>
-                                setExpandedId(
-                                  expandedId === u.id ? null : u.id
-                                )
+                                setExpandedId(expandedId === u.id ? null : u.id)
                               }
                               className="text-xs text-accent hover:text-accent/80"
                             >

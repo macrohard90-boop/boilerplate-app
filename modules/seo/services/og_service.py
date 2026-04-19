@@ -43,26 +43,30 @@ async def get_og_tags(db: AsyncSession, path: str) -> dict[str, Any]:
     if match:
         slug = match.group(1)
         product = (
-            await db.execute(
-                text(
-                    "SELECT p.name, p.description, p.base_price, p.currency, "
-                    "pi.url AS image_url "
-                    "FROM ecommerce.products p "
-                    "LEFT JOIN ecommerce.product_images pi "
-                    "  ON pi.product_id = p.id AND pi.is_primary = true "
-                    "WHERE p.slug = :slug AND p.status = 'active' "
-                    "  AND p.deleted_at IS NULL"
-                ),
-                {"slug": slug},
+            (
+                await db.execute(
+                    text(
+                        "SELECT p.name, p.description, p.base_price, p.currency, "
+                        "pi.url AS image_url "
+                        "FROM ecommerce.products p "
+                        "LEFT JOIN ecommerce.product_images pi "
+                        "  ON pi.product_id = p.id AND pi.is_primary = true "
+                        "WHERE p.slug = :slug AND p.status = 'active' "
+                        "  AND p.deleted_at IS NULL"
+                    ),
+                    {"slug": slug},
+                )
             )
-        ).mappings().first()
+            .mappings()
+            .first()
+        )
 
         if product:
             og["og:type"] = "product"
             og["og:title"] = product["name"]
-            og["og:description"] = (
-                product["description"] or f"Buy {product['name']}"
-            )[:160]
+            og["og:description"] = (product["description"] or f"Buy {product['name']}")[
+                :160
+            ]
             if product["image_url"]:
                 og["og:image"] = product["image_url"]
             if product["base_price"] is not None:
@@ -77,14 +81,18 @@ async def get_og_tags(db: AsyncSession, path: str) -> dict[str, Any]:
     if match:
         slug = match.group(1)
         category = (
-            await db.execute(
-                text(
-                    "SELECT name, description FROM ecommerce.categories "
-                    "WHERE slug = :slug"
-                ),
-                {"slug": slug},
+            (
+                await db.execute(
+                    text(
+                        "SELECT name, description FROM ecommerce.categories "
+                        "WHERE slug = :slug"
+                    ),
+                    {"slug": slug},
+                )
             )
-        ).mappings().first()
+            .mappings()
+            .first()
+        )
 
         if category:
             og["og:type"] = "website"

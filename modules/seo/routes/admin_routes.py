@@ -359,7 +359,9 @@ if settings.enable_seo_scoring:
         """Get the most recent site audit."""
         result = await get_latest_audit(db)
         if not result:
-            raise HTTPException(status_code=404, detail="No audits found. Run an audit first.")
+            raise HTTPException(
+                status_code=404, detail="No audits found. Run an audit first."
+            )
         return result
 
     @router.get("/audit/history", response_model=AuditListResponse)
@@ -425,9 +427,7 @@ if settings.enable_seo_crawler:
 
         result = await crawl_page(db, path)
         mismatch_count = len(result.get("mismatches", []))
-        return {
-            "message": f"Crawled {path}: {mismatch_count} mismatch(es) found."
-        }
+        return {"message": f"Crawled {path}: {mismatch_count} mismatch(es) found."}
 
 
 # ── Keyword endpoints (gated by enable_seo_keywords) ─────
@@ -550,14 +550,18 @@ async def _get_crawl_content(db: AsyncSession, path: str) -> dict:
     """Get latest crawl content for a page."""
     try:
         row = (
-            await db.execute(
-                text(
-                    "SELECT rendered_meta FROM seo.crawl_results "
-                    "WHERE path = :path ORDER BY crawled_at DESC LIMIT 1"
-                ),
-                {"path": path},
+            (
+                await db.execute(
+                    text(
+                        "SELECT rendered_meta FROM seo.crawl_results "
+                        "WHERE path = :path ORDER BY crawled_at DESC LIMIT 1"
+                    ),
+                    {"path": path},
+                )
             )
-        ).mappings().first()
+            .mappings()
+            .first()
+        )
         if row and row["rendered_meta"]:
             meta = row["rendered_meta"]
             return {"content": meta.get("body_text", "")}
@@ -602,15 +606,19 @@ if settings.enable_seo_advisor:
         # 3. Get target keywords
         try:
             kw_rows = (
-                await db.execute(
-                    text(
-                        "SELECT keyword FROM seo.target_keywords "
-                        "WHERE path = :path OR path IS NULL "
-                        "ORDER BY priority DESC LIMIT 5"
-                    ),
-                    {"path": path},
+                (
+                    await db.execute(
+                        text(
+                            "SELECT keyword FROM seo.target_keywords "
+                            "WHERE path = :path OR path IS NULL "
+                            "ORDER BY priority DESC LIMIT 5"
+                        ),
+                        {"path": path},
+                    )
                 )
-            ).scalars().all()
+                .scalars()
+                .all()
+            )
             keywords = list(kw_rows)
         except Exception:
             keywords = []
@@ -659,7 +667,6 @@ if settings.enable_geo_scoring:
         get_geo_score_trend,
         get_latest_geo_scores,
         score_all_pages_geo,
-        score_page_geo,
     )
 
     @router.get("/geo/scores")

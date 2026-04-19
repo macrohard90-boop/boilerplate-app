@@ -10,7 +10,6 @@ Scores pages 0-100 using weighted rules across 5 GEO dimensions:
 No external dependencies — works fully offline/local.
 """
 
-import re
 from datetime import datetime, timezone
 
 from modules.seo.interfaces.geo_scoring_provider import (
@@ -86,7 +85,10 @@ def _check_h2_question_format(data: PageGEOData) -> GEORuleResult:
             points=0,
             max_points=60,
             category="extractability",
-            recommendation="Add H2 headings phrased as questions (e.g., 'What is...?', 'How do I...?'). AI engines map these directly to user queries.",
+            recommendation=(
+                "Add H2 headings phrased as questions (e.g., 'What is...?', "
+                "'How do I...?'). AI engines map these directly to user queries."
+            ),
         )
 
     question_count = data.h2_question_count
@@ -127,7 +129,10 @@ def _check_sections_self_contained(data: PageGEOData) -> GEORuleResult:
             points=0,
             max_points=70,
             category="extractability",
-            recommendation="Add H2 sections with content that directly addresses the heading topic in the first 1-2 sentences.",
+            recommendation=(
+                "Add H2 sections with content that directly addresses the "
+                "heading topic in the first 1-2 sentences."
+            ),
         )
 
     self_contained = 0
@@ -183,7 +188,10 @@ def _check_stat_density(data: PageGEOData) -> GEORuleResult:
             points=0,
             max_points=80,
             category="fact_density",
-            recommendation="Page has too little content to assess statistic density. Add more content with data points.",
+            recommendation=(
+                "Page has too little content to assess statistic density. "
+                "Add more content with data points."
+            ),
         )
 
     expected = max(1, wc // 200)
@@ -245,7 +253,11 @@ def _check_source_citations(data: PageGEOData) -> GEORuleResult:
             points=0,
             max_points=70,
             category="fact_density",
-            recommendation="Add outbound links to authoritative sources (.edu, .gov, research papers, Wikipedia). AI engines weigh content higher when claims link to credible references.",
+            recommendation=(
+                "Add outbound links to authoritative sources (.edu, .gov, "
+                "research papers, Wikipedia). AI engines weigh content higher "
+                "when claims link to credible references."
+            ),
         )
 
     ratio = authority_count / total_external
@@ -372,7 +384,11 @@ def _check_date_modified_present(data: PageGEOData) -> GEORuleResult:
             points=0,
             max_points=70,
             category="freshness",
-            recommendation="Add Article or BlogPosting schema with a dateModified field. AI engines use this to assess content freshness — 50% of cited content is less than 13 weeks old.",
+            recommendation=(
+                "Add Article or BlogPosting schema with a dateModified field. "
+                "AI engines use this to assess content freshness \u2014 50% of "
+                "cited content is less than 13 weeks old."
+            ),
         )
 
     passed = has_date
@@ -406,7 +422,11 @@ def _check_content_recency(data: PageGEOData) -> GEORuleResult:
             points=0,
             max_points=80,
             category="freshness",
-            recommendation="No update date found. Add dateModified to schema markup and keep content updated quarterly — pages not updated within 90 days are 3x more likely to lose AI citations.",
+            recommendation=(
+                "No update date found. Add dateModified to schema markup and "
+                "keep content updated quarterly \u2014 pages not updated within "
+                "90 days are 3x more likely to lose AI citations."
+            ),
         )
 
     try:
@@ -526,7 +546,11 @@ def _check_article_schema(data: PageGEOData) -> GEORuleResult:
             points=0,
             max_points=70,
             category="metadata",
-            recommendation="Add Article or BlogPosting schema with author, datePublished, and dateModified. This helps AI engines attribute and verify your content.",
+            recommendation=(
+                "Add Article or BlogPosting schema with author, "
+                "datePublished, and dateModified. This helps AI engines "
+                "attribute and verify your content."
+            ),
         )
 
     has_all = (

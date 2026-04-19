@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field
 
 # ── Checkout ─────────────────────────────────────────────
 
+
 class AddressSchema(BaseModel):
     line1: str
     line2: str | None = None
@@ -36,6 +37,7 @@ class CheckoutResponse(BaseModel):
 
 # ── Checkout Session (subscriptions / mixed carts) ───────
 
+
 class CheckoutSessionRequest(BaseModel):
     discount_code: str | None = None
 
@@ -46,6 +48,7 @@ class CheckoutSessionResponse(BaseModel):
 
 
 # ── Payment Status ───────────────────────────────────────
+
 
 class PaymentStatusResponse(BaseModel):
     order_id: str
@@ -61,8 +64,11 @@ class PaymentStatusResponse(BaseModel):
 
 # ── Refund ───────────────────────────────────────────────
 
+
 class RefundRequest(BaseModel):
-    amount: int | None = Field(None, description="Partial refund amount in cents. Null for full refund.")
+    amount: int | None = Field(
+        None, description="Partial refund amount in cents. Null for full refund."
+    )
     reason: str | None = None
 
 
@@ -75,6 +81,7 @@ class RefundResponse(BaseModel):
 
 
 # ── Merchant Onboarding ─────────────────────────────────
+
 
 class MerchantOnboardRequest(BaseModel):
     business_name: str | None = None
@@ -101,6 +108,7 @@ class MerchantDashboardResponse(BaseModel):
 
 
 # ── Generic ──────────────────────────────────────────────
+
 
 class MessageResponse(BaseModel):
     message: str

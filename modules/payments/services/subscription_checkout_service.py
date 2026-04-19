@@ -33,33 +33,41 @@ async def create_subscription_checkout_session(
     """
     # 1. Get cart + items
     cart_row = (
-        await db.execute(
-            text(
-                "SELECT id, discount_code_id FROM ecommerce.cart "
-                "WHERE user_id = :uid AND status = 'active'"
-            ),
-            {"uid": user_id},
+        (
+            await db.execute(
+                text(
+                    "SELECT id, discount_code_id FROM ecommerce.cart "
+                    "WHERE user_id = :uid AND status = 'active'"
+                ),
+                {"uid": user_id},
+            )
         )
-    ).mappings().first()
+        .mappings()
+        .first()
+    )
 
     if not cart_row:
         raise ValueError("No active cart found")
 
     items = (
-        await db.execute(
-            text(
-                "SELECT ci.product_id, ci.variant_id, ci.quantity, "
-                "p.pricing_type, p.stripe_price_id AS product_price_id, "
-                "v.stripe_price_id AS variant_price_id, "
-                "p.name AS product_name "
-                "FROM ecommerce.cart_items ci "
-                "JOIN ecommerce.products p ON p.id = ci.product_id "
-                "JOIN ecommerce.product_variants v ON v.id = ci.variant_id "
-                "WHERE ci.cart_id = :cid"
-            ),
-            {"cid": str(cart_row["id"])},
+        (
+            await db.execute(
+                text(
+                    "SELECT ci.product_id, ci.variant_id, ci.quantity, "
+                    "p.pricing_type, p.stripe_price_id AS product_price_id, "
+                    "v.stripe_price_id AS variant_price_id, "
+                    "p.name AS product_name "
+                    "FROM ecommerce.cart_items ci "
+                    "JOIN ecommerce.products p ON p.id = ci.product_id "
+                    "JOIN ecommerce.product_variants v ON v.id = ci.variant_id "
+                    "WHERE ci.cart_id = :cid"
+                ),
+                {"cid": str(cart_row["id"])},
+            )
         )
-    ).mappings().all()
+        .mappings()
+        .all()
+    )
 
     if not items:
         raise ValueError("Cart is empty")
@@ -78,8 +86,11 @@ async def create_subscription_checkout_session(
 
         cart_product_ids = [str(item["product_id"]) for item in items]
         discount = await discount_service.validate_discount(
-            db, discount_code, 0,
-            user_id=user_id, cart_product_ids=cart_product_ids,
+            db,
+            discount_code,
+            0,
+            user_id=user_id,
+            cart_product_ids=cart_product_ids,
         )
         if discount and discount.get("stripe_coupon_id"):
             stripe_coupon_id = discount["stripe_coupon_id"]

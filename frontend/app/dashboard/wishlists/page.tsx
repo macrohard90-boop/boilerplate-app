@@ -42,11 +42,15 @@ export default function WishlistsPage() {
     setLoading(false);
   }
 
-  useEffect(() => { fetchWishlists(); }, []);
+  useEffect(() => {
+    fetchWishlists();
+  }, []);
 
   async function handleRemove(wishlistId: string, itemId: string) {
     try {
-      await apiFetch(`/ecommerce/wishlists/${wishlistId}/items/${itemId}`, { method: "DELETE" });
+      await apiFetch(`/ecommerce/wishlists/${wishlistId}/items/${itemId}`, {
+        method: "DELETE",
+      });
       showToast("Removed from wishlist", "info");
       fetchWishlists();
     } catch {
@@ -57,7 +61,9 @@ export default function WishlistsPage() {
   async function handleMoveToCart(item: WishlistItem, wishlistId: string) {
     try {
       await addItem(item.product_id);
-      await apiFetch(`/ecommerce/wishlists/${wishlistId}/items/${item.id}`, { method: "DELETE" });
+      await apiFetch(`/ecommerce/wishlists/${wishlistId}/items/${item.id}`, {
+        method: "DELETE",
+      });
       showToast(`${item.product_name} moved to cart`, "success");
       fetchWishlists();
     } catch {
@@ -76,38 +82,83 @@ export default function WishlistsPage() {
       {wishlists.length === 0 ? (
         <div className="glass rounded-xl p-8 text-center">
           <p className="text-text-secondary">No wishlists yet.</p>
-          <Link href="/products" className="btn-primary text-sm mt-4 inline-block">Browse Products</Link>
+          <Link
+            href="/products"
+            className="btn-primary text-sm mt-4 inline-block"
+          >
+            Browse Products
+          </Link>
         </div>
       ) : (
         wishlists.map((wl) => (
           <div key={wl.id} className="mb-8">
-            <h2 className="text-lg font-semibold text-text-primary mb-4">{wl.name}</h2>
+            <h2 className="text-lg font-semibold text-text-primary mb-4">
+              {wl.name}
+            </h2>
             {wl.items.length === 0 ? (
-              <p className="text-sm text-text-muted glass rounded-xl p-4">No items in this wishlist</p>
+              <p className="text-sm text-text-muted glass rounded-xl p-4">
+                No items in this wishlist
+              </p>
             ) : (
               <div className="space-y-3">
                 {wl.items.map((item) => (
-                  <div key={item.id} className="glass rounded-xl p-4 flex items-center gap-4">
-                    <Link href={`/products/${item.product_slug}`} className="w-16 h-16 bg-base-100 rounded-lg shrink-0 overflow-hidden relative block">
+                  <div
+                    key={item.id}
+                    className="glass rounded-xl p-4 flex items-center gap-4"
+                  >
+                    <Link
+                      href={`/products/${item.product_slug}`}
+                      className="w-16 h-16 bg-base-100 rounded-lg shrink-0 overflow-hidden relative block"
+                    >
                       {item.product_image_url ? (
-                        <Image src={item.product_image_url} alt={item.product_name} fill sizes="64px" className="object-cover" />
+                        <Image
+                          src={item.product_image_url}
+                          alt={item.product_name}
+                          fill
+                          sizes="64px"
+                          className="object-cover"
+                        />
                       ) : (
-                        <div className="w-full h-full flex items-center justify-center text-text-muted text-xs">No img</div>
+                        <div className="w-full h-full flex items-center justify-center text-text-muted text-xs">
+                          No img
+                        </div>
                       )}
                     </Link>
                     <div className="flex-1 min-w-0">
-                      <Link href={`/products/${item.product_slug}`} className="text-sm font-medium text-text-primary hover:text-accent-blue transition-colors">
+                      <Link
+                        href={`/products/${item.product_slug}`}
+                        className="text-sm font-medium text-text-primary hover:text-accent-blue transition-colors"
+                      >
                         {item.product_name}
                       </Link>
-                      <p className="text-sm text-text-secondary mt-1">{formatPrice(item.product_price, item.product_currency)}</p>
+                      <p className="text-sm text-text-secondary mt-1">
+                        {formatPrice(item.product_price, item.product_currency)}
+                      </p>
                     </div>
                     <div className="flex gap-2 shrink-0">
-                      <button onClick={() => handleMoveToCart(item, wl.id)} className="btn-primary text-xs !px-3 !py-1.5">
+                      <button
+                        onClick={() => handleMoveToCart(item, wl.id)}
+                        className="btn-primary text-xs !px-3 !py-1.5"
+                      >
                         Add to Cart
                       </button>
-                      <button onClick={() => handleRemove(wl.id, item.id)} className="text-text-muted hover:text-accent-pink transition-colors">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      <button
+                        onClick={() => handleRemove(wl.id, item.id)}
+                        className="text-text-muted hover:text-accent-pink transition-colors"
+                      >
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          className="h-4 w-4"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                          />
                         </svg>
                       </button>
                     </div>

@@ -42,7 +42,10 @@ export default function AdminFeeTiersPage() {
   const [tiers, setTiers] = useState<FeeTier[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [message, setMessage] = useState<{
+    type: "success" | "error";
+    text: string;
+  } | null>(null);
 
   // Modal state
   const [showModal, setShowModal] = useState(false);
@@ -149,17 +152,25 @@ export default function AdminFeeTiersPage() {
             Volume-based fee schedule applied to merchant transactions.
           </p>
         </div>
-        <button onClick={openCreate} className="btn-primary px-4 py-1.5 rounded-lg text-sm">
+        <button
+          onClick={openCreate}
+          className="btn-primary px-4 py-1.5 rounded-lg text-sm"
+        >
           + Add Tier
         </button>
       </div>
 
       <div className="glass rounded-xl p-4 mb-6">
         <p className="text-xs text-text-muted">
-          Fees are matched based on a merchant&apos;s aggregate sales volume. Each transaction incurs
-          a <span className="text-text-secondary font-medium">percentage fee</span> plus an optional{" "}
-          <span className="text-text-secondary font-medium">flat fee</span> (in cents). Merchants
-          on higher volume tiers get lower rates. Per-merchant overrides can be configured separately.
+          Fees are matched based on a merchant&apos;s aggregate sales volume.
+          Each transaction incurs a{" "}
+          <span className="text-text-secondary font-medium">
+            percentage fee
+          </span>{" "}
+          plus an optional{" "}
+          <span className="text-text-secondary font-medium">flat fee</span> (in
+          cents). Merchants on higher volume tiers get lower rates. Per-merchant
+          overrides can be configured separately.
         </p>
       </div>
 
@@ -180,35 +191,60 @@ export default function AdminFeeTiersPage() {
       ) : tiers.length === 0 ? (
         <div className="text-center py-20 text-text-muted">
           <p className="text-lg mb-2">No fee tiers configured</p>
-          <p className="text-sm">Add your first tier to start collecting platform fees.</p>
+          <p className="text-sm">
+            Add your first tier to start collecting platform fees.
+          </p>
         </div>
       ) : (
         <div className="glass rounded-xl overflow-hidden">
           <table className="w-full">
             <thead>
               <tr className="border-b border-glass-border">
-                <th className="text-left text-xs font-medium text-text-muted px-4 py-3">Tier Name</th>
-                <th className="text-left text-xs font-medium text-text-muted px-4 py-3">Volume Range</th>
-                <th className="text-left text-xs font-medium text-text-muted px-4 py-3">Fee %</th>
-                <th className="text-left text-xs font-medium text-text-muted px-4 py-3">Flat Fee</th>
-                <th className="text-left text-xs font-medium text-text-muted px-4 py-3">Order</th>
-                <th className="text-right text-xs font-medium text-text-muted px-4 py-3">Actions</th>
+                <th className="text-left text-xs font-medium text-text-muted px-4 py-3">
+                  Tier Name
+                </th>
+                <th className="text-left text-xs font-medium text-text-muted px-4 py-3">
+                  Volume Range
+                </th>
+                <th className="text-left text-xs font-medium text-text-muted px-4 py-3">
+                  Fee %
+                </th>
+                <th className="text-left text-xs font-medium text-text-muted px-4 py-3">
+                  Flat Fee
+                </th>
+                <th className="text-left text-xs font-medium text-text-muted px-4 py-3">
+                  Order
+                </th>
+                <th className="text-right text-xs font-medium text-text-muted px-4 py-3">
+                  Actions
+                </th>
               </tr>
             </thead>
             <tbody>
               {tiers.map((tier) => (
-                <tr key={tier.id} className="border-b border-glass-border/50 hover:bg-white/[0.02]">
-                  <td className="px-4 py-3 text-sm font-medium text-text-primary">{tier.name}</td>
+                <tr
+                  key={tier.id}
+                  className="border-b border-glass-border/50 hover:bg-white/[0.02]"
+                >
+                  <td className="px-4 py-3 text-sm font-medium text-text-primary">
+                    {tier.name}
+                  </td>
                   <td className="px-4 py-3 text-sm text-text-secondary">
                     {formatDollars(tier.min_volume)}
                     {" — "}
-                    {tier.max_volume !== null ? formatDollars(tier.max_volume) : "Unlimited"}
+                    {tier.max_volume !== null
+                      ? formatDollars(tier.max_volume)
+                      : "Unlimited"}
                   </td>
-                  <td className="px-4 py-3 text-sm text-text-secondary">{tier.fee_percent}%</td>
+                  <td className="px-4 py-3 text-sm text-text-secondary">
+                    {tier.fee_percent}%
+                  </td>
                   <td className="px-4 py-3 text-sm text-text-secondary">
                     {tier.fee_flat > 0 ? formatDollars(tier.fee_flat) : "—"}
                   </td>
-                  <td className="px-4 py-3 text-sm text-text-muted">{tier.sort_order}</td>
+                  <td className="px-4 py-3 text-sm text-text-muted">
+                    {tier.sort_order}
+                  </td>
                   <td className="px-4 py-3 text-right">
                     <div className="flex items-center justify-end gap-2">
                       <button
@@ -259,7 +295,9 @@ export default function AdminFeeTiersPage() {
             </h2>
             <div className="space-y-4">
               <div>
-                <label className="block text-sm text-text-secondary mb-1">Tier Name</label>
+                <label className="block text-sm text-text-secondary mb-1">
+                  Tier Name
+                </label>
                 <input
                   value={form.name}
                   onChange={(e) => setForm({ ...form, name: e.target.value })}
@@ -269,11 +307,15 @@ export default function AdminFeeTiersPage() {
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-sm text-text-secondary mb-1">Min Volume (cents)</label>
+                  <label className="block text-sm text-text-secondary mb-1">
+                    Min Volume (cents)
+                  </label>
                   <input
                     type="number"
                     value={form.min_volume}
-                    onChange={(e) => setForm({ ...form, min_volume: e.target.value })}
+                    onChange={(e) =>
+                      setForm({ ...form, min_volume: e.target.value })
+                    }
                     className="input-glass text-sm w-full"
                   />
                   <p className="text-[10px] text-text-muted mt-0.5">
@@ -281,37 +323,51 @@ export default function AdminFeeTiersPage() {
                   </p>
                 </div>
                 <div>
-                  <label className="block text-sm text-text-secondary mb-1">Max Volume (cents)</label>
+                  <label className="block text-sm text-text-secondary mb-1">
+                    Max Volume (cents)
+                  </label>
                   <input
                     type="number"
                     value={form.max_volume}
-                    onChange={(e) => setForm({ ...form, max_volume: e.target.value })}
+                    onChange={(e) =>
+                      setForm({ ...form, max_volume: e.target.value })
+                    }
                     placeholder="Empty = unlimited"
                     className="input-glass text-sm w-full"
                   />
                   <p className="text-[10px] text-text-muted mt-0.5">
-                    {form.max_volume ? formatDollars(parseInt(form.max_volume) || 0) : "Unlimited"}
+                    {form.max_volume
+                      ? formatDollars(parseInt(form.max_volume) || 0)
+                      : "Unlimited"}
                   </p>
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-sm text-text-secondary mb-1">Fee Percent (%)</label>
+                  <label className="block text-sm text-text-secondary mb-1">
+                    Fee Percent (%)
+                  </label>
                   <input
                     type="number"
                     step="0.01"
                     value={form.fee_percent}
-                    onChange={(e) => setForm({ ...form, fee_percent: e.target.value })}
+                    onChange={(e) =>
+                      setForm({ ...form, fee_percent: e.target.value })
+                    }
                     placeholder="e.g. 15.00"
                     className="input-glass text-sm w-full"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm text-text-secondary mb-1">Flat Fee (cents)</label>
+                  <label className="block text-sm text-text-secondary mb-1">
+                    Flat Fee (cents)
+                  </label>
                   <input
                     type="number"
                     value={form.fee_flat}
-                    onChange={(e) => setForm({ ...form, fee_flat: e.target.value })}
+                    onChange={(e) =>
+                      setForm({ ...form, fee_flat: e.target.value })
+                    }
                     placeholder="e.g. 30 = $0.30"
                     className="input-glass text-sm w-full"
                   />
@@ -321,11 +377,15 @@ export default function AdminFeeTiersPage() {
                 </div>
               </div>
               <div>
-                <label className="block text-sm text-text-secondary mb-1">Sort Order</label>
+                <label className="block text-sm text-text-secondary mb-1">
+                  Sort Order
+                </label>
                 <input
                   type="number"
                   value={form.sort_order}
-                  onChange={(e) => setForm({ ...form, sort_order: e.target.value })}
+                  onChange={(e) =>
+                    setForm({ ...form, sort_order: e.target.value })
+                  }
                   className="input-glass text-sm w-full"
                 />
               </div>

@@ -24,9 +24,7 @@ async def get_consent(
 ):
     """Get current consent state for all consent types."""
     state = await consent_service.get_consent_state(db, user["user_id"])
-    return ConsentState(
-        consents=[ConsentTypeState(**s) for s in state]
-    )
+    return ConsentState(consents=[ConsentTypeState(**s) for s in state])
 
 
 @router.post("/consent", response_model=MessageResponse)
@@ -48,11 +46,14 @@ async def update_consent(
             version=data.version,
         )
     except ValueError as e:
-        raise HTTPException(status_code=400, detail={
-            "error": "bad_request",
-            "message": str(e),
-            "details": None,
-        })
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "error": "bad_request",
+                "message": str(e),
+                "details": None,
+            },
+        )
 
     action = "granted" if data.granted else "revoked"
     return MessageResponse(message=f"Consent {data.consent_type} {action}")

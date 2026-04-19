@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#1a1a2e"/>
+      <stop offset="100%" stop-color="#16213e"/>
+    </linearGradient>
+    <linearGradient id="band" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#9ca3af"/>
+      <stop offset="100%" stop-color="#6b7280"/>
+    </linearGradient>
+  </defs>
+  <rect width="400" height="400" rx="24" fill="url(#bg)"/>
+  <!-- Top band -->
+  <rect x="170" y="70" width="60" height="80" rx="6" fill="url(#band)"/>
+  <!-- Bottom band -->
+  <rect x="170" y="250" width="60" height="80" rx="6" fill="url(#band)"/>
+  <!-- Watch case -->
+  <circle cx="200" cy="200" r="78" fill="#c0c0c0" stroke="#d4d4d4" stroke-width="3"/>
+  <circle cx="200" cy="200" r="70" fill="#111827"/>
+  <!-- Crown button -->
+  <rect x="275" y="192" width="12" height="16" rx="3" fill="#9ca3af"/>
+  <!-- Watch face -->
+  <circle cx="200" cy="200" r="65" fill="none" stroke="#374151" stroke-width="0.5"/>
+  <!-- Hour markers -->
+  <line x1="200" y1="140" x2="200" y2="148" stroke="#9ca3af" stroke-width="2"/>
+  <line x1="200" y1="252" x2="200" y2="260" stroke="#9ca3af" stroke-width="2"/>
+  <line x1="140" y1="200" x2="148" y2="200" stroke="#9ca3af" stroke-width="2"/>
+  <line x1="252" y1="200" x2="260" y2="200" stroke="#9ca3af" stroke-width="2"/>
+  <!-- Hands -->
+  <line x1="200" y1="200" x2="200" y2="158" stroke="#e5e7eb" stroke-width="2.5" stroke-linecap="round"/>
+  <line x1="200" y1="200" x2="235" y2="185" stroke="#e5e7eb" stroke-width="2" stroke-linecap="round"/>
+  <circle cx="200" cy="200" r="3" fill="#6366f1"/>
+  <!-- Label -->
+  <text x="200" y="340" text-anchor="middle" fill="#666" font-family="system-ui,sans-serif" font-size="14" font-weight="500">SMART WATCH</text>
+  <text x="200" y="358" text-anchor="middle" fill="#555" font-family="system-ui,sans-serif" font-size="12">42mm Silver</text>
+</svg>

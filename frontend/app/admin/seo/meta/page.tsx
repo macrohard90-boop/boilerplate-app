@@ -49,7 +49,7 @@ export default function SeoMetaEditorPage() {
   async function fetchData(pg: number = page) {
     try {
       const res = await apiFetch<MetaListResponse>(
-        `/seo/admin/seo/meta?page=${pg}&page_size=20`
+        `/seo/admin/seo/meta?page=${pg}&page_size=20`,
       );
       setData(res);
     } catch {}
@@ -133,18 +133,18 @@ export default function SeoMetaEditorPage() {
       </div>
 
       <p className="text-sm text-text-secondary mb-6">
-        Your pages already have auto-generated SEO metadata from product and category
-        data. Add custom overrides here to fine-tune the title, description, and other
-        SEO fields for specific pages.
+        Your pages already have auto-generated SEO metadata from product and
+        category data. Add custom overrides here to fine-tune the title,
+        description, and other SEO fields for specific pages.
       </p>
 
       {/* Table */}
       <div className="glass rounded-xl overflow-hidden">
         {!data || data.items.length === 0 ? (
           <p className="p-6 text-sm text-text-muted">
-            No custom overrides yet. Your pages use auto-generated SEO metadata from
-            their product and category data. Add an override to optimize a specific
-            page&apos;s search appearance.
+            No custom overrides yet. Your pages use auto-generated SEO metadata
+            from their product and category data. Add an override to optimize a
+            specific page&apos;s search appearance.
           </p>
         ) : (
           <div className="overflow-x-auto">

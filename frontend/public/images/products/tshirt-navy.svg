@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#1a1a2e"/>
+      <stop offset="100%" stop-color="#16213e"/>
+    </linearGradient>
+  </defs>
+  <rect width="400" height="400" rx="24" fill="url(#bg)"/>
+  <!-- T-shirt shape -->
+  <path d="M145 120 L115 140 L100 180 L130 190 L135 155 L135 290 L265 290 L265 155 L270 190 L300 180 L285 140 L255 120 Q240 145 200 145 Q160 145 145 120 Z" fill="#1b2a4a" stroke="#243860" stroke-width="2"/>
+  <!-- Collar -->
+  <path d="M155 125 Q175 150 200 152 Q225 150 245 125" fill="none" stroke="#243860" stroke-width="2.5"/>
+  <!-- Sleeve creases -->
+  <line x1="135" y1="160" x2="130" y2="185" stroke="#162040" stroke-width="1.5"/>
+  <line x1="265" y1="160" x2="270" y2="185" stroke="#162040" stroke-width="1.5"/>
+  <!-- Body fold -->
+  <line x1="200" y1="170" x2="200" y2="280" stroke="#162040" stroke-width="0.8" opacity="0.5"/>
+  <!-- Label -->
+  <text x="200" y="330" text-anchor="middle" fill="#666" font-family="system-ui,sans-serif" font-size="14" font-weight="500">CLASSIC T-SHIRT</text>
+  <text x="200" y="350" text-anchor="middle" fill="#555" font-family="system-ui,sans-serif" font-size="12">Navy</text>
+</svg>

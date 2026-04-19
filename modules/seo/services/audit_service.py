@@ -136,13 +136,17 @@ async def run_full_audit(db: AsyncSession, user_id: str | None = None) -> AuditR
 async def get_latest_audit(db: AsyncSession) -> dict[str, Any] | None:
     """Get the most recent site audit."""
     row = (
-        await db.execute(
-            text(
-                "SELECT id, checks, summary, score, triggered_by, created_at "
-                "FROM seo.site_audits ORDER BY created_at DESC LIMIT 1"
+        (
+            await db.execute(
+                text(
+                    "SELECT id, checks, summary, score, triggered_by, created_at "
+                    "FROM seo.site_audits ORDER BY created_at DESC LIMIT 1"
+                )
             )
         )
-    ).mappings().first()
+        .mappings()
+        .first()
+    )
     if not row:
         return None
     return _format_audit_row(row)
@@ -159,15 +163,19 @@ async def list_audits(
     ).scalar() or 0
 
     rows = (
-        await db.execute(
-            text(
-                "SELECT id, checks, summary, score, triggered_by, created_at "
-                "FROM seo.site_audits ORDER BY created_at DESC "
-                "LIMIT :lim OFFSET :off"
-            ),
-            {"lim": page_size, "off": offset},
+        (
+            await db.execute(
+                text(
+                    "SELECT id, checks, summary, score, triggered_by, created_at "
+                    "FROM seo.site_audits ORDER BY created_at DESC "
+                    "LIMIT :lim OFFSET :off"
+                ),
+                {"lim": page_size, "off": offset},
+            )
         )
-    ).mappings().all()
+        .mappings()
+        .all()
+    )
 
     return {
         "items": [_format_audit_row(r) for r in rows],
@@ -197,13 +205,17 @@ async def _get_all_crawl_data(db: AsyncSession) -> dict[str, dict[str, Any]]:
     """Get the latest crawl result for each path."""
     try:
         rows = (
-            await db.execute(
-                text(
-                    "SELECT DISTINCT ON (path) path, status_code, rendered_meta "
-                    "FROM seo.crawl_results ORDER BY path, crawled_at DESC"
+            (
+                await db.execute(
+                    text(
+                        "SELECT DISTINCT ON (path) path, status_code, rendered_meta "
+                        "FROM seo.crawl_results ORDER BY path, crawled_at DESC"
+                    )
                 )
             )
-        ).mappings().all()
+            .mappings()
+            .all()
+        )
         return {
             r["path"]: {
                 "status_code": r["status_code"],
@@ -231,12 +243,14 @@ def _check_ssl_configured() -> AuditCheck:
         severity="critical",
         passed=passed,
         title="SSL/HTTPS configured",
-        description="Frontend URL uses HTTPS for secure connections."
-        if passed
-        else "Frontend URL is not using HTTPS.",
-        recommendation=None
-        if passed
-        else "Set FRONTEND_URL to an https:// URL in production.",
+        description=(
+            "Frontend URL uses HTTPS for secure connections."
+            if passed
+            else "Frontend URL is not using HTTPS."
+        ),
+        recommendation=(
+            None if passed else "Set FRONTEND_URL to an https:// URL in production."
+        ),
     )
 
 
@@ -264,10 +278,16 @@ def _check_robots_valid() -> AuditCheck:
         severity="critical",
         passed=passed,
         title="robots.txt valid",
-        description="robots.txt allows crawling and includes sitemap reference."
-        if passed
-        else f"robots.txt issues: {', '.join(issues)}.",
-        recommendation=None if passed else "Fix robots.txt to allow crawling of public pages and include a Sitemap directive.",
+        description=(
+            "robots.txt allows crawling and includes sitemap reference."
+            if passed
+            else f"robots.txt issues: {', '.join(issues)}."
+        ),
+        recommendation=(
+            None
+            if passed
+            else "Fix robots.txt to allow crawling of public pages and include a Sitemap directive."
+        ),
     )
 
 
@@ -291,12 +311,14 @@ def _check_canonical_conflicts(page_metas: dict[str, dict[str, Any]]) -> AuditCh
         severity="critical",
         passed=passed,
         title="No canonical URL conflicts",
-        description="Each page has a unique canonical URL."
-        if passed
-        else f"{len(conflicts)} canonical URL(s) shared by multiple pages.",
-        recommendation=None
-        if passed
-        else "Ensure each page has its own unique canonical URL.",
+        description=(
+            "Each page has a unique canonical URL."
+            if passed
+            else f"{len(conflicts)} canonical URL(s) shared by multiple pages."
+        ),
+        recommendation=(
+            None if passed else "Ensure each page has its own unique canonical URL."
+        ),
         affected_pages=affected if affected else None,
     )
 
@@ -321,12 +343,14 @@ def _check_duplicate_titles(page_metas: dict[str, dict[str, Any]]) -> AuditCheck
         severity="warning",
         passed=passed,
         title="No duplicate titles",
-        description="All pages have unique titles."
-        if passed
-        else f"{len(dupes)} title(s) shared by multiple pages.",
-        recommendation=None
-        if passed
-        else "Give each page a unique, descriptive title.",
+        description=(
+            "All pages have unique titles."
+            if passed
+            else f"{len(dupes)} title(s) shared by multiple pages."
+        ),
+        recommendation=(
+            None if passed else "Give each page a unique, descriptive title."
+        ),
         affected_pages=affected if affected else None,
     )
 
@@ -351,12 +375,12 @@ def _check_duplicate_descriptions(page_metas: dict[str, dict[str, Any]]) -> Audi
         severity="warning",
         passed=passed,
         title="No duplicate descriptions",
-        description="All pages have unique meta descriptions."
-        if passed
-        else f"{len(dupes)} description(s) shared by multiple pages.",
-        recommendation=None
-        if passed
-        else "Write unique descriptions for each page.",
+        description=(
+            "All pages have unique meta descriptions."
+            if passed
+            else f"{len(dupes)} description(s) shared by multiple pages."
+        ),
+        recommendation=None if passed else "Write unique descriptions for each page.",
         affected_pages=affected if affected else None,
     )
 
@@ -374,7 +398,8 @@ def _check_no_404_pages(crawl_data: dict[str, dict[str, Any]]) -> AuditCheck:
         )
 
     broken = [
-        path for path, data in crawl_data.items()
+        path
+        for path, data in crawl_data.items()
         if data.get("status_code") and data["status_code"] >= 400
     ]
     passed = len(broken) == 0
@@ -384,12 +409,16 @@ def _check_no_404_pages(crawl_data: dict[str, dict[str, Any]]) -> AuditCheck:
         severity="critical",
         passed=passed,
         title="No broken pages detected",
-        description="All crawled pages return HTTP 200."
-        if passed
-        else f"{len(broken)} page(s) returning error status codes.",
-        recommendation=None
-        if passed
-        else "Fix or remove broken pages that return 4xx/5xx status codes.",
+        description=(
+            "All crawled pages return HTTP 200."
+            if passed
+            else f"{len(broken)} page(s) returning error status codes."
+        ),
+        recommendation=(
+            None
+            if passed
+            else "Fix or remove broken pages that return 4xx/5xx status codes."
+        ),
         affected_pages=broken if broken else None,
     )
 
@@ -413,12 +442,16 @@ def _check_all_pages_have_meta(page_metas: dict[str, dict[str, Any]]) -> AuditCh
         severity="critical",
         passed=passed,
         title="All pages have meta tags",
-        description="Every page has a title and description."
-        if passed
-        else f"{len(missing)} page(s) missing title or description.",
-        recommendation=None
-        if passed
-        else "Add title and description to all pages via the Meta Editor.",
+        description=(
+            "Every page has a title and description."
+            if passed
+            else f"{len(missing)} page(s) missing title or description."
+        ),
+        recommendation=(
+            None
+            if passed
+            else "Add title and description to all pages via the Meta Editor."
+        ),
         affected_pages=missing if missing else None,
     )
 
@@ -447,12 +480,14 @@ def _check_thin_content(crawl_data: dict[str, dict[str, Any]]) -> AuditCheck:
         severity="warning",
         passed=passed,
         title="No thin content detected",
-        description="All pages have sufficient content (200+ characters)."
-        if passed
-        else f"{len(thin)} page(s) with thin content (< 200 characters).",
-        recommendation=None
-        if passed
-        else "Add more substantive content to thin pages.",
+        description=(
+            "All pages have sufficient content (200+ characters)."
+            if passed
+            else f"{len(thin)} page(s) with thin content (< 200 characters)."
+        ),
+        recommendation=(
+            None if passed else "Add more substantive content to thin pages."
+        ),
         affected_pages=thin if thin else None,
     )
 
@@ -473,9 +508,7 @@ def _check_missing_h1(crawl_data: dict[str, dict[str, Any]]) -> AuditCheck:
     for path, data in crawl_data.items():
         headings = data.get("headings")
         if headings is not None:
-            has_h1 = any(
-                h.get("tag", "").lower() == "h1" for h in headings
-            )
+            has_h1 = any(h.get("tag", "").lower() == "h1" for h in headings)
             if not has_h1:
                 missing.append(path)
 
@@ -486,12 +519,12 @@ def _check_missing_h1(crawl_data: dict[str, dict[str, Any]]) -> AuditCheck:
         severity="warning",
         passed=passed,
         title="No missing H1 headings",
-        description="All crawled pages have an H1 heading."
-        if passed
-        else f"{len(missing)} page(s) missing an H1 heading.",
-        recommendation=None
-        if passed
-        else "Add a clear H1 heading to every page.",
+        description=(
+            "All crawled pages have an H1 heading."
+            if passed
+            else f"{len(missing)} page(s) missing an H1 heading."
+        ),
+        recommendation=None if passed else "Add a clear H1 heading to every page.",
         affected_pages=missing if missing else None,
     )
 
@@ -514,8 +547,7 @@ def _check_missing_alt_images(crawl_data: dict[str, dict[str, Any]]) -> AuditChe
         if data.get("images_without_alt") and len(data["images_without_alt"]) > 0
     ]
     total_missing = sum(
-        len(data.get("images_without_alt", []))
-        for data in crawl_data.values()
+        len(data.get("images_without_alt", [])) for data in crawl_data.values()
     )
     passed = len(affected) == 0
     return AuditCheck(
@@ -524,12 +556,16 @@ def _check_missing_alt_images(crawl_data: dict[str, dict[str, Any]]) -> AuditChe
         severity="warning",
         passed=passed,
         title="No images missing alt text",
-        description="All images have descriptive alt text."
-        if passed
-        else f"{total_missing} image(s) across {len(affected)} page(s) missing alt text.",
-        recommendation=None
-        if passed
-        else "Add descriptive alt text to all images for accessibility and SEO.",
+        description=(
+            "All images have descriptive alt text."
+            if passed
+            else f"{total_missing} image(s) across {len(affected)} page(s) missing alt text."
+        ),
+        recommendation=(
+            None
+            if passed
+            else "Add descriptive alt text to all images for accessibility and SEO."
+        ),
         affected_pages=affected if affected else None,
     )
 
@@ -554,12 +590,14 @@ def _check_all_pages_have_og(page_metas: dict[str, dict[str, Any]]) -> AuditChec
         severity="warning",
         passed=passed,
         title="All pages have Open Graph tags",
-        description="Every page has OG title and description for social sharing."
-        if passed
-        else f"{len(missing)} page(s) missing OG tags.",
-        recommendation=None
-        if passed
-        else "Add Open Graph tags (title, description) to all pages.",
+        description=(
+            "Every page has OG title and description for social sharing."
+            if passed
+            else f"{len(missing)} page(s) missing OG tags."
+        ),
+        recommendation=(
+            None if passed else "Add Open Graph tags (title, description) to all pages."
+        ),
         affected_pages=missing if missing else None,
     )
 
@@ -571,11 +609,14 @@ def _check_custom_og_images(page_metas: dict[str, dict[str, Any]]) -> AuditCheck
     for path, meta in page_metas.items():
         og = meta.get("og_tags") or {}
         og_image = og.get("og:image", "")
-        if not og_image or og_image == default_image or og_image.endswith(default_image):
+        if (
+            not og_image
+            or og_image == default_image
+            or og_image.endswith(default_image)
+        ):
             using_default.append(path)
 
     total = len(page_metas)
-    custom_count = total - len(using_default)
     passed = len(using_default) == 0
     return AuditCheck(
         check_id="custom_og_images",
@@ -583,12 +624,16 @@ def _check_custom_og_images(page_metas: dict[str, dict[str, Any]]) -> AuditCheck
         severity="info",
         passed=passed,
         title="Pages use custom OG images",
-        description=f"All {total} page(s) have custom OG images."
-        if passed
-        else f"{len(using_default)} of {total} page(s) using default OG image.",
-        recommendation=None
-        if passed
-        else "Set page-specific OG images for better social media previews.",
+        description=(
+            f"All {total} page(s) have custom OG images."
+            if passed
+            else f"{len(using_default)} of {total} page(s) using default OG image."
+        ),
+        recommendation=(
+            None
+            if passed
+            else "Set page-specific OG images for better social media previews."
+        ),
         affected_pages=using_default if using_default else None,
     )
 
@@ -626,12 +671,16 @@ def _check_image_heavy_pages(crawl_data: dict[str, dict[str, Any]]) -> AuditChec
         severity="info",
         passed=passed,
         title="No image-heavy pages",
-        description="No pages have excessive unoptimized images."
-        if passed
-        else f"{len(heavy)} page(s) with many unoptimized images.",
-        recommendation=None
-        if passed
-        else "Optimize images on heavy pages: compress, lazy-load, and use responsive sizes.",
+        description=(
+            "No pages have excessive unoptimized images."
+            if passed
+            else f"{len(heavy)} page(s) with many unoptimized images."
+        ),
+        recommendation=(
+            None
+            if passed
+            else "Optimize images on heavy pages: compress, lazy-load, and use responsive sizes."
+        ),
         affected_pages=heavy if heavy else None,
     )
 
@@ -674,12 +723,14 @@ async def _check_sitemap_freshness(db: AsyncSession) -> AuditCheck:
         severity="warning",
         passed=passed,
         title="Sitemap freshness",
-        description="Sitemap was recently generated."
-        if passed
-        else "Sitemap may be stale or not yet generated.",
-        recommendation=None
-        if passed
-        else "Regenerate the sitemap from the SEO Overview page.",
+        description=(
+            "Sitemap was recently generated."
+            if passed
+            else "Sitemap may be stale or not yet generated."
+        ),
+        recommendation=(
+            None if passed else "Regenerate the sitemap from the SEO Overview page."
+        ),
     )
 
 
@@ -695,11 +746,11 @@ def _check_sitemap_coverage(
         severity="warning",
         passed=passed,
         title="All sitemap pages have metadata",
-        description="Every page in the sitemap has generated meta tags."
-        if passed
-        else f"{len(uncovered)} page(s) in sitemap have no metadata.",
-        recommendation=None
-        if passed
-        else "Check meta generation for uncovered pages.",
+        description=(
+            "Every page in the sitemap has generated meta tags."
+            if passed
+            else f"{len(uncovered)} page(s) in sitemap have no metadata."
+        ),
+        recommendation=None if passed else "Check meta generation for uncovered pages.",
         affected_pages=uncovered if uncovered else None,
     )

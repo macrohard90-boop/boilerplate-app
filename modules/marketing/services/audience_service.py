@@ -12,13 +12,17 @@ logger = logging.getLogger(__name__)
 async def seed_default_types(db: AsyncSession) -> list[dict[str, Any]]:
     """Ensure default communication types exist (idempotent)."""
     rows = (
-        await db.execute(
-            text(
-                "SELECT id, name, description, enabled "
-                "FROM marketing.communication_types ORDER BY name"
+        (
+            await db.execute(
+                text(
+                    "SELECT id, name, description, enabled "
+                    "FROM marketing.communication_types ORDER BY name"
+                )
             )
         )
-    ).mappings().all()
+        .mappings()
+        .all()
+    )
 
     if rows:
         return [
@@ -48,13 +52,17 @@ async def seed_default_types(db: AsyncSession) -> list[dict[str, Any]]:
     await db.commit()
 
     rows = (
-        await db.execute(
-            text(
-                "SELECT id, name, description, enabled "
-                "FROM marketing.communication_types ORDER BY name"
+        (
+            await db.execute(
+                text(
+                    "SELECT id, name, description, enabled "
+                    "FROM marketing.communication_types ORDER BY name"
+                )
             )
         )
-    ).mappings().all()
+        .mappings()
+        .all()
+    )
 
     return [
         {
@@ -73,13 +81,17 @@ async def list_communication_types(
     """List communication types (optionally including disabled ones)."""
     where = "" if include_disabled else "WHERE enabled = TRUE"
     rows = (
-        await db.execute(
-            text(
-                f"SELECT id, name, description, enabled, created_at "
-                f"FROM marketing.communication_types {where} ORDER BY name"
+        (
+            await db.execute(
+                text(
+                    f"SELECT id, name, description, enabled, created_at "
+                    f"FROM marketing.communication_types {where} ORDER BY name"
+                )
             )
         )
-    ).mappings().all()
+        .mappings()
+        .all()
+    )
 
     return [
         {
@@ -97,14 +109,18 @@ async def create_communication_type(
 ) -> dict[str, Any]:
     """Create a new communication type."""
     row = (
-        await db.execute(
-            text(
-                "INSERT INTO marketing.communication_types (name, description, enabled) "
-                "VALUES (:name, :desc, :enabled) RETURNING id, name, description, enabled"
-            ),
-            {"name": name, "desc": description, "enabled": enabled},
+        (
+            await db.execute(
+                text(
+                    "INSERT INTO marketing.communication_types (name, description, enabled) "
+                    "VALUES (:name, :desc, :enabled) RETURNING id, name, description, enabled"
+                ),
+                {"name": name, "desc": description, "enabled": enabled},
+            )
         )
-    ).mappings().first()
+        .mappings()
+        .first()
+    )
 
     await db.commit()
     logger.info("Communication type created: %s (%s)", row["id"], name)
@@ -142,14 +158,18 @@ async def update_communication_type(
         raise ValueError("No fields to update")
 
     row = (
-        await db.execute(
-            text(
-                f"UPDATE marketing.communication_types SET {', '.join(sets)} "
-                f"WHERE id = :tid RETURNING id, name, description, enabled"
-            ),
-            params,
+        (
+            await db.execute(
+                text(
+                    f"UPDATE marketing.communication_types SET {', '.join(sets)} "
+                    f"WHERE id = :tid RETURNING id, name, description, enabled"
+                ),
+                params,
+            )
         )
-    ).mappings().first()
+        .mappings()
+        .first()
+    )
 
     if not row:
         raise ValueError("Communication type not found")
@@ -176,31 +196,39 @@ async def get_eligible_recipients(
     """
     if communication_type_id:
         rows = (
-            await db.execute(
-                text(
-                    "SELECT u.id AS user_id, u.email "
-                    "FROM core.users u "
-                    "JOIN gdpr.email_preferences ep ON ep.user_id = u.id "
-                    "JOIN marketing.user_communication_preferences ucp "
-                    "  ON ucp.user_id = u.id AND ucp.communication_type_id = :ctid "
-                    "WHERE ep.marketing_email = TRUE "
-                    "  AND ep.suppressed_at IS NULL "
-                    "  AND ucp.allowed = TRUE"
-                ),
-                {"ctid": communication_type_id},
-            )
-        ).mappings().all()
-    else:
-        rows = (
-            await db.execute(
-                text(
-                    "SELECT u.id AS user_id, u.email "
-                    "FROM core.users u "
-                    "JOIN gdpr.email_preferences ep ON ep.user_id = u.id "
-                    "WHERE ep.marketing_email = TRUE "
-                    "  AND ep.suppressed_at IS NULL"
+            (
+                await db.execute(
+                    text(
+                        "SELECT u.id AS user_id, u.email "
+                        "FROM core.users u "
+                        "JOIN gdpr.email_preferences ep ON ep.user_id = u.id "
+                        "JOIN marketing.user_communication_preferences ucp "
+                        "  ON ucp.user_id = u.id AND ucp.communication_type_id = :ctid "
+                        "WHERE ep.marketing_email = TRUE "
+                        "  AND ep.suppressed_at IS NULL "
+                        "  AND ucp.allowed = TRUE"
+                    ),
+                    {"ctid": communication_type_id},
                 )
             )
-        ).mappings().all()
+            .mappings()
+            .all()
+        )
+    else:
+        rows = (
+            (
+                await db.execute(
+                    text(
+                        "SELECT u.id AS user_id, u.email "
+                        "FROM core.users u "
+                        "JOIN gdpr.email_preferences ep ON ep.user_id = u.id "
+                        "WHERE ep.marketing_email = TRUE "
+                        "  AND ep.suppressed_at IS NULL"
+                    )
+                )
+            )
+            .mappings()
+            .all()
+        )
 
     return [{"user_id": str(r["user_id"]), "email": r["email"]} for r in rows]

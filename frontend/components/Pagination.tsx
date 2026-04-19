@@ -6,7 +6,11 @@ interface PaginationProps {
   onPageChange: (page: number) => void;
 }
 
-export default function Pagination({ currentPage, totalPages, onPageChange }: PaginationProps) {
+export default function Pagination({
+  currentPage,
+  totalPages,
+  onPageChange,
+}: PaginationProps) {
   if (totalPages <= 1) return null;
 
   const pages: (number | "...")[] = [];
@@ -15,7 +19,11 @@ export default function Pagination({ currentPage, totalPages, onPageChange }: Pa
   } else {
     pages.push(1);
     if (currentPage > 3) pages.push("...");
-    for (let i = Math.max(2, currentPage - 1); i <= Math.min(totalPages - 1, currentPage + 1); i++) {
+    for (
+      let i = Math.max(2, currentPage - 1);
+      i <= Math.min(totalPages - 1, currentPage + 1);
+      i++
+    ) {
       pages.push(i);
     }
     if (currentPage < totalPages - 2) pages.push("...");
@@ -33,7 +41,9 @@ export default function Pagination({ currentPage, totalPages, onPageChange }: Pa
       </button>
       {pages.map((page, i) =>
         page === "..." ? (
-          <span key={`dots-${i}`} className="px-2 text-text-muted">...</span>
+          <span key={`dots-${i}`} className="px-2 text-text-muted">
+            ...
+          </span>
         ) : (
           <button
             key={page}
@@ -46,7 +56,7 @@ export default function Pagination({ currentPage, totalPages, onPageChange }: Pa
           >
             {page}
           </button>
-        )
+        ),
       )}
       <button
         onClick={() => onPageChange(currentPage + 1)}

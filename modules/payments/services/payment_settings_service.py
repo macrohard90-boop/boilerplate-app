@@ -23,11 +23,15 @@ SUPPORTED_METHODS = [
 async def get_setting(db: AsyncSession, key: str) -> dict[str, Any] | None:
     """Fetch a payment setting by key. Returns the JSONB value or None."""
     row = (
-        await db.execute(
-            text("SELECT value FROM ecommerce.payment_settings WHERE key = :key"),
-            {"key": key},
+        (
+            await db.execute(
+                text("SELECT value FROM ecommerce.payment_settings WHERE key = :key"),
+                {"key": key},
+            )
         )
-    ).mappings().first()
+        .mappings()
+        .first()
+    )
     return dict(row["value"]) if row else None
 
 

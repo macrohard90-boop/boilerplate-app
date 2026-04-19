@@ -1,6 +1,6 @@
 """Cookie preference endpoints — works for both authenticated and guest users."""
 
-from fastapi import APIRouter, Depends, Header, Request
+from fastapi import APIRouter, Depends, Header
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.core.database import get_db

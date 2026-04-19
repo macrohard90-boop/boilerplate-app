@@ -49,7 +49,7 @@ export default function TemplateEditor({
       setCode(newCode);
       onChange(newCode);
     },
-    [onChange]
+    [onChange],
   );
 
   // Server-side preview with rendered variables
@@ -65,7 +65,7 @@ export default function TemplateEditor({
             html_content: code,
             template_data: templateData,
           }),
-        }
+        },
       );
       setPreviewHtml(res.html);
       if (iframeRef.current) {
@@ -77,9 +77,7 @@ export default function TemplateEditor({
         }
       }
     } catch (err) {
-      setPreviewError(
-        err instanceof Error ? err.message : "Preview failed"
-      );
+      setPreviewError(err instanceof Error ? err.message : "Preview failed");
     }
     setPreviewLoading(false);
   }, [code, templateData]);

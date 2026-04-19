@@ -77,7 +77,10 @@ interface SessionDetail {
 function friendlyPageName(path: string): string {
   const clean = path.replace(/^\//, "");
   if (!clean) return "Home";
-  return clean.split("/").map((s) => s.charAt(0).toUpperCase() + s.slice(1)).join(" / ");
+  return clean
+    .split("/")
+    .map((s) => s.charAt(0).toUpperCase() + s.slice(1))
+    .join(" / ");
 }
 
 function formatDuration(ms: number | null): string {
@@ -112,7 +115,7 @@ function formatChartDuration(ms: number): string {
   const min = ms / 60000;
   if (min < 60) return `${Math.max(1, Math.round(min))}m`;
   const hr = min / 60;
-  if (hr < 24) return `${Math.round(hr * 2) / 2}h`;  // 0.5h precision
+  if (hr < 24) return `${Math.round(hr * 2) / 2}h`; // 0.5h precision
   const days = hr / 24;
   if (days < 365) return `${Math.round(days * 10) / 10}d`; // 0.1d precision
   const years = days / 365;
@@ -125,7 +128,11 @@ function formatTime(iso: string): string {
 
 function formatDate(iso: string | null): string {
   if (!iso) return "-";
-  return new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+  return new Date(iso).toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
 }
 
 function relativeTime(iso: string | null): string {
@@ -141,7 +148,13 @@ function relativeTime(iso: string | null): string {
 }
 
 /** Hover tooltip that appears above the trigger element. */
-function InfoTip({ text, children }: { text: string; children: React.ReactNode }) {
+function InfoTip({
+  text,
+  children,
+}: {
+  text: string;
+  children: React.ReactNode;
+}) {
   const [show, setShow] = useState(false);
   return (
     <span
@@ -160,9 +173,16 @@ function InfoTip({ text, children }: { text: string; children: React.ReactNode }
   );
 }
 
-function BreakdownBar({ items, colorClass }: { items: { label: string; count: number; durationMs?: number }[]; colorClass: string }) {
+function BreakdownBar({
+  items,
+  colorClass,
+}: {
+  items: { label: string; count: number; durationMs?: number }[];
+  colorClass: string;
+}) {
   const total = items.reduce((sum, i) => sum + i.count, 0);
-  if (total === 0) return <p className="text-sm text-text-muted">No data available</p>;
+  if (total === 0)
+    return <p className="text-sm text-text-muted">No data available</p>;
   return (
     <div className="space-y-2">
       {items.map((item, i) => {
@@ -174,12 +194,17 @@ function BreakdownBar({ items, colorClass }: { items: { label: string; count: nu
               <span className="text-text-muted text-xs">
                 {item.count} ({pct}%)
                 {item.durationMs != null && item.durationMs > 0 && (
-                  <span className="ml-2 text-text-secondary">{formatChartDuration(item.durationMs)}</span>
+                  <span className="ml-2 text-text-secondary">
+                    {formatChartDuration(item.durationMs)}
+                  </span>
                 )}
               </span>
             </div>
             <div className="w-full h-1.5 rounded-full bg-glass-bg overflow-hidden">
-              <div className={`h-full rounded-full ${colorClass} transition-all`} style={{ width: `${pct}%` }} />
+              <div
+                className={`h-full rounded-full ${colorClass} transition-all`}
+                style={{ width: `${pct}%` }}
+              />
             </div>
           </div>
         );
@@ -216,7 +241,8 @@ function groupPageSegments(pages: SessionPageView[]): PageGroup[] {
     if (g.segments.length > 0) {
       const first = g.segments[0];
       const last = g.segments[g.segments.length - 1];
-      const startMs = new Date(first.created_at).getTime() - (first.duration_ms ?? 0);
+      const startMs =
+        new Date(first.created_at).getTime() - (first.duration_ms ?? 0);
       const endMs = new Date(last.created_at).getTime();
       g.totalWallMs = Math.max(endMs - startMs, g.totalActiveMs);
     }
@@ -235,8 +261,16 @@ interface TimelineRow {
 
 function fmtTime(iso: string): string {
   const d = new Date(iso);
-  const date = d.toLocaleDateString([], { month: "short", day: "numeric", year: "numeric" });
-  const time = d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+  const date = d.toLocaleDateString([], {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+  const time = d.toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  });
   return `${date} ${time}`;
 }
 
@@ -245,7 +279,8 @@ function computeAwayMs(segments: SessionPageView[], i: number): number {
   if (i + 1 >= segments.length) return 0;
   const leftAt = new Date(segments[i].created_at).getTime();
   const next = segments[i + 1];
-  const returnedAt = new Date(next.created_at).getTime() - (next.duration_ms ?? 0);
+  const returnedAt =
+    new Date(next.created_at).getTime() - (next.duration_ms ?? 0);
   return Math.max(0, returnedAt - leftAt);
 }
 
@@ -268,7 +303,13 @@ function buildTimeline(segments: SessionPageView[]): TimelineRow[] {
     if (dur >= 500) {
       const startMs = new Date(seg.created_at).getTime() - dur;
       const label = prevWasRefresh ? "Active (page refreshed)" : "Active";
-      rows.push({ label, durationMs: dur, time: fmtTime(new Date(startMs).toISOString()), dotColor: "bg-green-400", textColor: "text-green-400" });
+      rows.push({
+        label,
+        durationMs: dur,
+        time: fmtTime(new Date(startMs).toISOString()),
+        dotColor: "bg-green-400",
+        textColor: "text-green-400",
+      });
     }
     prevWasRefresh = false;
 
@@ -276,25 +317,52 @@ function buildTimeline(segments: SessionPageView[]): TimelineRow[] {
     if (seg.trigger === "tab_switch") {
       const awayMs = computeAwayMs(segments, i);
       if (awayMs >= 5000) {
-        rows.push({ label: "Switched tab", durationMs: awayMs, time: fmtTime(seg.created_at), dotColor: "bg-yellow-400", textColor: "text-yellow-400" });
+        rows.push({
+          label: "Switched tab",
+          durationMs: awayMs,
+          time: fmtTime(seg.created_at),
+          dotColor: "bg-yellow-400",
+          textColor: "text-yellow-400",
+        });
       }
     } else if (seg.trigger === "idle") {
       const awayMs = computeAwayMs(segments, i);
       if (awayMs >= 5000) {
-        rows.push({ label: "Went idle", durationMs: awayMs, time: fmtTime(seg.created_at), dotColor: "bg-orange-400", textColor: "text-orange-400" });
+        rows.push({
+          label: "Went idle",
+          durationMs: awayMs,
+          time: fmtTime(seg.created_at),
+          dotColor: "bg-orange-400",
+          textColor: "text-orange-400",
+        });
       }
     } else if (seg.trigger === "navigated") {
-      rows.push({ label: "Navigated away", durationMs: 0, time: fmtTime(seg.created_at), dotColor: "bg-blue-400", textColor: "text-blue-400" });
+      rows.push({
+        label: "Navigated away",
+        durationMs: 0,
+        time: fmtTime(seg.created_at),
+        dotColor: "bg-blue-400",
+        textColor: "text-blue-400",
+      });
     } else if (seg.trigger === "closed") {
       // Refresh detection: "closed" followed by same-path segment within 10s
-      const isRefresh = i + 1 < segments.length &&
+      const isRefresh =
+        i + 1 < segments.length &&
         segments[i + 1].path === seg.path &&
-        (new Date(segments[i + 1].created_at).getTime() - new Date(seg.created_at).getTime()) < 10000;
+        new Date(segments[i + 1].created_at).getTime() -
+          new Date(seg.created_at).getTime() <
+          10000;
       if (isRefresh) {
         prevWasRefresh = true;
         // Skip "Page closed" row — it was a refresh
       } else {
-        rows.push({ label: "Page closed", durationMs: 0, time: fmtTime(seg.created_at), dotColor: "bg-red-400", textColor: "text-red-400" });
+        rows.push({
+          label: "Page closed",
+          durationMs: 0,
+          time: fmtTime(seg.created_at),
+          dotColor: "bg-red-400",
+          textColor: "text-red-400",
+        });
       }
     }
   }
@@ -305,13 +373,13 @@ function buildTimeline(segments: SessionPageView[]): TimelineRow[] {
 function distributeShares(values: number[]): number[] {
   const total = values.reduce((s, v) => s + v, 0);
   if (total === 0) return values.map(() => 0);
-  const raw = values.map(v => (v / total) * 10000); // basis points
-  const floored = raw.map(v => Math.floor(v));
+  const raw = values.map((v) => (v / total) * 10000); // basis points
+  const floored = raw.map((v) => Math.floor(v));
   let deficit = 10000 - floored.reduce((s, v) => s + v, 0);
   const remainders = raw.map((v, i) => ({ i, r: v - floored[i] }));
   remainders.sort((a, b) => b.r - a.r);
   for (let k = 0; k < deficit; k++) floored[remainders[k].i]++;
-  return floored.map(v => v / 100);
+  return floored.map((v) => v / 100);
 }
 
 // ── Date-filtered card types ──────────────────────────────
@@ -333,7 +401,11 @@ interface PageViewStatsResponse {
 
 interface DeviceStatsResponse {
   total_agents: number;
-  by_device_type: { device_type: string; count: number; total_duration_ms: number }[];
+  by_device_type: {
+    device_type: string;
+    count: number;
+    total_duration_ms: number;
+  }[];
   by_browser: { browser: string; count: number; total_duration_ms: number }[];
   by_os: { os: string; count: number; total_duration_ms: number }[];
   date_from: string | null;
@@ -342,7 +414,12 @@ interface DeviceStatsResponse {
 
 type DatePreset = "all" | "1h" | "24h" | "36h" | "7d" | "30d" | "custom";
 
-function buildDateQS(preset: DatePreset, customFrom: string, customTo: string, userId: string): string {
+function buildDateQS(
+  preset: DatePreset,
+  customFrom: string,
+  customTo: string,
+  userId: string,
+): string {
   const qs = new URLSearchParams();
   qs.set("user_id", userId);
   const now = new Date();
@@ -402,7 +479,12 @@ interface LiveState {
   idleSec: number | null;
 }
 
-function JourneyView({ pages, liveState, tickOffset, isActive }: {
+function JourneyView({
+  pages,
+  liveState,
+  tickOffset,
+  isActive,
+}: {
   pages: SessionPageView[];
   liveState: LiveState | null;
   tickOffset: number;
@@ -429,7 +511,7 @@ function JourneyView({ pages, liveState, tickOffset, isActive }: {
     const trailing = rawGroups.slice(finalLiveIdx + 1);
     for (const t of trailing) {
       const matchIdx = groups.findIndex(
-        (g, i) => g.path === t.path && i !== finalLiveIdx
+        (g, i) => g.path === t.path && i !== finalLiveIdx,
       );
       if (matchIdx >= 0) {
         groups[matchIdx].totalActiveMs += t.totalActiveMs;
@@ -445,7 +527,8 @@ function JourneyView({ pages, liveState, tickOffset, isActive }: {
       if (g.segments.length > 0) {
         const first = g.segments[0];
         const last = g.segments[g.segments.length - 1];
-        const startMs = new Date(first.created_at).getTime() - (first.duration_ms ?? 0);
+        const startMs =
+          new Date(first.created_at).getTime() - (first.duration_ms ?? 0);
         const endMs = new Date(last.created_at).getTime();
         g.totalWallMs = Math.max(endMs - startMs, g.totalActiveMs);
       }
@@ -455,13 +538,17 @@ function JourneyView({ pages, liveState, tickOffset, isActive }: {
   const liveGroupIdx = finalLiveIdx;
 
   // Compute live active ms for the live page group
-  const liveExtraMs = liveState && liveGroupIdx >= 0 && liveState.status === "active" && liveState.activeSegSec != null
-    ? (liveState.activeSegSec + tickOffset) * 1000
-    : 0;
+  const liveExtraMs =
+    liveState &&
+    liveGroupIdx >= 0 &&
+    liveState.status === "active" &&
+    liveState.activeSegSec != null
+      ? (liveState.activeSegSec + tickOffset) * 1000
+      : 0;
 
   // Build active values for share % distribution
   const activeValues = groups.map((g, i) =>
-    i === liveGroupIdx ? g.totalActiveMs + liveExtraMs : g.totalActiveMs
+    i === liveGroupIdx ? g.totalActiveMs + liveExtraMs : g.totalActiveMs,
   );
   const shares = distributeShares(activeValues);
 
@@ -488,11 +575,19 @@ function JourneyView({ pages, liveState, tickOffset, isActive }: {
         if (isLivePage && liveState) {
           displayActiveMs = g.totalActiveMs + liveExtraMs;
           // Wall time = now minus when first segment started
-          const firstStart = new Date(g.segments[0].created_at).getTime() - (g.segments[0].duration_ms ?? 0);
+          const firstStart =
+            new Date(g.segments[0].created_at).getTime() -
+            (g.segments[0].duration_ms ?? 0);
           wallMs = Math.max(Date.now() - firstStart, displayActiveMs);
-          engagementPct = wallMs > 0 ? Math.min(100, Math.round((displayActiveMs / wallMs) * 100)) : 100;
+          engagementPct =
+            wallMs > 0
+              ? Math.min(100, Math.round((displayActiveMs / wallMs) * 100))
+              : 100;
         } else {
-          engagementPct = wallMs > 0 ? Math.min(100, Math.round((displayActiveMs / wallMs) * 100)) : 100;
+          engagementPct =
+            wallMs > 0
+              ? Math.min(100, Math.round((displayActiveMs / wallMs) * 100))
+              : 100;
         }
 
         const shareDisplay = shares[i]?.toFixed(2) ?? "0.00";
@@ -508,15 +603,29 @@ function JourneyView({ pages, liveState, tickOffset, isActive }: {
             // If user just returned from idle/tab_switch, the trigger row may have been
             // filtered by buildTimeline (awayMs=0 for last segment with no next segment).
             // Insert a frozen trigger row with computed away time before the live Active row.
-            if (lastSeg?.trigger === "tab_switch" || lastSeg?.trigger === "idle") {
+            if (
+              lastSeg?.trigger === "tab_switch" ||
+              lastSeg?.trigger === "idle"
+            ) {
               // Compute away time: gap between trigger record and when current active segment started
               const triggerTime = new Date(lastSeg.created_at).getTime();
-              const activeSegStartMs = Date.now() - ((liveState.activeSegSec ?? 0) + tickOffset) * 1000;
+              const activeSegStartMs =
+                Date.now() -
+                ((liveState.activeSegSec ?? 0) + tickOffset) * 1000;
               const awayMs = Math.max(0, activeSegStartMs - triggerTime);
               if (awayMs >= 2000) {
-                const triggerLabel = lastSeg.trigger === "tab_switch" ? "Switched tab" : "Went idle";
-                const triggerDotColor = lastSeg.trigger === "tab_switch" ? "bg-yellow-400" : "bg-orange-400";
-                const triggerTextColor = lastSeg.trigger === "tab_switch" ? "text-yellow-400" : "text-orange-400";
+                const triggerLabel =
+                  lastSeg.trigger === "tab_switch"
+                    ? "Switched tab"
+                    : "Went idle";
+                const triggerDotColor =
+                  lastSeg.trigger === "tab_switch"
+                    ? "bg-yellow-400"
+                    : "bg-orange-400";
+                const triggerTextColor =
+                  lastSeg.trigger === "tab_switch"
+                    ? "text-yellow-400"
+                    : "text-orange-400";
                 timeline.push({
                   label: triggerLabel,
                   durationMs: awayMs,
@@ -527,7 +636,10 @@ function JourneyView({ pages, liveState, tickOffset, isActive }: {
               }
             }
 
-            const label = lastSeg?.trigger === "closed" ? "Active (page refreshed)" : "Active";
+            const label =
+              lastSeg?.trigger === "closed"
+                ? "Active (page refreshed)"
+                : "Active";
             const liveSec = (liveState.activeSegSec ?? 0) + tickOffset;
             timeline.push({
               label,
@@ -582,8 +694,13 @@ function JourneyView({ pages, liveState, tickOffset, isActive }: {
               className={`flex items-center gap-3 text-sm py-1.5 rounded px-1 ${hasEvents ? "cursor-pointer hover:bg-glass-bg/50" : ""}`}
               onClick={() => hasEvents && setExpandedIdx(isExpanded ? null : i)}
             >
-              <span className="text-text-muted text-xs w-5 text-right">{i + 1}.</span>
-              <span className="text-text-secondary flex-shrink-0 w-40 truncate" title={g.path}>
+              <span className="text-text-muted text-xs w-5 text-right">
+                {i + 1}.
+              </span>
+              <span
+                className="text-text-secondary flex-shrink-0 w-40 truncate"
+                title={g.path}
+              >
                 {friendlyPageName(g.path)}
               </span>
               {/* Engagement bar — green for live, pink for frozen */}
@@ -594,7 +711,9 @@ function JourneyView({ pages, liveState, tickOffset, isActive }: {
                     style={{ width: `${engagementPct}%` }}
                   />
                 </div>
-                <span className="text-text-muted text-xs tabular-nums w-8 text-right">{engagementPct}%</span>
+                <span className="text-text-muted text-xs tabular-nums w-8 text-right">
+                  {engagementPct}%
+                </span>
               </div>
               {/* Active time — ticks for live page */}
               <span className="text-text-primary text-xs font-medium tabular-nums w-16 text-right">
@@ -627,25 +746,37 @@ function JourneyView({ pages, liveState, tickOffset, isActive }: {
                   <div key={j} className="flex items-center text-xs py-0.5">
                     {/* Connector line + dot */}
                     <div className="flex flex-col items-center w-3 self-stretch flex-shrink-0">
-                      <div className={`w-0.5 flex-1 ${j === 0 ? "bg-transparent" : "bg-glass-border/30"}`} />
+                      <div
+                        className={`w-0.5 flex-1 ${j === 0 ? "bg-transparent" : "bg-glass-border/30"}`}
+                      />
                       {row.isLive ? (
                         <span className="relative flex w-2 h-2">
                           <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
-                          <span className={`relative inline-block w-2 h-2 rounded-full flex-shrink-0 ${row.dotColor}`} />
+                          <span
+                            className={`relative inline-block w-2 h-2 rounded-full flex-shrink-0 ${row.dotColor}`}
+                          />
                         </span>
                       ) : (
-                        <span className={`inline-block w-2 h-2 rounded-full flex-shrink-0 ${row.dotColor}`} />
+                        <span
+                          className={`inline-block w-2 h-2 rounded-full flex-shrink-0 ${row.dotColor}`}
+                        />
                       )}
-                      <div className={`w-0.5 flex-1 ${j === timeline.length - 1 ? "bg-transparent" : "bg-glass-border/30"}`} />
+                      <div
+                        className={`w-0.5 flex-1 ${j === timeline.length - 1 ? "bg-transparent" : "bg-glass-border/30"}`}
+                      />
                     </div>
                     {/* Label */}
                     <span className={`ml-2 ${row.textColor}`}>{row.label}</span>
                     {/* Duration + timestamp right-aligned */}
                     <span className="ml-auto flex items-center gap-3">
                       <span className="text-text-primary font-medium tabular-nums w-16 text-right">
-                        {row.durationMs > 0 ? formatDuration(row.durationMs) : ""}
+                        {row.durationMs > 0
+                          ? formatDuration(row.durationMs)
+                          : ""}
                       </span>
-                      <span className="text-text-muted tabular-nums text-right whitespace-nowrap w-44">{row.time}</span>
+                      <span className="text-text-muted tabular-nums text-right whitespace-nowrap w-44">
+                        {row.time}
+                      </span>
                     </span>
                   </div>
                 ))}
@@ -658,7 +789,13 @@ function JourneyView({ pages, liveState, tickOffset, isActive }: {
   );
 }
 
-function SessionCard({ session, isActive }: { session: UserSession; isActive: boolean }) {
+function SessionCard({
+  session,
+  isActive,
+}: {
+  session: UserSession;
+  isActive: boolean;
+}) {
   const [expanded, setExpanded] = useState(false);
   const [detail, setDetail] = useState<SessionDetail | null>(null);
   const [loadingPages, setLoadingPages] = useState(false);
@@ -669,14 +806,17 @@ function SessionCard({ session, isActive }: { session: UserSession; isActive: bo
   if (session.browser) deviceParts.push(session.browser);
   if (session.os) deviceParts.push(session.os);
   if (session.device_type) deviceParts.push(session.device_type);
-  const deviceLabel = deviceParts.length > 0 ? deviceParts.join(" / ") : "Unknown device";
+  const deviceLabel =
+    deviceParts.length > 0 ? deviceParts.join(" / ") : "Unknown device";
 
   const handleExpand = () => {
     if (!expanded && !detail) {
       setLoadingPages(true);
       fetchTime.current = Date.now();
       setTickOffset(0);
-      apiFetch<SessionDetail>(`/tracking/admin/analytics/session/${session.session_id}/pages`)
+      apiFetch<SessionDetail>(
+        `/tracking/admin/analytics/session/${session.session_id}/pages`,
+      )
         .then(setDetail)
         .catch(() => {})
         .finally(() => setLoadingPages(false));
@@ -690,7 +830,9 @@ function SessionCard({ session, isActive }: { session: UserSession; isActive: bo
     // Immediate fetch so presence badge shows right away
     fetchTime.current = Date.now();
     setTickOffset(0);
-    apiFetch<SessionDetail>(`/tracking/admin/analytics/session/${session.session_id}/pages`)
+    apiFetch<SessionDetail>(
+      `/tracking/admin/analytics/session/${session.session_id}/pages`,
+    )
       .then(setDetail)
       .catch(() => {});
     const tickInterval = setInterval(() => {
@@ -699,7 +841,9 @@ function SessionCard({ session, isActive }: { session: UserSession; isActive: bo
     const pollInterval = setInterval(() => {
       fetchTime.current = Date.now();
       setTickOffset(0);
-      apiFetch<SessionDetail>(`/tracking/admin/analytics/session/${session.session_id}/pages`)
+      apiFetch<SessionDetail>(
+        `/tracking/admin/analytics/session/${session.session_id}/pages`,
+      )
         .then(setDetail)
         .catch(() => {});
     }, 30000);
@@ -717,12 +861,16 @@ function SessionCard({ session, isActive }: { session: UserSession; isActive: bo
 
   // Compute session-level engagement % (total active / session wall time)
   const totalActiveMs = pages.reduce((sum, p) => sum + (p.duration_ms ?? 0), 0);
-  const liveActiveExtra = pres === "active" && detail?.active_segment_duration_sec != null
-    ? (detail.active_segment_duration_sec + tickOffset) * 1000
-    : 0;
+  const liveActiveExtra =
+    pres === "active" && detail?.active_segment_duration_sec != null
+      ? (detail.active_segment_duration_sec + tickOffset) * 1000
+      : 0;
   const sessionStartMs = new Date(session.started_at).getTime();
   const sessionWallMs = Math.max(Date.now() - sessionStartMs, 1);
-  const sessionEngagementPct = Math.min(100, Math.round(((totalActiveMs + liveActiveExtra) / sessionWallMs) * 100));
+  const sessionEngagementPct = Math.min(
+    100,
+    Math.round(((totalActiveMs + liveActiveExtra) / sessionWallMs) * 100),
+  );
 
   // Build presence badge text
   let badgeClass = "bg-gray-500/20 text-gray-400";
@@ -730,16 +878,20 @@ function SessionCard({ session, isActive }: { session: UserSession; isActive: bo
   if (isActive) {
     if (pres === "active") {
       badgeClass = "bg-green-500/20 text-green-400";
-      const durDisplay = pageDur != null ? formatDurationSec(pageDur + tickOffset) : "";
+      const durDisplay =
+        pageDur != null ? formatDurationSec(pageDur + tickOffset) : "";
       badgeText = `Active on ${livePage ? friendlyPageName(livePage) : "..."}${durDisplay ? ` (${durDisplay})` : ""}`;
     } else if (pres === "idle") {
       badgeClass = "bg-yellow-500/20 text-yellow-400";
-      const idleDisplay = idleDur != null ? formatDurationSec(idleDur + tickOffset) : "";
+      const idleDisplay =
+        idleDur != null ? formatDurationSec(idleDur + tickOffset) : "";
       badgeText = `Idle on ${livePage ? friendlyPageName(livePage) : "..."}${idleDisplay ? ` (idle ${idleDisplay})` : ""}`;
     } else {
       badgeClass = "bg-blue-500/20 text-blue-400";
       const lastPage = pages.length > 0 ? pages[pages.length - 1].path : null;
-      badgeText = lastPage ? `Session Open on ${friendlyPageName(lastPage)}` : "Session Open";
+      badgeText = lastPage
+        ? `Session Open on ${friendlyPageName(lastPage)}`
+        : "Session Open";
     }
   }
 
@@ -763,42 +915,76 @@ function SessionCard({ session, isActive }: { session: UserSession; isActive: bo
       <div className="absolute left-[5px] top-4 bottom-0 w-0.5 bg-glass-border/30 last:hidden" />
 
       {/* Session header */}
-      <div className="glass rounded-lg p-4 cursor-pointer" onClick={handleExpand}>
+      <div
+        className="glass rounded-lg p-4 cursor-pointer"
+        onClick={handleExpand}
+      >
         <div className="flex items-center gap-2 mb-1">
           <span className="text-text-primary text-sm font-medium">Session</span>
           <span className="text-text-muted text-xs">{deviceLabel}</span>
-          <span className="ml-auto text-text-muted/50 text-xs font-mono" title={session.session_id}>
+          <span
+            className="ml-auto text-text-muted/50 text-xs font-mono"
+            title={session.session_id}
+          >
             id: {session.session_id.slice(0, 8)}
           </span>
         </div>
         <div className="mb-1">
-          <InfoTip text={isActive && pres === "active"
-            ? "The user's browser tab is in focus and they have been active within the last 30 seconds.\n\nThe time in parentheses shows how long they have been on this specific page.\n\nThis resets each time they navigate to a different page."
-            : isActive && pres === "idle"
-            ? "The user's browser tab is open but there has been no mouse or keyboard activity for more than 30 seconds.\n\nThe time in parentheses shows how long they have been idle.\n\nThis resets when the user moves their mouse or presses a key."
-            : isActive
-            ? "A session exists but no recent heartbeat has been received.\n\nThe user may have the tab open in the background or their connection was interrupted."
-            : "No heartbeat was received for more than 30 minutes.\n\nThe session has been closed."}>
-            <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${badgeClass}`}>
+          <InfoTip
+            text={
+              isActive && pres === "active"
+                ? "The user's browser tab is in focus and they have been active within the last 30 seconds.\n\nThe time in parentheses shows how long they have been on this specific page.\n\nThis resets each time they navigate to a different page."
+                : isActive && pres === "idle"
+                  ? "The user's browser tab is open but there has been no mouse or keyboard activity for more than 30 seconds.\n\nThe time in parentheses shows how long they have been idle.\n\nThis resets when the user moves their mouse or presses a key."
+                  : isActive
+                    ? "A session exists but no recent heartbeat has been received.\n\nThe user may have the tab open in the background or their connection was interrupted."
+                    : "No heartbeat was received for more than 30 minutes.\n\nThe session has been closed."
+            }
+          >
+            <span
+              className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${badgeClass}`}
+            >
               {badgeText}
             </span>
           </InfoTip>
         </div>
         <div className="flex flex-wrap gap-4 text-xs text-text-muted">
-          <InfoTip text={"The timestamp when this session first began.\n\nThis is recorded when the user's first page load is detected for this session."}>
+          <InfoTip
+            text={
+              "The timestamp when this session first began.\n\nThis is recorded when the user's first page load is detected for this session."
+            }
+          >
             <span>Started: {formatTime(session.started_at)}</span>
           </InfoTip>
-          <InfoTip text={"Total wall-clock time from when the session started to when it ended.\n\nThis includes everything — active browsing, idle periods, and time spent on other tabs."}>
-            <span>Duration: {formatDuration(
-              session.ended_at
-                ? new Date(session.ended_at).getTime() - new Date(session.started_at).getTime()
-                : Date.now() - new Date(session.started_at).getTime()
-            )}</span>
+          <InfoTip
+            text={
+              "Total wall-clock time from when the session started to when it ended.\n\nThis includes everything — active browsing, idle periods, and time spent on other tabs."
+            }
+          >
+            <span>
+              Duration:{" "}
+              {formatDuration(
+                session.ended_at
+                  ? new Date(session.ended_at).getTime() -
+                      new Date(session.started_at).getTime()
+                  : Date.now() - new Date(session.started_at).getTime(),
+              )}
+            </span>
           </InfoTip>
-          <InfoTip text={"Total number of page visits recorded in this session.\n\nEach time the user navigates to a page or returns to a previously visited page, one record is created."}>
-            <span>{session.page_count} page{session.page_count !== 1 ? "s" : ""}</span>
+          <InfoTip
+            text={
+              "Total number of page visits recorded in this session.\n\nEach time the user navigates to a page or returns to a previously visited page, one record is created."
+            }
+          >
+            <span>
+              {session.page_count} page{session.page_count !== 1 ? "s" : ""}
+            </span>
           </InfoTip>
-          <InfoTip text={"The percentage of the session spent actively browsing.\n\nCalculated by dividing the total active browsing time by the total session duration.\n\nActive time only counts when the browser tab is visible and the user is interacting. Idle time and time on other tabs are not included."}>
+          <InfoTip
+            text={
+              "The percentage of the session spent actively browsing.\n\nCalculated by dividing the total active browsing time by the total session duration.\n\nActive time only counts when the browser tab is visible and the user is interacting. Idle time and time on other tabs are not included."
+            }
+          >
             <span>Engagement: {sessionEngagementPct}%</span>
           </InfoTip>
         </div>
@@ -815,17 +1001,23 @@ function SessionCard({ session, isActive }: { session: UserSession; isActive: bo
           ) : pages.length > 0 ? (
             <JourneyView
               pages={pages}
-              liveState={isActive && pres ? {
-                status: pres as "active" | "idle",
-                currentPath: livePage || "",
-                activeSegSec: detail?.active_segment_duration_sec ?? null,
-                idleSec: idleDur ?? null,
-              } : null}
+              liveState={
+                isActive && pres
+                  ? {
+                      status: pres as "active" | "idle",
+                      currentPath: livePage || "",
+                      activeSegSec: detail?.active_segment_duration_sec ?? null,
+                      idleSec: idleDur ?? null,
+                    }
+                  : null
+              }
               tickOffset={tickOffset}
               isActive={isActive}
             />
           ) : (
-            <p className="text-xs text-text-muted py-2">No pageview data for this session</p>
+            <p className="text-xs text-text-muted py-2">
+              No pageview data for this session
+            </p>
           )}
         </div>
       )}
@@ -835,7 +1027,16 @@ function SessionCard({ session, isActive }: { session: UserSession; isActive: bo
 
 // ── Date-Filtered Card: Top Pages ──────────────────────────
 
-function DatePresetPills({ preset, onPresetChange, customFrom, customTo, onCustomFromChange, onCustomToChange, onApply, accentClass }: {
+function DatePresetPills({
+  preset,
+  onPresetChange,
+  customFrom,
+  customTo,
+  onCustomFromChange,
+  onCustomToChange,
+  onApply,
+  accentClass,
+}: {
   preset: DatePreset;
   onPresetChange: (p: DatePreset) => void;
   customFrom: string;
@@ -850,27 +1051,40 @@ function DatePresetPills({ preset, onPresetChange, customFrom, customTo, onCusto
     <div className="space-y-2 mb-3">
       <div className="flex flex-wrap gap-1.5">
         {DATE_PRESETS.map((p) => (
-          <button key={p.id} onClick={() => onPresetChange(p.id)}
+          <button
+            key={p.id}
+            onClick={() => onPresetChange(p.id)}
             className={`px-2.5 py-0.5 text-xs rounded-full transition-colors ${
               preset === p.id
                 ? active
                 : "bg-glass-bg text-text-muted hover:text-text-secondary"
-            }`}>
+            }`}
+          >
             {p.label}
           </button>
         ))}
       </div>
       {preset === "custom" && (
         <div className="flex flex-wrap items-center gap-2">
-          <input type="datetime-local" value={customFrom} max={customTo || nowLocal()}
+          <input
+            type="datetime-local"
+            value={customFrom}
+            max={customTo || nowLocal()}
             onChange={(e) => onCustomFromChange(e.target.value)}
-            className="bg-glass-bg border border-glass-border/30 rounded px-2 py-0.5 text-xs text-text-primary" />
+            className="bg-glass-bg border border-glass-border/30 rounded px-2 py-0.5 text-xs text-text-primary"
+          />
           <span className="text-text-muted text-xs">to</span>
-          <input type="datetime-local" value={customTo} max={nowLocal()}
+          <input
+            type="datetime-local"
+            value={customTo}
+            max={nowLocal()}
             onChange={(e) => onCustomToChange(e.target.value)}
-            className="bg-glass-bg border border-glass-border/30 rounded px-2 py-0.5 text-xs text-text-primary" />
-          <button onClick={onApply}
-            className="px-2.5 py-0.5 text-xs rounded bg-white/10 text-text-primary hover:bg-white/15 transition-colors">
+            className="bg-glass-bg border border-glass-border/30 rounded px-2 py-0.5 text-xs text-text-primary"
+          />
+          <button
+            onClick={onApply}
+            className="px-2.5 py-0.5 text-xs rounded bg-white/10 text-text-primary hover:bg-white/15 transition-colors"
+          >
             Apply
           </button>
         </div>
@@ -905,7 +1119,12 @@ function TopPagesCard({ userId }: { userId: string }) {
     <div className="glass rounded-xl p-6">
       <h2 className="text-lg font-semibold text-text-primary mb-2">
         <InfoTip text={TOP_PAGES_TIP}>
-          <span>Top Pages <span className="text-text-muted text-sm font-normal">(Active Time)</span></span>
+          <span>
+            Top Pages{" "}
+            <span className="text-text-muted text-sm font-normal">
+              (Active Time)
+            </span>
+          </span>
         </InfoTip>
       </h2>
       <DatePresetPills
@@ -932,7 +1151,9 @@ function TopPagesCard({ userId }: { userId: string }) {
           formatSecondary={(v) => `${v} views`}
         />
       ) : (
-        <p className="text-sm text-text-muted py-4">No page data for this period</p>
+        <p className="text-sm text-text-muted py-4">
+          No page data for this period
+        </p>
       )}
     </div>
   );
@@ -965,7 +1186,12 @@ function DeviceCard({ userId }: { userId: string }) {
     <div className="glass rounded-xl p-6">
       <h2 className="text-lg font-semibold text-text-primary mb-2">
         <InfoTip text={DEVICE_TIP}>
-          <span>Device / Browser / OS <span className="text-text-muted text-sm font-normal">(Sessions)</span></span>
+          <span>
+            Device / Browser / OS{" "}
+            <span className="text-text-muted text-sm font-normal">
+              (Sessions)
+            </span>
+          </span>
         </InfoTip>
       </h2>
       <DatePresetPills
@@ -986,7 +1212,11 @@ function DeviceCard({ userId }: { userId: string }) {
             <div>
               <p className="text-xs text-text-muted mb-2">Devices</p>
               <BreakdownBar
-                items={data.by_device_type.map((d) => ({ label: d.device_type, count: d.count, durationMs: d.total_duration_ms }))}
+                items={data.by_device_type.map((d) => ({
+                  label: d.device_type,
+                  count: d.count,
+                  durationMs: d.total_duration_ms,
+                }))}
                 colorClass="bg-accent-purple/60"
               />
             </div>
@@ -995,7 +1225,11 @@ function DeviceCard({ userId }: { userId: string }) {
             <div>
               <p className="text-xs text-text-muted mb-2">Browsers</p>
               <BreakdownBar
-                items={data.by_browser.map((b) => ({ label: b.browser, count: b.count, durationMs: b.total_duration_ms }))}
+                items={data.by_browser.map((b) => ({
+                  label: b.browser,
+                  count: b.count,
+                  durationMs: b.total_duration_ms,
+                }))}
                 colorClass="bg-accent-blue/60"
               />
             </div>
@@ -1004,17 +1238,27 @@ function DeviceCard({ userId }: { userId: string }) {
             <div>
               <p className="text-xs text-text-muted mb-2">Operating Systems</p>
               <BreakdownBar
-                items={data.by_os.map((o) => ({ label: o.os, count: o.count, durationMs: o.total_duration_ms }))}
+                items={data.by_os.map((o) => ({
+                  label: o.os,
+                  count: o.count,
+                  durationMs: o.total_duration_ms,
+                }))}
                 colorClass="bg-accent-green/60"
               />
             </div>
           )}
-          {data.by_device_type.length === 0 && data.by_browser.length === 0 && data.by_os.length === 0 && (
-            <p className="text-sm text-text-muted py-4">No device data for this period</p>
-          )}
+          {data.by_device_type.length === 0 &&
+            data.by_browser.length === 0 &&
+            data.by_os.length === 0 && (
+              <p className="text-sm text-text-muted py-4">
+                No device data for this period
+              </p>
+            )}
         </div>
       ) : (
-        <p className="text-sm text-text-muted py-4">No device data for this period</p>
+        <p className="text-sm text-text-muted py-4">
+          No device data for this period
+        </p>
       )}
     </div>
   );
@@ -1029,7 +1273,9 @@ export default function UserActivityPage() {
   const [activity, setActivity] = useState<UserActivity | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
-  const [activeSessionIds, setActiveSessionIds] = useState<Set<string>>(new Set());
+  const [activeSessionIds, setActiveSessionIds] = useState<Set<string>>(
+    new Set(),
+  );
   const [sessionFilter, setSessionFilter] = useState<SessionFilter>("all");
   const [engToggle, setEngToggle] = useState<"all" | "current">("all");
   const [browserFilter, setBrowserFilter] = useState<string | null>(null);
@@ -1053,7 +1299,7 @@ export default function UserActivityPage() {
       const checks = activity.sessions.slice(0, 10).map(async (s) => {
         try {
           const detail = await apiFetch<SessionDetail>(
-            `/tracking/admin/analytics/session/${s.session_id}/pages`
+            `/tracking/admin/analytics/session/${s.session_id}/pages`,
           );
           if (detail.is_active) activeIds.add(s.session_id);
         } catch {
@@ -1079,7 +1325,10 @@ export default function UserActivityPage() {
   if (error || !activity) {
     return (
       <div>
-        <Link href="/admin/analytics" className="text-sm text-accent-pink hover:underline mb-4 inline-block">
+        <Link
+          href="/admin/analytics"
+          className="text-sm text-accent-pink hover:underline mb-4 inline-block"
+        >
           &larr; Back to Analytics
         </Link>
         <div className="glass rounded-xl p-8 text-center">
@@ -1090,21 +1339,37 @@ export default function UserActivityPage() {
   }
 
   // Collect unique values for filter dropdowns
-  const uniqueBrowsers = Array.from(new Set(activity.sessions.map(s => s.browser).filter((v): v is string => !!v)));
-  const uniqueOS = Array.from(new Set(activity.sessions.map(s => s.os).filter((v): v is string => !!v)));
-  const uniqueDevices = Array.from(new Set(activity.sessions.map(s => s.device_type).filter((v): v is string => !!v)));
+  const uniqueBrowsers = Array.from(
+    new Set(
+      activity.sessions.map((s) => s.browser).filter((v): v is string => !!v),
+    ),
+  );
+  const uniqueOS = Array.from(
+    new Set(activity.sessions.map((s) => s.os).filter((v): v is string => !!v)),
+  );
+  const uniqueDevices = Array.from(
+    new Set(
+      activity.sessions
+        .map((s) => s.device_type)
+        .filter((v): v is string => !!v),
+    ),
+  );
 
   // Filter sessions (status + browser + OS + device combined with AND)
   const filteredSessions = activity.sessions.filter((s) => {
-    if (sessionFilter === "active" && !activeSessionIds.has(s.session_id)) return false;
-    if (sessionFilter === "ended" && activeSessionIds.has(s.session_id)) return false;
+    if (sessionFilter === "active" && !activeSessionIds.has(s.session_id))
+      return false;
+    if (sessionFilter === "ended" && activeSessionIds.has(s.session_id))
+      return false;
     if (browserFilter && s.browser !== browserFilter) return false;
     if (osFilter && s.os !== osFilter) return false;
     if (deviceFilter && s.device_type !== deviceFilter) return false;
     return true;
   });
 
-  const activeCount = activity.sessions.filter((s) => activeSessionIds.has(s.session_id)).length;
+  const activeCount = activity.sessions.filter((s) =>
+    activeSessionIds.has(s.session_id),
+  ).length;
 
   const sessionFilters: { id: SessionFilter; label: string }[] = [
     { id: "all", label: `All (${activity.sessions.length})` },
@@ -1114,7 +1379,10 @@ export default function UserActivityPage() {
 
   return (
     <div>
-      <Link href="/admin/analytics" className="text-sm text-accent-pink hover:underline mb-4 inline-block">
+      <Link
+        href="/admin/analytics"
+        className="text-sm text-accent-pink hover:underline mb-4 inline-block"
+      >
         &larr; Back to Analytics
       </Link>
 
@@ -1129,11 +1397,24 @@ export default function UserActivityPage() {
         <div className="flex flex-wrap gap-4 text-xs text-text-muted">
           <span>First visit: {formatDate(activity.first_visit)}</span>
           <span>Last visit: {relativeTime(activity.last_visit)}</span>
-          <InfoTip text={"Total wall-clock time across all sessions.\n\nIncludes active time, idle time, and time on other tabs."}>
-            <span>Total session time: {formatDurationSec(activity.total_session_time_sec)}</span>
+          <InfoTip
+            text={
+              "Total wall-clock time across all sessions.\n\nIncludes active time, idle time, and time on other tabs."
+            }
+          >
+            <span>
+              Total session time:{" "}
+              {formatDurationSec(activity.total_session_time_sec)}
+            </span>
           </InfoTip>
-          <InfoTip text={"Total time spent actively browsing across all sessions.\n\nOnly counts time when the tab was visible and the user was interacting."}>
-            <span>Total active time: {formatDurationSec(activity.total_time_sec)}</span>
+          <InfoTip
+            text={
+              "Total time spent actively browsing across all sessions.\n\nOnly counts time when the tab was visible and the user was interacting."
+            }
+          >
+            <span>
+              Total active time: {formatDurationSec(activity.total_time_sec)}
+            </span>
           </InfoTip>
         </div>
       </div>
@@ -1142,16 +1423,26 @@ export default function UserActivityPage() {
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
         <div className="glass rounded-xl p-4">
           <div className="flex items-center justify-between mb-1">
-            <InfoTip text={"The percentage of session time spent actively browsing.\n\nCalculated by dividing total active time by total session time.\n\nToggle between all-time average and current live sessions."}>
-              <p className="text-xs text-text-muted cursor-help">Avg Engagement</p>
+            <InfoTip
+              text={
+                "The percentage of session time spent actively browsing.\n\nCalculated by dividing total active time by total session time.\n\nToggle between all-time average and current live sessions."
+              }
+            >
+              <p className="text-xs text-text-muted cursor-help">
+                Avg Engagement
+              </p>
             </InfoTip>
             <div className="flex gap-0.5">
-              <button onClick={() => setEngToggle("all")}
-                className={`px-1.5 py-0.5 text-[10px] rounded transition-colors ${engToggle === "all" ? "bg-accent-pink/20 text-accent-pink" : "text-text-muted hover:text-text-secondary"}`}>
+              <button
+                onClick={() => setEngToggle("all")}
+                className={`px-1.5 py-0.5 text-[10px] rounded transition-colors ${engToggle === "all" ? "bg-accent-pink/20 text-accent-pink" : "text-text-muted hover:text-text-secondary"}`}
+              >
                 All
               </button>
-              <button onClick={() => setEngToggle("current")}
-                className={`px-1.5 py-0.5 text-[10px] rounded transition-colors ${engToggle === "current" ? "bg-accent-pink/20 text-accent-pink" : "text-text-muted hover:text-text-secondary"}`}>
+              <button
+                onClick={() => setEngToggle("current")}
+                className={`px-1.5 py-0.5 text-[10px] rounded transition-colors ${engToggle === "current" ? "bg-accent-pink/20 text-accent-pink" : "text-text-muted hover:text-text-secondary"}`}
+              >
                 Live
               </button>
             </div>
@@ -1165,22 +1456,46 @@ export default function UserActivityPage() {
           </p>
         </div>
         <div className="glass rounded-xl p-4">
-          <InfoTip text={"Number of sessions currently open.\n\nA session stays live until no activity is detected for 30 minutes."}>
-            <p className="text-xs text-text-muted mb-1 cursor-help">Live Sessions</p>
+          <InfoTip
+            text={
+              "Number of sessions currently open.\n\nA session stays live until no activity is detected for 30 minutes."
+            }
+          >
+            <p className="text-xs text-text-muted mb-1 cursor-help">
+              Live Sessions
+            </p>
           </InfoTip>
-          <p className="text-2xl font-bold text-text-primary">{activeSessionIds.size}</p>
+          <p className="text-2xl font-bold text-text-primary">
+            {activeSessionIds.size}
+          </p>
         </div>
         <div className="glass rounded-xl p-4">
-          <InfoTip text={"Average active browsing time per session.\n\nDivides total active time across all sessions by the number of sessions."}>
-            <p className="text-xs text-text-muted mb-1 cursor-help">Avg Active per Session</p>
+          <InfoTip
+            text={
+              "Average active browsing time per session.\n\nDivides total active time across all sessions by the number of sessions."
+            }
+          >
+            <p className="text-xs text-text-muted mb-1 cursor-help">
+              Avg Active per Session
+            </p>
           </InfoTip>
-          <p className="text-2xl font-bold text-text-primary">{formatDurationSec(activity.avg_active_per_session_sec)}</p>
+          <p className="text-2xl font-bold text-text-primary">
+            {formatDurationSec(activity.avg_active_per_session_sec)}
+          </p>
         </div>
         <div className="glass rounded-xl p-4">
-          <InfoTip text={"Total active browsing time across all sessions.\n\nOnly counts time when the tab was visible and the user was interacting."}>
-            <p className="text-xs text-text-muted mb-1 cursor-help">Total Active Time</p>
+          <InfoTip
+            text={
+              "Total active browsing time across all sessions.\n\nOnly counts time when the tab was visible and the user was interacting."
+            }
+          >
+            <p className="text-xs text-text-muted mb-1 cursor-help">
+              Total Active Time
+            </p>
           </InfoTip>
-          <p className="text-2xl font-bold text-text-primary">{formatDurationSec(activity.total_time_sec)}</p>
+          <p className="text-2xl font-bold text-text-primary">
+            {formatDurationSec(activity.total_time_sec)}
+          </p>
         </div>
       </div>
 
@@ -1193,22 +1508,29 @@ export default function UserActivityPage() {
       {/* Session Timeline */}
       <div className="glass rounded-xl p-6">
         <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-          <h2 className="text-lg font-semibold text-text-primary">Session Timeline</h2>
+          <h2 className="text-lg font-semibold text-text-primary">
+            Session Timeline
+          </h2>
           <div className="flex gap-2">
             {sessionFilters.map((f) => (
-              <button key={f.id} onClick={() => setSessionFilter(f.id)}
+              <button
+                key={f.id}
+                onClick={() => setSessionFilter(f.id)}
                 className={`px-3 py-1 text-xs rounded-full transition-colors ${
                   sessionFilter === f.id
                     ? "bg-accent-pink/20 text-accent-pink"
                     : "bg-glass-bg text-text-muted hover:text-text-secondary"
-                }`}>
+                }`}
+              >
                 {f.label}
               </button>
             ))}
           </div>
         </div>
         {/* Device / Browser / OS filters */}
-        {(uniqueBrowsers.length > 0 || uniqueOS.length > 0 || uniqueDevices.length > 0) && (
+        {(uniqueBrowsers.length > 0 ||
+          uniqueOS.length > 0 ||
+          uniqueDevices.length > 0) && (
           <div className="flex flex-wrap gap-3 mb-4">
             {uniqueBrowsers.length > 0 && (
               <label className="flex items-center gap-1 text-xs text-text-muted">
@@ -1219,7 +1541,11 @@ export default function UserActivityPage() {
                   className="bg-glass-bg border border-glass-border/30 rounded px-2 py-0.5 text-xs text-text-secondary"
                 >
                   <option value="">All</option>
-                  {uniqueBrowsers.map(b => <option key={b} value={b}>{b}</option>)}
+                  {uniqueBrowsers.map((b) => (
+                    <option key={b} value={b}>
+                      {b}
+                    </option>
+                  ))}
                 </select>
               </label>
             )}
@@ -1232,7 +1558,11 @@ export default function UserActivityPage() {
                   className="bg-glass-bg border border-glass-border/30 rounded px-2 py-0.5 text-xs text-text-secondary"
                 >
                   <option value="">All</option>
-                  {uniqueOS.map(o => <option key={o} value={o}>{o}</option>)}
+                  {uniqueOS.map((o) => (
+                    <option key={o} value={o}>
+                      {o}
+                    </option>
+                  ))}
                 </select>
               </label>
             )}
@@ -1245,7 +1575,11 @@ export default function UserActivityPage() {
                   className="bg-glass-bg border border-glass-border/30 rounded px-2 py-0.5 text-xs text-text-secondary"
                 >
                   <option value="">All</option>
-                  {uniqueDevices.map(d => <option key={d} value={d}>{d}</option>)}
+                  {uniqueDevices.map((d) => (
+                    <option key={d} value={d}>
+                      {d}
+                    </option>
+                  ))}
                 </select>
               </label>
             )}
@@ -1263,7 +1597,9 @@ export default function UserActivityPage() {
           </div>
         ) : (
           <p className="text-sm text-text-muted">
-            {sessionFilter === "all" ? "No sessions recorded" : `No ${sessionFilter} sessions`}
+            {sessionFilter === "all"
+              ? "No sessions recorded"
+              : `No ${sessionFilter} sessions`}
           </p>
         )}
       </div>

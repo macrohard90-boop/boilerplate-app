@@ -10,12 +10,36 @@ interface MethodInfo {
 }
 
 const PAYMENT_METHODS: MethodInfo[] = [
-  { key: "card", label: "Cards", description: "Credit and debit cards (Visa, Mastercard, Amex)" },
-  { key: "link", label: "Link", description: "Stripe Link — one-click checkout with saved details" },
-  { key: "apple_pay", label: "Apple Pay", description: "Pay with Apple Pay on supported devices" },
-  { key: "google_pay", label: "Google Pay", description: "Pay with Google Pay on supported devices" },
-  { key: "klarna", label: "Klarna", description: "Buy now, pay later in installments" },
-  { key: "afterpay_clearpay", label: "Afterpay", description: "Buy now, pay in 4 interest-free installments" },
+  {
+    key: "card",
+    label: "Cards",
+    description: "Credit and debit cards (Visa, Mastercard, Amex)",
+  },
+  {
+    key: "link",
+    label: "Link",
+    description: "Stripe Link — one-click checkout with saved details",
+  },
+  {
+    key: "apple_pay",
+    label: "Apple Pay",
+    description: "Pay with Apple Pay on supported devices",
+  },
+  {
+    key: "google_pay",
+    label: "Google Pay",
+    description: "Pay with Google Pay on supported devices",
+  },
+  {
+    key: "klarna",
+    label: "Klarna",
+    description: "Buy now, pay later in installments",
+  },
+  {
+    key: "afterpay_clearpay",
+    label: "Afterpay",
+    description: "Buy now, pay in 4 interest-free installments",
+  },
   { key: "paypal", label: "PayPal", description: "Pay with PayPal account" },
 ];
 
@@ -26,16 +50,20 @@ function defaultMethods(): Record<string, boolean> {
 }
 
 export default function AdminPaymentsPage() {
-  const [methods, setMethods] = useState<Record<string, boolean>>(defaultMethods);
+  const [methods, setMethods] =
+    useState<Record<string, boolean>>(defaultMethods);
   const [customized, setCustomized] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
-  const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [message, setMessage] = useState<{
+    type: "success" | "error";
+    text: string;
+  } | null>(null);
 
   useEffect(() => {
     apiFetch<{ methods: Record<string, boolean>; customized: boolean }>(
-      "/payments/settings/payment-methods"
+      "/payments/settings/payment-methods",
     )
       .then((data) => {
         setMethods(data.methods);
@@ -57,17 +85,20 @@ export default function AdminPaymentsPage() {
     setSaving(true);
     setMessage(null);
     try {
-      const data = await apiFetch<{ methods: Record<string, boolean>; customized: boolean }>(
-        "/payments/settings/payment-methods",
-        {
-          method: "PUT",
-          body: JSON.stringify({ methods }),
-        }
-      );
+      const data = await apiFetch<{
+        methods: Record<string, boolean>;
+        customized: boolean;
+      }>("/payments/settings/payment-methods", {
+        method: "PUT",
+        body: JSON.stringify({ methods }),
+      });
       setMethods(data.methods);
       setCustomized(data.customized);
       setDirty(false);
-      setMessage({ type: "success", text: "Payment methods updated successfully." });
+      setMessage({
+        type: "success",
+        text: "Payment methods updated successfully.",
+      });
     } catch {
       setMessage({ type: "error", text: "Failed to save payment settings." });
     } finally {
@@ -79,10 +110,10 @@ export default function AdminPaymentsPage() {
     setSaving(true);
     setMessage(null);
     try {
-      const data = await apiFetch<{ methods: Record<string, boolean>; customized: boolean }>(
-        "/payments/settings/payment-methods",
-        { method: "DELETE" }
-      );
+      const data = await apiFetch<{
+        methods: Record<string, boolean>;
+        customized: boolean;
+      }>("/payments/settings/payment-methods", { method: "DELETE" });
       setMethods(data.methods);
       setCustomized(data.customized);
       setDirty(false);
@@ -130,14 +161,16 @@ export default function AdminPaymentsPage() {
       <div className="glass rounded-xl p-4 mb-6">
         <p className="text-xs text-text-muted">
           Payment methods must also be enabled in your{" "}
-          <span className="text-accent-blue">Stripe Dashboard</span> (Settings &rarr; Payment methods).
-          Toggling a method here controls what gets sent to Stripe&apos;s API — if a method isn&apos;t
-          enabled in Stripe, it won&apos;t appear even if toggled on here.
+          <span className="text-accent-blue">Stripe Dashboard</span> (Settings
+          &rarr; Payment methods). Toggling a method here controls what gets
+          sent to Stripe&apos;s API — if a method isn&apos;t enabled in Stripe,
+          it won&apos;t appear even if toggled on here.
         </p>
         {!customized && !dirty && (
           <p className="text-xs text-accent-blue mt-2">
-            Currently using automatic mode — Stripe decides which methods to show based on
-            currency, location, and amount. Toggle any method to switch to manual control.
+            Currently using automatic mode — Stripe decides which methods to
+            show based on currency, location, and amount. Toggle any method to
+            switch to manual control.
           </p>
         )}
       </div>
@@ -172,7 +205,9 @@ export default function AdminPaymentsPage() {
                   onClick={() => toggleMethod(method.key)}
                 >
                   <div className="flex items-center justify-between mb-2">
-                    <h3 className="text-sm font-semibold text-text-primary">{method.label}</h3>
+                    <h3 className="text-sm font-semibold text-text-primary">
+                      {method.label}
+                    </h3>
                     <div
                       className={`w-10 h-5 rounded-full transition-colors flex items-center px-0.5 ${
                         enabled ? "bg-accent-pink" : "bg-base-100"
@@ -185,7 +220,9 @@ export default function AdminPaymentsPage() {
                       />
                     </div>
                   </div>
-                  <p className="text-xs text-text-muted">{method.description}</p>
+                  <p className="text-xs text-text-muted">
+                    {method.description}
+                  </p>
                 </div>
               );
             })}
@@ -193,11 +230,14 @@ export default function AdminPaymentsPage() {
 
           <div className="glass rounded-xl p-4">
             <p className="text-xs text-text-muted">
-              <span className="text-text-secondary font-medium">{enabledCount}</span> of{" "}
-              {PAYMENT_METHODS.length} methods enabled
+              <span className="text-text-secondary font-medium">
+                {enabledCount}
+              </span>{" "}
+              of {PAYMENT_METHODS.length} methods enabled
               {enabledCount === 0 && (
                 <span className="text-red-400 ml-2">
-                  — At least one method must be enabled. Automatic mode will be used as fallback.
+                  — At least one method must be enabled. Automatic mode will be
+                  used as fallback.
                 </span>
               )}
             </p>

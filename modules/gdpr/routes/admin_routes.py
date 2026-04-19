@@ -1,6 +1,5 @@
 """Admin GDPR dashboard endpoints."""
 
-from datetime import date, datetime, timedelta, timezone
 from typing import Any
 
 from fastapi import APIRouter, Depends, Query
@@ -29,6 +28,7 @@ router = APIRouter(
 
 # ── Export Requests ──────────────────────────────────────────
 
+
 @router.get("/exports", response_model=ExportListResponse)
 async def list_exports(
     db: AsyncSession = Depends(get_db),
@@ -52,15 +52,19 @@ async def list_exports(
     ).scalar() or 0
 
     rows = (
-        await db.execute(
-            text(
-                f"SELECT id, user_id, status, requested_at, completed_at, expires_at "
-                f"FROM gdpr.data_export_requests {where} "
-                f"ORDER BY requested_at DESC LIMIT :lim OFFSET :off"
-            ),
-            params,
+        (
+            await db.execute(
+                text(
+                    f"SELECT id, user_id, status, requested_at, completed_at, expires_at "
+                    f"FROM gdpr.data_export_requests {where} "
+                    f"ORDER BY requested_at DESC LIMIT :lim OFFSET :off"
+                ),
+                params,
+            )
         )
-    ).mappings().all()
+        .mappings()
+        .all()
+    )
 
     return ExportListResponse(
         items=[
@@ -81,6 +85,7 @@ async def list_exports(
 
 
 # ── Deletion Requests ────────────────────────────────────────
+
 
 @router.get("/deletions", response_model=DeletionListResponse)
 async def list_deletions(
@@ -105,15 +110,19 @@ async def list_deletions(
     ).scalar() or 0
 
     rows = (
-        await db.execute(
-            text(
-                f"SELECT id, user_id, status, requested_at, grace_period_ends, completed_at "
-                f"FROM gdpr.deletion_requests {where} "
-                f"ORDER BY requested_at DESC LIMIT :lim OFFSET :off"
-            ),
-            params,
+        (
+            await db.execute(
+                text(
+                    f"SELECT id, user_id, status, requested_at, grace_period_ends, completed_at "
+                    f"FROM gdpr.deletion_requests {where} "
+                    f"ORDER BY requested_at DESC LIMIT :lim OFFSET :off"
+                ),
+                params,
+            )
         )
-    ).mappings().all()
+        .mappings()
+        .all()
+    )
 
     return DeletionListResponse(
         items=[
@@ -122,7 +131,9 @@ async def list_deletions(
                 user_id=str(r["user_id"]),
                 status=r["status"],
                 requested_at=str(r["requested_at"]),
-                grace_period_ends=str(r["grace_period_ends"]) if r["grace_period_ends"] else None,
+                grace_period_ends=(
+                    str(r["grace_period_ends"]) if r["grace_period_ends"] else None
+                ),
                 completed_at=str(r["completed_at"]) if r["completed_at"] else None,
             )
             for r in rows
@@ -135,6 +146,7 @@ async def list_deletions(
 
 # ── Consent Stats ────────────────────────────────────────────
 
+
 @router.get("/consent-stats", response_model=ConsentStatsResponse)
 async def get_consent_stats(
     db: AsyncSession = Depends(get_db),
@@ -142,16 +154,20 @@ async def get_consent_stats(
 ):
     """Consent grant/revoke rates by type."""
     rows = (
-        await db.execute(
-            text(
-                "SELECT consent_type, "
-                "SUM(CASE WHEN granted THEN 1 ELSE 0 END) AS total_grants, "
-                "SUM(CASE WHEN NOT granted THEN 1 ELSE 0 END) AS total_revokes "
-                "FROM gdpr.consent_records "
-                "GROUP BY consent_type ORDER BY consent_type"
+        (
+            await db.execute(
+                text(
+                    "SELECT consent_type, "
+                    "SUM(CASE WHEN granted THEN 1 ELSE 0 END) AS total_grants, "
+                    "SUM(CASE WHEN NOT granted THEN 1 ELSE 0 END) AS total_revokes "
+                    "FROM gdpr.consent_records "
+                    "GROUP BY consent_type ORDER BY consent_type"
+                )
             )
         )
-    ).mappings().all()
+        .mappings()
+        .all()
+    )
 
     return ConsentStatsResponse(
         stats=[
@@ -166,6 +182,7 @@ async def get_consent_stats(
 
 
 # ── Audit Log ────────────────────────────────────────────────
+
 
 @router.get("/audit", response_model=AuditLogResponse)
 async def get_audit_log(
@@ -194,16 +211,20 @@ async def get_audit_log(
     ).scalar() or 0
 
     rows = (
-        await db.execute(
-            text(
-                f"SELECT id, user_id, action, consent_type, old_value, new_value, "
-                f"ip_address, created_at "
-                f"FROM gdpr.consent_audit_log {where} "
-                f"ORDER BY created_at DESC LIMIT :lim OFFSET :off"
-            ),
-            params,
+        (
+            await db.execute(
+                text(
+                    f"SELECT id, user_id, action, consent_type, old_value, new_value, "
+                    f"ip_address, created_at "
+                    f"FROM gdpr.consent_audit_log {where} "
+                    f"ORDER BY created_at DESC LIMIT :lim OFFSET :off"
+                ),
+                params,
+            )
         )
-    ).mappings().all()
+        .mappings()
+        .all()
+    )
 
     return AuditLogResponse(
         items=[

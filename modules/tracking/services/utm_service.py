@@ -78,16 +78,20 @@ async def get_utm_stats(
     where = " AND ".join(where_clauses) if where_clauses else "1=1"
 
     rows = (
-        await db.execute(
-            text(
-                f"SELECT utm_source, utm_medium, utm_campaign, COUNT(*) AS sessions "
-                f"FROM analytics.utm_tracking WHERE {where} "
-                f"GROUP BY utm_source, utm_medium, utm_campaign "
-                f"ORDER BY sessions DESC LIMIT 50"
-            ),
-            params,
+        (
+            await db.execute(
+                text(
+                    f"SELECT utm_source, utm_medium, utm_campaign, COUNT(*) AS sessions "
+                    f"FROM analytics.utm_tracking WHERE {where} "
+                    f"GROUP BY utm_source, utm_medium, utm_campaign "
+                    f"ORDER BY sessions DESC LIMIT 50"
+                ),
+                params,
+            )
         )
-    ).mappings().all()
+        .mappings()
+        .all()
+    )
 
     return {
         "total_campaigns": len(rows),

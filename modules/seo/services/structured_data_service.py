@@ -22,19 +22,23 @@ def _parse_social_handles() -> dict:
 async def get_product_schema(db: AsyncSession, slug: str) -> dict[str, Any] | None:
     """Generate JSON-LD Product schema for a product slug."""
     product = (
-        await db.execute(
-            text(
-                "SELECT p.id, p.name, p.description, p.sku, p.base_price, p.currency, "
-                "pi.url AS image_url "
-                "FROM ecommerce.products p "
-                "LEFT JOIN ecommerce.product_images pi "
-                "  ON pi.product_id = p.id AND pi.is_primary = true "
-                "WHERE p.slug = :slug AND p.status = 'active' "
-                "  AND p.deleted_at IS NULL"
-            ),
-            {"slug": slug},
+        (
+            await db.execute(
+                text(
+                    "SELECT p.id, p.name, p.description, p.sku, p.base_price, p.currency, "
+                    "pi.url AS image_url "
+                    "FROM ecommerce.products p "
+                    "LEFT JOIN ecommerce.product_images pi "
+                    "  ON pi.product_id = p.id AND pi.is_primary = true "
+                    "WHERE p.slug = :slug AND p.status = 'active' "
+                    "  AND p.deleted_at IS NULL"
+                ),
+                {"slug": slug},
+            )
         )
-    ).mappings().first()
+        .mappings()
+        .first()
+    )
 
     if not product:
         return None
@@ -60,14 +64,18 @@ async def get_product_schema(db: AsyncSession, slug: str) -> dict[str, Any] | No
     if product["base_price"] is not None:
         # Check stock across variants
         stock = (
-            await db.execute(
-                text(
-                    "SELECT COALESCE(SUM(stock_quantity), 0) AS total_stock "
-                    "FROM ecommerce.product_variants WHERE product_id = :pid"
-                ),
-                {"pid": product_id},
+            (
+                await db.execute(
+                    text(
+                        "SELECT COALESCE(SUM(stock_quantity), 0) AS total_stock "
+                        "FROM ecommerce.product_variants WHERE product_id = :pid"
+                    ),
+                    {"pid": product_id},
+                )
             )
-        ).mappings().first()
+            .mappings()
+            .first()
+        )
 
         total_stock = stock["total_stock"] if stock else 0
         availability = (
@@ -85,15 +93,19 @@ async def get_product_schema(db: AsyncSession, slug: str) -> dict[str, Any] | No
 
     # Aggregate rating from approved reviews
     rating = (
-        await db.execute(
-            text(
-                "SELECT COUNT(*) AS count, AVG(rating) AS avg_rating "
-                "FROM ecommerce.product_reviews "
-                "WHERE product_id = :pid AND status = 'approved'"
-            ),
-            {"pid": product_id},
+        (
+            await db.execute(
+                text(
+                    "SELECT COUNT(*) AS count, AVG(rating) AS avg_rating "
+                    "FROM ecommerce.product_reviews "
+                    "WHERE product_id = :pid AND status = 'approved'"
+                ),
+                {"pid": product_id},
+            )
         )
-    ).mappings().first()
+        .mappings()
+        .first()
+    )
 
     if rating and rating["count"] and rating["count"] > 0:
         schema["aggregateRating"] = {
@@ -143,14 +155,18 @@ async def get_breadcrumb_schema(
 
     for _ in range(10):  # max depth guard
         cat = (
-            await db.execute(
-                text(
-                    "SELECT id, name, slug, parent_id "
-                    "FROM ecommerce.categories WHERE slug = :slug"
-                ),
-                {"slug": current_slug},
+            (
+                await db.execute(
+                    text(
+                        "SELECT id, name, slug, parent_id "
+                        "FROM ecommerce.categories WHERE slug = :slug"
+                    ),
+                    {"slug": current_slug},
+                )
             )
-        ).mappings().first()
+            .mappings()
+            .first()
+        )
 
         if not cat:
             break
@@ -159,13 +175,15 @@ async def get_breadcrumb_schema(
 
         if cat["parent_id"]:
             parent = (
-                await db.execute(
-                    text(
-                        "SELECT slug FROM ecommerce.categories WHERE id = :pid"
-                    ),
-                    {"pid": str(cat["parent_id"])},
+                (
+                    await db.execute(
+                        text("SELECT slug FROM ecommerce.categories WHERE id = :pid"),
+                        {"pid": str(cat["parent_id"])},
+                    )
                 )
-            ).mappings().first()
+                .mappings()
+                .first()
+            )
             if parent:
                 current_slug = parent["slug"]
                 continue
