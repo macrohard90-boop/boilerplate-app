@@ -60,8 +60,6 @@ CREATE TABLE marketing.user_communication_preferences (
 CREATE INDEX idx_user_comm_prefs_user ON marketing.user_communication_preferences(user_id);
 
 -- DOWN
--- (run manually to roll back — not auto-executed)
--- DROP TABLE IF EXISTS marketing.user_communication_preferences CASCADE;
--- DROP TABLE IF EXISTS marketing.communication_types CASCADE;
--- DROP TABLE IF EXISTS marketing.campaigns CASCADE;
--- DROP SCHEMA IF EXISTS marketing CASCADE;
+DROP TABLE IF EXISTS marketing.user_communication_preferences CASCADE;
+DROP TABLE IF EXISTS marketing.communication_types CASCADE;
+DROP TABLE IF EXISTS marketing.campaigns CASCADE;
