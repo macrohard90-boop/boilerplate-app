@@ -25,13 +25,17 @@ ALTER TABLE ecommerce.product_variants
 CREATE INDEX idx_product_variants_stripe_price_id ON ecommerce.product_variants(stripe_price_id);
 
 -- DOWN
--- ALTER TABLE ecommerce.products
---     DROP COLUMN IF EXISTS stripe_product_id,
---     DROP COLUMN IF EXISTS stripe_price_id,
---     DROP COLUMN IF EXISTS stripe_sync_status,
---     DROP COLUMN IF EXISTS stripe_sync_error;
---
--- ALTER TABLE ecommerce.product_variants
---     DROP COLUMN IF EXISTS stripe_price_id,
---     DROP COLUMN IF EXISTS stripe_sync_status,
---     DROP COLUMN IF EXISTS stripe_sync_error;
+DROP INDEX IF EXISTS ecommerce.idx_product_variants_stripe_price_id;
+DROP INDEX IF EXISTS ecommerce.idx_products_stripe_sync_status;
+DROP INDEX IF EXISTS ecommerce.idx_products_stripe_product_id;
+
+ALTER TABLE ecommerce.product_variants
+    DROP COLUMN IF EXISTS stripe_price_id,
+    DROP COLUMN IF EXISTS stripe_sync_status,
+    DROP COLUMN IF EXISTS stripe_sync_error;
+
+ALTER TABLE ecommerce.products
+    DROP COLUMN IF EXISTS stripe_product_id,
+    DROP COLUMN IF EXISTS stripe_price_id,
+    DROP COLUMN IF EXISTS stripe_sync_status,
+    DROP COLUMN IF EXISTS stripe_sync_error;
