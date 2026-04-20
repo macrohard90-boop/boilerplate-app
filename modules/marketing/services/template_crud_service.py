@@ -1,8 +1,8 @@
 """Email template CRUD — list, get, create, update, delete, clone, preview.
 
-Templates are stored in marketing.email_templates. The hybrid rendering
-system (in gdpr.services.template_service) checks DB first, then falls
-back to filesystem templates.
+Templates are stored in marketing.email_templates. Rendering is handled
+by gdpr.services.template_service.render_template_db which looks up
+templates by name from the DB (no filesystem fallback).
 """
 
 import json

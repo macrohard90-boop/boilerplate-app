@@ -512,11 +512,18 @@ async def send_test_email(
     from modules.gdpr.services.email_send_service import send_email
 
     try:
+        # Build sample data from the template's variable definitions
+        sample_data: dict[str, str] = {"first_name": "Test User"}
+        for var in template.get("variables") or []:
+            vname = var.get("name", "")
+            if vname and vname not in sample_data:
+                sample_data[vname] = f"[{vname}]"
+
         result = await send_email(
             db,
             user_id=user["user_id"],
             template_id=template["name"],
-            template_data={"first_name": "Test User"},
+            template_data=sample_data,
             email_type="transactional_email",
             to_email=admin_row["email"],
             force=True,
@@ -524,6 +531,7 @@ async def send_test_email(
         return {
             "status": result.get("status", "sent"),
             "event_id": result.get("event_id"),
+            "error": result.get("error"),
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Send failed: {e}")

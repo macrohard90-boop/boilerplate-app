@@ -25,7 +25,7 @@ interface EmailTemplate {
   html_content: string | null;
   category: string;
   description: string | null;
-  variables: Array<Record<string, string>>;
+  variables: Array<{ name: string; description: string }>;
   is_builtin: boolean;
   version: number;
   created_by: string | null;
@@ -265,6 +265,68 @@ function TemplatesTab() {
   const [cloneDisplayName, setCloneDisplayName] = useState("");
   const [cloning, setCloning] = useState(false);
 
+  // Sample values for the "Rendered Preview" — covers current + future BP variables
+  const SAMPLE_VALUES: Record<string, string> = {
+    first_name: "John",
+    verify_url: "https://example.com/verify?token=abc123",
+    reset_url: "https://example.com/reset?token=abc123",
+    order_id: "ORD-A1B2C3D4",
+    total: "$49.99",
+    order_url: "https://example.com/orders/abc123",
+    amount: "49.99",
+    currency: "USD",
+    date: "April 20, 2026",
+    payment_method: "Visa ending in 4242",
+    reference: "PAY-12345",
+    plan_name: "Pro Plan",
+    next_billing_date: "May 20, 2026",
+    dashboard_url: "https://example.com/dashboard",
+    end_date: "May 20, 2026",
+    resubscribe_url: "https://example.com/resubscribe",
+    download_url: "https://example.com/download/export.zip",
+    expires_at: "April 27, 2026",
+    deletion_date: "April 20, 2026",
+    cart_url: "https://example.com/cart",
+    recovery_discount_code: "SAVE10",
+    discount_percent: "15",
+    discount_code: "WELCOME15",
+    browse_url: "https://example.com/shop",
+    tier_name: "Gold",
+    order_count: "12",
+    total_spent: "$1,234.56",
+    tracking_url: "https://example.com/track/abc123",
+    expected_delivery_date: "April 25, 2026",
+    review_url: "https://example.com/review/abc123",
+    last_purchased_product_name: "Running Shoes",
+    replenishment_url: "https://example.com/reorder",
+    points_earned: "150",
+    points_balance: "1,200",
+    progress_to_next_tier_percent: "75",
+    new_tier_name: "Platinum",
+    redeem_url: "https://example.com/rewards/redeem",
+    product_name: "Premium Headphones",
+    product_url: "https://example.com/products/headphones",
+    product_image: "https://example.com/images/headphones.jpg",
+    old_price: "$99.99",
+    new_price: "$79.99",
+    birthday_discount_percent: "20",
+    days_since_purchase: "45",
+    days_since_last_purchase: "30",
+    expires_in_hours: "24",
+  };
+
+  function buildSampleData(
+    vars: Array<Record<string, string>>,
+  ): Record<string, string> {
+    const data: Record<string, string> = {};
+    for (const v of vars) {
+      const name = v.name;
+      if (name) data[name] = SAMPLE_VALUES[name] || `[${name}]`;
+    }
+    if (!data.first_name) data.first_name = "John";
+    return data;
+  }
+
   const fetchTemplates = useCallback(async () => {
     setLoading(true);
     try {
@@ -380,10 +442,22 @@ function TemplatesTab() {
 
   async function handleSendTest(t: EmailTemplate) {
     try {
-      await apiFetch(`/marketing/admin/templates/${t.id}/send-test`, {
+      const result = await apiFetch<{
+        status: string;
+        error?: string;
+      }>(`/marketing/admin/templates/${t.id}/send-test`, {
         method: "POST",
       });
-      showToast("Test email sent to your address", "success");
+      if (result.status === "sent") {
+        showToast("Test email sent to your address", "success");
+      } else if (result.status === "queued") {
+        showToast(
+          `Email queued for retry${result.error ? `: ${result.error}` : ""}. Check email provider config.`,
+          "error",
+        );
+      } else {
+        showToast(`Email status: ${result.status}`, "error");
+      }
     } catch {
       showToast("Failed to send test email", "error");
     }
@@ -632,7 +706,8 @@ function TemplatesTab() {
           <TemplateEditor
             initialContent={formHtml}
             onChange={setFormHtml}
-            templateData={{ first_name: "John" }}
+            templateData={buildSampleData(editingTemplate?.variables ?? [])}
+            variables={editingTemplate?.variables ?? []}
           />
 
           {/* Footer */}
