@@ -366,5 +366,3 @@ async def send_email_fire_and_forget(
             template_id,
             user_id,
         )
-
-

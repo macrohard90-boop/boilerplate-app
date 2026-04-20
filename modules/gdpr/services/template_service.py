@@ -39,7 +39,6 @@ def _build_context(data: dict | None = None) -> dict[str, Any]:
     }
 
 
-
 def render_from_content(html_content: str, data: dict | None = None) -> str:
     """Render arbitrary HTML content (from DB or preview).
 
@@ -106,7 +105,5 @@ async def render_template_db(
         raise ValueError(f"Email template '{template_id}' not found in database")
 
     html = render_from_content(row["html_content"], data)
-    subject = (
-        _render_jinja_string(row["subject"], context) if row["subject"] else None
-    )
+    subject = _render_jinja_string(row["subject"], context) if row["subject"] else None
     return html, subject

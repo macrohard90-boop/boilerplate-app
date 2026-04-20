@@ -89,9 +89,7 @@ async def send_campaign(db: AsyncSession, campaign_id: str) -> dict[str, Any]:
     template_data = (
         row["template_data"] if isinstance(row["template_data"], dict) else {}
     )
-    html_content, _ = await render_template_db(
-        db, row["template_id"], template_data
-    )
+    html_content, _ = await render_template_db(db, row["template_id"], template_data)
 
     # Get the email provider
     from modules.gdpr.adapters import get_email_provider
