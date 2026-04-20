@@ -246,21 +246,25 @@ async def send_email(
             f"?token={unsub_token}"
         )
 
-    # 4. Render template (DB first, then filesystem fallback)
-    from modules.gdpr.services.template_service import render_template_hybrid
+    # 4. Render template from DB
+    from modules.gdpr.services.template_service import render_template_db
 
     try:
-        html_content, db_subject = await render_template_hybrid(
+        html_content, db_subject = await render_template_db(
             db, template_id, template_data
         )
     except Exception:
         logger.exception("Template render failed: %s", template_id)
         return {"status": "error", "error": f"Template render failed: {template_id}"}
 
-    # 5. Build subject (DB template subject → caller override → hardcoded map)
-    if not subject_override and db_subject:
-        subject_override = db_subject
-    subject = subject_override or _subject_for_template(template_id, template_data)
+    # 5. Build subject (caller override → DB template subject → generic fallback)
+    if subject_override:
+        subject = subject_override
+    elif db_subject:
+        subject = db_subject
+    else:
+        site = settings.site_name or settings.app_name
+        subject = f"Message from {site}"
 
     # 6. Send via adapter
     from modules.gdpr.adapters import get_email_provider
@@ -364,17 +368,3 @@ async def send_email_fire_and_forget(
         )
 
 
-def _subject_for_template(template_id: str, data: dict) -> str:
-    """Generate a default subject line based on template ID."""
-    site = settings.site_name or settings.app_name
-    subjects = {
-        "welcome": f"Welcome to {site}",
-        "password_reset": f"Reset your {site} password",
-        "order_confirmation": f"Order confirmed — {site}",
-        "payment_receipt": f"Payment receipt — {site}",
-        "subscription_confirmation": f"Subscription confirmed — {site}",
-        "subscription_cancelled": f"Subscription cancelled — {site}",
-        "data_export_ready": "Your data export is ready",
-        "account_deletion": "Account deletion confirmation",
-    }
-    return subjects.get(template_id, f"Message from {site}")

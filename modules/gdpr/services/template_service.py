@@ -1,11 +1,10 @@
 """Jinja2 email template rendering service.
 
-Loads HTML templates from modules/gdpr/templates/ and renders them with
-provided data. Auto-injects common variables (app_name, year, frontend_url).
+Renders email templates from the marketing.email_templates DB table.
+Auto-injects common variables (app_name, year, frontend_url).
 
-Hybrid resolution (render_template_hybrid):
-  1. Check marketing.email_templates DB table
-  2. Fall back to filesystem templates in modules/gdpr/templates/
+The base.html layout in modules/gdpr/templates/ is still used to wrap
+content-block templates with standard header/footer/styling.
 """
 
 import logging
@@ -40,25 +39,6 @@ def _build_context(data: dict | None = None) -> dict[str, Any]:
     }
 
 
-def render_template(template_id: str, data: dict | None = None) -> str:
-    """Render an email template from the filesystem by ID.
-
-    Args:
-        template_id: Template filename without extension (e.g. "welcome").
-        data: Template-specific variables.
-
-    Returns:
-        Rendered HTML string.
-    """
-    context = _build_context(data)
-
-    try:
-        template = _env.get_template(f"{template_id}.html")
-        return template.render(**context)
-    except Exception:
-        logger.exception("Failed to render email template: %s", template_id)
-        raise
-
 
 def render_from_content(html_content: str, data: dict | None = None) -> str:
     """Render arbitrary HTML content (from DB or preview).
@@ -92,42 +72,41 @@ def _render_jinja_string(source: str, context: dict[str, Any]) -> str:
         return source
 
 
-async def render_template_hybrid(
+async def render_template_db(
     db: AsyncSession, template_id: str, data: dict | None = None
 ) -> tuple[str, str | None]:
-    """Render a template checking DB first, then filesystem.
+    """Render a template from the DB by name.
+
+    All templates live in marketing.email_templates (seeded via migration).
+    There is no filesystem fallback.
 
     Returns:
         (rendered_html, rendered_subject_or_None)
+
+    Raises:
+        ValueError: If the template is not found in the DB.
     """
     context = _build_context(data)
 
-    # 1. Check DB
-    try:
-        row = (
-            (
-                await db.execute(
-                    text(
-                        "SELECT html_content, subject "
-                        "FROM marketing.email_templates WHERE name = :name"
-                    ),
-                    {"name": template_id},
-                )
+    row = (
+        (
+            await db.execute(
+                text(
+                    "SELECT html_content, subject "
+                    "FROM marketing.email_templates WHERE name = :name"
+                ),
+                {"name": template_id},
             )
-            .mappings()
-            .first()
         )
-    except Exception:
-        # DB table may not exist yet (fresh install before migration)
-        row = None
+        .mappings()
+        .first()
+    )
 
-    if row:
-        html = render_from_content(row["html_content"], data)
-        subject = (
-            _render_jinja_string(row["subject"], context) if row["subject"] else None
-        )
-        return html, subject
+    if not row:
+        raise ValueError(f"Email template '{template_id}' not found in database")
 
-    # 2. Filesystem fallback
-    html = render_template(template_id, data)
-    return html, None
+    html = render_from_content(row["html_content"], data)
+    subject = (
+        _render_jinja_string(row["subject"], context) if row["subject"] else None
+    )
+    return html, subject

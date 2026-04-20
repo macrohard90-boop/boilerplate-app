@@ -71,14 +71,19 @@ async def retry_failed_emails() -> int:
 
         # Retry the send
         try:
-            from modules.gdpr.services.template_service import render_template
+            from modules.gdpr.services.template_service import render_template_db
             from modules.gdpr.adapters import get_email_provider
-            from modules.gdpr.services.email_send_service import (
-                _subject_for_template,
-            )
 
-            html_content = render_template(template_id, template_data)
-            subject = _subject_for_template(template_id, template_data)
+            factory = get_session_factory()
+            async with factory() as db:
+                html_content, subject = await render_template_db(
+                    db, template_id, template_data
+                )
+
+            if not subject:
+                site = settings.site_name or settings.app_name
+                subject = f"Message from {site}"
+
             provider = get_email_provider(email_type)
 
             result = await provider.send_email(

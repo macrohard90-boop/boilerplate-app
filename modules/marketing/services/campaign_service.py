@@ -83,13 +83,13 @@ async def send_campaign(db: AsyncSession, campaign_id: str) -> dict[str, Any]:
     if not row:
         raise ValueError("Campaign not found or already sent")
 
-    # Render the template (DB first, then filesystem fallback)
-    from modules.gdpr.services.template_service import render_template_hybrid
+    # Render the template from DB
+    from modules.gdpr.services.template_service import render_template_db
 
     template_data = (
         row["template_data"] if isinstance(row["template_data"], dict) else {}
     )
-    html_content, _ = await render_template_hybrid(
+    html_content, _ = await render_template_db(
         db, row["template_id"], template_data
     )
 
