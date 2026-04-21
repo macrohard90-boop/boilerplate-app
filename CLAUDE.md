@@ -223,7 +223,9 @@ Review thoroughly before making any code changes. For every issue or recommendat
 
 ## Conventions
 - Python: Black formatting, type hints everywhere, async/await for all DB operations
+  - **ALWAYS run `black backend/ modules/` before committing any Python changes**
 - TypeScript: Strict mode, ESLint + Prettier
+  - **ALWAYS run `npx prettier --write` on changed files before committing any frontend changes**
 - API: RESTful, JSON responses, consistent error format: {error, message, details}
 - Env vars: ALL config via .env, NEVER hardcode secrets
 - Git: Conventional commits (feat:, fix:, docs:, refactor:, test:, chore:)
