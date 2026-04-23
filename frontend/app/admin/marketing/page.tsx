@@ -903,7 +903,10 @@ function CampaignsTab() {
             {total} campaign{total !== 1 ? "s" : ""}
           </span>
         </div>
-        <button className="btn-primary text-sm" onClick={() => setWizardMode(true)}>
+        <button
+          className="btn-primary text-sm"
+          onClick={() => setWizardMode(true)}
+        >
           + New Campaign
         </button>
       </div>

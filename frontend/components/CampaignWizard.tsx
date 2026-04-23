@@ -52,7 +52,13 @@ export default function CampaignWizard({
 
   // Content & Variants
   const [variants, setVariants] = useState<Variant[]>([
-    { label: "A", subject: "", html_content: "", source_template_id: "", weight: 100 },
+    {
+      label: "A",
+      subject: "",
+      html_content: "",
+      source_template_id: "",
+      weight: 100,
+    },
   ]);
   const [activeVariant, setActiveVariant] = useState(0);
   const [templates, setTemplates] = useState<EmailTemplate[]>([]);
@@ -73,7 +79,9 @@ export default function CampaignWizard({
   // ─── Load templates on mount ───────────────────────────
 
   useEffect(() => {
-    apiFetch<{ items: EmailTemplate[] }>("/marketing/admin/templates?per_page=100")
+    apiFetch<{ items: EmailTemplate[] }>(
+      "/marketing/admin/templates?per_page=100",
+    )
       .then((r) => setTemplates(r.items))
       .catch(() => {});
   }, []);
@@ -83,7 +91,10 @@ export default function CampaignWizard({
   useEffect(() => {
     if (name) {
       setUtmCampaign(
-        name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, ""),
+        name
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, "-")
+          .replace(/^-|-$/g, ""),
       );
     }
   }, [name]);
@@ -178,7 +189,10 @@ export default function CampaignWizard({
     setError("");
 
     // Create a segment from the audience filters
-    const segmentPayload: Array<{ segment_id: string; variant_label?: string }> = [];
+    const segmentPayload: Array<{
+      segment_id: string;
+      variant_label?: string;
+    }> = [];
     try {
       const seg = await apiFetch<{ id: string }>("/marketing/admin/segments", {
         method: "POST",
@@ -260,7 +274,8 @@ export default function CampaignWizard({
     utmContent && `utm_content=${utmContent}`,
     utmTerm && `utm_term=${utmTerm}`,
   ].filter(Boolean);
-  const utmPreview = utmPreviewParts.length > 0 ? `?${utmPreviewParts.join("&")}` : "";
+  const utmPreview =
+    utmPreviewParts.length > 0 ? `?${utmPreviewParts.join("&")}` : "";
 
   return (
     <div className="space-y-6">
@@ -404,7 +419,8 @@ export default function CampaignWizard({
                 <select
                   value={
                     templates.find(
-                      (t) => t.name === variants[activeVariant].source_template_id,
+                      (t) =>
+                        t.name === variants[activeVariant].source_template_id,
                     )?.id || ""
                   }
                   onChange={(e) =>
@@ -429,7 +445,8 @@ export default function CampaignWizard({
                 }
                 variables={
                   templates.find(
-                    (t) => t.name === variants[activeVariant].source_template_id,
+                    (t) =>
+                      t.name === variants[activeVariant].source_template_id,
                   )?.variables || []
                 }
               />
@@ -455,7 +472,11 @@ export default function CampaignWizard({
                     max={100}
                     value={v.weight}
                     onChange={(e) =>
-                      updateVariant(i, "weight", parseInt(e.target.value, 10) || 1)
+                      updateVariant(
+                        i,
+                        "weight",
+                        parseInt(e.target.value, 10) || 1,
+                      )
                     }
                     className="w-16 px-2 py-1 text-sm rounded border border-glass-border bg-transparent text-text-primary text-center focus:outline-none focus:border-accent-blue"
                   />
@@ -465,7 +486,10 @@ export default function CampaignWizard({
             </div>
             <div className="flex h-2 rounded-full overflow-hidden mt-2">
               {variants.map((v, i) => {
-                const totalWeight = variants.reduce((sum, vv) => sum + vv.weight, 0);
+                const totalWeight = variants.reduce(
+                  (sum, vv) => sum + vv.weight,
+                  0,
+                );
                 const pct = (v.weight / totalWeight) * 100;
                 const colors = [
                   "bg-accent-blue",

@@ -95,10 +95,12 @@ export default function AudienceSelector({
 
   // Detail view state
   const [detailCard, setDetailCard] = useState<AudienceCard | null>(null);
-  const [detailInsights, setDetailInsights] =
-    useState<SegmentInsights | null>(null);
-  const [detailBehavior, setDetailBehavior] =
-    useState<BehaviorInsights | null>(null);
+  const [detailInsights, setDetailInsights] = useState<SegmentInsights | null>(
+    null,
+  );
+  const [detailBehavior, setDetailBehavior] = useState<BehaviorInsights | null>(
+    null,
+  );
   const [detailSendTime, setDetailSendTime] =
     useState<SendTimeSuggestion | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
@@ -281,10 +283,10 @@ export default function AudienceSelector({
         method: "POST",
         body,
       }),
-      apiFetch<BehaviorInsights>(
-        "/marketing/admin/insights/segment/behavior",
-        { method: "POST", body },
-      ),
+      apiFetch<BehaviorInsights>("/marketing/admin/insights/segment/behavior", {
+        method: "POST",
+        body,
+      }),
       apiFetch<SendTimeSuggestion>("/marketing/admin/insights/send-time", {
         method: "POST",
         body,
@@ -523,8 +525,7 @@ export default function AudienceSelector({
                     </div>
                   )}
                   {/* Browser breakdown */}
-                  {Object.keys(detailBehavior.browser_breakdown).length >
-                    0 && (
+                  {Object.keys(detailBehavior.browser_breakdown).length > 0 && (
                     <div>
                       <p className="text-xs text-text-muted mb-2">
                         Top Browsers

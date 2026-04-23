@@ -135,8 +135,7 @@ export default function SegmentBuilder({
     [filters, onChange],
   );
 
-  const pillBase =
-    "text-xs px-2.5 py-1 rounded-full border transition-colors";
+  const pillBase = "text-xs px-2.5 py-1 rounded-full border transition-colors";
   const pillInactive =
     "border-glass-border text-text-muted hover:border-text-secondary";
   const pillActive: Record<string, string> = {
@@ -476,16 +475,12 @@ export default function SegmentBuilder({
               </label>
               <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto">
                 {filterOptions.top_pages.map((p) => {
-                  const active = (filters.viewed_pages || []).includes(
-                    p.value,
-                  );
+                  const active = (filters.viewed_pages || []).includes(p.value);
                   return (
                     <button
                       key={p.value}
                       type="button"
-                      onClick={() =>
-                        toggleArrayFilter("viewed_pages", p.value)
-                      }
+                      onClick={() => toggleArrayFilter("viewed_pages", p.value)}
                       className={pill(active, "green")}
                     >
                       <span className="font-mono">{p.value}</span>
