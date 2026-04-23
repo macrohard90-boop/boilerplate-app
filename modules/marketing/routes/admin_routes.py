@@ -1,4 +1,4 @@
-"""Marketing admin endpoints — campaigns, email logs, suppressed users, comm types, templates."""
+"""Marketing admin endpoints — campaigns, email logs, comm types."""
 
 from typing import Any
 
@@ -563,6 +563,7 @@ async def create_campaign_wizard(
             utm_medium=body.utm_medium,
             utm_campaign=body.utm_campaign,
             utm_content=body.utm_content,
+            utm_term=body.utm_term,
             scheduled_at=body.scheduled_at,
         )
         return result
@@ -711,6 +712,29 @@ async def get_segment_insights(
     from modules.marketing.services import insights_service
 
     return await insights_service.get_segment_insights(db, body.filters)
+
+
+@router.get("/insights/filter-options")
+async def get_analytics_filter_options(
+    db: AsyncSession = Depends(get_db),
+    user: dict = Depends(require_role("admin")),
+):
+    """Distinct device types, browsers, OS, pages, and referral sources from analytics."""
+    from modules.marketing.services import insights_service
+
+    return await insights_service.get_analytics_filter_options(db)
+
+
+@router.post("/insights/segment/behavior")
+async def get_segment_behavior_insights(
+    body: InsightsSegmentRequest,
+    db: AsyncSession = Depends(get_db),
+    user: dict = Depends(require_role("admin")),
+):
+    """Device, browser, OS, and page-view breakdown for a segment."""
+    from modules.marketing.services import insights_service
+
+    return await insights_service.get_segment_behavior_insights(db, body.filters)
 
 
 @router.post("/insights/send-time")

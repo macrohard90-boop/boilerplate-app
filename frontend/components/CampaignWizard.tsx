@@ -3,21 +3,10 @@
 import { useCallback, useEffect, useState } from "react";
 import { apiFetch } from "../lib/api";
 import TemplateEditor from "./TemplateEditor";
-import SegmentBuilder, {
-  cleanFilters,
-  type SegmentFilters,
-} from "./SegmentBuilder";
+import { cleanFilters, type SegmentFilters } from "./SegmentBuilder";
+import AudienceSelector, { type SelectedAudience } from "./AudienceSelector";
 
 // ─── Types ───────────────────────────────────────────────
-
-interface Segment {
-  id: string;
-  name: string;
-  description: string | null;
-  filters: SegmentFilters;
-  is_system: boolean;
-  user_count: number;
-}
 
 interface Variant {
   label: string;
@@ -35,29 +24,15 @@ interface EmailTemplate {
   variables: Array<{ name: string; description: string }>;
 }
 
-interface SegmentInsights {
-  user_count: number;
-  pct_of_total: number;
-  avg_order_value: number;
-  avg_orders_per_user: number;
-  total_revenue: number;
-  rfm_breakdown: Record<string, number>;
-  top_products: Array<{ name: string; purchase_count: number }>;
-  recent_email_stats: Record<string, number>;
-}
-
 interface SendTimeSuggestion {
   suggested_hour: number;
   suggested_day: string;
   confidence: string;
-  note?: string;
 }
 
 interface CampaignWizardProps {
   onClose: () => void;
   onCreated: () => void;
-  /** Pre-fill the audience with these filters (e.g., from an insight card) */
-  initialFilters?: SegmentFilters;
 }
 
 // ─── Component ───────────────────────────────────────────
@@ -65,43 +40,29 @@ interface CampaignWizardProps {
 export default function CampaignWizard({
   onClose,
   onCreated,
-  initialFilters,
 }: CampaignWizardProps) {
+  // Phase: "audience" or "campaign"
+  const [phase, setPhase] = useState<"audience" | "campaign">("audience");
+  const [audience, setAudience] = useState<SelectedAudience | null>(null);
+
+  // Campaign form state
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
-
-  // Campaign name
   const [name, setName] = useState("");
-
-  // Audience
-  const [segments, setSegments] = useState<Segment[]>([]);
-  const [selectedSegmentId, setSelectedSegmentId] = useState<string>("");
-  const [customFilters, setCustomFilters] = useState<SegmentFilters>(
-    initialFilters || {},
-  );
-  const [useCustom, setUseCustom] = useState(!!initialFilters);
-  const [segmentInsights, setSegmentInsights] =
-    useState<SegmentInsights | null>(null);
 
   // Content & Variants
   const [variants, setVariants] = useState<Variant[]>([
-    {
-      label: "A",
-      subject: "",
-      html_content: "",
-      source_template_id: "",
-      weight: 100,
-    },
+    { label: "A", subject: "", html_content: "", source_template_id: "", weight: 100 },
   ]);
   const [activeVariant, setActiveVariant] = useState(0);
   const [templates, setTemplates] = useState<EmailTemplate[]>([]);
 
-  // UTM
+  // UTM (all 5 fields, always visible)
   const [utmSource, setUtmSource] = useState("brevo");
   const [utmMedium, setUtmMedium] = useState("email");
   const [utmCampaign, setUtmCampaign] = useState("");
   const [utmContent, setUtmContent] = useState("");
-  const [showUtm, setShowUtm] = useState(false);
+  const [utmTerm, setUtmTerm] = useState("");
 
   // Schedule
   const [sendMode, setSendMode] = useState<"now" | "schedule">("now");
@@ -109,67 +70,44 @@ export default function CampaignWizard({
   const [sendTimeSuggestion, setSendTimeSuggestion] =
     useState<SendTimeSuggestion | null>(null);
 
-  // ─── Data fetching ───────────────────────────────────────
+  // ─── Load templates on mount ───────────────────────────
 
   useEffect(() => {
-    apiFetch<{ segments: Segment[] }>("/marketing/admin/segments")
-      .then((r) => setSegments(r.segments))
-      .catch(() => {});
-
-    apiFetch<{ items: EmailTemplate[] }>(
-      "/marketing/admin/templates?per_page=100",
-    )
+    apiFetch<{ items: EmailTemplate[] }>("/marketing/admin/templates?per_page=100")
       .then((r) => setTemplates(r.items))
       .catch(() => {});
   }, []);
 
-  // Fetch segment insights when selection changes
-  useEffect(() => {
-    const filters = useCustom
-      ? cleanFilters(customFilters)
-      : segments.find((s) => s.id === selectedSegmentId)?.filters || {};
+  // ─── Auto-generate UTM campaign slug from name ─────────
 
-    if (!selectedSegmentId && !useCustom) {
-      setSegmentInsights(null);
-      return;
-    }
-
-    apiFetch<SegmentInsights>("/marketing/admin/insights/segment", {
-      method: "POST",
-      body: JSON.stringify({ filters }),
-    })
-      .then(setSegmentInsights)
-      .catch(() => setSegmentInsights(null));
-  }, [selectedSegmentId, useCustom, customFilters, segments]);
-
-  // Auto-generate UTM campaign from name
   useEffect(() => {
     if (name) {
       setUtmCampaign(
-        name
-          .toLowerCase()
-          .replace(/[^a-z0-9]+/g, "-")
-          .replace(/^-|-$/g, ""),
+        name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, ""),
       );
     }
   }, [name]);
 
-  // Fetch send time suggestion when audience is selected
-  useEffect(() => {
-    if (!selectedSegmentId && !useCustom) return;
-    const filters = useCustom
-      ? cleanFilters(customFilters)
-      : segments.find((s) => s.id === selectedSegmentId)?.filters || {};
+  // ─── Fetch send time when audience is selected ─────────
 
+  useEffect(() => {
+    if (!audience) return;
     apiFetch<SendTimeSuggestion>("/marketing/admin/insights/send-time", {
       method: "POST",
-      body: JSON.stringify({ filters }),
+      body: JSON.stringify({ filters: cleanFilters(audience.filters) }),
     })
       .then(setSendTimeSuggestion)
       .catch(() => {});
-  }, [selectedSegmentId, useCustom, customFilters, segments]);
+  }, [audience]);
 
-  // ─── Variant management ──────────────────────────────────
+  // ─── Audience selection handler ────────────────────────
+
+  function handleAudienceSelect(selected: SelectedAudience) {
+    setAudience(selected);
+    setPhase("campaign");
+  }
+
+  // ─── Variant management ────────────────────────────────
 
   const addVariant = useCallback(() => {
     const nextLabel = String.fromCharCode(65 + variants.length);
@@ -211,7 +149,6 @@ export default function CampaignWizard({
     async (index: number, templateId: string) => {
       if (!templateId) return;
       try {
-        // Fetch full template (list endpoint omits html_content for performance)
         const tmpl = await apiFetch<EmailTemplate>(
           `/marketing/admin/templates/${templateId}`,
         );
@@ -227,42 +164,34 @@ export default function CampaignWizard({
           ),
         );
       } catch {
-        // silently fail — template list still works
+        // silently fail
       }
     },
     [],
   );
 
-  // ─── Submit ──────────────────────────────────────────────
+  // ─── Submit ────────────────────────────────────────────
 
   const handleSubmit = useCallback(async () => {
+    if (!audience) return;
     setSubmitting(true);
     setError("");
 
-    const segmentPayload: Array<{
-      segment_id: string;
-      variant_label?: string;
-    }> = [];
-    if (useCustom) {
-      try {
-        const seg = await apiFetch<{ id: string }>(
-          "/marketing/admin/segments",
-          {
-            method: "POST",
-            body: JSON.stringify({
-              name: `${name} — custom segment`,
-              filters: cleanFilters(customFilters),
-            }),
-          },
-        );
-        segmentPayload.push({ segment_id: seg.id });
-      } catch (e) {
-        setError(e instanceof Error ? e.message : "Failed to create segment");
-        setSubmitting(false);
-        return;
-      }
-    } else if (selectedSegmentId) {
-      segmentPayload.push({ segment_id: selectedSegmentId });
+    // Create a segment from the audience filters
+    const segmentPayload: Array<{ segment_id: string; variant_label?: string }> = [];
+    try {
+      const seg = await apiFetch<{ id: string }>("/marketing/admin/segments", {
+        method: "POST",
+        body: JSON.stringify({
+          name: `${name} — ${audience.label}`,
+          filters: cleanFilters(audience.filters),
+        }),
+      });
+      segmentPayload.push({ segment_id: seg.id });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to create segment");
+      setSubmitting(false);
+      return;
     }
 
     try {
@@ -282,6 +211,7 @@ export default function CampaignWizard({
           utm_medium: utmMedium || null,
           utm_campaign: utmCampaign || null,
           utm_content: utmContent || null,
+          utm_term: utmTerm || null,
           scheduled_at: sendMode === "schedule" ? scheduledAt : null,
         }),
       });
@@ -291,142 +221,119 @@ export default function CampaignWizard({
     }
     setSubmitting(false);
   }, [
+    audience,
     name,
     variants,
-    selectedSegmentId,
-    useCustom,
-    customFilters,
     utmSource,
     utmMedium,
     utmCampaign,
     utmContent,
+    utmTerm,
     sendMode,
     scheduledAt,
     onCreated,
   ]);
 
-  // ─── Validation ──────────────────────────────────────────
+  // ─── Validation ────────────────────────────────────────
 
   const canSubmit =
     name.trim().length > 0 &&
-    (selectedSegmentId !== "" || useCustom) &&
+    audience !== null &&
     variants.every((v) => v.subject.trim() && v.html_content.trim()) &&
     (sendMode === "now" || !!scheduledAt);
 
-  const selectedSegment = segments.find((s) => s.id === selectedSegmentId);
+  // ─── Phase 1: Audience Selection ───────────────────────
 
-  // ─── Render ──────────────────────────────────────────────
+  if (phase === "audience") {
+    return (
+      <AudienceSelector onSelect={handleAudienceSelect} onBack={onClose} />
+    );
+  }
+
+  // ─── Phase 2: Campaign Creation ────────────────────────
+
+  // Build UTM preview string
+  const utmPreviewParts = [
+    utmSource && `utm_source=${utmSource}`,
+    utmMedium && `utm_medium=${utmMedium}`,
+    utmCampaign && `utm_campaign=${utmCampaign}`,
+    utmContent && `utm_content=${utmContent}`,
+    utmTerm && `utm_term=${utmTerm}`,
+  ].filter(Boolean);
+  const utmPreview = utmPreviewParts.length > 0 ? `?${utmPreviewParts.join("&")}` : "";
 
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <button
-            type="button"
-            onClick={onClose}
-            className="text-sm text-text-muted hover:text-text-primary transition-colors"
-          >
-            &larr; Back to Campaigns
-          </button>
-          <span className="text-text-muted/30">|</span>
-          <h2 className="text-lg font-semibold text-text-primary">
-            Create Campaign
-          </h2>
-        </div>
+      <div className="flex items-center gap-4">
+        <button
+          type="button"
+          onClick={() => setPhase("audience")}
+          className="text-sm text-text-muted hover:text-text-primary transition-colors"
+        >
+          &larr; Back to Audiences
+        </button>
+        <span className="text-text-muted/30">|</span>
+        <h2 className="text-lg font-semibold text-text-primary">
+          Create Campaign
+        </h2>
       </div>
 
-      {/* ── Section 1: Name + Audience (side by side) ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Campaign Name */}
-        <div className="glass rounded-xl p-5 space-y-3">
-          <h3 className="text-sm font-semibold text-text-primary">
-            Campaign Name
-          </h3>
-          <input
-            type="text"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="e.g., Spring Sale 2026"
-            className="w-full px-3 py-2 rounded-lg border border-glass-border bg-transparent text-text-primary placeholder:text-text-muted/50 focus:outline-none focus:border-accent-blue"
-            autoFocus
-          />
-        </div>
-
-        {/* Audience */}
-        <div className="glass rounded-xl p-5 space-y-3">
-          <div className="flex items-center justify-between">
-            <h3 className="text-sm font-semibold text-text-primary">
-              Audience
-            </h3>
-            {segmentInsights && (
-              <span className="text-xs text-text-muted">
-                <strong className="text-accent-blue">
-                  {segmentInsights.user_count.toLocaleString()}
-                </strong>{" "}
-                users ({segmentInsights.pct_of_total}%)
-              </span>
+      {/* Locked audience bar */}
+      {audience && (
+        <div className="glass rounded-xl px-5 py-3 flex items-center justify-between">
+          <div className="flex items-center gap-4 text-sm">
+            <span className="text-text-muted">Audience:</span>
+            <span className="font-semibold text-accent-blue">
+              {audience.label}
+            </span>
+            <span className="text-text-muted">|</span>
+            <span className="text-text-secondary">
+              {audience.userCount.toLocaleString()} users
+            </span>
+            {audience.avgOrderValue != null && audience.avgOrderValue > 0 && (
+              <>
+                <span className="text-text-muted">|</span>
+                <span className="text-text-secondary">
+                  AOV ${audience.avgOrderValue.toFixed(2)}
+                </span>
+              </>
+            )}
+            {audience.totalRevenue != null && audience.totalRevenue > 0 && (
+              <>
+                <span className="text-text-muted">|</span>
+                <span className="text-text-secondary">
+                  Rev ${(audience.totalRevenue / 100).toLocaleString()}
+                </span>
+              </>
             )}
           </div>
-
-          <div className="flex items-center gap-2 mb-2">
-            <button
-              type="button"
-              onClick={() => setUseCustom(false)}
-              className={`text-xs px-2.5 py-1 rounded-full transition-colors ${
-                !useCustom
-                  ? "bg-accent-blue/20 text-accent-blue"
-                  : "text-text-muted hover:text-text-secondary"
-              }`}
-            >
-              Saved Segments
-            </button>
-            <button
-              type="button"
-              onClick={() => setUseCustom(true)}
-              className={`text-xs px-2.5 py-1 rounded-full transition-colors ${
-                useCustom
-                  ? "bg-accent-purple/20 text-accent-purple"
-                  : "text-text-muted hover:text-text-secondary"
-              }`}
-            >
-              Custom Filters
-            </button>
-          </div>
-
-          {!useCustom ? (
-            <div className="space-y-1.5 max-h-48 overflow-y-auto">
-              {segments.map((seg) => (
-                <button
-                  key={seg.id}
-                  type="button"
-                  onClick={() => setSelectedSegmentId(seg.id)}
-                  className={`w-full text-left px-3 py-2 rounded-lg border transition-colors text-sm ${
-                    selectedSegmentId === seg.id
-                      ? "border-accent-blue bg-accent-blue/10"
-                      : "border-glass-border/50 hover:border-text-secondary"
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="text-text-primary">{seg.name}</span>
-                    <span className="text-xs text-text-muted">
-                      {seg.user_count.toLocaleString()}
-                    </span>
-                  </div>
-                </button>
-              ))}
-            </div>
-          ) : (
-            <SegmentBuilder
-              filters={customFilters}
-              onChange={setCustomFilters}
-              showPreview={true}
-            />
-          )}
+          <button
+            type="button"
+            onClick={() => setPhase("audience")}
+            className="text-xs text-accent-blue hover:text-accent-blue/80 transition-colors"
+          >
+            Change
+          </button>
         </div>
+      )}
+
+      {/* Campaign Name (full width) */}
+      <div className="glass rounded-xl p-5 space-y-3">
+        <h3 className="text-sm font-semibold text-text-primary">
+          Campaign Name
+        </h3>
+        <input
+          type="text"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="e.g., Spring Sale 2026"
+          className="w-full px-3 py-2 rounded-lg border border-glass-border bg-transparent text-text-primary placeholder:text-text-muted/50 focus:outline-none focus:border-accent-blue"
+          autoFocus
+        />
       </div>
 
-      {/* ── Section 2: Content & Variants (full width) ── */}
+      {/* Email Content (full width) */}
       <div className="glass rounded-xl p-5 space-y-4">
         <div className="flex items-center justify-between">
           <h3 className="text-sm font-semibold text-text-primary">
@@ -457,7 +364,7 @@ export default function CampaignWizard({
                 >
                   Variant {v.label}
                 </button>
-                {i === activeVariant && (
+                {i === activeVariant && variants.length > 1 && (
                   <button
                     type="button"
                     onClick={() => removeVariant(i)}
@@ -475,7 +382,6 @@ export default function CampaignWizard({
         {/* Active variant editor */}
         {variants[activeVariant] && (
           <div className="space-y-3">
-            {/* Subject + Template row */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div>
                 <label className="text-xs text-text-muted font-medium block mb-1">
@@ -498,8 +404,7 @@ export default function CampaignWizard({
                 <select
                   value={
                     templates.find(
-                      (t) =>
-                        t.name === variants[activeVariant].source_template_id,
+                      (t) => t.name === variants[activeVariant].source_template_id,
                     )?.id || ""
                   }
                   onChange={(e) =>
@@ -516,8 +421,6 @@ export default function CampaignWizard({
                 </select>
               </div>
             </div>
-
-            {/* Inline TemplateEditor — full width */}
             <div className="min-h-[400px]">
               <TemplateEditor
                 initialContent={variants[activeVariant].html_content}
@@ -526,8 +429,7 @@ export default function CampaignWizard({
                 }
                 variables={
                   templates.find(
-                    (t) =>
-                      t.name === variants[activeVariant].source_template_id,
+                    (t) => t.name === variants[activeVariant].source_template_id,
                   )?.variables || []
                 }
               />
@@ -535,7 +437,7 @@ export default function CampaignWizard({
           </div>
         )}
 
-        {/* Weight bar (only when multiple variants) */}
+        {/* Weight bar (multiple variants) */}
         {variants.length > 1 && (
           <div className="pt-3 border-t border-glass-border">
             <label className="text-xs text-text-muted font-medium block mb-2">
@@ -553,11 +455,7 @@ export default function CampaignWizard({
                     max={100}
                     value={v.weight}
                     onChange={(e) =>
-                      updateVariant(
-                        i,
-                        "weight",
-                        parseInt(e.target.value, 10) || 1,
-                      )
+                      updateVariant(i, "weight", parseInt(e.target.value, 10) || 1)
                     }
                     className="w-16 px-2 py-1 text-sm rounded border border-glass-border bg-transparent text-text-primary text-center focus:outline-none focus:border-accent-blue"
                   />
@@ -567,10 +465,7 @@ export default function CampaignWizard({
             </div>
             <div className="flex h-2 rounded-full overflow-hidden mt-2">
               {variants.map((v, i) => {
-                const totalWeight = variants.reduce(
-                  (sum, vv) => sum + vv.weight,
-                  0,
-                );
+                const totalWeight = variants.reduce((sum, vv) => sum + vv.weight, 0);
                 const pct = (v.weight / totalWeight) * 100;
                 const colors = [
                   "bg-accent-blue",
@@ -583,7 +478,7 @@ export default function CampaignWizard({
                 return (
                   <div
                     key={v.label}
-                    className={`${colors[i % colors.length]}`}
+                    className={colors[i % colors.length]}
                     style={{ width: `${pct}%` }}
                     title={`${v.label}: ${Math.round(pct)}%`}
                   />
@@ -594,152 +489,147 @@ export default function CampaignWizard({
         )}
       </div>
 
-      {/* ── Section 3: UTM + Schedule + Submit ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* UTM Tracking (collapsible) */}
-        <div className="glass rounded-xl p-5 space-y-3">
-          <button
-            type="button"
-            onClick={() => setShowUtm(!showUtm)}
-            className="flex items-center justify-between w-full"
-          >
-            <h3 className="text-sm font-semibold text-text-primary">
-              UTM Tracking
-            </h3>
-            <span className="text-xs text-text-muted">
-              {showUtm ? "Hide" : "Customize"} &darr;
-            </span>
-          </button>
-
-          <code className="text-xs text-accent-green break-all block">
-            ?utm_source={utmSource}&utm_medium={utmMedium}
-            {utmCampaign ? `&utm_campaign=${utmCampaign}` : ""}
-            {utmContent ? `&utm_content=${utmContent}` : ""}
-          </code>
-
-          {showUtm && (
-            <div className="space-y-3 pt-2 border-t border-glass-border">
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-xs text-text-muted font-medium block mb-1">
-                    utm_source
-                  </label>
-                  <input
-                    type="text"
-                    value={utmSource}
-                    onChange={(e) => setUtmSource(e.target.value)}
-                    placeholder="brevo"
-                    className="w-full px-2.5 py-1.5 text-sm rounded-lg border border-glass-border bg-transparent text-text-primary focus:outline-none focus:border-accent-blue"
-                  />
-                </div>
-                <div>
-                  <label className="text-xs text-text-muted font-medium block mb-1">
-                    utm_medium
-                  </label>
-                  <input
-                    type="text"
-                    value={utmMedium}
-                    onChange={(e) => setUtmMedium(e.target.value)}
-                    placeholder="email"
-                    className="w-full px-2.5 py-1.5 text-sm rounded-lg border border-glass-border bg-transparent text-text-primary focus:outline-none focus:border-accent-blue"
-                  />
-                </div>
-              </div>
-              <div>
-                <label className="text-xs text-text-muted font-medium block mb-1">
-                  utm_campaign
-                </label>
-                <input
-                  type="text"
-                  value={utmCampaign}
-                  onChange={(e) => setUtmCampaign(e.target.value)}
-                  placeholder="Auto-generated from campaign name"
-                  className="w-full px-2.5 py-1.5 text-sm rounded-lg border border-glass-border bg-transparent text-text-primary focus:outline-none focus:border-accent-blue"
-                />
-              </div>
-              {variants.length > 1 && (
-                <div>
-                  <label className="text-xs text-text-muted font-medium block mb-1">
-                    utm_content
-                  </label>
-                  <input
-                    type="text"
-                    value={utmContent}
-                    onChange={(e) => setUtmContent(e.target.value)}
-                    placeholder="Auto-set per variant if blank"
-                    className="w-full px-2.5 py-1.5 text-sm rounded-lg border border-glass-border bg-transparent text-text-primary focus:outline-none focus:border-accent-blue"
-                  />
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-
-        {/* Schedule + Submit */}
-        <div className="glass rounded-xl p-5 space-y-3">
-          <h3 className="text-sm font-semibold text-text-primary">
-            Send Options
-          </h3>
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={() => setSendMode("now")}
-              className={`px-3 py-1.5 rounded-lg text-sm transition-colors ${
-                sendMode === "now"
-                  ? "bg-accent-blue/20 text-accent-blue border border-accent-blue/30"
-                  : "text-text-muted border border-glass-border hover:border-text-secondary"
-              }`}
-            >
-              Save as Draft
-            </button>
-            <button
-              type="button"
-              onClick={() => setSendMode("schedule")}
-              className={`px-3 py-1.5 rounded-lg text-sm transition-colors ${
-                sendMode === "schedule"
-                  ? "bg-accent-purple/20 text-accent-purple border border-accent-purple/30"
-                  : "text-text-muted border border-glass-border hover:border-text-secondary"
-              }`}
-            >
-              Schedule
-            </button>
-          </div>
-
-          {sendMode === "schedule" && (
+      {/* UTM Tracking (full width, all 5 fields visible) */}
+      <div className="glass rounded-xl p-5 space-y-4">
+        <h3 className="text-sm font-semibold text-text-primary">
+          UTM Tracking
+        </h3>
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+          <div>
+            <label className="text-xs text-text-muted font-medium block mb-1">
+              utm_source
+            </label>
             <input
-              type="datetime-local"
-              value={scheduledAt}
-              onChange={(e) => setScheduledAt(e.target.value)}
-              className="w-full px-3 py-2 rounded-lg border border-glass-border bg-transparent text-text-primary focus:outline-none focus:border-accent-blue text-sm"
+              type="text"
+              value={utmSource}
+              onChange={(e) => setUtmSource(e.target.value)}
+              placeholder="brevo"
+              className="w-full px-2.5 py-1.5 text-sm rounded-lg border border-glass-border bg-transparent text-text-primary focus:outline-none focus:border-accent-blue"
             />
-          )}
+          </div>
+          <div>
+            <label className="text-xs text-text-muted font-medium block mb-1">
+              utm_medium
+            </label>
+            <input
+              type="text"
+              value={utmMedium}
+              onChange={(e) => setUtmMedium(e.target.value)}
+              placeholder="email"
+              className="w-full px-2.5 py-1.5 text-sm rounded-lg border border-glass-border bg-transparent text-text-primary focus:outline-none focus:border-accent-blue"
+            />
+          </div>
+          <div>
+            <label className="text-xs text-text-muted font-medium block mb-1">
+              utm_campaign
+            </label>
+            <input
+              type="text"
+              value={utmCampaign}
+              onChange={(e) => setUtmCampaign(e.target.value)}
+              placeholder="Auto from name"
+              className="w-full px-2.5 py-1.5 text-sm rounded-lg border border-glass-border bg-transparent text-text-primary focus:outline-none focus:border-accent-blue"
+            />
+          </div>
+          <div>
+            <label className="text-xs text-text-muted font-medium block mb-1">
+              utm_content
+            </label>
+            <input
+              type="text"
+              value={utmContent}
+              onChange={(e) => setUtmContent(e.target.value)}
+              placeholder="variant-a"
+              className="w-full px-2.5 py-1.5 text-sm rounded-lg border border-glass-border bg-transparent text-text-primary focus:outline-none focus:border-accent-blue"
+            />
+          </div>
+          <div>
+            <label className="text-xs text-text-muted font-medium block mb-1">
+              utm_term
+            </label>
+            <input
+              type="text"
+              value={utmTerm}
+              onChange={(e) => setUtmTerm(e.target.value)}
+              placeholder="optional"
+              className="w-full px-2.5 py-1.5 text-sm rounded-lg border border-glass-border bg-transparent text-text-primary focus:outline-none focus:border-accent-blue"
+            />
+          </div>
+        </div>
+        {utmPreview && (
+          <div className="pt-2 border-t border-glass-border">
+            <p className="text-xs text-text-muted mb-1">Preview:</p>
+            <code className="text-xs text-accent-green break-all block">
+              https://yoursite.com/page{utmPreview}
+            </code>
+          </div>
+        )}
+      </div>
 
-          {sendTimeSuggestion && (
-            <p className="text-xs text-text-muted">
-              Suggested:{" "}
-              <span className="text-accent-blue">
-                {sendTimeSuggestion.suggested_day} at{" "}
-                {sendTimeSuggestion.suggested_hour}:00
-              </span>{" "}
-              ({sendTimeSuggestion.confidence} confidence)
-            </p>
-          )}
-
-          {error && <p className="text-sm text-accent-pink">{error}</p>}
-
+      {/* Send Options (full width) */}
+      <div className="glass rounded-xl p-5 space-y-4">
+        <h3 className="text-sm font-semibold text-text-primary">
+          Send Options
+        </h3>
+        <div className="flex gap-2">
           <button
             type="button"
-            onClick={handleSubmit}
-            disabled={submitting || !canSubmit}
-            className="w-full mt-2 px-5 py-2.5 rounded-lg bg-accent-green text-white text-sm font-medium hover:bg-accent-green/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            onClick={() => setSendMode("now")}
+            className={`px-4 py-2 rounded-lg text-sm transition-colors ${
+              sendMode === "now"
+                ? "bg-accent-blue/20 text-accent-blue border border-accent-blue/30"
+                : "text-text-muted border border-glass-border hover:border-text-secondary"
+            }`}
           >
-            {submitting
-              ? "Creating..."
-              : sendMode === "schedule"
-                ? "Schedule Campaign"
-                : "Create Draft"}
+            Save as Draft
+          </button>
+          <button
+            type="button"
+            onClick={() => setSendMode("schedule")}
+            className={`px-4 py-2 rounded-lg text-sm transition-colors ${
+              sendMode === "schedule"
+                ? "bg-accent-purple/20 text-accent-purple border border-accent-purple/30"
+                : "text-text-muted border border-glass-border hover:border-text-secondary"
+            }`}
+          >
+            Schedule
           </button>
         </div>
+
+        {sendMode === "schedule" && (
+          <input
+            type="datetime-local"
+            value={scheduledAt}
+            onChange={(e) => setScheduledAt(e.target.value)}
+            className="w-full px-3 py-2 rounded-lg border border-glass-border bg-transparent text-text-primary focus:outline-none focus:border-accent-blue text-sm"
+          />
+        )}
+
+        {sendTimeSuggestion && (
+          <p className="text-xs text-text-muted">
+            Suggested:{" "}
+            <span className="text-accent-blue">
+              {sendTimeSuggestion.suggested_day} at{" "}
+              {sendTimeSuggestion.suggested_hour}:00
+            </span>{" "}
+            ({sendTimeSuggestion.confidence} confidence)
+          </p>
+        )}
+
+        {error && <p className="text-sm text-accent-pink">{error}</p>}
+
+        <button
+          type="button"
+          onClick={handleSubmit}
+          disabled={submitting || !canSubmit}
+          className="w-full py-3 rounded-xl bg-accent-green text-white font-medium hover:bg-accent-green/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+        >
+          {submitting
+            ? "Creating..."
+            : sendMode === "schedule"
+              ? "Schedule Campaign"
+              : "Create Draft"}
+        </button>
       </div>
     </div>
   );

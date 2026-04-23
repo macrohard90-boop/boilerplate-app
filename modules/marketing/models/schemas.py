@@ -156,6 +156,7 @@ class CampaignWizardRequest(BaseModel):
     utm_medium: str | None = "email"
     utm_campaign: str | None = None
     utm_content: str | None = None
+    utm_term: str | None = None
     scheduled_at: str | None = None
 
 
@@ -246,3 +247,13 @@ class SendTimeSuggestionResponse(BaseModel):
     suggested_day: str = "Tuesday"
     confidence: str = "low"
     note: str | None = None
+
+
+class BehaviorInsightsResponse(BaseModel):
+    user_count: int = 0
+    device_breakdown: dict[str, int] = Field(default_factory=dict)
+    browser_breakdown: dict[str, int] = Field(default_factory=dict)
+    os_breakdown: dict[str, int] = Field(default_factory=dict)
+    top_pages: list[dict[str, Any]] = Field(default_factory=list)
+    avg_sessions_per_user: float = 0.0
+    avg_page_views_per_user: float = 0.0

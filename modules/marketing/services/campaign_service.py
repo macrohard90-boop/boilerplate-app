@@ -73,6 +73,7 @@ async def create_campaign_with_variants(
     utm_medium: str | None = "email",
     utm_campaign: str | None = None,
     utm_content: str | None = None,
+    utm_term: str | None = None,
     scheduled_at: str | None = None,
 ) -> dict[str, Any]:
     """Create a campaign with A/B variants and audience segments.
@@ -95,9 +96,10 @@ async def create_campaign_with_variants(
                 text(
                     "INSERT INTO marketing.campaigns "
                     "(name, subject, template_id, template_data, created_by, "
-                    "scheduled_at, utm_source, utm_medium, utm_campaign, utm_content) "
+                    "scheduled_at, utm_source, utm_medium, utm_campaign, "
+                    "utm_content, utm_term) "
                     "VALUES (:name, :subj, :tid, :tdata, :uid, :sched, "
-                    ":utm_src, :utm_med, :utm_camp, :utm_cont) "
+                    ":utm_src, :utm_med, :utm_camp, :utm_cont, :utm_term) "
                     "RETURNING id, status, created_at"
                 ),
                 {
@@ -111,6 +113,7 @@ async def create_campaign_with_variants(
                     "utm_med": utm_medium,
                     "utm_camp": utm_campaign,
                     "utm_cont": utm_content,
+                    "utm_term": utm_term,
                 },
             )
         )

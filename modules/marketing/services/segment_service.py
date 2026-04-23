@@ -130,6 +130,91 @@ def _build_segment_query(
         wheres.append("u.is_verified = :verified")
         params["verified"] = bool(filters["is_verified"])
 
+    # --- Device type filter (mobile/desktop/tablet) ---
+    if "device_type" in filters and filters["device_type"]:
+        device_types = filters["device_type"]
+        if isinstance(device_types, str):
+            device_types = [device_types]
+        dt_placeholders = ", ".join(f":dt_{i}" for i in range(len(device_types)))
+        wheres.append(
+            f"EXISTS (SELECT 1 FROM analytics.analytics_sessions _ds "
+            f"JOIN analytics.user_agents _ua ON _ua.session_id = _ds.session_id "
+            f"WHERE _ds.user_id = u.id AND _ua.device_type IN ({dt_placeholders}))"
+        )
+        for i, dt in enumerate(device_types):
+            params[f"dt_{i}"] = dt
+
+    # --- Browser filter ---
+    if "browser" in filters and filters["browser"]:
+        browsers = filters["browser"]
+        if isinstance(browsers, str):
+            browsers = [browsers]
+        br_placeholders = ", ".join(f":br_{i}" for i in range(len(browsers)))
+        wheres.append(
+            f"EXISTS (SELECT 1 FROM analytics.analytics_sessions _bs "
+            f"JOIN analytics.user_agents _bua ON _bua.session_id = _bs.session_id "
+            f"WHERE _bs.user_id = u.id AND _bua.browser IN ({br_placeholders}))"
+        )
+        for i, br in enumerate(browsers):
+            params[f"br_{i}"] = br
+
+    # --- OS filter ---
+    if "os" in filters and filters["os"]:
+        os_list = filters["os"]
+        if isinstance(os_list, str):
+            os_list = [os_list]
+        os_placeholders = ", ".join(f":os_{i}" for i in range(len(os_list)))
+        wheres.append(
+            f"EXISTS (SELECT 1 FROM analytics.analytics_sessions _os "
+            f"JOIN analytics.user_agents _oua ON _oua.session_id = _os.session_id "
+            f"WHERE _os.user_id = u.id AND _oua.os IN ({os_placeholders}))"
+        )
+        for i, os_val in enumerate(os_list):
+            params[f"os_{i}"] = os_val
+
+    # --- Viewed pages filter (users who visited specific paths) ---
+    if "viewed_pages" in filters and filters["viewed_pages"]:
+        pages = filters["viewed_pages"]
+        if isinstance(pages, str):
+            pages = [pages]
+        vp_placeholders = ", ".join(f":vp_{i}" for i in range(len(pages)))
+        wheres.append(
+            f"EXISTS (SELECT 1 FROM analytics.page_views _vp "
+            f"WHERE _vp.user_id = u.id AND _vp.path IN ({vp_placeholders}))"
+        )
+        for i, pg in enumerate(pages):
+            params[f"vp_{i}"] = pg
+
+    # --- Min page views (last 90 days) ---
+    if "min_page_views" in filters and filters["min_page_views"] is not None:
+        wheres.append(
+            "EXISTS (SELECT 1 FROM analytics.page_views _mpv "
+            "WHERE _mpv.user_id = u.id "
+            "AND _mpv.created_at >= NOW() - INTERVAL '90 days' "
+            "GROUP BY _mpv.user_id HAVING COUNT(*) >= :min_pv)"
+        )
+        params["min_pv"] = int(filters["min_page_views"])
+
+    # --- Min sessions (last 90 days) ---
+    if "min_sessions" in filters and filters["min_sessions"] is not None:
+        wheres.append(
+            "EXISTS (SELECT 1 FROM analytics.analytics_sessions _ms "
+            "WHERE _ms.user_id = u.id "
+            "AND _ms.started_at >= NOW() - INTERVAL '90 days' "
+            "GROUP BY _ms.user_id HAVING COUNT(*) >= :min_sess)"
+        )
+        params["min_sess"] = int(filters["min_sessions"])
+
+    # --- Referral source filter ---
+    if "referral_source" in filters and filters["referral_source"]:
+        wheres.append(
+            "EXISTS (SELECT 1 FROM analytics.analytics_sessions _rs "
+            "JOIN analytics.referral_sources _ref "
+            "ON _ref.session_id = _rs.session_id "
+            "WHERE _rs.user_id = u.id AND _ref.source = :ref_src)"
+        )
+        params["ref_src"] = filters["referral_source"]
+
     join_clause = "\n".join(joins)
     where_clause = " AND ".join(wheres)
     limit_clause = f" LIMIT {int(limit)}" if limit else ""

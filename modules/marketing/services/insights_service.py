@@ -240,7 +240,9 @@ async def get_segment_insights(
                     f"  COUNT(*) FILTER (WHERE status = 'sent') AS sent, "
                     f"  COUNT(*) FILTER (WHERE status = 'delivered') AS delivered, "
                     f"  COUNT(*) FILTER (WHERE status = 'skipped') AS skipped, "
-                    f"  COUNT(*) FILTER (WHERE status IN ('bounced', 'complained')) AS bounced "
+                    f"  COUNT(*) FILTER ("
+                    f"WHERE status IN ('bounced', 'complained')"
+                    f") AS bounced "
                     f"FROM gdpr.email_events "
                     f"WHERE user_id IN ({id_placeholders}) "
                     f"  AND created_at >= NOW() - INTERVAL '90 days'"
@@ -343,6 +345,255 @@ async def get_send_time_suggestion(
         "suggested_hour": suggested_hour,
         "suggested_day": suggested_day,
         "confidence": confidence,
+    }
+
+
+async def get_segment_behavior_insights(
+    db: AsyncSession, filters: dict[str, Any]
+) -> dict[str, Any]:
+    """Device, browser, OS, page-view, and session breakdown for a segment.
+
+    Returns aggregate analytics data for the users matching the given filters.
+    """
+    user_sql, user_params = _build_segment_query(filters)
+    rows = (await db.execute(text(user_sql), user_params)).mappings().all()
+    user_ids = [str(r["user_id"]) for r in rows]
+    user_count = len(user_ids)
+
+    if user_count == 0:
+        return {
+            "user_count": 0,
+            "device_breakdown": {},
+            "browser_breakdown": {},
+            "os_breakdown": {},
+            "top_pages": [],
+            "avg_sessions_per_user": 0.0,
+            "avg_page_views_per_user": 0.0,
+        }
+
+    id_placeholders = ", ".join(f":uid_{i}" for i in range(user_count))
+    uid_params = {f"uid_{i}": uid for i, uid in enumerate(user_ids)}
+
+    # Device type breakdown
+    device_rows = (
+        (
+            await db.execute(
+                text(
+                    f"SELECT COALESCE(ua.device_type, 'unknown') AS dtype, "
+                    f"COUNT(DISTINCT sess.user_id) AS cnt "
+                    f"FROM analytics.analytics_sessions sess "
+                    f"JOIN analytics.user_agents ua ON ua.session_id = sess.session_id "
+                    f"WHERE sess.user_id IN ({id_placeholders}) "
+                    f"GROUP BY dtype ORDER BY cnt DESC"
+                ),
+                uid_params,
+            )
+        )
+        .mappings()
+        .all()
+    )
+    device_breakdown = {r["dtype"]: r["cnt"] for r in device_rows}
+
+    # Browser breakdown (top 10)
+    browser_rows = (
+        (
+            await db.execute(
+                text(
+                    f"SELECT COALESCE(ua.browser, 'Unknown') AS bname, "
+                    f"COUNT(DISTINCT sess.user_id) AS cnt "
+                    f"FROM analytics.analytics_sessions sess "
+                    f"JOIN analytics.user_agents ua ON ua.session_id = sess.session_id "
+                    f"WHERE sess.user_id IN ({id_placeholders}) "
+                    f"GROUP BY bname ORDER BY cnt DESC LIMIT 10"
+                ),
+                uid_params,
+            )
+        )
+        .mappings()
+        .all()
+    )
+    browser_breakdown = {r["bname"]: r["cnt"] for r in browser_rows}
+
+    # OS breakdown (top 10)
+    os_rows = (
+        (
+            await db.execute(
+                text(
+                    f"SELECT COALESCE(ua.os, 'Unknown') AS osname, "
+                    f"COUNT(DISTINCT sess.user_id) AS cnt "
+                    f"FROM analytics.analytics_sessions sess "
+                    f"JOIN analytics.user_agents ua ON ua.session_id = sess.session_id "
+                    f"WHERE sess.user_id IN ({id_placeholders}) "
+                    f"GROUP BY osname ORDER BY cnt DESC LIMIT 10"
+                ),
+                uid_params,
+            )
+        )
+        .mappings()
+        .all()
+    )
+    os_breakdown = {r["osname"]: r["cnt"] for r in os_rows}
+
+    # Top pages viewed (last 90 days)
+    page_rows = (
+        (
+            await db.execute(
+                text(
+                    f"SELECT pv.path, COUNT(*) AS view_count "
+                    f"FROM analytics.page_views pv "
+                    f"WHERE pv.user_id IN ({id_placeholders}) "
+                    f"  AND pv.created_at >= NOW() - INTERVAL '90 days' "
+                    f"GROUP BY pv.path ORDER BY view_count DESC LIMIT 10"
+                ),
+                uid_params,
+            )
+        )
+        .mappings()
+        .all()
+    )
+    top_pages = [{"path": r["path"], "view_count": r["view_count"]} for r in page_rows]
+
+    # Average sessions per user (last 90 days)
+    sess_row = (
+        (
+            await db.execute(
+                text(
+                    f"SELECT AVG(sc) AS avg_sess FROM ("
+                    f"  SELECT COUNT(*) AS sc "
+                    f"  FROM analytics.analytics_sessions s "
+                    f"  WHERE s.user_id IN ({id_placeholders}) "
+                    f"    AND s.started_at >= NOW() - INTERVAL '90 days' "
+                    f"  GROUP BY s.user_id"
+                    f") sub"
+                ),
+                uid_params,
+            )
+        )
+        .mappings()
+        .first()
+    )
+    avg_sessions = round(float(sess_row["avg_sess"] or 0), 1) if sess_row else 0.0
+
+    # Average page views per user (last 90 days)
+    pv_row = (
+        (
+            await db.execute(
+                text(
+                    f"SELECT AVG(pc) AS avg_pv FROM ("
+                    f"  SELECT COUNT(*) AS pc "
+                    f"  FROM analytics.page_views pv "
+                    f"  WHERE pv.user_id IN ({id_placeholders}) "
+                    f"    AND pv.created_at >= NOW() - INTERVAL '90 days' "
+                    f"  GROUP BY pv.user_id"
+                    f") sub"
+                ),
+                uid_params,
+            )
+        )
+        .mappings()
+        .first()
+    )
+    avg_pv = round(float(pv_row["avg_pv"] or 0), 1) if pv_row else 0.0
+
+    return {
+        "user_count": user_count,
+        "device_breakdown": device_breakdown,
+        "browser_breakdown": browser_breakdown,
+        "os_breakdown": os_breakdown,
+        "top_pages": top_pages,
+        "avg_sessions_per_user": avg_sessions,
+        "avg_page_views_per_user": avg_pv,
+    }
+
+
+async def get_analytics_filter_options(db: AsyncSession) -> dict[str, Any]:
+    """Return distinct device types, browsers, and OS values from analytics.
+
+    Only returns values that actually exist in the system — no hardcoded lists.
+    """
+    device_rows = (
+        (
+            await db.execute(
+                text(
+                    "SELECT DISTINCT ua.device_type AS val "
+                    "FROM analytics.user_agents ua "
+                    "WHERE ua.device_type IS NOT NULL "
+                    "ORDER BY val"
+                )
+            )
+        )
+        .mappings()
+        .all()
+    )
+
+    browser_rows = (
+        (
+            await db.execute(
+                text(
+                    "SELECT ua.browser AS val, COUNT(*) AS cnt "
+                    "FROM analytics.user_agents ua "
+                    "WHERE ua.browser IS NOT NULL "
+                    "GROUP BY ua.browser ORDER BY cnt DESC LIMIT 20"
+                )
+            )
+        )
+        .mappings()
+        .all()
+    )
+
+    os_rows = (
+        (
+            await db.execute(
+                text(
+                    "SELECT ua.os AS val, COUNT(*) AS cnt "
+                    "FROM analytics.user_agents ua "
+                    "WHERE ua.os IS NOT NULL "
+                    "GROUP BY ua.os ORDER BY cnt DESC LIMIT 20"
+                )
+            )
+        )
+        .mappings()
+        .all()
+    )
+
+    top_pages = (
+        (
+            await db.execute(
+                text(
+                    "SELECT pv.path AS val, COUNT(*) AS cnt "
+                    "FROM analytics.page_views pv "
+                    "WHERE pv.created_at >= NOW() - INTERVAL '90 days' "
+                    "GROUP BY pv.path ORDER BY cnt DESC LIMIT 30"
+                )
+            )
+        )
+        .mappings()
+        .all()
+    )
+
+    referral_rows = (
+        (
+            await db.execute(
+                text(
+                    "SELECT rs.source AS val, COUNT(*) AS cnt "
+                    "FROM analytics.referral_sources rs "
+                    "WHERE rs.source IS NOT NULL "
+                    "GROUP BY rs.source ORDER BY cnt DESC LIMIT 20"
+                )
+            )
+        )
+        .mappings()
+        .all()
+    )
+
+    return {
+        "device_types": [r["val"] for r in device_rows],
+        "browsers": [{"value": r["val"], "count": r["cnt"]} for r in browser_rows],
+        "operating_systems": [{"value": r["val"], "count": r["cnt"]} for r in os_rows],
+        "top_pages": [{"value": r["val"], "count": r["cnt"]} for r in top_pages],
+        "referral_sources": [
+            {"value": r["val"], "count": r["cnt"]} for r in referral_rows
+        ],
     }
 
 

@@ -9,7 +9,6 @@ import LoadingSpinner from "../../../components/LoadingSpinner";
 import Pagination from "../../../components/Pagination";
 import Modal from "../../../components/Modal";
 import { formatDate, formatRelativeTime, truncate } from "../../../lib/format";
-import type { SegmentFilters } from "../../../components/SegmentBuilder";
 
 const TemplateEditor = dynamic(
   () => import("../../../components/TemplateEditor"),
@@ -74,16 +73,6 @@ interface CampaignStats {
   bounced: number;
   unsubscribed: number;
   fetched_at: string | null;
-}
-
-interface GlobalInsights {
-  total_eligible: number;
-  by_rfm_segment: Record<string, number>;
-  avg_order_value: number;
-  avg_orders_per_user: number;
-  active_last_30_days: number;
-  cart_abandonment_count: number;
-  top_communication_types: Array<{ name: string; subscriber_count: number }>;
 }
 
 interface EmailLog {
@@ -813,10 +802,6 @@ function CampaignsTab() {
   const [statusFilter, setStatusFilter] = useState("");
   const [loading, setLoading] = useState(true);
   const [wizardMode, setWizardMode] = useState(false);
-  const [wizardFilters, setWizardFilters] = useState<
-    SegmentFilters | undefined
-  >();
-  const [insights, setInsights] = useState<GlobalInsights | null>(null);
   const [statsModal, setStatsModal] = useState<CampaignStats | null>(null);
   const [statsName, setStatsName] = useState("");
 
@@ -844,18 +829,6 @@ function CampaignsTab() {
   useEffect(() => {
     fetchCampaigns();
   }, [fetchCampaigns]);
-
-  // Fetch audience insights for the cards
-  useEffect(() => {
-    apiFetch<GlobalInsights>("/marketing/admin/insights/global")
-      .then(setInsights)
-      .catch(() => {});
-  }, []);
-
-  function startWizard(filters?: SegmentFilters) {
-    setWizardFilters(filters);
-    setWizardMode(true);
-  }
 
   async function handleSend(id: string) {
     if (!confirm("Send this campaign now?")) return;
@@ -893,11 +866,10 @@ function CampaignsTab() {
     }
   }
 
-  // ─── Wizard mode: render inline wizard ───
+  // ─── Wizard mode: render inline wizard (audience-first) ───
   if (wizardMode) {
     return (
       <CampaignWizard
-        initialFilters={wizardFilters}
         onClose={() => setWizardMode(false)}
         onCreated={() => {
           setWizardMode(false);
@@ -908,90 +880,8 @@ function CampaignsTab() {
     );
   }
 
-  // ─── Insight card definitions ───
-  const insightCards: Array<{
-    label: string;
-    count: number | null;
-    color: string;
-    filters: SegmentFilters;
-  }> = insights
-    ? [
-        {
-          label: "All Subscribers",
-          count: insights.total_eligible,
-          color: "text-accent-blue",
-          filters: {},
-        },
-        {
-          label: "Champions",
-          count: insights.by_rfm_segment?.champion ?? null,
-          color: "text-green-400",
-          filters: { rfm_segment: ["champion"] },
-        },
-        {
-          label: "At-Risk",
-          count:
-            (insights.by_rfm_segment?.at_risk ?? 0) +
-            (insights.by_rfm_segment?.hibernating ?? 0),
-          color: "text-yellow-400",
-          filters: { rfm_segment: ["at_risk", "hibernating"] },
-        },
-        {
-          label: "Cart Abandoners",
-          count: insights.cart_abandonment_count,
-          color: "text-orange-400",
-          filters: { cart_status: "abandoned" },
-        },
-        {
-          label: "New Customers",
-          count: insights.by_rfm_segment?.new ?? null,
-          color: "text-purple-400",
-          filters: { rfm_segment: ["new"] },
-        },
-        {
-          label: "Active (30d)",
-          count: insights.active_last_30_days,
-          color: "text-cyan-400",
-          filters: { last_purchase_days_max: 30 },
-        },
-      ]
-    : [];
-
   return (
     <>
-      {/* Audience insight cards */}
-      {insightCards.length > 0 && (
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
-          {insightCards.map((card) => (
-            <div
-              key={card.label}
-              className="glass rounded-xl p-4 flex flex-col justify-between"
-            >
-              <div>
-                <p className="text-xs text-text-muted font-medium mb-1">
-                  {card.label}
-                </p>
-                <p className={`text-2xl font-bold ${card.color}`}>
-                  {card.count !== null ? card.count.toLocaleString() : "—"}
-                </p>
-              </div>
-              <button
-                onClick={() =>
-                  startWizard(
-                    Object.keys(card.filters).length > 0
-                      ? card.filters
-                      : undefined,
-                  )
-                }
-                className="mt-3 text-xs text-accent-blue hover:text-accent-blue/80 transition-colors text-left"
-              >
-                Create Campaign &rarr;
-              </button>
-            </div>
-          ))}
-        </div>
-      )}
-
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-3">
@@ -1013,7 +903,7 @@ function CampaignsTab() {
             {total} campaign{total !== 1 ? "s" : ""}
           </span>
         </div>
-        <button className="btn-primary text-sm" onClick={() => startWizard()}>
+        <button className="btn-primary text-sm" onClick={() => setWizardMode(true)}>
           + New Campaign
         </button>
       </div>
