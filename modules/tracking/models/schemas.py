@@ -365,3 +365,53 @@ class SessionDetail(BaseModel):
     current_page_duration_sec: int | None = None
     idle_duration_sec: int | None = None
     active_segment_duration_sec: int | None = None
+
+
+# ── Admin: Custom Metrics ─────────────────────────────
+
+
+class SavedMetricCreate(BaseModel):
+    name: str = Field(..., min_length=1, max_length=255)
+    description: str = Field("", max_length=2000)
+    sql_query: str = Field(..., min_length=10, max_length=10000)
+    visualization_type: str = Field(
+        "table", pattern=r"^(table|line_chart|bar_chart|number)$"
+    )
+
+
+class SavedMetricUpdate(BaseModel):
+    name: str | None = Field(None, min_length=1, max_length=255)
+    description: str | None = Field(None, max_length=2000)
+    sql_query: str | None = Field(None, min_length=10, max_length=10000)
+    visualization_type: str | None = Field(
+        None, pattern=r"^(table|line_chart|bar_chart|number)$"
+    )
+
+
+class SavedMetricResponse(BaseModel):
+    id: str
+    name: str
+    description: str
+    sql_query: str
+    visualization_type: str
+    created_by: str
+    created_at: datetime
+    updated_at: datetime
+
+
+class SavedMetricList(BaseModel):
+    metrics: list[SavedMetricResponse] = []
+    total: int
+
+
+class QueryExecuteRequest(BaseModel):
+    sql_query: str = Field(..., min_length=10, max_length=10000)
+
+
+class QueryExecuteResponse(BaseModel):
+    columns: list[str] = []
+    rows: list[list[Any]] = []
+    row_count: int = 0
+    execution_time_ms: float = 0
+    truncated: bool = False
+    cached: bool = False

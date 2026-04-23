@@ -6,6 +6,7 @@ import { apiFetch } from "../../../lib/api";
 import { useConfig } from "../../../lib/config-context";
 import LoadingSpinner from "../../../components/LoadingSpinner";
 import Link from "next/link";
+import CustomMetricsTab from "./custom-metrics";
 
 const AreaSparkChart = dynamic(
   () => import("../../../components/charts/AreaSparkChart"),
@@ -1410,7 +1411,9 @@ function UserActivityTab() {
 
 export default function AdminAnalyticsPage() {
   const { enable_tracking } = useConfig();
-  const [activeTab, setActiveTab] = useState<"overview" | "users">("overview");
+  const [activeTab, setActiveTab] = useState<
+    "overview" | "users" | "metrics"
+  >("overview");
 
   if (!enable_tracking) {
     return (
@@ -1427,6 +1430,7 @@ export default function AdminAnalyticsPage() {
   const tabs = [
     { id: "overview" as const, label: "Overview" },
     { id: "users" as const, label: "User Activity" },
+    { id: "metrics" as const, label: "Custom Metrics" },
   ];
 
   return (
@@ -1454,7 +1458,9 @@ export default function AdminAnalyticsPage() {
         ))}
       </div>
 
-      {activeTab === "overview" ? <OverviewTab /> : <UserActivityTab />}
+      {activeTab === "overview" && <OverviewTab />}
+      {activeTab === "users" && <UserActivityTab />}
+      {activeTab === "metrics" && <CustomMetricsTab />}
     </div>
   );
 }
