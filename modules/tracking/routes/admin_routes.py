@@ -22,6 +22,8 @@ from modules.tracking.models.schemas import (
     DeviceTypeStat,
     EnrichedUser,
     EnrichedUserList,
+    EventDetailItem,
+    EventDetailList,
     EventStats,
     EventTypeStat,
     KPIMetric,
@@ -278,6 +280,90 @@ async def get_event_stats(
         date_from=lbl_from,
         date_to=lbl_to,
         by_type=[EventTypeStat(**r) for r in by_type],
+    )
+
+
+@router.get("/events/detail", response_model=EventDetailList)
+async def get_event_detail(
+    db: AsyncSession = Depends(get_db),
+    user: dict = Depends(require_role("admin")),
+    event_type: str = Query(...),
+    date_from: datetime | None = Query(None),
+    date_to: datetime | None = Query(None),
+    exclude_bots: bool = Query(True),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(25, ge=1, le=100),
+):
+    """Paginated list of individual events for a given event type."""
+    ts_from, ts_end, _, _ = _date_range(date_from, date_to)
+
+    where = (
+        "WHERE e.event_type = :etype "
+        "AND e.created_at >= :ts_from AND e.created_at < :ts_end"
+    )
+    params: dict[str, Any] = {
+        "etype": event_type,
+        "ts_from": ts_from,
+        "ts_end": ts_end,
+    }
+    bot = _bot_filter("e", exclude_bots)
+    where += bot
+
+    # Total count
+    count_row = (
+        (
+            await db.execute(
+                text(f"SELECT COUNT(*) AS cnt FROM analytics.events e {where}"),
+                params,
+            )
+        )
+        .mappings()
+        .first()
+    )
+    total = count_row["cnt"] if count_row else 0
+
+    # Paginated rows with user email + page path
+    offset = (page - 1) * page_size
+    rows = (
+        (
+            await db.execute(
+                text(
+                    f"SELECT CAST(e.id AS text) AS id, e.event_type, "
+                    f"e.event_data, e.created_at, e.session_id, "
+                    f"u.email AS user_email, "
+                    f"(SELECT pv.path FROM analytics.page_views pv "
+                    f"WHERE pv.session_id = e.session_id "
+                    f"AND pv.created_at <= e.created_at "
+                    f"ORDER BY pv.created_at DESC LIMIT 1) AS page_path "
+                    f"FROM analytics.events e "
+                    f"LEFT JOIN core.users u ON u.id = e.user_id "
+                    f"{where} "
+                    f"ORDER BY e.created_at DESC "
+                    f"LIMIT :lim OFFSET :off"
+                ),
+                {**params, "lim": page_size, "off": offset},
+            )
+        )
+        .mappings()
+        .all()
+    )
+
+    return EventDetailList(
+        items=[
+            EventDetailItem(
+                id=r["id"],
+                event_type=r["event_type"],
+                event_data=r["event_data"] if r["event_data"] else {},
+                created_at=r["created_at"],
+                session_id=r["session_id"],
+                user_email=r["user_email"],
+                page_path=r["page_path"],
+            )
+            for r in rows
+        ],
+        total=total,
+        page=page,
+        page_size=page_size,
     )
 
 

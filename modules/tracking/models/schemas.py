@@ -96,6 +96,23 @@ class EventStats(BaseModel):
     by_type: list[EventTypeStat] = []
 
 
+class EventDetailItem(BaseModel):
+    id: str
+    event_type: str
+    event_data: dict = {}
+    created_at: datetime
+    session_id: str
+    user_email: str | None = None
+    page_path: str | None = None
+
+
+class EventDetailList(BaseModel):
+    items: list[EventDetailItem] = []
+    total: int
+    page: int
+    page_size: int
+
+
 # ── Admin: Source Stats ──────────────────────────────────
 
 

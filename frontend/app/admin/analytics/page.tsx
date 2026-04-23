@@ -5,6 +5,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { apiFetch } from "../../../lib/api";
 import { useConfig } from "../../../lib/config-context";
 import LoadingSpinner from "../../../components/LoadingSpinner";
+import Modal from "../../../components/Modal";
+import Pagination from "../../../components/Pagination";
 import Link from "next/link";
 
 const AreaSparkChart = dynamic(
@@ -76,13 +78,21 @@ interface SourceStats {
   sources: { source: string; medium: string | null; sessions: number }[];
 }
 
-interface UTMStats {
-  campaigns: {
-    utm_source: string | null;
-    utm_medium: string | null;
-    utm_campaign: string | null;
-    sessions: number;
-  }[];
+interface EventDetailItem {
+  id: string;
+  event_type: string;
+  event_data: Record<string, unknown>;
+  created_at: string;
+  session_id: string;
+  user_email: string | null;
+  page_path: string | null;
+}
+
+interface EventDetailList {
+  items: EventDetailItem[];
+  total: number;
+  page: number;
+  page_size: number;
 }
 
 interface DeviceStats {
@@ -188,52 +198,110 @@ function relativeTime(iso: string): string {
 
 // ── Shared Components ───────────────────────────────────
 
+type DatePresetId = "24h" | "7d" | "30d" | "90d" | "custom";
+
+const DATE_PRESETS: { id: DatePresetId; label: string }[] = [
+  { id: "24h", label: "24h" },
+  { id: "7d", label: "7 Days" },
+  { id: "30d", label: "30 Days" },
+  { id: "90d", label: "90 Days" },
+  { id: "custom", label: "Custom" },
+];
+
+function presetLabel(id: DatePresetId): string {
+  switch (id) {
+    case "24h":
+      return "Last 24 Hours";
+    case "7d":
+      return "Last 7 Days";
+    case "30d":
+      return "Last 30 Days";
+    case "90d":
+      return "Last 90 Days";
+    case "custom":
+      return "Custom Range";
+  }
+}
+
+function formatDateRange(from: string, to: string): string {
+  const f = new Date(from);
+  const t = new Date(to);
+  const opts: Intl.DateTimeFormatOptions = {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  };
+  return `${f.toLocaleDateString([], opts)} \u2013 ${t.toLocaleDateString([], opts)}`;
+}
+
+function computePresetDates(preset: DatePresetId): {
+  from: string;
+  to: string;
+} {
+  const now = new Date();
+  const to = now;
+  const from = new Date(now);
+  switch (preset) {
+    case "24h":
+      from.setHours(from.getHours() - 24);
+      break;
+    case "7d":
+      from.setDate(from.getDate() - 7);
+      break;
+    case "30d":
+      from.setDate(from.getDate() - 30);
+      break;
+    case "90d":
+      from.setDate(from.getDate() - 90);
+      break;
+    default:
+      from.setDate(from.getDate() - 30);
+  }
+  // Convert to local datetime-local format
+  const toLocal = (d: Date) => {
+    d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+    return d.toISOString().slice(0, 16);
+  };
+  return { from: toLocal(new Date(from)), to: toLocal(new Date(to)) };
+}
+
 function FilterBar({
   dateFrom,
   dateTo,
   excludeBots,
+  activePreset,
+  onPresetChange,
   onDateFromChange,
   onDateToChange,
   onExcludeBotsChange,
   onApply,
-  onReset,
   children,
 }: {
   dateFrom: string;
   dateTo: string;
   excludeBots: boolean;
+  activePreset: DatePresetId;
+  onPresetChange: (preset: DatePresetId) => void;
   onDateFromChange: (v: string) => void;
   onDateToChange: (v: string) => void;
   onExcludeBotsChange: (v: boolean) => void;
   onApply: () => void;
-  onReset: () => void;
   children?: React.ReactNode;
 }) {
   const maxDate = nowLocal();
   return (
-    <div className="glass rounded-xl p-4 mb-6">
-      <div className="flex flex-wrap items-end gap-4">
-        <div>
-          <label className="text-xs text-text-muted block mb-1">From</label>
-          <input
-            type="datetime-local"
-            value={dateFrom}
-            max={dateTo || maxDate}
-            onChange={(e) => onDateFromChange(e.target.value)}
-            className="bg-glass-bg border border-glass-border rounded-lg px-3 py-1.5 text-sm text-text-primary"
-          />
+    <div className="glass rounded-xl p-4 mb-6 space-y-3">
+      {/* Row 1: Active range headline */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <h2 className="text-lg font-bold text-text-primary">
+            {presetLabel(activePreset)}
+          </h2>
+          <span className="text-sm text-text-muted">
+            {formatDateRange(dateFrom, dateTo)}
+          </span>
         </div>
-        <div>
-          <label className="text-xs text-text-muted block mb-1">To</label>
-          <input
-            type="datetime-local"
-            value={dateTo}
-            max={maxDate}
-            onChange={(e) => onDateToChange(e.target.value)}
-            className="bg-glass-bg border border-glass-border rounded-lg px-3 py-1.5 text-sm text-text-primary"
-          />
-        </div>
-        <label className="flex items-center gap-2 text-sm text-text-secondary cursor-pointer pb-1">
+        <label className="flex items-center gap-2 text-sm text-text-secondary cursor-pointer">
           <input
             type="checkbox"
             checked={excludeBots}
@@ -242,22 +310,57 @@ function FilterBar({
           />
           Exclude bots
         </label>
+      </div>
+
+      {/* Row 2: Preset pills + children */}
+      <div className="flex flex-wrap items-center gap-2">
+        {DATE_PRESETS.map((p) => (
+          <button
+            key={p.id}
+            onClick={() => onPresetChange(p.id)}
+            className={`px-3 py-1.5 text-sm rounded-lg border transition-colors ${
+              activePreset === p.id
+                ? "bg-accent-pink/20 text-accent-pink border-accent-pink/30 font-medium"
+                : "text-text-muted border-glass-border hover:text-text-secondary hover:border-text-secondary/30"
+            }`}
+          >
+            {p.label}
+          </button>
+        ))}
         {children}
-        <div className="flex gap-2 pb-0.5">
+      </div>
+
+      {/* Custom range inputs (only when custom is active) */}
+      {activePreset === "custom" && (
+        <div className="flex flex-wrap items-end gap-3 pt-1">
+          <div>
+            <label className="text-xs text-text-muted block mb-1">From</label>
+            <input
+              type="datetime-local"
+              value={dateFrom}
+              max={dateTo || maxDate}
+              onChange={(e) => onDateFromChange(e.target.value)}
+              className="bg-glass-bg border border-glass-border rounded-lg px-3 py-1.5 text-sm text-text-primary"
+            />
+          </div>
+          <div>
+            <label className="text-xs text-text-muted block mb-1">To</label>
+            <input
+              type="datetime-local"
+              value={dateTo}
+              max={maxDate}
+              onChange={(e) => onDateToChange(e.target.value)}
+              className="bg-glass-bg border border-glass-border rounded-lg px-3 py-1.5 text-sm text-text-primary"
+            />
+          </div>
           <button
             onClick={onApply}
             className="px-4 py-1.5 text-sm rounded-lg bg-accent-pink/20 text-accent-pink hover:bg-accent-pink/30 transition-colors"
           >
             Apply
           </button>
-          <button
-            onClick={onReset}
-            className="px-4 py-1.5 text-sm rounded-lg bg-glass-bg text-text-muted hover:text-text-secondary transition-colors"
-          >
-            Reset
-          </button>
         </div>
-      </div>
+      )}
     </div>
   );
 }
@@ -265,9 +368,11 @@ function FilterBar({
 function BreakdownBar({
   items,
   colorClass,
+  onItemClick,
 }: {
   items: { label: string; count: number }[];
   colorClass: string;
+  onItemClick?: (label: string) => void;
 }) {
   const total = items.reduce((sum, i) => sum + i.count, 0);
   if (total === 0)
@@ -276,10 +381,23 @@ function BreakdownBar({
     <div className="space-y-2">
       {items.map((item, i) => {
         const pct = Math.round((item.count / total) * 100);
+        const clickable = !!onItemClick;
         return (
-          <div key={i}>
+          <div
+            key={i}
+            className={
+              clickable
+                ? "cursor-pointer hover:opacity-80 transition-opacity"
+                : ""
+            }
+            onClick={clickable ? () => onItemClick(item.label) : undefined}
+          >
             <div className="flex justify-between text-sm mb-1">
-              <span className="text-text-secondary">{item.label}</span>
+              <span
+                className={`text-text-secondary ${clickable ? "hover:text-text-primary" : ""}`}
+              >
+                {item.label}
+              </span>
               <span className="text-text-muted text-xs">
                 {item.count} ({pct}%)
               </span>
@@ -356,6 +474,7 @@ function OverviewTab() {
   const [dateFrom, setDateFrom] = useState(thirtyDaysAgoLocal);
   const [dateTo, setDateTo] = useState(nowLocal);
   const [excludeBots, setExcludeBots] = useState(true);
+  const [activePreset, setActivePreset] = useState<DatePresetId>("30d");
 
   const [dashboard, setDashboard] = useState<DashboardSummary | null>(null);
   const [timeseries, setTimeseries] = useState<PageviewTimeSeries | null>(null);
@@ -365,7 +484,6 @@ function OverviewTab() {
     null,
   );
   const [sources, setSources] = useState<SourceStats | null>(null);
-  const [utm, setUtm] = useState<UTMStats | null>(null);
   const [devices, setDevices] = useState<DeviceStats | null>(null);
   const [events, setEvents] = useState<EventStats | null>(null);
   const [loading, setLoading] = useState(true);
@@ -373,6 +491,12 @@ function OverviewTab() {
   const [granularity, setGranularity] = useState("day");
   const [deviceRange, setDeviceRange] = useState("hour");
   const pollRef = useRef<ReturnType<typeof setInterval>>();
+
+  // Event detail modal state
+  const [eventDetailType, setEventDetailType] = useState<string | null>(null);
+  const [eventDetail, setEventDetail] = useState<EventDetailList | null>(null);
+  const [eventDetailPage, setEventDetailPage] = useState(1);
+  const [eventDetailLoading, setEventDetailLoading] = useState(false);
 
   const buildQS = useCallback(
     () => buildFilterQS(dateFrom, dateTo, excludeBots),
@@ -455,16 +579,14 @@ function OverviewTab() {
       apiFetch<SourceStats>(`/tracking/admin/analytics/sources${q}`).catch(
         () => null,
       ),
-      apiFetch<UTMStats>(`/tracking/admin/analytics/utm${q}`).catch(() => null),
       apiFetch<EventStats>(`/tracking/admin/analytics/events${q}`).catch(
         () => null,
       ),
     ])
-      .then(([dash, eng, src, u, ev]) => {
+      .then(([dash, eng, src, ev]) => {
         setDashboard(dash);
         setEngagement(eng);
         setSources(src);
-        setUtm(u);
         setEvents(ev);
       })
       .finally(() => setLoading(false));
@@ -484,12 +606,31 @@ function OverviewTab() {
   }, [deviceRange, excludeBots, fetchDevicesFor]);
 
   const handleApply = () => setFetchKey((k) => k + 1);
-  const handleReset = () => {
-    setDateFrom(thirtyDaysAgoLocal());
-    setDateTo(nowLocal());
-    setExcludeBots(true);
-    setFetchKey((k) => k + 1);
+  const handlePresetChange = (preset: DatePresetId) => {
+    setActivePreset(preset);
+    if (preset !== "custom") {
+      const { from, to } = computePresetDates(preset);
+      setDateFrom(from);
+      setDateTo(to);
+      setFetchKey((k) => k + 1);
+    }
   };
+
+  // Fetch event detail for modal
+  const fetchEventDetail = useCallback(
+    (eventType: string, page: number) => {
+      setEventDetailLoading(true);
+      const q = buildQS();
+      const sep = q ? "&" : "?";
+      apiFetch<EventDetailList>(
+        `/tracking/admin/analytics/events/detail${q}${sep}event_type=${encodeURIComponent(eventType)}&page=${page}&page_size=25`,
+      )
+        .then(setEventDetail)
+        .catch(() => setEventDetail(null))
+        .finally(() => setEventDetailLoading(false));
+    },
+    [buildQS],
+  );
 
   // Live tick counter — increments every second for real-time feel
   const [tickOffset, setTickOffset] = useState(0);
@@ -523,11 +664,12 @@ function OverviewTab() {
         dateFrom={dateFrom}
         dateTo={dateTo}
         excludeBots={excludeBots}
+        activePreset={activePreset}
+        onPresetChange={handlePresetChange}
         onDateFromChange={setDateFrom}
         onDateToChange={setDateTo}
         onExcludeBotsChange={setExcludeBots}
         onApply={handleApply}
-        onReset={handleReset}
       />
 
       {/* Row 1: Active Sessions Banner */}
@@ -634,94 +776,7 @@ function OverviewTab() {
         <LoadingSpinner className="py-20" />
       ) : (
         <>
-          {/* Row 2: Conversion Funnel (full-width) */}
-          {dashboard && (
-            <div className="glass rounded-xl p-6 mb-6">
-              <h2 className="text-lg font-semibold text-text-primary mb-4">
-                Conversion Funnel
-              </h2>
-              {(() => {
-                const visitors = Math.round(
-                  dashboard.unique_visitors.current ?? 0,
-                );
-                const atcCount =
-                  events?.by_type.find((e) => e.event_type === "add_to_cart")
-                    ?.count ?? 0;
-                const csCount =
-                  events?.by_type.find(
-                    (e) => e.event_type === "checkout_started",
-                  )?.count ?? 0;
-                const steps = [
-                  { label: "Visitors", count: visitors },
-                  { label: "Add to Cart", count: atcCount },
-                  { label: "Checkout", count: csCount },
-                ];
-                if (visitors === 0 && atcCount === 0) {
-                  return (
-                    <p className="text-sm text-text-muted">
-                      No funnel data yet
-                    </p>
-                  );
-                }
-                const maxCount = Math.max(...steps.map((s) => s.count), 1);
-                return (
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    {steps.map((step, i) => {
-                      const pct =
-                        i > 0 && steps[i - 1].count > 0
-                          ? ((step.count / steps[i - 1].count) * 100).toFixed(1)
-                          : null;
-                      const barWidth = Math.max(
-                        (step.count / maxCount) * 100,
-                        4,
-                      );
-                      return (
-                        <div key={step.label}>
-                          <div className="flex justify-between text-sm mb-1.5">
-                            <span className="text-text-primary font-medium">
-                              {step.label}
-                            </span>
-                            <span className="text-text-muted text-xs">
-                              {step.count.toLocaleString()}
-                              {pct && (
-                                <span className="ml-1 text-blue-400">
-                                  ({pct}%)
-                                </span>
-                              )}
-                            </span>
-                          </div>
-                          <div className="w-full h-3 rounded-full bg-glass-bg overflow-hidden">
-                            <div
-                              className="h-full rounded-full bg-gradient-to-r from-blue-500 to-teal-400 transition-all"
-                              style={{ width: `${barWidth}%` }}
-                            />
-                          </div>
-                          {i < steps.length - 1 && (
-                            <div className="hidden md:flex justify-end mt-2 text-text-muted/40">
-                              <svg
-                                xmlns="http://www.w3.org/2000/svg"
-                                className="h-5 w-5"
-                                viewBox="0 0 20 20"
-                                fill="currentColor"
-                              >
-                                <path
-                                  fillRule="evenodd"
-                                  d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z"
-                                  clipRule="evenodd"
-                                />
-                              </svg>
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                );
-              })()}
-            </div>
-          )}
-
-          {/* Row 3: KPI Cards */}
+          {/* KPI Cards */}
           {dashboard && (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
               <KPICard
@@ -1059,40 +1114,137 @@ function OverviewTab() {
             )}
           </div>
 
-          {/* Row 7: UTM Campaigns + Events */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-            <div className="glass rounded-xl p-6">
-              <h2 className="text-lg font-semibold text-text-primary mb-4">
-                UTM Campaigns
-              </h2>
-              {utm?.campaigns && utm.campaigns.length > 0 ? (
-                <BreakdownBar
-                  items={utm.campaigns.slice(0, 8).map((c) => ({
-                    label: c.utm_campaign || c.utm_source || "Unknown",
-                    count: c.sessions,
-                  }))}
-                  colorClass="bg-accent-blue/60"
-                />
-              ) : (
-                <p className="text-sm text-text-muted">No UTM campaign data</p>
+          {/* Events (full-width, clickable rows) */}
+          <div className="glass rounded-xl p-6 mb-6">
+            <h2 className="text-lg font-semibold text-text-primary mb-4">
+              Events
+              {events && events.total_events > 0 && (
+                <span className="text-sm font-normal text-text-muted ml-2">
+                  {events.total_events.toLocaleString()} total
+                </span>
               )}
-            </div>
-            <div className="glass rounded-xl p-6">
-              <h2 className="text-lg font-semibold text-text-primary mb-4">
-                Events
-              </h2>
-              {events && events.total_events > 0 ? (
-                <BreakdownBar
-                  items={events.by_type
-                    .slice(0, 8)
-                    .map((e) => ({ label: e.event_type, count: e.count }))}
-                  colorClass="bg-accent-green/60"
-                />
-              ) : (
-                <p className="text-sm text-text-muted">No events recorded</p>
-              )}
-            </div>
+            </h2>
+            {events && events.total_events > 0 ? (
+              <BreakdownBar
+                items={events.by_type
+                  .slice(0, 12)
+                  .map((e) => ({ label: e.event_type, count: e.count }))}
+                colorClass="bg-accent-green/60"
+                onItemClick={(label) => {
+                  setEventDetailType(label);
+                  setEventDetailPage(1);
+                  fetchEventDetail(label, 1);
+                }}
+              />
+            ) : (
+              <p className="text-sm text-text-muted">No events recorded</p>
+            )}
           </div>
+
+          {/* Event Detail Modal */}
+          <Modal
+            isOpen={!!eventDetailType}
+            onClose={() => {
+              setEventDetailType(null);
+              setEventDetail(null);
+            }}
+            title={`Events: ${eventDetailType}`}
+            size="full"
+          >
+            {eventDetailLoading ? (
+              <LoadingSpinner className="py-16" />
+            ) : eventDetail && eventDetail.items.length > 0 ? (
+              <>
+                <p className="text-sm text-text-muted mb-4">
+                  {eventDetail.total.toLocaleString()} event
+                  {eventDetail.total !== 1 ? "s" : ""} found
+                </p>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-glass-border">
+                        <th className="text-left p-3 text-text-muted font-medium">
+                          Time
+                        </th>
+                        <th className="text-left p-3 text-text-muted font-medium">
+                          User
+                        </th>
+                        <th className="text-left p-3 text-text-muted font-medium">
+                          Page
+                        </th>
+                        <th className="text-left p-3 text-text-muted font-medium">
+                          Data
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {eventDetail.items.map((item) => (
+                        <tr
+                          key={item.id}
+                          className="border-b border-glass-border/50 hover:bg-glass-hover transition-colors"
+                        >
+                          <td
+                            className="p-3 text-text-secondary text-xs whitespace-nowrap"
+                            title={new Date(item.created_at).toLocaleString()}
+                          >
+                            {relativeTime(item.created_at)}
+                          </td>
+                          <td className="p-3 text-text-primary text-xs">
+                            {item.user_email || (
+                              <span className="text-text-muted">
+                                (anonymous)
+                              </span>
+                            )}
+                          </td>
+                          <td className="p-3 text-text-muted text-xs">
+                            {item.page_path
+                              ? friendlyPageName(item.page_path)
+                              : "-"}
+                          </td>
+                          <td className="p-3 text-text-muted text-xs font-mono max-w-[300px] truncate">
+                            {Object.keys(item.event_data).length > 0 ? (
+                              <span
+                                title={JSON.stringify(item.event_data, null, 2)}
+                              >
+                                {Object.entries(item.event_data)
+                                  .slice(0, 3)
+                                  .map(
+                                    ([k, v]) =>
+                                      `${k}: ${typeof v === "string" ? v : JSON.stringify(v)}`,
+                                  )
+                                  .join(", ")}
+                                {Object.keys(item.event_data).length > 3
+                                  ? " ..."
+                                  : ""}
+                              </span>
+                            ) : (
+                              <span className="text-text-muted/50">{"{}"}</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <div className="mt-4">
+                  <Pagination
+                    currentPage={eventDetailPage}
+                    totalPages={Math.ceil(
+                      eventDetail.total / eventDetail.page_size,
+                    )}
+                    onPageChange={(p) => {
+                      setEventDetailPage(p);
+                      if (eventDetailType) fetchEventDetail(eventDetailType, p);
+                    }}
+                  />
+                </div>
+              </>
+            ) : (
+              <p className="text-sm text-text-muted py-8 text-center">
+                No events found for this type in the selected date range.
+              </p>
+            )}
+          </Modal>
         </>
       )}
     </>
@@ -1105,6 +1257,7 @@ function UserActivityTab() {
   const [dateFrom, setDateFrom] = useState(thirtyDaysAgoLocal);
   const [dateTo, setDateTo] = useState(nowLocal);
   const [excludeBots, setExcludeBots] = useState(true);
+  const [activePreset, setActivePreset] = useState<DatePresetId>("30d");
   const [search, setSearch] = useState("");
   const [users, setUsers] = useState<EnrichedUser[]>([]);
   const [totalCount, setTotalCount] = useState(0);
@@ -1152,15 +1305,14 @@ function UserActivityTab() {
   }, [search, fetchKey, fetchUsers]);
 
   const handleApply = () => setFetchKey((k) => k + 1);
-  const handleReset = () => {
-    setDateFrom(thirtyDaysAgoLocal());
-    setDateTo(nowLocal());
-    setExcludeBots(true);
-    setSearch("");
-    setSegment("all");
-    setSortBy("last_active");
-    setSortDir("desc");
-    setFetchKey((k) => k + 1);
+  const handlePresetChange = (preset: DatePresetId) => {
+    setActivePreset(preset);
+    if (preset !== "custom") {
+      const { from, to } = computePresetDates(preset);
+      setDateFrom(from);
+      setDateTo(to);
+      setFetchKey((k) => k + 1);
+    }
   };
 
   const toggleSort = (col: string) => {
@@ -1198,11 +1350,12 @@ function UserActivityTab() {
         dateFrom={dateFrom}
         dateTo={dateTo}
         excludeBots={excludeBots}
+        activePreset={activePreset}
+        onPresetChange={handlePresetChange}
         onDateFromChange={setDateFrom}
         onDateToChange={setDateTo}
         onExcludeBotsChange={setExcludeBots}
         onApply={handleApply}
-        onReset={handleReset}
       >
         <div className="flex-1 min-w-[200px]">
           <label className="text-xs text-text-muted block mb-1">Search</label>
