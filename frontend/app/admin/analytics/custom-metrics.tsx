@@ -255,9 +255,7 @@ function ResultsView({
         color2={result.columns.length >= 3 ? "#a855f7" : undefined}
         height={300}
         valueLabel={result.columns[1]}
-        valueLabel2={
-          result.columns.length >= 3 ? result.columns[2] : undefined
-        }
+        valueLabel2={result.columns.length >= 3 ? result.columns[2] : undefined}
       />
     );
   }
@@ -390,8 +388,7 @@ export default function CustomMetricsTab() {
       );
       setResult(data);
     } catch (err: unknown) {
-      const msg =
-        err instanceof Error ? err.message : "Query execution failed";
+      const msg = err instanceof Error ? err.message : "Query execution failed";
       setError(msg);
     } finally {
       setRunning(false);

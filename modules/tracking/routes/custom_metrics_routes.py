@@ -125,9 +125,7 @@ async def execute_query(
 ):
     """Execute an ad-hoc SQL query against analytics tables."""
     try:
-        result = await _execute_query(
-            db, redis, body.sql_query, use_cache=not nocache
-        )
+        result = await _execute_query(db, redis, body.sql_query, use_cache=not nocache)
         return result
     except SQLValidationError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -311,9 +309,7 @@ async def delete_metric(
 ):
     """Delete a saved metric."""
     result = await db.execute(
-        text(
-            "DELETE FROM analytics.saved_metrics WHERE id = :id RETURNING id"
-        ),
+        text("DELETE FROM analytics.saved_metrics WHERE id = :id RETURNING id"),
         {"id": metric_id},
     )
     await db.commit()
@@ -331,9 +327,7 @@ async def run_metric(
 ):
     """Execute a saved metric's query."""
     result = await db.execute(
-        text(
-            "SELECT sql_query FROM analytics.saved_metrics WHERE id = :id"
-        ),
+        text("SELECT sql_query FROM analytics.saved_metrics WHERE id = :id"),
         {"id": metric_id},
     )
     r = result.fetchone()
@@ -341,9 +335,7 @@ async def run_metric(
         raise HTTPException(status_code=404, detail="Metric not found")
 
     try:
-        data = await _execute_query(
-            db, redis, r.sql_query, use_cache=not nocache
-        )
+        data = await _execute_query(db, redis, r.sql_query, use_cache=not nocache)
         return data
     except SQLValidationError as e:
         raise HTTPException(status_code=400, detail=str(e))

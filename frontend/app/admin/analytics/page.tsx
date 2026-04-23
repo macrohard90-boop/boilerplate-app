@@ -1411,9 +1411,9 @@ function UserActivityTab() {
 
 export default function AdminAnalyticsPage() {
   const { enable_tracking } = useConfig();
-  const [activeTab, setActiveTab] = useState<
-    "overview" | "users" | "metrics"
-  >("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "users" | "metrics">(
+    "overview",
+  );
 
   if (!enable_tracking) {
     return (

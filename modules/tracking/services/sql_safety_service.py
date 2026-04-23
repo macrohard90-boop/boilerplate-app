@@ -123,9 +123,7 @@ def validate_query(sql: str) -> str:
     }
 
     # ── Extract table references from FROM / JOIN clauses ───────────
-    table_refs = re.findall(
-        r"(?:FROM|JOIN)\s+(\w+(?:\.\w+)?)", normalized
-    )
+    table_refs = re.findall(r"(?:FROM|JOIN)\s+(\w+(?:\.\w+)?)", normalized)
 
     for ref in table_refs:
         ref_upper = ref.upper()

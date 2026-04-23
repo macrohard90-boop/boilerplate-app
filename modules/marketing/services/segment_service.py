@@ -224,9 +224,7 @@ def _build_segment_query(
         for i, et in enumerate(event_types):
             params[f"ev_{i}"] = et
 
-        ev_where = (
-            f"_ev.user_id = u.id AND _ev.event_type IN ({ev_placeholders})"
-        )
+        ev_where = f"_ev.user_id = u.id AND _ev.event_type IN ({ev_placeholders})"
         if (
             "event_days_lookback" in filters
             and filters["event_days_lookback"] is not None
@@ -234,10 +232,7 @@ def _build_segment_query(
             ev_where += " AND _ev.created_at >= NOW() - INTERVAL '1 day' * :ev_days"
             params["ev_days"] = int(filters["event_days_lookback"])
 
-        if (
-            "event_min_count" in filters
-            and filters["event_min_count"] is not None
-        ):
+        if "event_min_count" in filters and filters["event_min_count"] is not None:
             wheres.append(
                 f"EXISTS (SELECT 1 FROM analytics.events _ev "
                 f"WHERE {ev_where} "
