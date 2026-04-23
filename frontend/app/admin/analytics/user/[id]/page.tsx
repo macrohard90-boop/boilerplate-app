@@ -610,9 +610,7 @@ function JourneyView({
                 ((liveState.activeSegSec ?? 0) + tickOffset) * 1000;
               const awayMs = Math.max(0, activeSegStartMs - triggerTime);
               const triggerLabel =
-                lastSeg.trigger === "tab_switch"
-                  ? "Switched tab"
-                  : "Went idle";
+                lastSeg.trigger === "tab_switch" ? "Switched tab" : "Went idle";
               const triggerDotColor =
                 lastSeg.trigger === "tab_switch"
                   ? "bg-yellow-400"
