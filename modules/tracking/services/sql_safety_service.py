@@ -25,12 +25,12 @@ ALLOWED_TABLES: set[str] = {
     "analytics.referral_sources",
     "analytics.utm_tracking",
     "analytics.saved_metrics",
+    "core.users",
 }
 
 # ── Blocked schemas ─────────────────────────────────────────────────
 
 BLOCKED_SCHEMAS: set[str] = {
-    "core",
     "ecommerce",
     "saas",
     "public",

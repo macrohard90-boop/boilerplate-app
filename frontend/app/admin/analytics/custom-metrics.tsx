@@ -43,6 +43,19 @@ interface QueryResult {
 
 const ANALYTICS_SCHEMA = [
   {
+    table: "core.users",
+    columns: [
+      "id",
+      "email",
+      "first_name",
+      "last_name",
+      "is_verified",
+      "is_active",
+      "created_at",
+      "updated_at",
+    ],
+  },
+  {
     table: "analytics.page_views",
     columns: [
       "id",
