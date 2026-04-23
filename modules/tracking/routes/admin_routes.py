@@ -389,16 +389,27 @@ async def get_device_stats(
 
     bot_clause = " AND ua.device_type != 'bot'" if exclude_bots else ""
     user_filter = " AND s.user_id = :user_id" if user_id else ""
-    # Join user_agents to sessions for date filtering, plus page_views for duration
+    # Join user_agents to sessions that were ACTIVE during the window
+    # (started before window ends AND last activity after window starts).
+    # Duration subquery also scoped to the time window.
     base_from = (
         "FROM analytics.user_agents ua "
-        "JOIN analytics.analytics_sessions s ON ua.session_id = s.session_id "
+        "JOIN analytics.analytics_sessions s "
+        "ON ua.session_id = s.session_id "
         "LEFT JOIN ("
-        "  SELECT session_id, SUM(COALESCE(duration_ms, 0)) AS total_ms"
-        "  FROM analytics.page_views GROUP BY session_id"
+        "  SELECT session_id, "
+        "  SUM(COALESCE(duration_ms, 0)) AS total_ms "
+        "  FROM analytics.page_views "
+        "  WHERE created_at >= :ts_from "
+        "  AND created_at < :ts_end "
+        "  GROUP BY session_id"
         ") pv_dur ON pv_dur.session_id = s.session_id"
     )
-    base_where = f"WHERE s.started_at >= :ts_from AND s.started_at < :ts_end{bot_clause}{user_filter}"
+    base_where = (
+        "WHERE s.started_at < :ts_end"
+        " AND COALESCE(s.ended_at, s.started_at) >= :ts_from"
+        f"{bot_clause}{user_filter}"
+    )
     params: dict[str, Any] = {"ts_from": ts_from, "ts_end": ts_end}
     if user_id:
         params["user_id"] = user_id
