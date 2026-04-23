@@ -790,6 +790,122 @@ function TemplatesTab() {
         </button>
       </div>
 
+      {/* Inline template preview */}
+      {previewLoading && (
+        <div className="glass rounded-xl p-8 mb-4">
+          <LoadingSpinner className="py-8" />
+        </div>
+      )}
+      {previewTemplate && !previewLoading && (
+        <div className="glass rounded-xl mb-4 overflow-hidden">
+          {/* Preview header */}
+          <div className="flex items-center justify-between p-4 border-b border-glass-border">
+            <div className="flex flex-wrap items-center gap-3">
+              <h3 className="text-text-primary font-semibold">
+                {previewTemplate.display_name}
+              </h3>
+              <span className="font-mono text-xs text-text-muted">
+                {previewTemplate.name}
+              </span>
+              <span
+                className={`badge ${categoryBadge(previewTemplate.category)}`}
+              >
+                {previewTemplate.category}
+              </span>
+              {previewTemplate.is_builtin && (
+                <span className="badge badge-blue">built-in</span>
+              )}
+              <span className="text-xs text-text-muted">
+                v{previewTemplate.version}
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                className="text-accent-blue hover:underline text-xs"
+                onClick={() => {
+                  const t = previewTemplate;
+                  setPreviewTemplate(null);
+                  openEdit(t);
+                }}
+              >
+                Edit
+              </button>
+              <button
+                className="text-accent-green hover:underline text-xs"
+                onClick={() => handleSendTest(previewTemplate)}
+              >
+                Test
+              </button>
+              <button
+                className="text-text-muted hover:text-text-primary text-lg leading-none px-1"
+                onClick={() => setPreviewTemplate(null)}
+                title="Close preview"
+              >
+                &times;
+              </button>
+            </div>
+          </div>
+
+          {/* Subject + description */}
+          {(previewTemplate.subject || previewTemplate.description) && (
+            <div className="px-4 pt-3 space-y-1">
+              {previewTemplate.subject && (
+                <div className="text-sm">
+                  <span className="text-text-muted">Subject: </span>
+                  <span className="text-text-secondary">
+                    {previewTemplate.subject}
+                  </span>
+                </div>
+              )}
+              {previewTemplate.description && (
+                <p className="text-xs text-text-muted">
+                  {previewTemplate.description}
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* Sample variables */}
+          {previewTemplate.variables &&
+            previewTemplate.variables.length > 0 && (
+              <div className="px-4 pt-3">
+                <div className="text-xs text-text-muted mb-1.5 font-medium">
+                  Sample Variables
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {previewTemplate.variables.map((v) => (
+                    <span
+                      key={v.name}
+                      className="inline-flex items-center gap-1 text-xs bg-glass-hover rounded px-2 py-0.5"
+                    >
+                      <span className="font-mono text-accent-purple">
+                        {v.name}
+                      </span>
+                      <span className="text-text-muted">=</span>
+                      <span className="text-accent-green">
+                        {SAMPLE_VALUES[v.name] || `[${v.name}]`}
+                      </span>
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+          {/* Rendered HTML */}
+          <div className="p-4">
+            <div className="rounded-lg overflow-hidden border border-glass-border">
+              <iframe
+                srcDoc={renderPreviewHtml(previewTemplate)}
+                title="Template Preview"
+                className="w-full bg-white"
+                sandbox="allow-same-origin"
+                style={{ border: "none", height: "500px" }}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Table */}
       {loading ? (
         <LoadingSpinner className="py-16" />
@@ -1058,136 +1174,6 @@ function TemplatesTab() {
           </div>
         </div>
       </Modal>
-
-      {/* Template Preview modal */}
-      <Modal
-        isOpen={!!previewTemplate}
-        onClose={() => setPreviewTemplate(null)}
-        title={previewTemplate?.display_name || "Template Preview"}
-        size="full"
-      >
-        {previewTemplate && (
-          <div className="flex flex-col h-full gap-4">
-            {/* Template metadata */}
-            <div className="flex flex-wrap items-center gap-4 text-sm">
-              <div className="flex items-center gap-2">
-                <span className="text-text-muted">ID:</span>
-                <span className="font-mono text-text-secondary">
-                  {previewTemplate.name}
-                </span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-text-muted">Category:</span>
-                <span
-                  className={`badge ${categoryBadge(previewTemplate.category)}`}
-                >
-                  {previewTemplate.category}
-                </span>
-              </div>
-              {previewTemplate.subject && (
-                <div className="flex items-center gap-2">
-                  <span className="text-text-muted">Subject:</span>
-                  <span className="text-text-secondary">
-                    {previewTemplate.subject}
-                  </span>
-                </div>
-              )}
-              <div className="flex items-center gap-2">
-                <span className="text-text-muted">Version:</span>
-                <span className="text-text-secondary">
-                  v{previewTemplate.version}
-                </span>
-              </div>
-              {previewTemplate.is_builtin && (
-                <span className="badge badge-blue">built-in</span>
-              )}
-              <div className="flex items-center gap-2">
-                <span className="text-text-muted">Updated:</span>
-                <span className="text-text-secondary">
-                  {formatDate(previewTemplate.updated_at)}
-                </span>
-              </div>
-            </div>
-
-            {previewTemplate.description && (
-              <p className="text-sm text-text-muted">
-                {previewTemplate.description}
-              </p>
-            )}
-
-            {/* Sample variables used */}
-            {previewTemplate.variables &&
-              previewTemplate.variables.length > 0 && (
-                <div className="glass rounded-lg p-3">
-                  <div className="text-xs text-text-muted mb-2 font-medium">
-                    Sample Variables
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    {previewTemplate.variables.map((v) => (
-                      <span
-                        key={v.name}
-                        className="inline-flex items-center gap-1.5 text-xs bg-glass-hover rounded px-2 py-1"
-                      >
-                        <span className="font-mono text-accent-purple">
-                          {v.name}
-                        </span>
-                        <span className="text-text-muted">=</span>
-                        <span className="text-accent-green">
-                          {SAMPLE_VALUES[v.name] || `[${v.name}]`}
-                        </span>
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-            {/* Rendered HTML preview */}
-            <div className="flex-1 min-h-0 rounded-lg overflow-hidden border border-glass-border">
-              <iframe
-                srcDoc={renderPreviewHtml(previewTemplate)}
-                title="Template Preview"
-                className="w-full h-full min-h-[500px] bg-white"
-                sandbox="allow-same-origin"
-                style={{ border: "none" }}
-              />
-            </div>
-
-            {/* Footer actions */}
-            <div className="flex justify-between items-center pt-2">
-              <div className="flex gap-2">
-                <button
-                  className="btn-primary text-sm"
-                  onClick={() => {
-                    setPreviewTemplate(null);
-                    openEdit(previewTemplate);
-                  }}
-                >
-                  Edit Template
-                </button>
-                <button
-                  className="btn-secondary text-sm"
-                  onClick={() => handleSendTest(previewTemplate)}
-                >
-                  Send Test
-                </button>
-              </div>
-              <button
-                className="btn-secondary text-sm"
-                onClick={() => setPreviewTemplate(null)}
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        )}
-      </Modal>
-
-      {/* Loading overlay for preview fetch */}
-      {previewLoading && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center">
-          <LoadingSpinner />
-        </div>
-      )}
     </>
   );
 }
