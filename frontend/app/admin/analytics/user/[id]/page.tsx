@@ -1295,8 +1295,7 @@ export default function UserActivityPage() {
     if (!activity?.sessions.length) return;
     const checkActive = async () => {
       const activeIds = new Set<string>();
-      // Check sessions in parallel (limit to most recent 10 to avoid overload)
-      const checks = activity.sessions.slice(0, 10).map(async (s) => {
+      const checks = activity.sessions.map(async (s) => {
         try {
           const detail = await apiFetch<SessionDetail>(
             `/tracking/admin/analytics/session/${s.session_id}/pages`,
