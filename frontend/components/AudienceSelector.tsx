@@ -741,39 +741,45 @@ export default function AudienceSelector({
       </div>
 
       <>
-        {/* Categorized cards — always visible, counts populate as data loads */}
+        {/* Categorized cards — compact table-style rows */}
         {grouped.map((group) => (
-          <div key={group.label}>
-            <h3 className="text-xs text-text-muted font-medium uppercase tracking-wider mb-2">
-              {group.label}
-            </h3>
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3">
+          <div key={group.label} className="glass rounded-xl overflow-hidden">
+            <div className="px-4 py-2.5 border-b border-glass-border/50">
+              <h3 className="text-xs text-text-muted font-medium uppercase tracking-wider">
+                {group.label}
+              </h3>
+            </div>
+            <div className="divide-y divide-glass-border/30">
               {group.items.map((card) => (
                 <button
                   key={card.id}
                   type="button"
                   onClick={() => openDetail(card)}
-                  className="glass rounded-xl p-4 text-left hover:border-accent-blue/50 border border-transparent transition-all group"
+                  className="w-full px-4 py-3 flex items-center gap-4 hover:bg-glass-hover/50 transition-colors group text-left"
                 >
-                  <p className="text-xs text-text-muted font-medium mb-1">
-                    {card.label}
-                  </p>
-                  <p className={`text-2xl font-bold ${card.color}`}>
+                  <p
+                    className={`text-xl font-bold tabular-nums w-20 shrink-0 ${card.color}`}
+                  >
                     {card.count !== null ? (
                       card.count.toLocaleString()
                     ) : loading ? (
-                      <span className="inline-block w-12 h-6 bg-glass-border/50 rounded animate-pulse" />
+                      <span className="inline-block w-12 h-5 bg-glass-border/50 rounded animate-pulse" />
                     ) : (
                       "\u2014"
                     )}
                   </p>
-                  {card.detail && (
-                    <p className="text-xs text-text-muted mt-1 truncate">
-                      {card.detail}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm text-text-primary font-medium">
+                      {card.label}
                     </p>
-                  )}
-                  <span className="text-xs text-accent-blue opacity-0 group-hover:opacity-100 transition-opacity mt-2 block">
-                    View Details &rarr;
+                    {card.detail && (
+                      <p className="text-xs text-text-muted truncate">
+                        {card.detail}
+                      </p>
+                    )}
+                  </div>
+                  <span className="text-xs text-accent-blue opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                    View &rarr;
                   </span>
                 </button>
               ))}
@@ -783,31 +789,35 @@ export default function AudienceSelector({
 
         {/* Saved Segments */}
         {savedSegments.length > 0 && (
-          <div>
-            <h3 className="text-xs text-text-muted font-medium uppercase tracking-wider mb-2">
-              Saved Segments
-            </h3>
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3">
+          <div className="glass rounded-xl overflow-hidden">
+            <div className="px-4 py-2.5 border-b border-glass-border/50">
+              <h3 className="text-xs text-text-muted font-medium uppercase tracking-wider">
+                Saved Segments
+              </h3>
+            </div>
+            <div className="divide-y divide-glass-border/30">
               {savedSegments.map((seg) => (
                 <button
                   key={seg.id}
                   type="button"
                   onClick={() => openSegmentDetail(seg)}
-                  className="glass rounded-xl p-4 text-left hover:border-accent-purple/50 border border-transparent transition-all group"
+                  className="w-full px-4 py-3 flex items-center gap-4 hover:bg-glass-hover/50 transition-colors group text-left"
                 >
-                  <p className="text-xs text-text-muted font-medium mb-1">
-                    {seg.name}
-                  </p>
-                  <p className="text-2xl font-bold text-accent-purple">
+                  <p className="text-xl font-bold tabular-nums w-20 shrink-0 text-accent-purple">
                     {seg.user_count.toLocaleString()}
                   </p>
-                  {seg.description && (
-                    <p className="text-xs text-text-muted mt-1 truncate">
-                      {seg.description}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm text-text-primary font-medium">
+                      {seg.name}
                     </p>
-                  )}
-                  <span className="text-xs text-accent-purple opacity-0 group-hover:opacity-100 transition-opacity mt-2 block">
-                    View Details &rarr;
+                    {seg.description && (
+                      <p className="text-xs text-text-muted truncate">
+                        {seg.description}
+                      </p>
+                    )}
+                  </div>
+                  <span className="text-xs text-accent-purple opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                    View &rarr;
                   </span>
                 </button>
               ))}
