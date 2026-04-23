@@ -4,6 +4,7 @@ import { useState } from "react";
 import Modal from "./Modal";
 import { apiFetch } from "../lib/api";
 import { useToast } from "./Toast";
+import { trackEvent } from "../lib/track-event";
 import {
   CONSENT_TYPES,
   CATEGORY_LABELS,
@@ -64,6 +65,10 @@ export default function ConsentModal({ isOpen, onClose }: ConsentModalProps) {
       localStorage.setItem("cookie_consent", JSON.stringify(cookiePrefs));
       localStorage.setItem("consent_modal_completed", "true");
 
+      trackEvent("cookie_consent_given", {
+        analytics: toggles["analytics_cookies"] ?? false,
+        marketing: toggles["marketing_cookies"] ?? false,
+      });
       showToast("Consent preferences saved", "success");
       onClose();
     } catch {

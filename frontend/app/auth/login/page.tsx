@@ -4,6 +4,7 @@ import { useState, FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "../../../lib/auth-context";
+import { trackEvent } from "../../../lib/track-event";
 
 const OAUTH_ICONS: Record<string, React.ReactNode> = {
   google: (
@@ -71,9 +72,10 @@ export default function LoginPage() {
     clearError();
     try {
       await login(email, password);
+      trackEvent("login_completed", { method: "email" });
       router.push("/");
     } catch {
-      // error is set in auth context
+      trackEvent("login_failed", { method: "email" });
     } finally {
       setLoading(false);
     }
@@ -147,6 +149,7 @@ export default function LoginPage() {
               <a
                 key={p.id}
                 href={`/api/auth/oauth/${p.id}?returnTo=/`}
+                onClick={() => trackEvent("oauth_started", { provider: p.id })}
                 className="btn-secondary text-sm !py-2.5 inline-flex items-center justify-center gap-2"
               >
                 {OAUTH_ICONS[p.id]}

@@ -4,6 +4,7 @@ import { useState, useCallback, useEffect } from "react";
 import Link from "next/link";
 import ProductCard from "../../../components/ProductCard";
 import Pagination from "../../../components/Pagination";
+import { trackEvent } from "../../../lib/track-event";
 
 interface Category {
   id: string;
@@ -59,6 +60,16 @@ export default function CategoryPageClient({
     },
     [category.id],
   );
+
+  // Track category browse
+  useEffect(() => {
+    trackEvent("category_browsed", {
+      category_id: category.id,
+      category_name: category.name,
+      product_count: initialProducts?.total,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [category.id]);
 
   // Re-fetch when page changes (but not on initial render with page 1)
   useEffect(() => {

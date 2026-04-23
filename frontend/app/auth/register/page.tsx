@@ -4,6 +4,7 @@ import { useState, FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "../../../lib/auth-context";
+import { trackEvent } from "../../../lib/track-event";
 
 function passwordStrength(pw: string): {
   label: string;
@@ -44,9 +45,10 @@ export default function RegisterPage() {
     clearError();
     try {
       await register(email, password, firstName, lastName);
+      trackEvent("signup_completed", { method: "email" });
       router.push("/dashboard");
     } catch {
-      // error is set in auth context
+      trackEvent("signup_failed");
     } finally {
       setLoading(false);
     }

@@ -215,6 +215,41 @@ def _build_segment_query(
         )
         params["ref_src"] = filters["referral_source"]
 
+    # --- Event-based filters (event_type, event_min_count, event_days_lookback) ---
+    if "event_type" in filters and filters["event_type"]:
+        event_types = filters["event_type"]
+        if isinstance(event_types, str):
+            event_types = [event_types]
+        ev_placeholders = ", ".join(f":ev_{i}" for i in range(len(event_types)))
+        for i, et in enumerate(event_types):
+            params[f"ev_{i}"] = et
+
+        ev_where = (
+            f"_ev.user_id = u.id AND _ev.event_type IN ({ev_placeholders})"
+        )
+        if (
+            "event_days_lookback" in filters
+            and filters["event_days_lookback"] is not None
+        ):
+            ev_where += " AND _ev.created_at >= NOW() - INTERVAL '1 day' * :ev_days"
+            params["ev_days"] = int(filters["event_days_lookback"])
+
+        if (
+            "event_min_count" in filters
+            and filters["event_min_count"] is not None
+        ):
+            wheres.append(
+                f"EXISTS (SELECT 1 FROM analytics.events _ev "
+                f"WHERE {ev_where} "
+                f"GROUP BY _ev.user_id "
+                f"HAVING COUNT(*) >= :ev_min)"
+            )
+            params["ev_min"] = int(filters["event_min_count"])
+        else:
+            wheres.append(
+                f"EXISTS (SELECT 1 FROM analytics.events _ev WHERE {ev_where})"
+            )
+
     join_clause = "\n".join(joins)
     where_clause = " AND ".join(wheres)
     limit_clause = f" LIMIT {int(limit)}" if limit else ""

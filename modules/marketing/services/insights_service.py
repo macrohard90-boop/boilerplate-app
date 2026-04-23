@@ -586,6 +586,21 @@ async def get_analytics_filter_options(db: AsyncSession) -> dict[str, Any]:
         .all()
     )
 
+    event_type_rows = (
+        (
+            await db.execute(
+                text(
+                    "SELECT event_type AS val, COUNT(*) AS cnt "
+                    "FROM analytics.events "
+                    "WHERE created_at >= NOW() - INTERVAL '90 days' "
+                    "GROUP BY event_type ORDER BY cnt DESC LIMIT 50"
+                )
+            )
+        )
+        .mappings()
+        .all()
+    )
+
     return {
         "device_types": [r["val"] for r in device_rows],
         "browsers": [{"value": r["val"], "count": r["cnt"]} for r in browser_rows],
@@ -593,6 +608,9 @@ async def get_analytics_filter_options(db: AsyncSession) -> dict[str, Any]:
         "top_pages": [{"value": r["val"], "count": r["cnt"]} for r in top_pages],
         "referral_sources": [
             {"value": r["val"], "count": r["cnt"]} for r in referral_rows
+        ],
+        "event_types": [
+            {"value": r["val"], "count": r["cnt"]} for r in event_type_rows
         ],
     }
 

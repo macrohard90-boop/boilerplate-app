@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react";
 import { usePathname } from "next/navigation";
 import { getAccessToken, getSessionId, refreshTokens } from "./api";
+import { trackEvent } from "./track-event";
 
 const MIN_DURATION_MS = 500;
 // If no interaction for this long, assume the user walked away
@@ -222,7 +223,31 @@ export default function PageDurationTracker() {
       maybeHeartbeat("active");
     }
 
+    // Return visit detection
+    const lastVisit = localStorage.getItem("_bp_last_visit");
+    const now = Date.now();
+    if (lastVisit) {
+      const daysSince = Math.floor((now - parseInt(lastVisit, 10)) / 86400000);
+      if (daysSince >= 1) {
+        trackEvent("return_visit", { days_since_last: daysSince });
+      }
+    }
+    localStorage.setItem("_bp_last_visit", String(now));
+
+    // Long session detection (10 minutes)
+    const longSessionTimer = setTimeout(() => {
+      trackEvent("long_session", { duration_sec: 600 });
+    }, 600000);
+
+    // Exit intent (beforeunload)
+    const handleExitIntent = () => {
+      trackEvent("exit_intent", { path: lastPath.current });
+    };
+    window.addEventListener("beforeunload", handleExitIntent);
+
     return () => {
+      window.removeEventListener("beforeunload", handleExitIntent);
+      clearTimeout(longSessionTimer);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
       for (const evt of INTERACTION_EVENTS) {
         document.removeEventListener(evt, onInteraction);

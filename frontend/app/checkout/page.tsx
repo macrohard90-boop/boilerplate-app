@@ -16,6 +16,7 @@ import { apiFetch } from "../../lib/api";
 import { formatPrice } from "../../lib/format";
 import { getStripe } from "../../lib/stripe";
 import { useToast } from "../../components/Toast";
+import { trackEvent } from "../../lib/track-event";
 import LoadingSpinner from "../../components/LoadingSpinner";
 
 interface AddressForm {
@@ -64,6 +65,7 @@ function PaymentForm({ orderId }: { orderId: string }) {
 
     setPaying(true);
     setError(null);
+    trackEvent("payment_submitted", { order_id: orderId });
 
     const { error: stripeError } = await stripe.confirmPayment({
       elements,
@@ -75,6 +77,10 @@ function PaymentForm({ orderId }: { orderId: string }) {
     // Only reaches here if there's an immediate error (redirect didn't happen)
     if (stripeError) {
       setError(stripeError.message || "Payment failed. Please try again.");
+      trackEvent("payment_failed", {
+        order_id: orderId,
+        error_message: stripeError.message,
+      });
     }
     setPaying(false);
   }
@@ -220,6 +226,26 @@ export default function CheckoutPage() {
   const [orderSummary, setOrderSummary] = useState<OrderSummary | null>(null);
   const [stripePromise] = useState(() => getStripe());
 
+  // Track step changes
+  useEffect(() => {
+    trackEvent("checkout_step_viewed", { step, cart_total: cart.total });
+  }, [step]);
+
+  // Track checkout abandonment
+  useEffect(() => {
+    const handleAbandon = () => {
+      if (step < 3) {
+        trackEvent("checkout_abandoned", {
+          step,
+          cart_total: cart.total,
+          item_count: cart.item_count,
+        });
+      }
+    };
+    window.addEventListener("beforeunload", handleAbandon);
+    return () => window.removeEventListener("beforeunload", handleAbandon);
+  }, [step, cart.total, cart.item_count]);
+
   if (!isAuthenticated) {
     return (
       <div className="max-w-md mx-auto px-4 py-20 text-center">
@@ -326,6 +352,11 @@ export default function CheckoutPage() {
           }),
         });
         // Redirect to Stripe-hosted checkout — cart is cleared on confirmation page
+        trackEvent("purchase_completed", {
+          total: cart.total,
+          item_count: cart.item_count,
+          method: "stripe_checkout_session",
+        });
         window.location.href = session.session_url;
         return;
       }
@@ -342,6 +373,11 @@ export default function CheckoutPage() {
 
       if (!result.client_secret) {
         // Free order — no payment needed, redirect to confirmation
+        trackEvent("purchase_completed", {
+          order_id: result.order_id,
+          total: result.total,
+          item_count: cart.item_count,
+        });
         router.push(`/orders/${result.order_id}/confirmation?free=1`);
         return;
       }

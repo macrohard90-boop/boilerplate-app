@@ -9,6 +9,7 @@ import SearchBar from "../../components/SearchBar";
 import Pagination from "../../components/Pagination";
 import LoadingSpinner from "../../components/LoadingSpinner";
 import { useConfig } from "../../lib/config-context";
+import { trackEvent } from "../../lib/track-event";
 
 interface Product {
   id: string;
@@ -103,6 +104,9 @@ function ProductsContent() {
       if (res.ok) {
         const json = await res.json();
         setData(json);
+        if (search && json.total === 0) {
+          trackEvent("search_no_results", { query: search });
+        }
       }
     } catch {
       // silent
@@ -118,11 +122,13 @@ function ProductsContent() {
   const handleSearch = useCallback((q: string) => {
     setSearch(q);
     setPage(1);
+    if (q) trackEvent("search_performed", { query: q });
   }, []);
 
   const handleSort = (val: string) => {
     setSort(val);
     setPage(1);
+    trackEvent("sort_changed", { sort_value: val });
   };
 
   const handleTab = (t: TabKey) => {
@@ -135,6 +141,13 @@ function ProductsContent() {
   const handleCategoryFilter = (id: string | null) => {
     setCategoryId(id);
     setPage(1);
+    if (id) {
+      const cat = categories.find((c) => c.id === id);
+      trackEvent("filter_used", {
+        category_id: id,
+        category_name: cat?.name,
+      });
+    }
   };
 
   const activeTab = tabs.find((t) => t.key === tab) || tabs[0];

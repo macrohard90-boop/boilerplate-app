@@ -29,6 +29,10 @@ export interface SegmentFilters {
   min_page_views?: number | null;
   min_sessions?: number | null;
   referral_source?: string;
+  // Event-based filters
+  event_type?: string[];
+  event_min_count?: number | null;
+  event_days_lookback?: number | null;
 }
 
 const RFM_OPTIONS = [
@@ -52,6 +56,7 @@ interface FilterOptions {
   operating_systems: Array<{ value: string; count: number }>;
   top_pages: Array<{ value: string; count: number }>;
   referral_sources: Array<{ value: string; count: number }>;
+  event_types: Array<{ value: string; count: number }>;
 }
 
 interface SegmentBuilderProps {
@@ -125,7 +130,10 @@ export default function SegmentBuilder({
   );
 
   const toggleArrayFilter = useCallback(
-    (key: "device_type" | "browser" | "os" | "viewed_pages", value: string) => {
+    (
+      key: "device_type" | "browser" | "os" | "viewed_pages" | "event_type",
+      value: string,
+    ) => {
       const current = (filters[key] as string[] | undefined) || [];
       const updated = current.includes(value)
         ? current.filter((v) => v !== value)
@@ -570,6 +578,80 @@ export default function SegmentBuilder({
                 className="w-full px-2.5 py-1.5 text-sm rounded-md border border-glass-border bg-transparent text-text-primary placeholder:text-text-muted/50 focus:outline-none focus:border-accent-blue"
               />
             </div>
+          )}
+
+          {/* ── Event Behavior Filters ── */}
+          {filterOptions.event_types.length > 0 && (
+            <>
+              <div className="pt-3 border-t border-glass-border">
+                <label className="text-xs text-text-muted font-medium uppercase tracking-wider block mb-2">
+                  Event Behavior
+                </label>
+              </div>
+
+              {/* Event type pills */}
+              <div>
+                <label className="text-xs text-text-muted font-medium block mb-1.5">
+                  Event Type
+                </label>
+                <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto">
+                  {filterOptions.event_types.map((ev) => {
+                    const active = (filters.event_type || []).includes(
+                      ev.value,
+                    );
+                    return (
+                      <button
+                        key={ev.value}
+                        type="button"
+                        onClick={() =>
+                          toggleArrayFilter("event_type", ev.value)
+                        }
+                        className={pill(active, "pink")}
+                      >
+                        {ev.value.replace(/_/g, " ")}
+                        <span className="ml-1 opacity-60">
+                          ({ev.count.toLocaleString()})
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Min count + lookback */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs text-text-muted font-medium block mb-1">
+                    Min Event Count
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    value={filters.event_min_count ?? ""}
+                    onChange={(e) =>
+                      setNumericFilter("event_min_count", e.target.value)
+                    }
+                    placeholder="Any"
+                    className="w-full px-2.5 py-1.5 text-sm rounded-md border border-glass-border bg-transparent text-text-primary placeholder:text-text-muted/50 focus:outline-none focus:border-accent-blue"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-text-muted font-medium block mb-1">
+                    Within Last N Days
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    value={filters.event_days_lookback ?? ""}
+                    onChange={(e) =>
+                      setNumericFilter("event_days_lookback", e.target.value)
+                    }
+                    placeholder="Any"
+                    className="w-full px-2.5 py-1.5 text-sm rounded-md border border-glass-border bg-transparent text-text-primary placeholder:text-text-muted/50 focus:outline-none focus:border-accent-blue"
+                  />
+                </div>
+              </div>
+            </>
           )}
         </>
       )}

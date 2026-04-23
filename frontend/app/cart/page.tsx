@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useCart, type CartItem, cartItemKey } from "../../lib/cart-context";
@@ -8,6 +8,7 @@ import { useAuth } from "../../lib/auth-context";
 import { useConfig } from "../../lib/config-context";
 import { formatPrice } from "../../lib/format";
 import { useToast } from "../../components/Toast";
+import { trackEvent } from "../../lib/track-event";
 import LoadingSpinner from "../../components/LoadingSpinner";
 
 export default function CartPage() {
@@ -36,6 +37,20 @@ export default function CartPage() {
     }
     setApplyingDiscount(false);
   }
+
+  const trackedRef = useRef(false);
+  useEffect(() => {
+    if (isLoading || trackedRef.current) return;
+    trackedRef.current = true;
+    if (cart.items.length === 0) {
+      trackEvent("empty_cart_viewed");
+    } else {
+      trackEvent("cart_viewed", {
+        item_count: cart.item_count,
+        cart_total: cart.total,
+      });
+    }
+  }, [isLoading, cart]);
 
   if (isLoading) {
     return <LoadingSpinner size="lg" className="py-40" />;
@@ -159,6 +174,12 @@ export default function CartPage() {
               {isAuthenticated ? (
                 <Link
                   href="/checkout"
+                  onClick={() =>
+                    trackEvent("checkout_started", {
+                      cart_total: cart.total,
+                      item_count: cart.item_count,
+                    })
+                  }
                   className="btn-primary w-full text-center block text-sm"
                 >
                   Proceed to Checkout

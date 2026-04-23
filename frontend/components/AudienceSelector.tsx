@@ -208,6 +208,51 @@ export default function AudienceSelector({
       detail: "10+ sessions (90d)",
       filters: { min_sessions: 10 },
     },
+    // Event Behavior
+    {
+      id: "add_to_cart_no_purchase",
+      label: "Added to Cart",
+      category: "Event Behavior",
+      count: null,
+      color: "text-orange-400",
+      detail: "Added items but no orders yet",
+      filters: { event_type: ["add_to_cart"], has_orders: false },
+    },
+    {
+      id: "checkout_dropoff",
+      label: "Checkout Drop-off",
+      category: "Event Behavior",
+      count: null,
+      color: "text-red-400",
+      detail: "Started checkout but abandoned",
+      filters: { event_type: ["checkout_abandoned"] },
+    },
+    {
+      id: "high_intent",
+      label: "High-Intent Browsers",
+      category: "Event Behavior",
+      count: null,
+      color: "text-accent-blue",
+      detail: "5+ product views in 7 days",
+      filters: {
+        event_type: ["product_viewed"],
+        event_min_count: 5,
+        event_days_lookback: 7,
+      },
+    },
+    {
+      id: "repeat_searchers",
+      label: "Repeat Searchers",
+      category: "Event Behavior",
+      count: null,
+      color: "text-cyan-400",
+      detail: "3+ searches in 30 days",
+      filters: {
+        event_type: ["search_performed"],
+        event_min_count: 3,
+        event_days_lookback: 30,
+      },
+    },
   ];
 
   // Dynamic cards from behavior insights (device, browser) — appended when data loads
@@ -254,6 +299,7 @@ export default function AudienceSelector({
   const categories = [
     "Audience Overview",
     "Purchase Behavior",
+    "Event Behavior",
     "Device & Platform",
     "Engagement",
   ];

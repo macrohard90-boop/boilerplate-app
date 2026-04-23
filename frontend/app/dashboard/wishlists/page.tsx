@@ -7,6 +7,7 @@ import { apiFetch } from "../../../lib/api";
 import { formatPrice } from "../../../lib/format";
 import { useToast } from "../../../components/Toast";
 import { useCart } from "../../../lib/cart-context";
+import { trackEvent } from "../../../lib/track-event";
 import LoadingSpinner from "../../../components/LoadingSpinner";
 
 interface WishlistItem {
@@ -46,11 +47,12 @@ export default function WishlistsPage() {
     fetchWishlists();
   }, []);
 
-  async function handleRemove(wishlistId: string, itemId: string) {
+  async function handleRemove(wishlistId: string, item: WishlistItem) {
     try {
-      await apiFetch(`/ecommerce/wishlists/${wishlistId}/items/${itemId}`, {
+      await apiFetch(`/ecommerce/wishlists/${wishlistId}/items/${item.id}`, {
         method: "DELETE",
       });
+      trackEvent("wishlist_removed", { product_id: item.product_id });
       showToast("Removed from wishlist", "info");
       fetchWishlists();
     } catch {
@@ -64,12 +66,22 @@ export default function WishlistsPage() {
       await apiFetch(`/ecommerce/wishlists/${wishlistId}/items/${item.id}`, {
         method: "DELETE",
       });
+      trackEvent("wishlist_moved_to_cart", {
+        product_id: item.product_id,
+        name: item.product_name,
+      });
       showToast(`${item.product_name} moved to cart`, "success");
       fetchWishlists();
     } catch {
       showToast("Failed to move to cart", "error");
     }
   }
+
+  useEffect(() => {
+    if (!loading && wishlists.length === 0) {
+      trackEvent("empty_wishlist_viewed");
+    }
+  }, [loading, wishlists.length]);
 
   if (loading) return <LoadingSpinner className="py-20" />;
 
@@ -143,7 +155,7 @@ export default function WishlistsPage() {
                         Add to Cart
                       </button>
                       <button
-                        onClick={() => handleRemove(wl.id, item.id)}
+                        onClick={() => handleRemove(wl.id, item)}
                         className="text-text-muted hover:text-accent-pink transition-colors"
                       >
                         <svg

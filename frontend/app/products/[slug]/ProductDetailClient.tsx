@@ -6,6 +6,7 @@ import Link from "next/link";
 import { formatPrice } from "../../../lib/format";
 import { useCart } from "../../../lib/cart-context";
 import { useToast } from "../../../components/Toast";
+import { trackEvent } from "../../../lib/track-event";
 import StarRating from "../../../components/StarRating";
 import LoadingSpinner from "../../../components/LoadingSpinner";
 
@@ -140,6 +141,28 @@ export default function ProductDetailClient({ initialProduct, slug }: Props) {
       }
     }
     load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [slug]);
+
+  // Track product view
+  useEffect(() => {
+    const p = initialProduct || product;
+    if (!p) return;
+    trackEvent("product_viewed", {
+      product_id: p.id,
+      slug: p.slug,
+      name: p.name,
+      price: p.base_price,
+      category: p.categories?.[0]?.name,
+    });
+    const variant = p.variants?.[0];
+    if (variant && variant.stock_quantity === 0) {
+      trackEvent("out_of_stock_viewed", {
+        product_id: p.id,
+        name: p.name,
+        category: p.categories?.[0]?.name,
+      });
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slug]);
 
@@ -358,7 +381,14 @@ export default function ProductDetailClient({ initialProduct, slug }: Props) {
                 {product.variants.map((v) => (
                   <button
                     key={v.id}
-                    onClick={() => setSelectedVariant(v)}
+                    onClick={() => {
+                      setSelectedVariant(v);
+                      trackEvent("variant_selected", {
+                        product_id: product.id,
+                        variant_id: v.id,
+                        variant_name: v.name,
+                      });
+                    }}
                     className={`px-4 py-2 rounded-lg text-sm transition-all ${
                       selectedVariant?.id === v.id
                         ? "bg-accent-purple/20 border border-accent-purple/40 text-accent-purple"

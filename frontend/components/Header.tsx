@@ -5,6 +5,7 @@ import { useState, useEffect } from "react";
 import { useAuth } from "../lib/auth-context";
 import { useCart } from "../lib/cart-context";
 import { useConfig } from "../lib/config-context";
+import { trackEvent } from "../lib/track-event";
 
 interface NavCategory {
   name: string;
@@ -69,6 +70,11 @@ export default function Header() {
             {/* Cart */}
             <Link
               href="/cart"
+              onClick={() =>
+                trackEvent("nav_cart_clicked", {
+                  item_count: cart.item_count,
+                })
+              }
               className="relative text-text-secondary hover:text-text-primary transition-colors"
             >
               <svg
@@ -195,6 +201,7 @@ export default function Header() {
                       <div className="border-t border-glass-border mt-1 pt-1">
                         <button
                           onClick={() => {
+                            trackEvent("logout");
                             logout();
                             setUserMenuOpen(false);
                           }}

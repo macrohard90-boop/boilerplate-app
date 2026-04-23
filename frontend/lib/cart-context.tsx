@@ -10,6 +10,7 @@ import React, {
 } from "react";
 import { apiFetch } from "./api";
 import { useAuth } from "./auth-context";
+import { trackEvent } from "./track-event";
 
 export interface CartItem {
   product_id: string;
@@ -107,6 +108,19 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         }),
       });
       setCart(data);
+      const added = data.items.find((it) => it.product_id === productId);
+      trackEvent("add_to_cart", {
+        product_id: productId,
+        name: added?.product_name,
+        price: added?.unit_price,
+        quantity,
+      });
+      if (data.total >= 10000) {
+        trackEvent("high_value_cart", {
+          cart_total: data.total,
+          threshold: 10000,
+        });
+      }
     },
     [],
   );
@@ -139,6 +153,14 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
           },
         );
         setCart(data);
+        const old = prev.items.find(
+          (it) => it.product_id === productId && it.variant_id === variantId,
+        );
+        trackEvent("cart_quantity_changed", {
+          product_id: productId,
+          old_qty: old?.quantity,
+          new_qty: quantity,
+        });
       } catch (e) {
         setCart(prev);
         throw e;
@@ -172,6 +194,14 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
           },
         );
         setCart(data);
+        const removed = prev.items.find(
+          (it) => it.product_id === productId && it.variant_id === variantId,
+        );
+        trackEvent("remove_from_cart", {
+          product_id: productId,
+          name: removed?.product_name,
+          price: removed?.unit_price,
+        });
       } catch (e) {
         setCart(prev);
         throw e;
@@ -181,11 +211,20 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   );
 
   const applyDiscount = useCallback(async (code: string) => {
-    const data = await apiFetch<Cart>("/ecommerce/cart/discount", {
-      method: "POST",
-      body: JSON.stringify({ code }),
-    });
-    setCart(data);
+    try {
+      const data = await apiFetch<Cart>("/ecommerce/cart/discount", {
+        method: "POST",
+        body: JSON.stringify({ code }),
+      });
+      setCart(data);
+      trackEvent("coupon_applied", {
+        code,
+        discount_amount: data.discount_amount,
+      });
+    } catch (e) {
+      trackEvent("coupon_failed", { code });
+      throw e;
+    }
   }, []);
 
   const removeDiscount = useCallback(async () => {
@@ -196,11 +235,16 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const clearCart = useCallback(async () => {
+    const prev = cartRef.current;
     try {
       await apiFetch("/ecommerce/cart", { method: "DELETE" });
     } catch {
       // Cart may already be consumed by checkout — ignore API errors
     }
+    trackEvent("cart_cleared", {
+      item_count: prev.item_count,
+      cart_total: prev.total,
+    });
     setCart(emptyCart);
   }, []);
 
