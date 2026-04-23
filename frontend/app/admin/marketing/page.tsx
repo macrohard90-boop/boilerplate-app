@@ -15,6 +15,11 @@ const TemplateEditor = dynamic(
   { ssr: false },
 );
 
+const CampaignWizard = dynamic(
+  () => import("../../../components/CampaignWizard"),
+  { ssr: false },
+);
+
 // ── Interfaces ──────────────────────────────────────────
 
 interface EmailTemplate {
@@ -796,19 +801,9 @@ function CampaignsTab() {
   const [page, setPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState("");
   const [loading, setLoading] = useState(true);
-  const [showCreate, setShowCreate] = useState(false);
-  const [creating, setCreating] = useState(false);
+  const [showWizard, setShowWizard] = useState(false);
   const [statsModal, setStatsModal] = useState<CampaignStats | null>(null);
   const [statsName, setStatsName] = useState("");
-
-  // Create form
-  const [formName, setFormName] = useState("");
-  const [formSubject, setFormSubject] = useState("");
-  const [formTemplate, setFormTemplate] = useState("");
-  const [formScheduled, setFormScheduled] = useState("");
-  const [availableTemplates, setAvailableTemplates] = useState<EmailTemplate[]>(
-    [],
-  );
 
   const perPage = 15;
 
@@ -834,50 +829,6 @@ function CampaignsTab() {
   useEffect(() => {
     fetchCampaigns();
   }, [fetchCampaigns]);
-
-  // Load templates for the dropdown when create modal opens
-  useEffect(() => {
-    if (showCreate && availableTemplates.length === 0) {
-      apiFetch<TemplateList>("/marketing/admin/templates?per_page=100")
-        .then((data) => {
-          setAvailableTemplates(data.items);
-          if (data.items.length > 0 && !formTemplate) {
-            setFormTemplate(data.items[0].name);
-          }
-        })
-        .catch(() => {});
-    }
-  }, [showCreate]);
-
-  async function handleCreate() {
-    if (!formName.trim() || !formSubject.trim()) {
-      showToast("Name and subject are required", "error");
-      return;
-    }
-    setCreating(true);
-    try {
-      await apiFetch("/marketing/admin/campaigns", {
-        method: "POST",
-        body: JSON.stringify({
-          name: formName,
-          subject: formSubject,
-          template_id: formTemplate,
-          template_data: {},
-          scheduled_at: formScheduled || null,
-        }),
-      });
-      showToast("Campaign created", "success");
-      setShowCreate(false);
-      setFormName("");
-      setFormSubject("");
-      setFormTemplate("");
-      setFormScheduled("");
-      fetchCampaigns();
-    } catch {
-      showToast("Failed to create campaign", "error");
-    }
-    setCreating(false);
-  }
 
   async function handleSend(id: string) {
     if (!confirm("Send this campaign now?")) return;
@@ -940,7 +891,7 @@ function CampaignsTab() {
         </div>
         <button
           className="btn-primary text-sm"
-          onClick={() => setShowCreate(true)}
+          onClick={() => setShowWizard(true)}
         >
           + New Campaign
         </button>
@@ -1046,83 +997,17 @@ function CampaignsTab() {
         />
       </div>
 
-      {/* Create modal */}
-      <Modal
-        isOpen={showCreate}
-        onClose={() => setShowCreate(false)}
-        title="New Campaign"
-        size="md"
-      >
-        <div className="space-y-4">
-          <div>
-            <label className="text-xs text-text-muted block mb-1">
-              Campaign Name
-            </label>
-            <input
-              className="input-glass w-full"
-              value={formName}
-              onChange={(e) => setFormName(e.target.value)}
-              placeholder="Spring Sale 2026"
-            />
-          </div>
-          <div>
-            <label className="text-xs text-text-muted block mb-1">
-              Email Subject
-            </label>
-            <input
-              className="input-glass w-full"
-              value={formSubject}
-              onChange={(e) => setFormSubject(e.target.value)}
-              placeholder="Don't miss our spring collection!"
-            />
-          </div>
-          <div>
-            <label className="text-xs text-text-muted block mb-1">
-              Template
-            </label>
-            <select
-              className="input-glass w-full"
-              value={formTemplate}
-              onChange={(e) => setFormTemplate(e.target.value)}
-            >
-              {availableTemplates.length === 0 && (
-                <option value="">Loading...</option>
-              )}
-              {availableTemplates.map((t) => (
-                <option key={t.name} value={t.name}>
-                  {t.display_name} ({t.name})
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="text-xs text-text-muted block mb-1">
-              Schedule (optional)
-            </label>
-            <input
-              type="datetime-local"
-              className="input-glass w-full"
-              value={formScheduled}
-              onChange={(e) => setFormScheduled(e.target.value)}
-            />
-          </div>
-          <div className="flex justify-end gap-3 pt-2">
-            <button
-              className="btn-secondary text-sm"
-              onClick={() => setShowCreate(false)}
-            >
-              Cancel
-            </button>
-            <button
-              className="btn-primary text-sm"
-              onClick={handleCreate}
-              disabled={creating}
-            >
-              {creating ? "Creating..." : "Create Campaign"}
-            </button>
-          </div>
-        </div>
-      </Modal>
+      {/* Campaign Wizard */}
+      {showWizard && (
+        <CampaignWizard
+          onClose={() => setShowWizard(false)}
+          onCreated={() => {
+            setShowWizard(false);
+            showToast("Campaign created", "success");
+            fetchCampaigns();
+          }}
+        />
+      )}
 
       {/* Stats modal */}
       <Modal

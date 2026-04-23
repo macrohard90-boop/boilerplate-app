@@ -8,9 +8,11 @@ content-block templates with standard header/footer/styling.
 """
 
 import logging
+import re
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
 
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 from sqlalchemy import text
@@ -107,3 +109,48 @@ async def render_template_db(
     html = render_from_content(row["html_content"], data)
     subject = _render_jinja_string(row["subject"], context) if row["subject"] else None
     return html, subject
+
+
+# ---------------------------------------------------------------------------
+# UTM auto-injection
+# ---------------------------------------------------------------------------
+
+_HREF_RE = re.compile(r'(<a\b[^>]*\bhref\s*=\s*")([^"]+)(")', re.IGNORECASE)
+
+_UTM_KEYS = {"utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term"}
+
+
+def inject_utm_params(html: str, utm_params: dict[str, str]) -> str:
+    """Append UTM query params to every <a href="..."> in rendered HTML.
+
+    Skips:
+    - mailto: links
+    - anchor-only (#) links
+    - javascript: links
+    - links that already contain any utm_ parameter
+    """
+    clean_params = {k: v for k, v in utm_params.items() if v}
+    if not clean_params:
+        return html
+
+    def _rewrite(match: re.Match) -> str:
+        prefix, url, suffix = match.group(1), match.group(2), match.group(3)
+        lower = url.lower().strip()
+
+        # Skip non-http links
+        if lower.startswith(("mailto:", "javascript:", "tel:", "#")):
+            return match.group(0)
+
+        # Skip if any UTM param already present
+        parsed = urlparse(url)
+        existing_qs = parse_qs(parsed.query)
+        if any(k in existing_qs for k in _UTM_KEYS):
+            return match.group(0)
+
+        # Append UTM params
+        sep = "&" if parsed.query else ""
+        new_query = parsed.query + sep + urlencode(clean_params)
+        new_url = urlunparse(parsed._replace(query=new_query))
+        return prefix + new_url + suffix
+
+    return _HREF_RE.sub(_rewrite, html)

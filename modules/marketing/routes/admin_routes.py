@@ -12,8 +12,13 @@ from modules.marketing.models.schemas import (
     CampaignCreateRequest,
     CampaignResponse,
     CampaignStatsResponse,
+    CampaignWizardRequest,
     CommunicationTypeCreateRequest,
     CommunicationTypeResponse,
+    InsightsSegmentRequest,
+    SegmentCreateRequest,
+    SegmentPreviewRequest,
+    SegmentUpdateRequest,
     TemplateCloneRequest,
     TemplateCreateRequest,
     TemplateListResponse,
@@ -535,3 +540,186 @@ async def send_test_email(
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Send failed: {e}")
+
+
+# ── Campaign Wizard (A/B Variants) ───────────────────────
+
+
+@router.post("/campaigns/wizard", status_code=201)
+async def create_campaign_wizard(
+    body: CampaignWizardRequest,
+    db: AsyncSession = Depends(get_db),
+    user: dict = Depends(require_role("admin")),
+):
+    """Create a campaign with A/B variants, audience segments, and UTM tracking."""
+    try:
+        result = await campaign_service.create_campaign_with_variants(
+            db,
+            name=body.name,
+            variants=[v.model_dump() for v in body.variants],
+            segment_ids=[s.model_dump() for s in body.segments],
+            created_by=user["user_id"],
+            utm_source=body.utm_source,
+            utm_medium=body.utm_medium,
+            utm_campaign=body.utm_campaign,
+            utm_content=body.utm_content,
+            scheduled_at=body.scheduled_at,
+        )
+        return result
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.get("/campaigns/{campaign_id}/variants")
+async def get_campaign_variants(
+    campaign_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: dict = Depends(require_role("admin")),
+):
+    """Get all A/B variants for a campaign."""
+    variants = await campaign_service.get_campaign_variants(db, campaign_id)
+    return {"variants": variants}
+
+
+@router.get("/campaigns/{campaign_id}/variant-stats")
+async def get_campaign_variant_stats(
+    campaign_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: dict = Depends(require_role("admin")),
+):
+    """Get per-variant delivery stats for an A/B campaign."""
+    try:
+        stats = await campaign_service.get_campaign_variant_stats(db, campaign_id)
+        return {"variant_stats": stats}
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+# ── Audience Segments ─────────────────────────────────────
+
+
+@router.get("/segments")
+async def list_segments(
+    db: AsyncSession = Depends(get_db),
+    user: dict = Depends(require_role("admin")),
+    include_system: bool = Query(True),
+):
+    """List all audience segments."""
+    from modules.marketing.services import segment_service
+
+    segments = await segment_service.list_segments(db, include_system=include_system)
+    return {"segments": segments}
+
+
+@router.post("/segments", status_code=201)
+async def create_segment(
+    body: SegmentCreateRequest,
+    db: AsyncSession = Depends(get_db),
+    user: dict = Depends(require_role("admin")),
+):
+    """Create a custom audience segment."""
+    from modules.marketing.services import segment_service
+
+    try:
+        result = await segment_service.create_segment(
+            db,
+            name=body.name,
+            description=body.description,
+            filters=body.filters,
+            created_by=user["user_id"],
+        )
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.put("/segments/{segment_id}")
+async def update_segment(
+    segment_id: str,
+    body: SegmentUpdateRequest,
+    db: AsyncSession = Depends(get_db),
+    user: dict = Depends(require_role("admin")),
+):
+    """Update a custom audience segment."""
+    from modules.marketing.services import segment_service
+
+    try:
+        return await segment_service.update_segment(
+            db,
+            segment_id,
+            name=body.name,
+            description=body.description,
+            filters=body.filters,
+        )
+    except ValueError as e:
+        status = 400 if "Cannot update" in str(e) else 404
+        raise HTTPException(status_code=status, detail=str(e))
+
+
+@router.delete("/segments/{segment_id}")
+async def delete_segment(
+    segment_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: dict = Depends(require_role("admin")),
+):
+    """Delete a custom segment. System segments cannot be deleted."""
+    from modules.marketing.services import segment_service
+
+    try:
+        await segment_service.delete_segment(db, segment_id)
+        return {"status": "deleted"}
+    except ValueError as e:
+        status = 400 if "Cannot delete" in str(e) else 404
+        raise HTTPException(status_code=status, detail=str(e))
+
+
+@router.post("/segments/preview")
+async def preview_segment(
+    body: SegmentPreviewRequest,
+    db: AsyncSession = Depends(get_db),
+    user: dict = Depends(require_role("admin")),
+):
+    """Preview a segment: count + sample users for given filters."""
+    from modules.marketing.services import segment_service
+
+    count = await segment_service.compute_segment_count(db, body.filters)
+    sample = await segment_service.compute_segment_users(db, body.filters, limit=10)
+    return {"count": count, "sample_users": sample}
+
+
+# ── Insights ─────────────────────────────────────────────
+
+
+@router.get("/insights/global")
+async def get_global_insights(
+    db: AsyncSession = Depends(get_db),
+    user: dict = Depends(require_role("admin")),
+):
+    """Global audience insights for the campaign wizard."""
+    from modules.marketing.services import insights_service
+
+    return await insights_service.get_global_insights(db)
+
+
+@router.post("/insights/segment")
+async def get_segment_insights(
+    body: InsightsSegmentRequest,
+    db: AsyncSession = Depends(get_db),
+    user: dict = Depends(require_role("admin")),
+):
+    """Segment-specific insights for a given filter set."""
+    from modules.marketing.services import insights_service
+
+    return await insights_service.get_segment_insights(db, body.filters)
+
+
+@router.post("/insights/send-time")
+async def get_send_time_suggestion(
+    body: InsightsSegmentRequest,
+    db: AsyncSession = Depends(get_db),
+    user: dict = Depends(require_role("admin")),
+):
+    """Suggested optimal send time based on audience activity patterns."""
+    from modules.marketing.services import insights_service
+
+    return await insights_service.get_send_time_suggestion(db, body.filters)
