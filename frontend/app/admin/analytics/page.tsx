@@ -5,8 +5,6 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { apiFetch } from "../../../lib/api";
 import { useConfig } from "../../../lib/config-context";
 import LoadingSpinner from "../../../components/LoadingSpinner";
-import Modal from "../../../components/Modal";
-import Pagination from "../../../components/Pagination";
 import Link from "next/link";
 
 const AreaSparkChart = dynamic(
@@ -76,23 +74,6 @@ interface PagesEngagementResponse {
 
 interface SourceStats {
   sources: { source: string; medium: string | null; sessions: number }[];
-}
-
-interface EventDetailItem {
-  id: string;
-  event_type: string;
-  event_data: Record<string, unknown>;
-  created_at: string;
-  session_id: string;
-  user_email: string | null;
-  page_path: string | null;
-}
-
-interface EventDetailList {
-  items: EventDetailItem[];
-  total: number;
-  page: number;
-  page_size: number;
 }
 
 interface DeviceStats {
@@ -369,10 +350,12 @@ function BreakdownBar({
   items,
   colorClass,
   onItemClick,
+  linkPrefix,
 }: {
   items: { label: string; count: number }[];
   colorClass: string;
   onItemClick?: (label: string) => void;
+  linkPrefix?: string;
 }) {
   const total = items.reduce((sum, i) => sum + i.count, 0);
   if (total === 0)
@@ -381,20 +364,12 @@ function BreakdownBar({
     <div className="space-y-2">
       {items.map((item, i) => {
         const pct = Math.round((item.count / total) * 100);
-        const clickable = !!onItemClick;
-        return (
-          <div
-            key={i}
-            className={
-              clickable
-                ? "cursor-pointer hover:opacity-80 transition-opacity"
-                : ""
-            }
-            onClick={clickable ? () => onItemClick(item.label) : undefined}
-          >
+        const interactive = !!onItemClick || !!linkPrefix;
+        const content = (
+          <>
             <div className="flex justify-between text-sm mb-1">
               <span
-                className={`text-text-secondary ${clickable ? "hover:text-text-primary" : ""}`}
+                className={`text-text-secondary ${interactive ? "group-hover:text-text-primary" : ""}`}
               >
                 {item.label}
               </span>
@@ -408,6 +383,30 @@ function BreakdownBar({
                 style={{ width: `${pct}%` }}
               />
             </div>
+          </>
+        );
+        if (linkPrefix) {
+          return (
+            <Link
+              key={i}
+              href={`${linkPrefix}${encodeURIComponent(item.label)}`}
+              className="block group hover:opacity-80 transition-opacity"
+            >
+              {content}
+            </Link>
+          );
+        }
+        return (
+          <div
+            key={i}
+            className={
+              interactive
+                ? "group cursor-pointer hover:opacity-80 transition-opacity"
+                : ""
+            }
+            onClick={onItemClick ? () => onItemClick(item.label) : undefined}
+          >
+            {content}
           </div>
         );
       })}
@@ -491,12 +490,6 @@ function OverviewTab() {
   const [granularity, setGranularity] = useState("day");
   const [deviceRange, setDeviceRange] = useState("hour");
   const pollRef = useRef<ReturnType<typeof setInterval>>();
-
-  // Event detail modal state
-  const [eventDetailType, setEventDetailType] = useState<string | null>(null);
-  const [eventDetail, setEventDetail] = useState<EventDetailList | null>(null);
-  const [eventDetailPage, setEventDetailPage] = useState(1);
-  const [eventDetailLoading, setEventDetailLoading] = useState(false);
 
   const buildQS = useCallback(
     () => buildFilterQS(dateFrom, dateTo, excludeBots),
@@ -615,22 +608,6 @@ function OverviewTab() {
       setFetchKey((k) => k + 1);
     }
   };
-
-  // Fetch event detail for modal
-  const fetchEventDetail = useCallback(
-    (eventType: string, page: number) => {
-      setEventDetailLoading(true);
-      const q = buildQS();
-      const sep = q ? "&" : "?";
-      apiFetch<EventDetailList>(
-        `/tracking/admin/analytics/events/detail${q}${sep}event_type=${encodeURIComponent(eventType)}&page=${page}&page_size=25`,
-      )
-        .then(setEventDetail)
-        .catch(() => setEventDetail(null))
-        .finally(() => setEventDetailLoading(false));
-    },
-    [buildQS],
-  );
 
   // Live tick counter — increments every second for real-time feel
   const [tickOffset, setTickOffset] = useState(0);
@@ -1114,7 +1091,7 @@ function OverviewTab() {
             )}
           </div>
 
-          {/* Events (full-width, clickable rows) */}
+          {/* Events (full-width, clickable rows link to detail page) */}
           <div className="glass rounded-xl p-6 mb-6">
             <h2 className="text-lg font-semibold text-text-primary mb-4">
               Events
@@ -1130,121 +1107,12 @@ function OverviewTab() {
                   .slice(0, 12)
                   .map((e) => ({ label: e.event_type, count: e.count }))}
                 colorClass="bg-accent-green/60"
-                onItemClick={(label) => {
-                  setEventDetailType(label);
-                  setEventDetailPage(1);
-                  fetchEventDetail(label, 1);
-                }}
+                linkPrefix="/admin/analytics/events/"
               />
             ) : (
               <p className="text-sm text-text-muted">No events recorded</p>
             )}
           </div>
-
-          {/* Event Detail Modal */}
-          <Modal
-            isOpen={!!eventDetailType}
-            onClose={() => {
-              setEventDetailType(null);
-              setEventDetail(null);
-            }}
-            title={`Events: ${eventDetailType}`}
-            size="full"
-          >
-            {eventDetailLoading ? (
-              <LoadingSpinner className="py-16" />
-            ) : eventDetail && eventDetail.items.length > 0 ? (
-              <>
-                <p className="text-sm text-text-muted mb-4">
-                  {eventDetail.total.toLocaleString()} event
-                  {eventDetail.total !== 1 ? "s" : ""} found
-                </p>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b border-glass-border">
-                        <th className="text-left p-3 text-text-muted font-medium">
-                          Time
-                        </th>
-                        <th className="text-left p-3 text-text-muted font-medium">
-                          User
-                        </th>
-                        <th className="text-left p-3 text-text-muted font-medium">
-                          Page
-                        </th>
-                        <th className="text-left p-3 text-text-muted font-medium">
-                          Data
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {eventDetail.items.map((item) => (
-                        <tr
-                          key={item.id}
-                          className="border-b border-glass-border/50 hover:bg-glass-hover transition-colors"
-                        >
-                          <td
-                            className="p-3 text-text-secondary text-xs whitespace-nowrap"
-                            title={new Date(item.created_at).toLocaleString()}
-                          >
-                            {relativeTime(item.created_at)}
-                          </td>
-                          <td className="p-3 text-text-primary text-xs">
-                            {item.user_email || (
-                              <span className="text-text-muted">
-                                (anonymous)
-                              </span>
-                            )}
-                          </td>
-                          <td className="p-3 text-text-muted text-xs">
-                            {item.page_path
-                              ? friendlyPageName(item.page_path)
-                              : "-"}
-                          </td>
-                          <td className="p-3 text-text-muted text-xs font-mono max-w-[300px] truncate">
-                            {Object.keys(item.event_data).length > 0 ? (
-                              <span
-                                title={JSON.stringify(item.event_data, null, 2)}
-                              >
-                                {Object.entries(item.event_data)
-                                  .slice(0, 3)
-                                  .map(
-                                    ([k, v]) =>
-                                      `${k}: ${typeof v === "string" ? v : JSON.stringify(v)}`,
-                                  )
-                                  .join(", ")}
-                                {Object.keys(item.event_data).length > 3
-                                  ? " ..."
-                                  : ""}
-                              </span>
-                            ) : (
-                              <span className="text-text-muted/50">{"{}"}</span>
-                            )}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-                <div className="mt-4">
-                  <Pagination
-                    currentPage={eventDetailPage}
-                    totalPages={Math.ceil(
-                      eventDetail.total / eventDetail.page_size,
-                    )}
-                    onPageChange={(p) => {
-                      setEventDetailPage(p);
-                      if (eventDetailType) fetchEventDetail(eventDetailType, p);
-                    }}
-                  />
-                </div>
-              </>
-            ) : (
-              <p className="text-sm text-text-muted py-8 text-center">
-                No events found for this type in the selected date range.
-              </p>
-            )}
-          </Modal>
         </>
       )}
     </>
