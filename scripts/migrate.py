@@ -26,6 +26,7 @@ import psycopg2
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 MIGRATIONS_DIR = PROJECT_ROOT / "migrations"
 
+
 # Load .env file manually (no dependency on pydantic for scripts)
 def load_env() -> dict[str, str]:
     """Load .env file into a dict."""
@@ -58,8 +59,13 @@ def get_config() -> dict[str, str]:
     """Get migration-relevant config from .env."""
     env = load_env()
     return {
-        "app_template": os.environ.get("APP_TEMPLATE", env.get("APP_TEMPLATE", "ecommerce")).lower(),
-        "enable_tracking": os.environ.get("ENABLE_TRACKING", env.get("ENABLE_TRACKING", "true")).lower() == "true",
+        "app_template": os.environ.get(
+            "APP_TEMPLATE", env.get("APP_TEMPLATE", "ecommerce")
+        ).lower(),
+        "enable_tracking": os.environ.get(
+            "ENABLE_TRACKING", env.get("ENABLE_TRACKING", "true")
+        ).lower()
+        == "true",
     }
 
 
@@ -71,12 +77,14 @@ def get_connection():
 def ensure_migrations_table(conn):
     """Create the schema_migrations tracking table if it doesn't exist."""
     with conn.cursor() as cur:
-        cur.execute("""
+        cur.execute(
+            """
             CREATE TABLE IF NOT EXISTS public.schema_migrations (
                 version VARCHAR(10) PRIMARY KEY,
                 applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
             )
-        """)
+        """
+        )
     conn.commit()
 
 
@@ -99,8 +107,8 @@ def parse_migration(filepath: Path) -> tuple[str, str]:
         print(f"ERROR: Migration {filepath.name} missing -- UP or -- DOWN markers")
         sys.exit(1)
 
-    up_sql = content[up_match.end():down_match.start()].strip()
-    down_sql = content[down_match.end():].strip()
+    up_sql = content[up_match.end() : down_match.start()].strip()
+    down_sql = content[down_match.end() :].strip()
 
     return up_sql, down_sql
 
@@ -201,6 +209,37 @@ def migrate_down(conn, config: dict, target_version: str | None = None):
     print(f"\n  {len(to_rollback)} migration(s) rolled back.")
 
 
+def migrate_baseline(conn, config: dict, target_version: str):
+    """Mark all migrations up to *target_version* as applied without running them.
+
+    Use this to bootstrap ``schema_migrations`` on a database where earlier
+    migrations were applied before tracking was introduced.  Idempotent —
+    versions already recorded are silently skipped.
+    """
+    ensure_migrations_table(conn)
+    applied = get_applied_versions(conn)
+    migrations = get_migration_files(config)
+
+    to_baseline = [
+        (v, f) for v, f in migrations if v not in applied and v <= target_version
+    ]
+
+    if not to_baseline:
+        print("  All migrations up to that version are already tracked.")
+        return
+
+    for version, filepath in to_baseline:
+        with conn.cursor() as cur:
+            cur.execute(
+                "INSERT INTO public.schema_migrations (version, applied_at) "
+                "VALUES (%s, %s) ON CONFLICT DO NOTHING",
+                (version, datetime.now(timezone.utc)),
+            )
+        print(f"  Baseline: {filepath.name} → tracked")
+    conn.commit()
+    print(f"\n  {len(to_baseline)} migration(s) baselined.")
+
+
 def migrate_status(conn, config: dict):
     """Show migration status."""
     ensure_migrations_table(conn)
@@ -238,7 +277,20 @@ def main():
     subparsers.add_parser("up", help="Apply all pending migrations")
 
     down_parser = subparsers.add_parser("down", help="Roll back migrations")
-    down_parser.add_argument("--to", dest="target", help="Roll back to this version (keep it applied)")
+    down_parser.add_argument(
+        "--to", dest="target", help="Roll back to this version (keep it applied)"
+    )
+
+    baseline_parser = subparsers.add_parser(
+        "baseline",
+        help="Mark migrations as applied without running them",
+    )
+    baseline_parser.add_argument(
+        "--to",
+        dest="target",
+        required=True,
+        help="Mark all migrations up to this version as applied (e.g. 027)",
+    )
 
     subparsers.add_parser("status", help="Show migration status")
 
@@ -262,6 +314,9 @@ def main():
             else:
                 print("\nRolling back ALL migrations...")
             migrate_down(conn, config, target)
+        elif args.command == "baseline":
+            print(f"\nBaselining migrations up to version {args.target}...")
+            migrate_baseline(conn, config, args.target)
         elif args.command == "status":
             migrate_status(conn, config)
     finally:
