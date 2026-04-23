@@ -570,20 +570,13 @@ function OverviewTab() {
         `/tracking/admin/analytics/pages/engagement${q}`,
       ).catch(() => null),
       apiFetch<SourceStats>(`/tracking/admin/analytics/sources${q}`).catch(
-        (e) => {
-          console.error("[analytics] sources fetch failed:", e);
-          return null;
-        },
+        () => null,
       ),
       apiFetch<EventStats>(`/tracking/admin/analytics/events${q}`).catch(
-        (e) => {
-          console.error("[analytics] events fetch failed:", e);
-          return null;
-        },
+        () => null,
       ),
     ])
       .then(([dash, eng, src, ev]) => {
-        console.log("[analytics] sources response:", JSON.stringify(src));
         setDashboard(dash);
         setEngagement(eng);
         setSources(src);

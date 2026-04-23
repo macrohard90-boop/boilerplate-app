@@ -68,7 +68,7 @@ CREATE INDEX idx_user_agents_device_type ON analytics.user_agents(device_type);
 -- Referral Sources
 CREATE TABLE analytics.referral_sources (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    session_id VARCHAR(255) NOT NULL,
+    session_id VARCHAR(255) NOT NULL UNIQUE,
     source VARCHAR(255),
     medium VARCHAR(100),
     campaign VARCHAR(255)
