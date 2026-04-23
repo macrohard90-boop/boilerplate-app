@@ -313,29 +313,25 @@ function buildTimeline(segments: SessionPageView[]): TimelineRow[] {
     }
     prevWasRefresh = false;
 
-    // Exit trigger
+    // Exit trigger — always show breaks so timeline is accurate
     if (seg.trigger === "tab_switch") {
       const awayMs = computeAwayMs(segments, i);
-      if (awayMs >= 5000) {
-        rows.push({
-          label: "Switched tab",
-          durationMs: awayMs,
-          time: fmtTime(seg.created_at),
-          dotColor: "bg-yellow-400",
-          textColor: "text-yellow-400",
-        });
-      }
+      rows.push({
+        label: "Switched tab",
+        durationMs: awayMs,
+        time: fmtTime(seg.created_at),
+        dotColor: "bg-yellow-400",
+        textColor: "text-yellow-400",
+      });
     } else if (seg.trigger === "idle") {
       const awayMs = computeAwayMs(segments, i);
-      if (awayMs >= 5000) {
-        rows.push({
-          label: "Went idle",
-          durationMs: awayMs,
-          time: fmtTime(seg.created_at),
-          dotColor: "bg-orange-400",
-          textColor: "text-orange-400",
-        });
-      }
+      rows.push({
+        label: "Went idle",
+        durationMs: awayMs,
+        time: fmtTime(seg.created_at),
+        dotColor: "bg-orange-400",
+        textColor: "text-orange-400",
+      });
     } else if (seg.trigger === "navigated") {
       rows.push({
         label: "Navigated away",
@@ -613,27 +609,25 @@ function JourneyView({
                 Date.now() -
                 ((liveState.activeSegSec ?? 0) + tickOffset) * 1000;
               const awayMs = Math.max(0, activeSegStartMs - triggerTime);
-              if (awayMs >= 2000) {
-                const triggerLabel =
-                  lastSeg.trigger === "tab_switch"
-                    ? "Switched tab"
-                    : "Went idle";
-                const triggerDotColor =
-                  lastSeg.trigger === "tab_switch"
-                    ? "bg-yellow-400"
-                    : "bg-orange-400";
-                const triggerTextColor =
-                  lastSeg.trigger === "tab_switch"
-                    ? "text-yellow-400"
-                    : "text-orange-400";
-                timeline.push({
-                  label: triggerLabel,
-                  durationMs: awayMs,
-                  time: fmtTime(lastSeg.created_at),
-                  dotColor: triggerDotColor,
-                  textColor: triggerTextColor,
-                });
-              }
+              const triggerLabel =
+                lastSeg.trigger === "tab_switch"
+                  ? "Switched tab"
+                  : "Went idle";
+              const triggerDotColor =
+                lastSeg.trigger === "tab_switch"
+                  ? "bg-yellow-400"
+                  : "bg-orange-400";
+              const triggerTextColor =
+                lastSeg.trigger === "tab_switch"
+                  ? "text-yellow-400"
+                  : "text-orange-400";
+              timeline.push({
+                label: triggerLabel,
+                durationMs: awayMs,
+                time: fmtTime(lastSeg.created_at),
+                dotColor: triggerDotColor,
+                textColor: triggerTextColor,
+              });
             }
 
             const label =
