@@ -208,9 +208,13 @@ export default function CampaignWizard({
   );
 
   const handleTemplateSelect = useCallback(
-    (index: number, templateId: string) => {
-      const tmpl = templates.find((t) => t.id === templateId);
-      if (tmpl) {
+    async (index: number, templateId: string) => {
+      if (!templateId) return;
+      try {
+        // Fetch full template (list endpoint omits html_content for performance)
+        const tmpl = await apiFetch<EmailTemplate>(
+          `/marketing/admin/templates/${templateId}`,
+        );
         setVariants((prev) =>
           prev.map((v, i) =>
             i === index
@@ -222,9 +226,11 @@ export default function CampaignWizard({
               : v,
           ),
         );
+      } catch {
+        // silently fail — template list still works
       }
     },
-    [templates],
+    [],
   );
 
   // ─── Submit ──────────────────────────────────────────────
