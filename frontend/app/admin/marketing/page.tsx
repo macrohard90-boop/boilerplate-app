@@ -9,6 +9,8 @@ import LoadingSpinner from "../../../components/LoadingSpinner";
 import Pagination from "../../../components/Pagination";
 import Modal from "../../../components/Modal";
 import { formatDate, formatRelativeTime, truncate } from "../../../lib/format";
+import type { SelectedAudience } from "../../../components/AudienceSelector";
+import type { SegmentFilters } from "../../../components/SegmentBuilder";
 
 const TemplateEditor = dynamic(
   () => import("../../../components/TemplateEditor"),
@@ -126,6 +128,241 @@ interface AudienceResponse {
   count: number;
   recipients: AudienceRecipient[];
 }
+
+// ── Campaign Suggestions ────────────────────────────────
+
+interface CampaignSuggestion {
+  id: string;
+  name: string;
+  description: string;
+  audience: string;
+  filters: SegmentFilters;
+  subjectLine: string;
+  category: "retention" | "acquisition" | "engagement" | "recovery";
+}
+
+const CAMPAIGN_SUGGESTIONS: CampaignSuggestion[] = [
+  {
+    id: "win-back-at-risk",
+    name: "Win Back At-Risk Customers",
+    description:
+      "Re-engage customers who were once active but haven't purchased recently.",
+    audience: "At-risk (RFM)",
+    filters: { rfm_segment: ["at_risk"] },
+    subjectLine: "We miss you! Come back for 20% off",
+    category: "retention",
+  },
+  {
+    id: "reward-champions",
+    name: "Reward Your Champions",
+    description: "Exclusive perks for your highest-value repeat customers.",
+    audience: "Champions (RFM)",
+    filters: { rfm_segment: ["champion"] },
+    subjectLine: "VIP exclusive: early access to new arrivals",
+    category: "engagement",
+  },
+  {
+    id: "welcome-new",
+    name: "Welcome New Customers",
+    description:
+      "Greet customers who signed up in the last 7 days with a warm intro.",
+    audience: "New signups (7d)",
+    filters: { rfm_segment: ["new"], signup_days_max: 7 },
+    subjectLine: "Welcome! Here's what to explore first",
+    category: "acquisition",
+  },
+  {
+    id: "hibernating-reactivation",
+    name: "Re-engage Hibernating Users",
+    description: "Bring back users who went quiet after a period of activity.",
+    audience: "Hibernating (RFM)",
+    filters: { rfm_segment: ["hibernating"] },
+    subjectLine: "It's been a while — here's what you've missed",
+    category: "retention",
+  },
+  {
+    id: "potential-loyalist-nudge",
+    name: "Convert Potential Loyalists",
+    description:
+      "Push users on the edge of becoming loyal with a targeted incentive.",
+    audience: "Potential loyalists (RFM)",
+    filters: { rfm_segment: ["potential_loyalist"] },
+    subjectLine: "You're almost VIP — one more order unlocks rewards",
+    category: "engagement",
+  },
+  {
+    id: "cart-abandonment",
+    name: "Cart Abandonment Recovery",
+    description:
+      "Recover revenue from users who added items but didn't check out.",
+    audience: "Abandoned carts",
+    filters: { cart_status: "abandoned" },
+    subjectLine: "You left something behind!",
+    category: "recovery",
+  },
+  {
+    id: "first-purchase-nudge",
+    name: "First Purchase Nudge",
+    description:
+      "Encourage registered users who haven't bought yet to make their first order.",
+    audience: "No orders, 3+ days old",
+    filters: { has_orders: false, signup_days_min: 3 },
+    subjectLine: "Ready to make your first order?",
+    category: "acquisition",
+  },
+  {
+    id: "mobile-experience",
+    name: "Mobile User Engagement",
+    description:
+      "Target mobile shoppers with mobile-optimized offers and features.",
+    audience: "Mobile users",
+    filters: { device_type: ["mobile"] },
+    subjectLine: "Our mobile experience just got better",
+    category: "engagement",
+  },
+  {
+    id: "high-value-appreciation",
+    name: "High-Value Customer Thank You",
+    description:
+      "Show appreciation to customers who've spent over $100 lifetime.",
+    audience: "Spent $100+",
+    filters: { total_spent_min: 10000 },
+    subjectLine: "Thank you for being a loyal customer",
+    category: "retention",
+  },
+  {
+    id: "repeat-buyer-upsell",
+    name: "Repeat Buyer Upsell",
+    description:
+      "Cross-sell to customers with 3+ orders based on their purchase history.",
+    audience: "3+ orders",
+    filters: { order_count_min: 3 },
+    subjectLine: "Based on your purchases, you'll love these",
+    category: "engagement",
+  },
+  {
+    id: "recent-buyer-review",
+    name: "Recent Buyer Review Request",
+    description:
+      "Ask customers who purchased in the last 7 days to leave a review.",
+    audience: "Purchased within 7d",
+    filters: { last_purchase_days_max: 7 },
+    subjectLine: "How was your recent order?",
+    category: "engagement",
+  },
+  {
+    id: "inactive-reactivation",
+    name: "90-Day Inactive Reactivation",
+    description:
+      "Re-engage users inactive for 90+ days with a compelling comeback offer.",
+    audience: "90d inactive",
+    filters: { last_purchase_days_max: 90, signup_days_min: 90 },
+    subjectLine: "Come back — we've added new items just for you",
+    category: "retention",
+  },
+  {
+    id: "high-intent-no-purchase",
+    name: "High Intent No Purchase",
+    description:
+      "Convert browsers who viewed 5+ products in 7 days but haven't bought.",
+    audience: "5+ views, no orders",
+    filters: {
+      event_type: ["product_viewed"],
+      event_min_count: 5,
+      event_days_lookback: 7,
+      has_orders: false,
+    },
+    subjectLine: "Still deciding? Here's something to help",
+    category: "recovery",
+  },
+  {
+    id: "checkout-abandonment",
+    name: "Checkout Abandonment Recovery",
+    description: "Re-engage users who started checkout but didn't complete it.",
+    audience: "Checkout abandoned (7d)",
+    filters: {
+      event_type: ["checkout_abandoned"],
+      event_min_count: 1,
+      event_days_lookback: 7,
+    },
+    subjectLine: "Complete your order — your items are waiting",
+    category: "recovery",
+  },
+  {
+    id: "search-active-browsers",
+    name: "Active Searchers Outreach",
+    description:
+      "Help users who've searched 3+ times in 14 days find what they need.",
+    audience: "3+ searches (14d)",
+    filters: {
+      event_type: ["search_performed"],
+      event_min_count: 3,
+      event_days_lookback: 14,
+    },
+    subjectLine: "Looking for something specific? Let us help",
+    category: "engagement",
+  },
+  {
+    id: "verified-engaged",
+    name: "Verified & Engaged Members",
+    description: "Reward verified users with 5+ sessions for their engagement.",
+    audience: "Verified, 5+ sessions",
+    filters: { is_verified: true, min_sessions: 5 },
+    subjectLine: "Thanks for being an active member",
+    category: "engagement",
+  },
+  {
+    id: "day-one-welcome",
+    name: "Day-One Welcome Email",
+    description: "Immediate welcome email for users who just signed up today.",
+    audience: "Signed up today",
+    filters: { signup_days_max: 1 },
+    subjectLine: "Welcome to the family!",
+    category: "acquisition",
+  },
+  {
+    id: "lost-customer-winback",
+    name: "Lost Customer Win-Back",
+    description:
+      "Last-chance offer for customers who've gone completely dormant.",
+    audience: "Lost (RFM)",
+    filters: { rfm_segment: ["lost"] },
+    subjectLine: "We want you back — here's an exclusive offer",
+    category: "retention",
+  },
+  {
+    id: "add-to-cart-no-buy",
+    name: "Add-to-Cart Reminder",
+    description:
+      "Nudge users who added items to cart in the last 3 days but didn't purchase.",
+    audience: "Added to cart (3d), no orders",
+    filters: {
+      event_type: ["add_to_cart"],
+      event_min_count: 1,
+      event_days_lookback: 3,
+      has_orders: false,
+    },
+    subjectLine: "Your cart is calling — items sell fast!",
+    category: "recovery",
+  },
+  {
+    id: "loyal-customer-exclusive",
+    name: "Loyal Customer Exclusive",
+    description:
+      "Give loyal customers an exclusive preview or discount to reinforce loyalty.",
+    audience: "Loyal (RFM)",
+    filters: { rfm_segment: ["loyal"] },
+    subjectLine: "A special something for our loyal customers",
+    category: "retention",
+  },
+];
+
+const CATEGORY_COLORS: Record<string, string> = {
+  retention: "text-accent-purple",
+  acquisition: "text-accent-green",
+  engagement: "text-accent-blue",
+  recovery: "text-accent-pink",
+};
 
 // ── Helpers ─────────────────────────────────────────────
 
@@ -802,8 +1039,24 @@ function CampaignsTab() {
   const [statusFilter, setStatusFilter] = useState("");
   const [loading, setLoading] = useState(true);
   const [wizardMode, setWizardMode] = useState(false);
+  const [wizardInitial, setWizardInitial] = useState<{
+    audience: SelectedAudience;
+    name: string;
+  } | null>(null);
   const [statsModal, setStatsModal] = useState<CampaignStats | null>(null);
   const [statsName, setStatsName] = useState("");
+
+  // Suggestion carousel state
+  const [suggestionIdx, setSuggestionIdx] = useState(0);
+  const [suggestionPaused, setSuggestionPaused] = useState(false);
+  const [loadingSuggestion, setLoadingSuggestion] = useState<string | null>(
+    null,
+  );
+
+  // Active campaign names for dedup (draft + scheduled)
+  const [activeCampaignNames, setActiveCampaignNames] = useState<Set<string>>(
+    new Set(),
+  );
 
   const perPage = 15;
 
@@ -826,9 +1079,59 @@ function CampaignsTab() {
     setLoading(false);
   }, [page, statusFilter, showToast]);
 
+  // Fetch active campaign names for dedup
+  const fetchActiveNames = useCallback(async () => {
+    try {
+      const [drafts, scheduled] = await Promise.all([
+        apiFetch<CampaignList>(
+          "/marketing/admin/campaigns?status=draft&per_page=100",
+        ),
+        apiFetch<CampaignList>(
+          "/marketing/admin/campaigns?status=scheduled&per_page=100",
+        ),
+      ]);
+      setActiveCampaignNames(
+        new Set([
+          ...drafts.items.map((c) => c.name),
+          ...scheduled.items.map((c) => c.name),
+        ]),
+      );
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
   useEffect(() => {
     fetchCampaigns();
   }, [fetchCampaigns]);
+
+  useEffect(() => {
+    fetchActiveNames();
+  }, [fetchActiveNames]);
+
+  // Filter suggestions: hide ones that match an active campaign name
+  const availableSuggestions = CAMPAIGN_SUGGESTIONS.filter(
+    (s) => !activeCampaignNames.has(s.name),
+  );
+
+  // Auto-cycle suggestions every 6s
+  useEffect(() => {
+    if (availableSuggestions.length <= 1 || suggestionPaused) return;
+    const timer = setInterval(() => {
+      setSuggestionIdx((i) => (i + 1) % availableSuggestions.length);
+    }, 6000);
+    return () => clearInterval(timer);
+  }, [availableSuggestions.length, suggestionPaused]);
+
+  // Keep index in range when list changes
+  useEffect(() => {
+    if (
+      availableSuggestions.length > 0 &&
+      suggestionIdx >= availableSuggestions.length
+    ) {
+      setSuggestionIdx(0);
+    }
+  }, [availableSuggestions.length, suggestionIdx]);
 
   async function handleSend(id: string) {
     if (!confirm("Send this campaign now?")) return;
@@ -866,19 +1169,53 @@ function CampaignsTab() {
     }
   }
 
+  async function handleUseSuggestion(s: CampaignSuggestion) {
+    setLoadingSuggestion(s.id);
+    try {
+      const preview = await apiFetch<{ count: number }>(
+        "/marketing/admin/segments/preview",
+        {
+          method: "POST",
+          body: JSON.stringify({ filters: s.filters }),
+        },
+      );
+      setWizardInitial({
+        audience: {
+          label: s.audience,
+          filters: s.filters,
+          userCount: preview.count,
+        },
+        name: s.name,
+      });
+      setWizardMode(true);
+    } catch {
+      showToast("Failed to load audience preview", "error");
+    }
+    setLoadingSuggestion(null);
+  }
+
   // ─── Wizard mode: render inline wizard (audience-first) ───
   if (wizardMode) {
     return (
       <CampaignWizard
-        onClose={() => setWizardMode(false)}
+        onClose={() => {
+          setWizardMode(false);
+          setWizardInitial(null);
+        }}
         onCreated={() => {
           setWizardMode(false);
+          setWizardInitial(null);
           showToast("Campaign created", "success");
           fetchCampaigns();
+          fetchActiveNames();
         }}
+        initialAudience={wizardInitial?.audience}
+        initialName={wizardInitial?.name}
       />
     );
   }
+
+  const currentSuggestion = availableSuggestions[suggestionIdx];
 
   return (
     <>
@@ -910,6 +1247,102 @@ function CampaignsTab() {
           + New Campaign
         </button>
       </div>
+
+      {/* Campaign Suggestions — shown when < 5 total campaigns */}
+      {!loading &&
+        total < 5 &&
+        availableSuggestions.length > 0 &&
+        currentSuggestion && (
+          <div
+            className="glass rounded-xl p-5 mb-5"
+            onMouseEnter={() => setSuggestionPaused(true)}
+            onMouseLeave={() => setSuggestionPaused(false)}
+          >
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-semibold text-text-primary">
+                Campaign Ideas
+              </h3>
+              <span className="text-xs text-text-muted">
+                {suggestionIdx + 1} of {availableSuggestions.length}
+              </span>
+            </div>
+
+            <div className="flex items-start gap-4">
+              {/* Content */}
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-text-primary font-medium">
+                    {currentSuggestion.name}
+                  </span>
+                  <span
+                    className={`text-xs font-medium ${CATEGORY_COLORS[currentSuggestion.category] || "text-text-muted"}`}
+                  >
+                    {currentSuggestion.category}
+                  </span>
+                </div>
+                <p className="text-sm text-text-secondary mb-2">
+                  {currentSuggestion.description}
+                </p>
+                <div className="flex items-center gap-3 text-xs text-text-muted">
+                  <span>
+                    Audience:{" "}
+                    <span className="text-text-secondary">
+                      {currentSuggestion.audience}
+                    </span>
+                  </span>
+                  <span className="text-text-muted/30">|</span>
+                  <span>
+                    Subject:{" "}
+                    <span className="text-text-secondary italic">
+                      &ldquo;{truncate(currentSuggestion.subjectLine, 40)}
+                      &rdquo;
+                    </span>
+                  </span>
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  onClick={() => handleUseSuggestion(currentSuggestion)}
+                  disabled={loadingSuggestion === currentSuggestion.id}
+                  className="px-4 py-2 rounded-lg text-sm font-medium bg-accent-green/20 text-accent-green border border-accent-green/30 hover:bg-accent-green/30 disabled:opacity-50 transition-colors"
+                >
+                  {loadingSuggestion === currentSuggestion.id
+                    ? "Loading..."
+                    : "Use This"}
+                </button>
+                <button
+                  onClick={() =>
+                    setSuggestionIdx(
+                      (suggestionIdx + 1) % availableSuggestions.length,
+                    )
+                  }
+                  className="px-3 py-2 rounded-lg text-sm text-text-muted border border-glass-border hover:border-text-secondary hover:text-text-secondary transition-colors"
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+
+            {/* Dots */}
+            {availableSuggestions.length > 1 && (
+              <div className="flex items-center justify-center gap-1 mt-3">
+                {availableSuggestions.map((s, i) => (
+                  <button
+                    key={s.id}
+                    onClick={() => setSuggestionIdx(i)}
+                    className={`w-1.5 h-1.5 rounded-full transition-colors ${
+                      i === suggestionIdx
+                        ? "bg-accent-blue"
+                        : "bg-text-muted/30 hover:bg-text-muted/50"
+                    }`}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
       {/* Table */}
       {loading ? (

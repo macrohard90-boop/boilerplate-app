@@ -33,6 +33,8 @@ interface SendTimeSuggestion {
 interface CampaignWizardProps {
   onClose: () => void;
   onCreated: () => void;
+  initialAudience?: SelectedAudience;
+  initialName?: string;
 }
 
 // ─── Component ───────────────────────────────────────────
@@ -40,15 +42,21 @@ interface CampaignWizardProps {
 export default function CampaignWizard({
   onClose,
   onCreated,
+  initialAudience,
+  initialName,
 }: CampaignWizardProps) {
   // Phase: "audience" or "campaign"
-  const [phase, setPhase] = useState<"audience" | "campaign">("audience");
-  const [audience, setAudience] = useState<SelectedAudience | null>(null);
+  const [phase, setPhase] = useState<"audience" | "campaign">(
+    initialAudience ? "campaign" : "audience",
+  );
+  const [audience, setAudience] = useState<SelectedAudience | null>(
+    initialAudience ?? null,
+  );
 
   // Campaign form state
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
-  const [name, setName] = useState("");
+  const [name, setName] = useState(initialName ?? "");
 
   // Content & Variants
   const [variants, setVariants] = useState<Variant[]>([
