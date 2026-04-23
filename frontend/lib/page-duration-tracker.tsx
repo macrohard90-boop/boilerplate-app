@@ -187,8 +187,10 @@ export default function PageDurationTracker() {
         sendPageview(lastPath.current, activeAccum.current, "tab_switch");
         activeAccum.current = 0;
         if (idleTimer.current) clearTimeout(idleTimer.current);
-        // Send idle heartbeat when tab goes hidden
-        maybeHeartbeat("idle");
+        // Don't send an idle heartbeat here — hidden != idle.
+        // The user may be refreshing the page or briefly switching tabs.
+        // True idle is only detected after IDLE_TIMEOUT_MS of no interaction.
+        // The 90s active TTL will naturally expire if the user truly leaves.
       } else {
         // Tab visible again — resume counting
         isIdle.current = false;
