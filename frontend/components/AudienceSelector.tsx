@@ -134,84 +134,96 @@ export default function AudienceSelector({
     fetchData();
   }, []);
 
-  // ─── Build cards from fetched data ─────────────────────
+  // ─── Preset cards (always visible) ─────────────────────
 
-  const cards: AudienceCard[] = [];
-
-  if (globalInsights) {
-    // Purchase Behavior
-    const rfm = globalInsights.by_rfm_segment;
-    cards.push({
+  const presetCards: AudienceCard[] = [
+    // Audience Overview
+    {
       id: "all",
       label: "All Subscribers",
       category: "Audience Overview",
-      count: globalInsights.total_eligible,
+      count: globalInsights?.total_eligible ?? null,
       color: "text-accent-blue",
-      detail: `AOV $${globalInsights.avg_order_value}`,
+      detail: globalInsights
+        ? `AOV $${globalInsights.avg_order_value}`
+        : undefined,
       filters: {},
-    });
-    cards.push({
+    },
+    // Purchase Behavior
+    {
       id: "champions",
       label: "Champions",
       category: "Purchase Behavior",
-      count: rfm?.champion ?? null,
+      count: globalInsights?.by_rfm_segment?.champion ?? null,
       color: "text-green-400",
       detail: "High-value repeat buyers",
       filters: { rfm_segment: ["champion"] },
-    });
-    cards.push({
+    },
+    {
       id: "at_risk",
       label: "At-Risk",
       category: "Purchase Behavior",
-      count: (rfm?.at_risk ?? 0) + (rfm?.hibernating ?? 0),
+      count: globalInsights
+        ? (globalInsights.by_rfm_segment?.at_risk ?? 0) +
+          (globalInsights.by_rfm_segment?.hibernating ?? 0)
+        : null,
       color: "text-yellow-400",
       detail: "Fading engagement",
       filters: { rfm_segment: ["at_risk", "hibernating"] },
-    });
-    cards.push({
+    },
+    {
       id: "cart_abandon",
       label: "Cart Abandoners",
       category: "Purchase Behavior",
-      count: globalInsights.cart_abandonment_count,
+      count: globalInsights?.cart_abandonment_count ?? null,
       color: "text-orange-400",
       detail: "Left items in cart",
       filters: { cart_status: "abandoned" },
-    });
-    cards.push({
+    },
+    {
       id: "new_customers",
       label: "New Customers",
       category: "Purchase Behavior",
-      count: rfm?.new ?? null,
+      count: globalInsights?.by_rfm_segment?.new ?? null,
       color: "text-purple-400",
       detail: "Recently acquired",
       filters: { rfm_segment: ["new"] },
-    });
-    cards.push({
+    },
+    // Engagement
+    {
       id: "active_30d",
       label: "Active (30d)",
       category: "Engagement",
-      count: globalInsights.active_last_30_days,
+      count: globalInsights?.active_last_30_days ?? null,
       color: "text-cyan-400",
       detail: "Recent site activity",
       filters: { last_purchase_days_max: 30 },
-    });
-  }
+    },
+    {
+      id: "high_engagers",
+      label: "High Engagers",
+      category: "Engagement",
+      count: null,
+      color: "text-accent-green",
+      detail: "10+ sessions (90d)",
+      filters: { min_sessions: 10 },
+    },
+  ];
 
+  // Dynamic cards from behavior insights (device, browser) — appended when data loads
+  const dynamicCards: AudienceCard[] = [];
   if (behaviorInsights) {
-    // Dynamically create a card for each device type the system has recorded
     const deviceColors: Record<string, string> = {
       mobile: "text-accent-pink",
       desktop: "text-accent-blue",
       tablet: "text-accent-purple",
-      bot: "text-text-muted",
-      unknown: "text-text-muted",
     };
     for (const [deviceType, count] of Object.entries(
       behaviorInsights.device_breakdown,
     )) {
       if (deviceType === "bot" || deviceType === "unknown" || count === 0)
         continue;
-      cards.push({
+      dynamicCards.push({
         id: `device-${deviceType}`,
         label: `${deviceType.charAt(0).toUpperCase() + deviceType.slice(1)} Users`,
         category: "Device & Platform",
@@ -220,14 +232,12 @@ export default function AudienceSelector({
         filters: { device_type: [deviceType] },
       });
     }
-
-    // Top browsers as cards (top 3 only to avoid clutter)
     const browserEntries = Object.entries(behaviorInsights.browser_breakdown)
       .sort(([, a], [, b]) => b - a)
       .slice(0, 3);
     for (const [browser, count] of browserEntries) {
       if (count === 0) continue;
-      cards.push({
+      dynamicCards.push({
         id: `browser-${browser}`,
         label: `${browser} Users`,
         category: "Device & Platform",
@@ -236,20 +246,9 @@ export default function AudienceSelector({
         filters: { browser: [browser] },
       });
     }
-
-    // High engagers
-    if (behaviorInsights.avg_sessions_per_user > 0) {
-      cards.push({
-        id: "high_engagers",
-        label: "High Engagers",
-        category: "Engagement",
-        count: null, // will be fetched on detail
-        color: "text-accent-green",
-        detail: "10+ sessions (90d)",
-        filters: { min_sessions: 10 },
-      });
-    }
   }
+
+  const cards = [...presetCards, ...dynamicCards];
 
   // Group cards by category
   const categories = [
@@ -695,129 +694,122 @@ export default function AudienceSelector({
         </h2>
       </div>
 
-      {loading ? (
-        <div className="glass rounded-xl p-12 text-center">
-          <div className="animate-spin h-6 w-6 border-2 border-accent-blue border-t-transparent rounded-full mx-auto mb-2" />
-          <span className="text-text-muted text-sm">
-            Loading audience data...
-          </span>
-        </div>
-      ) : (
-        <>
-          {/* Categorized cards */}
-          {grouped.map((group) => (
-            <div key={group.label}>
-              <h3 className="text-xs text-text-muted font-medium uppercase tracking-wider mb-2">
-                {group.label}
-              </h3>
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3">
-                {group.items.map((card) => (
-                  <button
-                    key={card.id}
-                    type="button"
-                    onClick={() => openDetail(card)}
-                    className="glass rounded-xl p-4 text-left hover:border-accent-blue/50 border border-transparent transition-all group"
-                  >
-                    <p className="text-xs text-text-muted font-medium mb-1">
-                      {card.label}
-                    </p>
-                    <p className={`text-2xl font-bold ${card.color}`}>
-                      {card.count !== null
-                        ? card.count.toLocaleString()
-                        : "..."}
-                    </p>
-                    {card.detail && (
-                      <p className="text-xs text-text-muted mt-1 truncate">
-                        {card.detail}
-                      </p>
+      <>
+        {/* Categorized cards — always visible, counts populate as data loads */}
+        {grouped.map((group) => (
+          <div key={group.label}>
+            <h3 className="text-xs text-text-muted font-medium uppercase tracking-wider mb-2">
+              {group.label}
+            </h3>
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3">
+              {group.items.map((card) => (
+                <button
+                  key={card.id}
+                  type="button"
+                  onClick={() => openDetail(card)}
+                  className="glass rounded-xl p-4 text-left hover:border-accent-blue/50 border border-transparent transition-all group"
+                >
+                  <p className="text-xs text-text-muted font-medium mb-1">
+                    {card.label}
+                  </p>
+                  <p className={`text-2xl font-bold ${card.color}`}>
+                    {card.count !== null ? (
+                      card.count.toLocaleString()
+                    ) : loading ? (
+                      <span className="inline-block w-12 h-6 bg-glass-border/50 rounded animate-pulse" />
+                    ) : (
+                      "\u2014"
                     )}
-                    <span className="text-xs text-accent-blue opacity-0 group-hover:opacity-100 transition-opacity mt-2 block">
-                      View Details &rarr;
-                    </span>
-                  </button>
-                ))}
-              </div>
+                  </p>
+                  {card.detail && (
+                    <p className="text-xs text-text-muted mt-1 truncate">
+                      {card.detail}
+                    </p>
+                  )}
+                  <span className="text-xs text-accent-blue opacity-0 group-hover:opacity-100 transition-opacity mt-2 block">
+                    View Details &rarr;
+                  </span>
+                </button>
+              ))}
             </div>
-          ))}
+          </div>
+        ))}
 
-          {/* Saved Segments */}
-          {savedSegments.length > 0 && (
-            <div>
-              <h3 className="text-xs text-text-muted font-medium uppercase tracking-wider mb-2">
-                Saved Segments
-              </h3>
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3">
-                {savedSegments.map((seg) => (
-                  <button
-                    key={seg.id}
-                    type="button"
-                    onClick={() => openSegmentDetail(seg)}
-                    className="glass rounded-xl p-4 text-left hover:border-accent-purple/50 border border-transparent transition-all group"
-                  >
-                    <p className="text-xs text-text-muted font-medium mb-1">
-                      {seg.name}
+        {/* Saved Segments */}
+        {savedSegments.length > 0 && (
+          <div>
+            <h3 className="text-xs text-text-muted font-medium uppercase tracking-wider mb-2">
+              Saved Segments
+            </h3>
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3">
+              {savedSegments.map((seg) => (
+                <button
+                  key={seg.id}
+                  type="button"
+                  onClick={() => openSegmentDetail(seg)}
+                  className="glass rounded-xl p-4 text-left hover:border-accent-purple/50 border border-transparent transition-all group"
+                >
+                  <p className="text-xs text-text-muted font-medium mb-1">
+                    {seg.name}
+                  </p>
+                  <p className="text-2xl font-bold text-accent-purple">
+                    {seg.user_count.toLocaleString()}
+                  </p>
+                  {seg.description && (
+                    <p className="text-xs text-text-muted mt-1 truncate">
+                      {seg.description}
                     </p>
-                    <p className="text-2xl font-bold text-accent-purple">
-                      {seg.user_count.toLocaleString()}
-                    </p>
-                    {seg.description && (
-                      <p className="text-xs text-text-muted mt-1 truncate">
-                        {seg.description}
-                      </p>
-                    )}
-                    <span className="text-xs text-accent-purple opacity-0 group-hover:opacity-100 transition-opacity mt-2 block">
-                      View Details &rarr;
-                    </span>
-                  </button>
-                ))}
+                  )}
+                  <span className="text-xs text-accent-purple opacity-0 group-hover:opacity-100 transition-opacity mt-2 block">
+                    View Details &rarr;
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Build Custom Audience */}
+        <div className="glass rounded-xl overflow-hidden">
+          <button
+            type="button"
+            onClick={() => setShowCustom(!showCustom)}
+            className="w-full px-5 py-3 flex items-center justify-between text-sm font-medium text-text-primary hover:bg-glass-hover transition-colors"
+          >
+            <span>Build Custom Audience</span>
+            <span className="text-text-muted">
+              {showCustom ? "\u25B2" : "\u25BC"}
+            </span>
+          </button>
+          {showCustom && (
+            <div className="px-5 pb-5 space-y-4 border-t border-glass-border">
+              <div className="pt-4">
+                <SegmentBuilder
+                  filters={customFilters}
+                  onChange={setCustomFilters}
+                  showPreview={false}
+                />
               </div>
+              {customCount !== null && (
+                <p className="text-sm text-text-muted">
+                  <strong className="text-accent-blue">
+                    {customCount.toLocaleString()}
+                  </strong>{" "}
+                  users match
+                </p>
+              )}
+              <button
+                type="button"
+                onClick={selectCustomAudience}
+                disabled={Object.keys(cleanFilters(customFilters)).length === 0}
+                className="w-full py-2.5 rounded-lg bg-accent-blue text-white font-medium hover:bg-accent-blue/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              >
+                Use Custom Audience & Continue
+              </button>
             </div>
           )}
-
-          {/* Build Custom Audience */}
-          <div className="glass rounded-xl overflow-hidden">
-            <button
-              type="button"
-              onClick={() => setShowCustom(!showCustom)}
-              className="w-full px-5 py-3 flex items-center justify-between text-sm font-medium text-text-primary hover:bg-glass-hover transition-colors"
-            >
-              <span>Build Custom Audience</span>
-              <span className="text-text-muted">
-                {showCustom ? "\u25B2" : "\u25BC"}
-              </span>
-            </button>
-            {showCustom && (
-              <div className="px-5 pb-5 space-y-4 border-t border-glass-border">
-                <div className="pt-4">
-                  <SegmentBuilder
-                    filters={customFilters}
-                    onChange={setCustomFilters}
-                    showPreview={false}
-                  />
-                </div>
-                {customCount !== null && (
-                  <p className="text-sm text-text-muted">
-                    <strong className="text-accent-blue">
-                      {customCount.toLocaleString()}
-                    </strong>{" "}
-                    users match
-                  </p>
-                )}
-                <button
-                  type="button"
-                  onClick={selectCustomAudience}
-                  disabled={
-                    Object.keys(cleanFilters(customFilters)).length === 0
-                  }
-                  className="w-full py-2.5 rounded-lg bg-accent-blue text-white font-medium hover:bg-accent-blue/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                >
-                  Use Custom Audience & Continue
-                </button>
-              </div>
-            )}
-          </div>
-        </>
-      )}
+        </div>
+      </>
     </div>
   );
 }
