@@ -66,6 +66,8 @@ interface SendTimeSuggestion {
 interface CampaignWizardProps {
   onClose: () => void;
   onCreated: () => void;
+  /** Pre-fill the audience step with these filters (e.g., from an insight card) */
+  initialFilters?: SegmentFilters;
 }
 
 const STEPS = ["Basics", "Audience", "Content", "Tracking", "Review"];
@@ -98,6 +100,7 @@ const COACHING_TIPS: Record<number, { title: string; body: string }> = {
 export default function CampaignWizard({
   onClose,
   onCreated,
+  initialFilters,
 }: CampaignWizardProps) {
   const [step, setStep] = useState(0);
   const [showTips, setShowTips] = useState(() => {
@@ -113,8 +116,10 @@ export default function CampaignWizard({
   // Step 2: Audience
   const [segments, setSegments] = useState<Segment[]>([]);
   const [selectedSegmentId, setSelectedSegmentId] = useState<string>("");
-  const [customFilters, setCustomFilters] = useState<SegmentFilters>({});
-  const [useCustom, setUseCustom] = useState(false);
+  const [customFilters, setCustomFilters] = useState<SegmentFilters>(
+    initialFilters || {},
+  );
+  const [useCustom, setUseCustom] = useState(!!initialFilters);
   const [globalInsights, setGlobalInsights] = useState<GlobalInsights | null>(
     null,
   );
@@ -377,59 +382,60 @@ export default function CampaignWizard({
   const selectedSegment = segments.find((s) => s.id === selectedSegmentId);
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
-      <div className="bg-glass-bg border border-glass-border rounded-xl w-full max-w-6xl max-h-[90vh] flex flex-col overflow-hidden">
-        {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-glass-border">
-          <div className="flex items-center gap-4">
-            <h2 className="text-lg font-semibold text-text-primary">
-              Create Campaign
-            </h2>
-            {/* Step indicator */}
-            <div className="flex items-center gap-1">
-              {STEPS.map((s, i) => (
-                <div key={s} className="flex items-center">
-                  <button
-                    type="button"
-                    onClick={() => i < step && setStep(i)}
-                    disabled={i > step}
-                    className={`text-xs px-2.5 py-1 rounded-full transition-colors ${
-                      i === step
-                        ? "bg-accent-blue/20 text-accent-blue font-medium"
-                        : i < step
-                          ? "text-accent-green cursor-pointer hover:text-accent-green/80"
-                          : "text-text-muted/40"
-                    }`}
-                  >
-                    {i < step ? "\u2713" : i + 1}. {s}
-                  </button>
-                  {i < STEPS.length - 1 && (
-                    <span className="text-text-muted/30 mx-0.5">&rarr;</span>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-          <div className="flex items-center gap-3">
-            <label className="flex items-center gap-1.5 text-xs text-text-muted cursor-pointer">
-              <input
-                type="checkbox"
-                checked={showTips}
-                onChange={(e) => setShowTips(e.target.checked)}
-                className="rounded border-glass-border"
-              />
-              Tips
-            </label>
-            <button
-              type="button"
-              onClick={onClose}
-              className="text-text-muted hover:text-text-primary text-lg"
-            >
-              &times;
-            </button>
-          </div>
+    <div className="space-y-0">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-4">
+          <button
+            type="button"
+            onClick={onClose}
+            className="text-sm text-text-muted hover:text-text-primary transition-colors"
+          >
+            &larr; Back to Campaigns
+          </button>
+          <span className="text-text-muted/30">|</span>
+          <h2 className="text-lg font-semibold text-text-primary">
+            Create Campaign
+          </h2>
         </div>
+        <div className="flex items-center gap-3">
+          {/* Step indicator */}
+          <div className="flex items-center gap-1">
+            {STEPS.map((s, i) => (
+              <div key={s} className="flex items-center">
+                <button
+                  type="button"
+                  onClick={() => i < step && setStep(i)}
+                  disabled={i > step}
+                  className={`text-xs px-2.5 py-1 rounded-full transition-colors ${
+                    i === step
+                      ? "bg-accent-blue/20 text-accent-blue font-medium"
+                      : i < step
+                        ? "text-accent-green cursor-pointer hover:text-accent-green/80"
+                        : "text-text-muted/40"
+                  }`}
+                >
+                  {i < step ? "\u2713" : i + 1}. {s}
+                </button>
+                {i < STEPS.length - 1 && (
+                  <span className="text-text-muted/30 mx-0.5">&rarr;</span>
+                )}
+              </div>
+            ))}
+          </div>
+          <label className="flex items-center gap-1.5 text-xs text-text-muted cursor-pointer">
+            <input
+              type="checkbox"
+              checked={showTips}
+              onChange={(e) => setShowTips(e.target.checked)}
+              className="rounded border-glass-border"
+            />
+            Tips
+          </label>
+        </div>
+      </div>
 
+      <div className="glass rounded-xl flex flex-col overflow-hidden min-h-[600px]">
         {/* Body */}
         <div className="flex-1 flex overflow-hidden">
           {/* Main content area */}
