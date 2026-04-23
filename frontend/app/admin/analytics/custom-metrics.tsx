@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Editor from "react-simple-code-editor";
 import Prism from "prismjs";
 import "prismjs/components/prism-sql";
@@ -28,6 +28,8 @@ interface SavedMetric {
   created_by: string;
   created_at: string;
   updated_at: string;
+  group_name: string | null;
+  display_order: number;
 }
 
 interface QueryResult {
@@ -352,6 +354,8 @@ export default function CustomMetricsTab() {
   const [vizType, setVizType] = useState("table");
   const [showSchema, setShowSchema] = useState(false);
 
+  const [groupName, setGroupName] = useState("");
+
   // Execution state
   const [running, setRunning] = useState(false);
   const [result, setResult] = useState<QueryResult | null>(null);
@@ -363,6 +367,13 @@ export default function CustomMetricsTab() {
   const [metricResults, setMetricResults] = useState<
     Record<string, QueryResult>
   >({});
+
+  // Grouping and drag-and-drop state
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(
+    new Set(),
+  );
+  const [dragItem, setDragItem] = useState<string | null>(null);
+  const [dragOverItem, setDragOverItem] = useState<string | null>(null);
 
   // ── Fetch saved metrics ──────────────────────────────
 
@@ -382,6 +393,120 @@ export default function CustomMetricsTab() {
   useEffect(() => {
     fetchMetrics();
   }, [fetchMetrics]);
+
+  // ── Grouped metrics ────────────────────────────────
+
+  const existingGroups = useMemo(
+    () =>
+      Array.from(
+        new Set(metrics.map((m) => m.group_name).filter(Boolean) as string[]),
+      ),
+    [metrics],
+  );
+
+  const groupedMetrics = useMemo(() => {
+    const groups = new Map<string, SavedMetric[]>();
+    for (const m of metrics) {
+      const key = m.group_name || "__ungrouped__";
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key)!.push(m);
+    }
+    Array.from(groups.values()).forEach((items) => {
+      items.sort((a, b) => a.display_order - b.display_order);
+    });
+    const sortedKeys = Array.from(groups.keys()).sort((a, b) => {
+      if (a === "__ungrouped__") return 1;
+      if (b === "__ungrouped__") return -1;
+      return a.localeCompare(b);
+    });
+    return sortedKeys.map((key) => ({
+      key,
+      displayName: key === "__ungrouped__" ? "Ungrouped" : key,
+      metrics: groups.get(key)!,
+    }));
+  }, [metrics]);
+
+  // ── Drag-and-drop handlers ─────────────────────────
+
+  const handleDragStart = (e: React.DragEvent, metricId: string) => {
+    setDragItem(metricId);
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("text/plain", metricId);
+  };
+
+  const handleDragOver = (e: React.DragEvent, metricId: string) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    setDragOverItem(metricId);
+  };
+
+  const handleDragOverGroup = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    setDragOverItem(null);
+  };
+
+  const handleDrop = async (
+    e: React.DragEvent,
+    targetMetricId: string | null,
+    targetGroupKey: string,
+  ) => {
+    e.preventDefault();
+    if (!dragItem) return;
+    const targetGroup =
+      targetGroupKey === "__ungrouped__" ? null : targetGroupKey;
+    const dragged = metrics.find((m) => m.id === dragItem);
+    if (!dragged) return;
+
+    const without = metrics.filter((m) => m.id !== dragItem);
+    const updatedDragged = { ...dragged, group_name: targetGroup };
+
+    if (targetMetricId) {
+      const idx = without.findIndex((m) => m.id === targetMetricId);
+      without.splice(idx, 0, updatedDragged);
+    } else {
+      const groupItems = without.filter(
+        (m) => (m.group_name || null) === targetGroup,
+      );
+      const last = groupItems[groupItems.length - 1];
+      const insertIdx = last ? without.indexOf(last) + 1 : without.length;
+      without.splice(insertIdx, 0, updatedDragged);
+    }
+
+    // Recalculate display_order per group
+    const counters = new Map<string | null, number>();
+    const reordered = without.map((m) => {
+      const gk = m.group_name || null;
+      const order = counters.get(gk) || 0;
+      counters.set(gk, order + 1);
+      return { ...m, display_order: order };
+    });
+
+    setMetrics(reordered);
+    setDragItem(null);
+    setDragOverItem(null);
+
+    // Persist
+    try {
+      await apiFetch("/tracking/admin/metrics/reorder", {
+        method: "PUT",
+        body: JSON.stringify({
+          items: reordered.map((m) => ({
+            id: m.id,
+            group_name: m.group_name,
+            display_order: m.display_order,
+          })),
+        }),
+      });
+    } catch {
+      fetchMetrics();
+    }
+  };
+
+  const handleDragEnd = () => {
+    setDragItem(null);
+    setDragOverItem(null);
+  };
 
   // ── Execute query ────────────────────────────────────
 
@@ -440,6 +565,7 @@ export default function CustomMetricsTab() {
             description,
             sql_query: sql,
             visualization_type: vizType,
+            group_name: groupName || "",
           }),
         });
       } else {
@@ -450,6 +576,7 @@ export default function CustomMetricsTab() {
             description,
             sql_query: sql,
             visualization_type: vizType,
+            group_name: groupName || null,
           }),
         });
       }
@@ -487,6 +614,7 @@ export default function CustomMetricsTab() {
     setName("");
     setDescription("");
     setVizType("table");
+    setGroupName("");
     setEditingId(null);
     setResult(null);
     setError("");
@@ -502,6 +630,7 @@ export default function CustomMetricsTab() {
     setName(m.name);
     setDescription(m.description);
     setVizType(m.visualization_type);
+    setGroupName(m.group_name || "");
     setEditingId(m.id);
     setResult(null);
     setError("");
@@ -609,8 +738,8 @@ export default function CustomMetricsTab() {
               </button>
             </div>
 
-            {/* Name / description inputs */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {/* Name / description / group inputs */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <input
                 type="text"
                 value={name}
@@ -625,6 +754,21 @@ export default function CustomMetricsTab() {
                 placeholder="Description (optional)"
                 className="input-glass text-sm"
               />
+              <div className="relative">
+                <input
+                  type="text"
+                  list="metric-groups"
+                  value={groupName}
+                  onChange={(e) => setGroupName(e.target.value)}
+                  placeholder="Group (optional)"
+                  className="input-glass text-sm w-full"
+                />
+                <datalist id="metric-groups">
+                  {existingGroups.map((g) => (
+                    <option key={g} value={g} />
+                  ))}
+                </datalist>
+              </div>
             </div>
 
             {/* Error */}
@@ -785,93 +929,177 @@ export default function CustomMetricsTab() {
         </div>
       )}
 
-      {/* Saved metrics list */}
+      {/* Saved metrics — grouped with drag-and-drop */}
       {metrics.length > 0 && (
-        <div className="space-y-3">
+        <div className="space-y-4">
           <h3 className="text-sm font-semibold text-text-primary">
             Saved Metrics ({metrics.length})
           </h3>
-          {metrics.map((m) => (
-            <div key={m.id} className="glass rounded-xl overflow-hidden">
-              <div className="p-4">
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="text-text-muted">
-                        <VizIcon type={m.visualization_type} />
-                      </span>
-                      <h4 className="text-sm font-medium text-text-primary truncate">
-                        {m.name}
-                      </h4>
-                    </div>
-                    {m.description && (
-                      <p className="text-xs text-text-muted mt-1 line-clamp-1">
-                        {m.description}
-                      </p>
-                    )}
-                    <p className="text-xs text-text-muted mt-1 font-mono line-clamp-1 opacity-60">
-                      {m.sql_query}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    <button
-                      onClick={() => runMetricInline(m)}
-                      disabled={runningMetricId === m.id}
-                      className="text-xs text-accent-purple hover:text-accent-pink transition-colors disabled:opacity-50"
-                    >
-                      {runningMetricId === m.id ? "Running..." : "Run"}
-                    </button>
-                    <button
-                      onClick={() => openEdit(m)}
-                      className="text-xs text-text-muted hover:text-text-secondary transition-colors"
-                    >
-                      Edit
-                    </button>
-                    <button
-                      onClick={() => deleteMetric(m.id)}
-                      className="text-xs text-text-muted hover:text-accent-pink transition-colors"
-                    >
-                      Delete
-                    </button>
-                  </div>
-                </div>
-              </div>
+          {groupedMetrics.map((group) => {
+            const isCollapsed = collapsedGroups.has(group.key);
+            return (
+              <div
+                key={group.key}
+                className="space-y-2"
+                onDragOver={(e) => handleDragOverGroup(e)}
+                onDrop={(e) => handleDrop(e, null, group.key)}
+              >
+                {/* Group header */}
+                <button
+                  onClick={() =>
+                    setCollapsedGroups((prev) => {
+                      const next = new Set(prev);
+                      next.has(group.key)
+                        ? next.delete(group.key)
+                        : next.add(group.key);
+                      return next;
+                    })
+                  }
+                  className="w-full flex items-center gap-2 py-1.5 text-left group"
+                >
+                  <span className="text-text-muted text-xs">
+                    {isCollapsed ? "\u25B6" : "\u25BC"}
+                  </span>
+                  <span className="text-sm font-semibold text-text-primary">
+                    {group.displayName}
+                  </span>
+                  <span className="text-xs text-text-muted">
+                    ({group.metrics.length})
+                  </span>
+                </button>
 
-              {/* Inline results */}
-              {metricResults[m.id] && (
-                <div className="px-4 pb-4 border-t border-glass-border/30 pt-3">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs text-text-muted">
-                      {metricResults[m.id].row_count} row
-                      {metricResults[m.id].row_count !== 1 ? "s" : ""} in{" "}
-                      {metricResults[m.id].execution_time_ms}ms
-                      {metricResults[m.id].cached && (
-                        <span className="ml-1 text-accent-purple">
-                          (cached)
-                        </span>
-                      )}
-                    </span>
-                    <button
-                      onClick={() =>
-                        setMetricResults((prev) => {
-                          const next = { ...prev };
-                          delete next[m.id];
-                          return next;
-                        })
-                      }
-                      className="text-xs text-text-muted hover:text-text-secondary"
+                {/* Metrics in group */}
+                {!isCollapsed &&
+                  group.metrics.map((m) => (
+                    <div
+                      key={m.id}
+                      draggable
+                      onDragStart={(e) => handleDragStart(e, m.id)}
+                      onDragOver={(e) => handleDragOver(e, m.id)}
+                      onDrop={(e) => {
+                        e.stopPropagation();
+                        handleDrop(e, m.id, group.key);
+                      }}
+                      onDragEnd={handleDragEnd}
+                      className={`glass rounded-xl overflow-hidden transition-all ${
+                        dragItem === m.id ? "opacity-40" : ""
+                      } ${
+                        dragOverItem === m.id
+                          ? "ring-2 ring-accent-blue ring-offset-1 ring-offset-transparent"
+                          : ""
+                      }`}
                     >
-                      Close
-                    </button>
+                      <div className="p-4">
+                        <div className="flex items-start justify-between gap-4">
+                          {/* Drag handle */}
+                          <div className="flex items-center shrink-0 pt-0.5 cursor-grab active:cursor-grabbing text-text-muted/40 hover:text-text-muted">
+                            <svg
+                              width="12"
+                              height="16"
+                              viewBox="0 0 12 16"
+                              fill="currentColor"
+                            >
+                              <circle cx="3" cy="2" r="1.3" />
+                              <circle cx="9" cy="2" r="1.3" />
+                              <circle cx="3" cy="8" r="1.3" />
+                              <circle cx="9" cy="8" r="1.3" />
+                              <circle cx="3" cy="14" r="1.3" />
+                              <circle cx="9" cy="14" r="1.3" />
+                            </svg>
+                          </div>
+
+                          {/* Content */}
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <span className="text-text-muted">
+                                <VizIcon type={m.visualization_type} />
+                              </span>
+                              <h4 className="text-sm font-medium text-text-primary truncate">
+                                {m.name}
+                              </h4>
+                            </div>
+                            {m.description && (
+                              <p className="text-xs text-text-muted mt-1 line-clamp-1">
+                                {m.description}
+                              </p>
+                            )}
+                            <p className="text-xs text-text-muted mt-1 font-mono line-clamp-1 opacity-60">
+                              {m.sql_query}
+                            </p>
+                          </div>
+
+                          {/* Actions */}
+                          <div className="flex items-center gap-2 shrink-0">
+                            <button
+                              onClick={() => runMetricInline(m)}
+                              disabled={runningMetricId === m.id}
+                              className="text-xs text-accent-purple hover:text-accent-pink transition-colors disabled:opacity-50"
+                            >
+                              {runningMetricId === m.id ? "Running..." : "Run"}
+                            </button>
+                            <button
+                              onClick={() => openEdit(m)}
+                              className="text-xs text-text-muted hover:text-text-secondary transition-colors"
+                            >
+                              Edit
+                            </button>
+                            <button
+                              onClick={() => deleteMetric(m.id)}
+                              className="text-xs text-text-muted hover:text-accent-pink transition-colors"
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Inline results */}
+                      {metricResults[m.id] && (
+                        <div className="px-4 pb-4 border-t border-glass-border/30 pt-3">
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-xs text-text-muted">
+                              {metricResults[m.id].row_count} row
+                              {metricResults[m.id].row_count !== 1
+                                ? "s"
+                                : ""}{" "}
+                              in {metricResults[m.id].execution_time_ms}ms
+                              {metricResults[m.id].cached && (
+                                <span className="ml-1 text-accent-purple">
+                                  (cached)
+                                </span>
+                              )}
+                            </span>
+                            <button
+                              onClick={() =>
+                                setMetricResults((prev) => {
+                                  const next = { ...prev };
+                                  delete next[m.id];
+                                  return next;
+                                })
+                              }
+                              className="text-xs text-text-muted hover:text-text-secondary"
+                            >
+                              Close
+                            </button>
+                          </div>
+                          <ResultsView
+                            result={metricResults[m.id]}
+                            vizType={m.visualization_type}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  ))}
+
+                {/* Empty group drop zone */}
+                {!isCollapsed && group.metrics.length === 0 && (
+                  <div className="glass rounded-xl p-4 text-center text-text-muted text-xs border-2 border-dashed border-glass-border">
+                    Drop metrics here
                   </div>
-                  <ResultsView
-                    result={metricResults[m.id]}
-                    vizType={m.visualization_type}
-                  />
-                </div>
-              )}
-            </div>
-          ))}
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
 

@@ -377,6 +377,7 @@ class SavedMetricCreate(BaseModel):
     visualization_type: str = Field(
         "table", pattern=r"^(table|line_chart|bar_chart|number)$"
     )
+    group_name: str | None = Field(None, max_length=100)
 
 
 class SavedMetricUpdate(BaseModel):
@@ -386,6 +387,7 @@ class SavedMetricUpdate(BaseModel):
     visualization_type: str | None = Field(
         None, pattern=r"^(table|line_chart|bar_chart|number)$"
     )
+    group_name: str | None = Field(None, max_length=100)
 
 
 class SavedMetricResponse(BaseModel):
@@ -397,11 +399,23 @@ class SavedMetricResponse(BaseModel):
     created_by: str
     created_at: datetime
     updated_at: datetime
+    group_name: str | None = None
+    display_order: int = 0
 
 
 class SavedMetricList(BaseModel):
     metrics: list[SavedMetricResponse] = []
     total: int
+
+
+class MetricReorderItem(BaseModel):
+    id: str
+    group_name: str | None = None
+    display_order: int = Field(..., ge=0)
+
+
+class MetricReorderRequest(BaseModel):
+    items: list[MetricReorderItem] = Field(..., min_length=1, max_length=500)
 
 
 class QueryExecuteRequest(BaseModel):

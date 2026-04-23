@@ -18,6 +18,7 @@ from backend.core.database import get_db
 from backend.core.dependencies import get_current_user, require_role
 from backend.core.redis import get_redis
 from modules.tracking.models.schemas import (
+    MetricReorderRequest,
     QueryExecuteRequest,
     QueryExecuteResponse,
     SavedMetricCreate,
@@ -143,12 +144,13 @@ async def execute_query(
 
 @router.get("/", response_model=SavedMetricList)
 async def list_metrics(db: AsyncSession = Depends(get_db)):
-    """List all saved metrics."""
+    """List all saved metrics, grouped and ordered."""
     result = await db.execute(
         text(
             "SELECT id, name, description, sql_query, visualization_type, "
-            "created_by, created_at, updated_at "
-            "FROM analytics.saved_metrics ORDER BY created_at DESC"
+            "created_by, created_at, updated_at, group_name, display_order "
+            "FROM analytics.saved_metrics "
+            "ORDER BY group_name NULLS LAST, display_order, created_at DESC"
         )
     )
     rows = result.fetchall()
@@ -162,6 +164,8 @@ async def list_metrics(db: AsyncSession = Depends(get_db)):
             created_by=str(r.created_by),
             created_at=r.created_at,
             updated_at=r.updated_at,
+            group_name=r.group_name,
+            display_order=r.display_order,
         )
         for r in rows
     ]
@@ -180,13 +184,25 @@ async def create_metric(
     except SQLValidationError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
+    # Auto-assign display_order as next in group
+    order_result = await db.execute(
+        text(
+            "SELECT COALESCE(MAX(display_order), -1) + 1 AS next_order "
+            "FROM analytics.saved_metrics "
+            "WHERE group_name IS NOT DISTINCT FROM :gn"
+        ),
+        {"gn": body.group_name},
+    )
+    next_order = order_result.fetchone().next_order
+
     result = await db.execute(
         text(
             "INSERT INTO analytics.saved_metrics "
-            "(name, description, sql_query, visualization_type, created_by) "
-            "VALUES (:name, :desc, :sql, :viz, :uid) "
+            "(name, description, sql_query, visualization_type, created_by, "
+            "group_name, display_order) "
+            "VALUES (:name, :desc, :sql, :viz, :uid, :gn, :order) "
             "RETURNING id, name, description, sql_query, visualization_type, "
-            "created_by, created_at, updated_at"
+            "created_by, created_at, updated_at, group_name, display_order"
         ),
         {
             "name": body.name,
@@ -194,6 +210,8 @@ async def create_metric(
             "sql": body.sql_query,
             "viz": body.visualization_type,
             "uid": user["user_id"],
+            "gn": body.group_name,
+            "order": next_order,
         },
     )
     await db.commit()
@@ -207,7 +225,28 @@ async def create_metric(
         created_by=str(r.created_by),
         created_at=r.created_at,
         updated_at=r.updated_at,
+        group_name=r.group_name,
+        display_order=r.display_order,
     )
+
+
+@router.put("/reorder")
+async def reorder_metrics(
+    body: MetricReorderRequest,
+    db: AsyncSession = Depends(get_db),
+):
+    """Batch update group_name and display_order for all metrics."""
+    for item in body.items:
+        await db.execute(
+            text(
+                "UPDATE analytics.saved_metrics "
+                "SET group_name = :gn, display_order = :order, updated_at = NOW() "
+                "WHERE id = :id"
+            ),
+            {"id": item.id, "gn": item.group_name, "order": item.display_order},
+        )
+    await db.commit()
+    return {"message": f"Reordered {len(body.items)} metrics"}
 
 
 @router.get("/{metric_id}", response_model=SavedMetricResponse)
@@ -216,7 +255,7 @@ async def get_metric(metric_id: str, db: AsyncSession = Depends(get_db)):
     result = await db.execute(
         text(
             "SELECT id, name, description, sql_query, visualization_type, "
-            "created_by, created_at, updated_at "
+            "created_by, created_at, updated_at, group_name, display_order "
             "FROM analytics.saved_metrics WHERE id = :id"
         ),
         {"id": metric_id},
@@ -233,6 +272,8 @@ async def get_metric(metric_id: str, db: AsyncSession = Depends(get_db)):
         created_by=str(r.created_by),
         created_at=r.created_at,
         updated_at=r.updated_at,
+        group_name=r.group_name,
+        display_order=r.display_order,
     )
 
 
@@ -258,6 +299,9 @@ async def update_metric(
         updates["sql_query"] = body.sql_query
     if body.visualization_type is not None:
         updates["visualization_type"] = body.visualization_type
+    if body.group_name is not None:
+        # Empty string means "remove from group" (set NULL)
+        updates["group_name"] = body.group_name if body.group_name != "" else None
 
     if not updates:
         raise HTTPException(status_code=400, detail="No fields to update")
@@ -277,7 +321,7 @@ async def update_metric(
             f"UPDATE analytics.saved_metrics SET {', '.join(set_parts)} "
             "WHERE id = :id "
             "RETURNING id, name, description, sql_query, visualization_type, "
-            "created_by, created_at, updated_at"
+            "created_by, created_at, updated_at, group_name, display_order"
         ),
         params,
     )
@@ -299,6 +343,8 @@ async def update_metric(
         created_by=str(r.created_by),
         created_at=r.created_at,
         updated_at=r.updated_at,
+        group_name=r.group_name,
+        display_order=r.display_order,
     )
 
 
