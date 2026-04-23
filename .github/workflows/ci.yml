@@ -150,6 +150,8 @@ jobs:
             docker compose build
             docker compose up -d
             sleep 5
+            echo "--- Run migrations ---"
+            docker compose exec -T backend python scripts/migrate.py up
             docker compose ps
             echo "--- Health check ---"
             curl -sf http://localhost/api/health || echo "API health check failed"
