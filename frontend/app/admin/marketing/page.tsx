@@ -978,60 +978,16 @@ function TemplatesTab() {
                 </span>
               )}
             </div>
-            <div className="flex items-center gap-1.5">
-              {previewTemplate.variables &&
-                previewTemplate.variables.length > 0 && (
-                  <button
-                    className="text-[10px] text-text-muted hover:text-text-secondary transition-colors"
-                    onClick={() => setShowVars(!showVars)}
-                  >
-                    {showVars ? "Hide" : "Vars"} (
-                    {previewTemplate.variables.length})
-                  </button>
-                )}
-              <button
-                className="p-1 text-text-muted hover:text-accent-blue transition-colors"
-                onClick={() => {
-                  const t = previewTemplate;
-                  setPreviewTemplate(null);
-                  openEdit(t);
-                }}
-                title="Edit"
-              >
-                <svg
-                  className="w-3.5 h-3.5"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
+            {previewTemplate.variables &&
+              previewTemplate.variables.length > 0 && (
+                <button
+                  className="text-[10px] text-text-muted hover:text-text-secondary transition-colors"
+                  onClick={() => setShowVars(!showVars)}
                 >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-                  />
-                </svg>
-              </button>
-              <button
-                className="p-1 text-text-muted hover:text-accent-green transition-colors"
-                onClick={() => handleSendTest(previewTemplate)}
-                title="Send Test"
-              >
-                <svg
-                  className="w-3.5 h-3.5"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"
-                  />
-                </svg>
-              </button>
-            </div>
+                  {showVars ? "Hide" : "Vars"} (
+                  {previewTemplate.variables.length})
+                </button>
+              )}
           </div>
 
           {/* Collapsible variables */}
@@ -1058,7 +1014,7 @@ function TemplatesTab() {
               </div>
             )}
 
-          {/* Rendered email preview */}
+          {/* Rendered email preview (auto-height, no scroll) */}
           <div className="p-3">
             <div className="rounded-lg overflow-hidden border border-glass-border">
               {previewHtml ? (
@@ -1067,7 +1023,17 @@ function TemplatesTab() {
                   title="Template Preview"
                   className="w-full bg-white"
                   sandbox="allow-same-origin"
-                  style={{ border: "none", height: "350px" }}
+                  style={{ border: "none", minHeight: "200px" }}
+                  onLoad={(e) => {
+                    const frame = e.currentTarget;
+                    try {
+                      const h =
+                        frame.contentDocument?.documentElement?.scrollHeight;
+                      if (h) frame.style.height = `${h}px`;
+                    } catch {
+                      frame.style.height = "500px";
+                    }
+                  }}
                 />
               ) : (
                 <div className="flex items-center justify-center py-12 bg-white/5">
