@@ -208,6 +208,26 @@ export default function AdminUsersPage() {
     }
   };
 
+  const handleResendVerification = async (userId: string) => {
+    setActionLoading(userId);
+    try {
+      const res = await apiFetch<{ message: string }>(
+        `/auth/admin/users/${userId}/resend-verification`,
+        { method: "POST" },
+      );
+      alert(res.message);
+      await fetchUsers();
+    } catch (err: unknown) {
+      const msg =
+        err && typeof err === "object" && "message" in err
+          ? (err as { message: string }).message
+          : "Failed to resend verification";
+      alert(msg);
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
   const totalPages = Math.ceil(total / pageSize);
   const isSelf = (userId: string) => currentUser?.id === userId;
 
@@ -352,6 +372,7 @@ export default function AdminUsersPage() {
                               onStatusToggle={handleStatusToggle}
                               onDelete={handleDelete}
                               onConfirmDelete={setConfirmDelete}
+                              onResendVerification={handleResendVerification}
                             />
                           ) : (
                             <p className="text-text-muted text-sm">
@@ -408,6 +429,7 @@ function UserActions({
   onStatusToggle,
   onDelete,
   onConfirmDelete,
+  onResendVerification,
 }: {
   user: UserItem;
   detail: UserDetail;
@@ -417,12 +439,33 @@ function UserActions({
   onStatusToggle: (userId: string, activate: boolean) => void;
   onDelete: (userId: string) => void;
   onConfirmDelete: (userId: string | null) => void;
+  onResendVerification: (userId: string) => void;
 }) {
   const isLoading = actionLoading === user.id;
   const isDeleted = !!user.deleted_at;
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      {/* Verification */}
+      <div className="space-y-2">
+        <h4 className="text-xs font-medium text-text-muted uppercase tracking-wide">
+          Verification
+        </h4>
+        {user.is_verified ? (
+          <p className="text-xs text-green-400">Email verified</p>
+        ) : isDeleted ? (
+          <p className="text-xs text-text-muted">User is deleted</p>
+        ) : (
+          <button
+            disabled={isLoading}
+            onClick={() => onResendVerification(user.id)}
+            className="px-3 py-1 rounded text-xs font-medium bg-blue-500/20 text-blue-300 hover:bg-blue-500/30 disabled:opacity-40"
+          >
+            Resend Verification
+          </button>
+        )}
+      </div>
+
       {/* Role management */}
       <div className="space-y-2">
         <h4 className="text-xs font-medium text-text-muted uppercase tracking-wide">

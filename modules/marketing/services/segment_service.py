@@ -40,6 +40,7 @@ def _build_segment_query(
         "ep.suppressed_at IS NULL",
         "u.is_active = TRUE",
         "u.deleted_at IS NULL",
+        "u.is_verified = TRUE",
     ]
     params: dict[str, Any] = {}
 
@@ -126,10 +127,12 @@ def _build_segment_query(
         )
         params["ct_name"] = filters["communication_type"]
 
-    # --- Email verification filter ---
+    # --- Email verification filter (overrides the default is_verified=TRUE) ---
     if "is_verified" in filters and filters["is_verified"] is not None:
-        wheres.append("u.is_verified = :verified")
-        params["verified"] = bool(filters["is_verified"])
+        if not filters["is_verified"]:
+            # Remove the default verified filter to include unverified users
+            wheres = [w for w in wheres if w != "u.is_verified = TRUE"]
+        # If is_verified=True, the default already handles it
 
     # --- User role filter ---
     if "user_role" in filters and filters["user_role"]:

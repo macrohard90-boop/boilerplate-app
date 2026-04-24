@@ -16,7 +16,7 @@ from modules.auth.models.schemas import (
     UpdateRoleRequest,
     UpdateStatusRequest,
 )
-from modules.auth.services import admin_user_service
+from modules.auth.services import admin_user_service, auth_service
 
 router = APIRouter(prefix="/admin", tags=["admin-users"])
 
@@ -109,3 +109,71 @@ async def delete_user(
             detail={"error": "bad_request", "message": str(e), "details": None},
         )
     return {"message": "User deleted"}
+
+
+@router.post("/users/{user_id}/resend-verification", response_model=MessageResponse)
+async def resend_verification(
+    user_id: str,
+    user: dict = Depends(require_role("admin")),
+    db: AsyncSession = Depends(get_db),
+    redis: Redis = Depends(get_redis),
+) -> Any:
+    """Resend email verification to a user (admin action)."""
+    import logging
+
+    from backend.core.config import settings
+    from sqlalchemy import text
+
+    logger = logging.getLogger(__name__)
+
+    # Fetch user email + verification status
+    row = (
+        (
+            await db.execute(
+                text(
+                    "SELECT email, first_name, is_verified FROM core.users WHERE id = :uid"
+                ),
+                {"uid": user_id},
+            )
+        )
+        .mappings()
+        .first()
+    )
+
+    if not row:
+        raise HTTPException(
+            status_code=404,
+            detail={"error": "not_found", "message": "User not found", "details": None},
+        )
+
+    if row["is_verified"]:
+        return {"message": "User is already verified"}
+
+    # Generate new verification token and send welcome email
+    verify_token = await auth_service.generate_verification_token(redis, user_id)
+    try:
+        from modules.gdpr.services.email_send_service import send_email_fire_and_forget
+
+        await send_email_fire_and_forget(
+            user_id,
+            "welcome",
+            {
+                "verify_url": f"{settings.frontend_url}/verify-email?token={verify_token}",
+                "first_name": row["first_name"] or "there",
+            },
+            email_type="transactional_email",
+            to_email=row["email"],
+            force=True,
+        )
+    except Exception:
+        logger.exception("Failed to resend verification email to %s", row["email"])
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "error": "send_failed",
+                "message": "Failed to send verification email",
+                "details": None,
+            },
+        )
+
+    return {"message": f"Verification email sent to {row['email']}"}
