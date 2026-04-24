@@ -196,8 +196,7 @@ export default function AudienceSelector({
       if (gi.status === "fulfilled") setGlobalInsights(gi.value);
       if (bi.status === "fulfilled") setBehaviorInsights(bi.value);
       if (segs.status === "fulfilled") setSegments(segs.value.segments ?? []);
-      if (am.status === "fulfilled")
-        setAudienceMetrics(am.value.metrics ?? []);
+      if (am.status === "fulfilled") setAudienceMetrics(am.value.metrics ?? []);
       setLoading(false);
     }
     fetchData();
@@ -1022,6 +1021,61 @@ export default function AudienceSelector({
       </div>
 
       <>
+        {/* + New Group card (above all groups, manage mode only) */}
+        {managingGroups && (
+          <div className="glass rounded-xl overflow-hidden">
+            {!creatingGroup ? (
+              <button
+                type="button"
+                onClick={() => setCreatingGroup(true)}
+                className="w-full px-4 py-3 text-sm text-text-muted hover:text-accent-blue transition-colors flex items-center justify-center gap-2"
+              >
+                <span>+</span> New Group
+              </button>
+            ) : (
+              <form
+                className="flex items-center gap-2 px-4 py-2.5"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  if (newGroupName.trim()) createGroup(newGroupName.trim());
+                }}
+              >
+                <input
+                  type="text"
+                  value={newGroupName}
+                  onChange={(e) => setNewGroupName(e.target.value)}
+                  placeholder="Group name..."
+                  className="bg-glass-bg border border-glass-border rounded px-3 py-1.5 text-sm text-text-primary placeholder:text-text-muted/50 focus:outline-none focus:border-accent-blue flex-1"
+                  autoFocus
+                  onBlur={() => {
+                    if (!newGroupName.trim()) {
+                      setCreatingGroup(false);
+                      setNewGroupName("");
+                    }
+                  }}
+                />
+                <button
+                  type="submit"
+                  disabled={!newGroupName.trim()}
+                  className="text-sm text-accent-green hover:text-accent-green/80 disabled:opacity-40 px-2 py-1"
+                >
+                  Add
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCreatingGroup(false);
+                    setNewGroupName("");
+                  }}
+                  className="text-sm text-text-muted hover:text-text-primary px-2 py-1"
+                >
+                  Cancel
+                </button>
+              </form>
+            )}
+          </div>
+        )}
+
         {/* Categorized cards — compact table-style rows */}
         {grouped.map((group, groupIndex) => {
           const apiGroupIndex = apiGroups.findIndex(
@@ -1136,80 +1190,26 @@ export default function AudienceSelector({
                   </div>
                 )}
 
-                {/* Gear icon + New Group (shown on first group) */}
+                {/* Gear icon (shown on first group) */}
                 {groupIndex === 0 && apiGroups.length > 0 && (
-                  <div className="flex items-center gap-1">
-                    {managingGroups && !creatingGroup && (
-                      <button
-                        type="button"
-                        onClick={() => setCreatingGroup(true)}
-                        className="text-xs text-text-muted hover:text-accent-blue transition-colors px-1.5 py-0.5"
-                        title="Add new group"
-                      >
-                        +
-                      </button>
-                    )}
-                    {managingGroups && creatingGroup && (
-                      <form
-                        className="flex items-center gap-1"
-                        onSubmit={(e) => {
-                          e.preventDefault();
-                          if (newGroupName.trim())
-                            createGroup(newGroupName.trim());
-                        }}
-                      >
-                        <input
-                          type="text"
-                          value={newGroupName}
-                          onChange={(e) => setNewGroupName(e.target.value)}
-                          placeholder="Name..."
-                          className="bg-glass-bg border border-glass-border rounded px-2 py-0.5 text-xs text-text-primary placeholder:text-text-muted/50 focus:outline-none focus:border-accent-blue w-28"
-                          autoFocus
-                          onBlur={() => {
-                            if (!newGroupName.trim()) {
-                              setCreatingGroup(false);
-                              setNewGroupName("");
-                            }
-                          }}
-                        />
-                        <button
-                          type="submit"
-                          disabled={!newGroupName.trim()}
-                          className="text-xs text-accent-green hover:text-accent-green/80 disabled:opacity-40 px-1"
-                        >
-                          Add
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setCreatingGroup(false);
-                            setNewGroupName("");
-                          }}
-                          className="text-xs text-text-muted hover:text-text-primary px-1"
-                        >
-                          &#10005;
-                        </button>
-                      </form>
-                    )}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setManagingGroups(!managingGroups);
-                        setEditingGroupId(null);
-                        setEditingGroupName("");
-                        setCreatingGroup(false);
-                        setNewGroupName("");
-                      }}
-                      className={`text-sm transition-colors px-1.5 py-0.5 rounded ${
-                        managingGroups
-                          ? "text-accent-blue bg-accent-blue/10"
-                          : "text-text-muted hover:text-text-primary"
-                      }`}
-                      title={managingGroups ? "Done managing" : "Manage groups"}
-                    >
-                      &#9881;
-                    </button>
-                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setManagingGroups(!managingGroups);
+                      setEditingGroupId(null);
+                      setEditingGroupName("");
+                      setCreatingGroup(false);
+                      setNewGroupName("");
+                    }}
+                    className={`text-sm transition-colors px-1.5 py-0.5 rounded ${
+                      managingGroups
+                        ? "text-accent-blue bg-accent-blue/10"
+                        : "text-text-muted hover:text-text-primary"
+                    }`}
+                    title={managingGroups ? "Done managing" : "Manage groups"}
+                  >
+                    &#9881;
+                  </button>
                 )}
               </div>
               <div className="divide-y divide-glass-border/30">
