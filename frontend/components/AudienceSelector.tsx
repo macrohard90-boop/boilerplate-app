@@ -307,7 +307,7 @@ export default function AudienceSelector({
       groupId: (apiGroups ?? []).find((g) => g.name === cat)?.id || null,
       items: cards.filter((c) => c.category === cat),
     }))
-    .filter((g) => g.items.length > 0);
+    .filter((g) => g.items.length > 0 || managingGroups);
 
   // Saved segments (non-system custom ones)
   const savedSegments = segments.filter((s) => !s.is_system);
@@ -1213,6 +1213,11 @@ export default function AudienceSelector({
                 )}
               </div>
               <div className="divide-y divide-glass-border/30">
+                {group.items.length === 0 && managingGroups && (
+                  <div className="px-4 py-4 text-xs text-text-muted italic">
+                    Empty group — move presets here from other groups
+                  </div>
+                )}
                 {group.items.map((card) => (
                   <div key={card.id} className="relative group/card">
                     <button
