@@ -487,7 +487,6 @@ function TemplatesTab() {
   const perPage = 15;
 
   // Editor state
-  const [editorOpen, setEditorOpen] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<EmailTemplate | null>(
     null,
   );
@@ -638,7 +637,8 @@ function TemplatesTab() {
       setFormCategory(full.category);
       setFormDescription(full.description || "");
       setFormHtml(full.html_content || "");
-      setEditorOpen(true);
+      setCreatorStep(1);
+      setCreatorMode(true);
     } catch {
       showToast("Failed to load template", "error");
     }
@@ -683,7 +683,6 @@ function TemplatesTab() {
         });
         showToast("Template created", "success");
       }
-      setEditorOpen(false);
       fetchTemplates();
     } catch {
       showToast("Failed to save template", "error");
@@ -786,17 +785,25 @@ function TemplatesTab() {
 
   // ── Inline Creator Flow (replaces full-screen modal for new templates) ──
   if (creatorMode) {
+    const isEditing = !!editingTemplate;
     return (
       <div className="space-y-4">
         <div className="flex items-center gap-3 mb-2">
           <button
             className="text-text-muted hover:text-text-primary text-sm transition-colors"
-            onClick={() => setCreatorMode(false)}
+            onClick={() => {
+              setCreatorMode(false);
+              setEditingTemplate(null);
+            }}
           >
             &larr; Back to Templates
           </button>
           <span className="text-text-muted">|</span>
-          <h2 className="text-text-primary font-semibold">New Template</h2>
+          <h2 className="text-text-primary font-semibold">
+            {isEditing
+              ? `Edit: ${editingTemplate.display_name}`
+              : "New Template"}
+          </h2>
           <div className="flex gap-1 ml-auto">
             {[1, 2].map((s) => (
               <div
@@ -826,10 +833,13 @@ function TemplatesTab() {
                   value={formName}
                   onChange={(e) => setFormName(e.target.value)}
                   placeholder="my_template"
+                  disabled={isEditing}
                 />
-                <p className="text-[10px] text-text-muted mt-1">
-                  Lowercase, underscores only
-                </p>
+                {!isEditing && (
+                  <p className="text-[10px] text-text-muted mt-1">
+                    Lowercase, underscores only
+                  </p>
+                )}
               </div>
               <div>
                 <label className="text-xs text-text-muted block mb-1">
@@ -899,8 +909,8 @@ function TemplatesTab() {
             <TemplateEditor
               initialContent={formHtml}
               onChange={setFormHtml}
-              templateData={buildSampleData([])}
-              variables={[]}
+              templateData={buildSampleData(editingTemplate?.variables ?? [])}
+              variables={editingTemplate?.variables ?? []}
             />
             <div className="flex justify-between pt-2">
               <button
@@ -914,10 +924,15 @@ function TemplatesTab() {
                 onClick={async () => {
                   await handleSave();
                   setCreatorMode(false);
+                  setEditingTemplate(null);
                 }}
                 disabled={saving}
               >
-                {saving ? "Creating..." : "Create Template"}
+                {saving
+                  ? "Saving..."
+                  : isEditing
+                    ? "Update Template"
+                    : "Create Template"}
               </button>
             </div>
           </div>
@@ -1158,94 +1173,6 @@ function TemplatesTab() {
           onPageChange={setPage}
         />
       </div>
-
-      {/* Editor modal (for editing existing templates only) */}
-      <Modal
-        isOpen={editorOpen}
-        onClose={() => setEditorOpen(false)}
-        title={`Edit: ${editingTemplate?.display_name ?? "Template"}`}
-        size="full"
-      >
-        <div className="space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-            <div>
-              <label className="text-xs text-text-muted block mb-1">
-                Template ID
-              </label>
-              <input
-                className="input-glass w-full font-mono text-sm"
-                value={formName}
-                disabled
-              />
-            </div>
-            <div>
-              <label className="text-xs text-text-muted block mb-1">
-                Display Name
-              </label>
-              <input
-                className="input-glass w-full"
-                value={formDisplayName}
-                onChange={(e) => setFormDisplayName(e.target.value)}
-              />
-            </div>
-            <div>
-              <label className="text-xs text-text-muted block mb-1">
-                Subject Line
-              </label>
-              <input
-                className="input-glass w-full"
-                value={formSubject}
-                onChange={(e) => setFormSubject(e.target.value)}
-              />
-            </div>
-            <div>
-              <label className="text-xs text-text-muted block mb-1">
-                Category
-              </label>
-              <select
-                className="input-glass w-full"
-                value={formCategory}
-                onChange={(e) => setFormCategory(e.target.value)}
-              >
-                <option value="transactional">Transactional</option>
-                <option value="campaign">Campaign</option>
-                <option value="automation">Automation</option>
-              </select>
-            </div>
-          </div>
-          <div>
-            <label className="text-xs text-text-muted block mb-1">
-              Description (optional)
-            </label>
-            <input
-              className="input-glass w-full text-sm"
-              value={formDescription}
-              onChange={(e) => setFormDescription(e.target.value)}
-            />
-          </div>
-          <TemplateEditor
-            initialContent={formHtml}
-            onChange={setFormHtml}
-            templateData={buildSampleData(editingTemplate?.variables ?? [])}
-            variables={editingTemplate?.variables ?? []}
-          />
-          <div className="flex justify-end gap-3 pt-2">
-            <button
-              className="btn-secondary text-sm"
-              onClick={() => setEditorOpen(false)}
-            >
-              Cancel
-            </button>
-            <button
-              className="btn-primary text-sm"
-              onClick={handleSave}
-              disabled={saving}
-            >
-              {saving ? "Saving..." : "Update Template"}
-            </button>
-          </div>
-        </div>
-      </Modal>
 
       {/* Clone modal */}
       <Modal
