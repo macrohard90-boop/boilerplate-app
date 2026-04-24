@@ -186,6 +186,7 @@ class SegmentCreateRequest(BaseModel):
     name: str = Field(..., min_length=1, max_length=100)
     description: str | None = None
     filters: dict[str, Any] = Field(default_factory=dict)
+    metric_id: str | None = None
 
 
 class SegmentUpdateRequest(BaseModel):
@@ -207,6 +208,7 @@ class SegmentResponse(BaseModel):
 
 class SegmentPreviewRequest(BaseModel):
     filters: dict[str, Any] = Field(default_factory=dict)
+    metric_id: str | None = None
 
 
 class SegmentPreviewResponse(BaseModel):

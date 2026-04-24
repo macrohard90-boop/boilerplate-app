@@ -628,6 +628,7 @@ async def create_segment(
             description=body.description,
             filters=body.filters,
             created_by=user["user_id"],
+            metric_id=body.metric_id,
         )
         return result
     except Exception as e:
@@ -682,6 +683,13 @@ async def preview_segment(
 ):
     """Preview a segment: count + sample users for given filters."""
     from modules.marketing.services import segment_service
+
+    if body.metric_id:
+        count = await segment_service.compute_metric_segment_count(db, body.metric_id)
+        sample = await segment_service.compute_metric_segment_users(
+            db, body.metric_id, limit=10
+        )
+        return {"count": count, "sample_users": sample}
 
     count = await segment_service.compute_segment_count(db, body.filters)
     sample = await segment_service.compute_segment_users(db, body.filters, limit=10)

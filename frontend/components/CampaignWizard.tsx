@@ -196,20 +196,32 @@ export default function CampaignWizard({
     setSubmitting(true);
     setError("");
 
-    // Create a segment from the audience filters
+    // Create a segment from the audience filters (or reuse existing for metric audiences)
     const segmentPayload: Array<{
       segment_id: string;
       variant_label?: string;
     }> = [];
     try {
-      const seg = await apiFetch<{ id: string }>("/marketing/admin/segments", {
-        method: "POST",
-        body: JSON.stringify({
+      if (audience.segmentId) {
+        // Reuse existing segment (e.g. metric-backed audience already has one)
+        segmentPayload.push({ segment_id: audience.segmentId });
+      } else {
+        const segBody: Record<string, unknown> = {
           name: `${name} — ${audience.label}`,
           filters: cleanFilters(audience.filters),
-        }),
-      });
-      segmentPayload.push({ segment_id: seg.id });
+        };
+        if (audience.metricId) {
+          segBody.metric_id = audience.metricId;
+        }
+        const seg = await apiFetch<{ id: string }>(
+          "/marketing/admin/segments",
+          {
+            method: "POST",
+            body: JSON.stringify(segBody),
+          },
+        );
+        segmentPayload.push({ segment_id: seg.id });
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to create segment");
       setSubmitting(false);

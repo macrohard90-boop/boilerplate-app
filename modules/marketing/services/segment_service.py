@@ -2,6 +2,7 @@
 
 import json
 import logging
+import re
 from typing import Any
 
 from sqlalchemy import text
@@ -282,6 +283,56 @@ async def compute_segment_count(db: AsyncSession, filters: dict[str, Any]) -> in
 
 
 # ---------------------------------------------------------------------------
+# Metric-backed segment helpers
+# ---------------------------------------------------------------------------
+
+
+async def _get_metric_sql(db: AsyncSession, metric_id: str) -> str:
+    """Fetch and validate the SQL query for an audience metric."""
+    from modules.tracking.services.sql_safety_service import validate_query
+
+    row = (
+        await db.execute(
+            text(
+                "SELECT sql_query FROM analytics.saved_metrics "
+                "WHERE id = :mid AND is_audience = TRUE"
+            ),
+            {"mid": metric_id},
+        )
+    ).fetchone()
+    if not row:
+        raise ValueError(f"Audience metric {metric_id} not found")
+    return validate_query(row.sql_query)
+
+
+async def compute_metric_segment_count(db: AsyncSession, metric_id: str) -> int:
+    """Execute a metric's SQL query and count the resulting user_ids."""
+    safe_sql = await _get_metric_sql(db, metric_id)
+    # Strip the auto-appended LIMIT so COUNT reflects the full audience
+    unlimit_sql = re.sub(r"\s+LIMIT\s+\d+\s*$", "", safe_sql, flags=re.IGNORECASE)
+    count_sql = f"SELECT COUNT(*) AS cnt FROM ({unlimit_sql}) AS aq"
+    await db.execute(text("SET LOCAL statement_timeout = '10s'"))
+    await db.execute(text("SET TRANSACTION READ ONLY"))
+    result = (await db.execute(text(count_sql))).fetchone()
+    return result.cnt if result else 0
+
+
+async def compute_metric_segment_users(
+    db: AsyncSession, metric_id: str, limit: int | None = None
+) -> list[dict[str, Any]]:
+    """Execute a metric's SQL query and return the user_id list."""
+    safe_sql = await _get_metric_sql(db, metric_id)
+    unlimit_sql = re.sub(r"\s+LIMIT\s+\d+\s*$", "", safe_sql, flags=re.IGNORECASE)
+    user_sql = f"SELECT DISTINCT user_id FROM ({unlimit_sql}) AS aq"
+    if limit:
+        user_sql += f" LIMIT {int(limit)}"
+    await db.execute(text("SET LOCAL statement_timeout = '10s'"))
+    await db.execute(text("SET TRANSACTION READ ONLY"))
+    rows = (await db.execute(text(user_sql))).mappings().all()
+    return [{"user_id": str(r["user_id"]), "email": ""} for r in rows]
+
+
+# ---------------------------------------------------------------------------
 # CRUD
 # ---------------------------------------------------------------------------
 
@@ -296,7 +347,7 @@ async def list_segments(
             await db.execute(
                 text(
                     f"SELECT id, name, description, filters, is_system, "
-                    f"user_count, last_computed_at, created_at "
+                    f"user_count, last_computed_at, created_at, metric_id "
                     f"FROM marketing.audience_segments {where} "
                     f"ORDER BY is_system DESC, name"
                 )
@@ -315,7 +366,7 @@ async def get_segment(db: AsyncSession, segment_id: str) -> dict[str, Any]:
             await db.execute(
                 text(
                     "SELECT id, name, description, filters, is_system, "
-                    "user_count, last_computed_at, created_at "
+                    "user_count, last_computed_at, created_at, metric_id "
                     "FROM marketing.audience_segments WHERE id = :sid"
                 ),
                 {"sid": segment_id},
@@ -335,9 +386,13 @@ async def create_segment(
     description: str | None,
     filters: dict[str, Any],
     created_by: str,
+    metric_id: str | None = None,
 ) -> dict[str, Any]:
-    """Create a custom audience segment."""
-    user_count = await compute_segment_count(db, filters)
+    """Create a custom audience segment, optionally backed by a metric SQL query."""
+    if metric_id:
+        user_count = await compute_metric_segment_count(db, metric_id)
+    else:
+        user_count = await compute_segment_count(db, filters)
 
     row = (
         (
@@ -345,10 +400,10 @@ async def create_segment(
                 text(
                     "INSERT INTO marketing.audience_segments "
                     "(name, description, filters, is_system, user_count, "
-                    "last_computed_at, created_by) "
-                    "VALUES (:name, :desc, :filters, FALSE, :cnt, NOW(), :uid) "
+                    "last_computed_at, created_by, metric_id) "
+                    "VALUES (:name, :desc, :filters, FALSE, :cnt, NOW(), :uid, :mid) "
                     "RETURNING id, name, description, filters, is_system, "
-                    "user_count, last_computed_at, created_at"
+                    "user_count, last_computed_at, created_at, metric_id"
                 ),
                 {
                     "name": name,
@@ -356,6 +411,7 @@ async def create_segment(
                     "filters": json.dumps(filters),
                     "cnt": user_count,
                     "uid": created_by,
+                    "mid": metric_id,
                 },
             )
         )
@@ -406,7 +462,7 @@ async def update_segment(
                     f"UPDATE marketing.audience_segments SET {', '.join(sets)} "
                     f"WHERE id = :sid "
                     f"RETURNING id, name, description, filters, is_system, "
-                    f"user_count, last_computed_at, created_at"
+                    f"user_count, last_computed_at, created_at, metric_id"
                 ),
                 params,
             )
@@ -440,8 +496,15 @@ async def refresh_segment_counts(db: AsyncSession) -> int:
     segments = await list_segments(db)
     updated = 0
     for seg in segments:
-        filters = seg["filters"] if isinstance(seg["filters"], dict) else {}
-        count = await compute_segment_count(db, filters)
+        try:
+            if seg.get("metric_id"):
+                count = await compute_metric_segment_count(db, seg["metric_id"])
+            else:
+                filters = seg["filters"] if isinstance(seg["filters"], dict) else {}
+                count = await compute_segment_count(db, filters)
+        except Exception as e:
+            logger.warning("Failed to refresh segment %s: %s", seg["id"], e)
+            continue
         await db.execute(
             text(
                 "UPDATE marketing.audience_segments "
@@ -465,7 +528,7 @@ def _row_to_dict(r: Any) -> dict[str, Any]:
     filters = r["filters"]
     if isinstance(filters, str):
         filters = json.loads(filters)
-    return {
+    result = {
         "id": str(r["id"]),
         "name": r["name"],
         "description": r["description"],
@@ -477,3 +540,6 @@ def _row_to_dict(r: Any) -> dict[str, Any]:
         ),
         "created_at": str(r["created_at"]),
     }
+    if "metric_id" in r.keys():
+        result["metric_id"] = str(r["metric_id"]) if r["metric_id"] else None
+    return result

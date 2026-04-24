@@ -55,6 +55,16 @@ interface Segment {
   user_count: number;
 }
 
+interface AudienceMetric {
+  id: string;
+  name: string;
+  description: string;
+  group_name: string | null;
+  display_order: number;
+  user_count: number;
+  segment_id: string | null;
+}
+
 interface AudienceCard {
   id: string;
   label: string;
@@ -69,6 +79,7 @@ export interface SelectedAudience {
   label: string;
   filters: SegmentFilters;
   segmentId?: string;
+  metricId?: string;
   userCount: number;
   avgOrderValue?: number;
   totalRevenue?: number;
@@ -91,6 +102,7 @@ export default function AudienceSelector({
   const [behaviorInsights, setBehaviorInsights] =
     useState<BehaviorInsights | null>(null);
   const [segments, setSegments] = useState<Segment[]>([]);
+  const [audienceMetrics, setAudienceMetrics] = useState<AudienceMetric[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Detail view state
@@ -115,7 +127,7 @@ export default function AudienceSelector({
   useEffect(() => {
     async function fetchData() {
       setLoading(true);
-      const [gi, bi, segs] = await Promise.allSettled([
+      const [gi, bi, segs, am] = await Promise.allSettled([
         apiFetch<GlobalInsights>("/marketing/admin/insights/global"),
         apiFetch<BehaviorInsights>(
           "/marketing/admin/insights/segment/behavior",
@@ -125,10 +137,14 @@ export default function AudienceSelector({
           },
         ),
         apiFetch<{ segments: Segment[] }>("/marketing/admin/segments"),
+        apiFetch<{ metrics: AudienceMetric[] }>(
+          "/tracking/admin/metrics/audience-metrics",
+        ),
       ]);
       if (gi.status === "fulfilled") setGlobalInsights(gi.value);
       if (bi.status === "fulfilled") setBehaviorInsights(bi.value);
       if (segs.status === "fulfilled") setSegments(segs.value.segments);
+      if (am.status === "fulfilled") setAudienceMetrics(am.value.metrics);
       setLoading(false);
     }
     fetchData();
@@ -404,6 +420,34 @@ export default function AudienceSelector({
       userCount: customCount ?? 0,
     });
   }
+
+  function selectAudienceMetric(m: AudienceMetric) {
+    onSelect({
+      label: m.name,
+      filters: {},
+      metricId: m.id,
+      segmentId: m.segment_id || undefined,
+      userCount: m.user_count,
+    });
+  }
+
+  // Group audience metrics by group_name
+  const audienceMetricGroups = (() => {
+    if (audienceMetrics.length === 0) return [];
+    const groups = new Map<string, AudienceMetric[]>();
+    for (const m of audienceMetrics) {
+      const key = m.group_name || "Ungrouped";
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key)!.push(m);
+    }
+    return Array.from(groups.entries())
+      .sort(([a], [b]) => {
+        if (a === "Ungrouped") return 1;
+        if (b === "Ungrouped") return -1;
+        return a.localeCompare(b);
+      })
+      .map(([name, items]) => ({ name, items }));
+  })();
 
   // ─── Render: Detail View ───────────────────────────────
 
@@ -824,6 +868,52 @@ export default function AudienceSelector({
             </div>
           </div>
         )}
+
+        {/* Audience Metrics (from SQL editor) */}
+        {audienceMetricGroups.length > 0 &&
+          audienceMetricGroups.map((group) => (
+            <div key={group.name} className="glass rounded-xl overflow-hidden">
+              <div className="px-4 py-2.5 border-b border-glass-border/50 flex items-center gap-2">
+                <h3 className="text-xs text-text-muted font-medium uppercase tracking-wider">
+                  {group.name}
+                </h3>
+                <span className="text-[10px] text-accent-purple/70 font-medium uppercase tracking-wider px-1.5 py-0.5 rounded bg-accent-purple/10">
+                  SQL
+                </span>
+              </div>
+              <div className="divide-y divide-glass-border/30">
+                {group.items.map((m) => (
+                  <button
+                    key={m.id}
+                    type="button"
+                    onClick={() => selectAudienceMetric(m)}
+                    className="w-full px-4 py-3 flex items-center gap-4 hover:bg-glass-hover/50 transition-colors group text-left"
+                  >
+                    <p className="text-xl font-bold tabular-nums w-20 shrink-0 text-accent-purple">
+                      {m.user_count > 0 ? (
+                        m.user_count.toLocaleString()
+                      ) : (
+                        <span className="text-text-muted">&mdash;</span>
+                      )}
+                    </p>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm text-text-primary font-medium">
+                        {m.name}
+                      </p>
+                      {m.description && (
+                        <p className="text-xs text-text-muted truncate">
+                          {m.description}
+                        </p>
+                      )}
+                    </div>
+                    <span className="text-xs text-accent-purple opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                      Select &rarr;
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          ))}
 
         {/* Build Custom Audience */}
         <div className="glass rounded-xl overflow-hidden">

@@ -30,6 +30,7 @@ interface SavedMetric {
   updated_at: string;
   group_name: string | null;
   display_order: number;
+  is_audience: boolean;
 }
 
 interface QueryResult {
@@ -355,6 +356,7 @@ export default function CustomMetricsTab() {
   const [showSchema, setShowSchema] = useState(false);
 
   const [groupName, setGroupName] = useState("");
+  const [isAudience, setIsAudience] = useState(false);
 
   // Execution state
   const [running, setRunning] = useState(false);
@@ -566,6 +568,7 @@ export default function CustomMetricsTab() {
             sql_query: sql,
             visualization_type: vizType,
             group_name: groupName || "",
+            is_audience: isAudience,
           }),
         });
       } else {
@@ -577,6 +580,7 @@ export default function CustomMetricsTab() {
             sql_query: sql,
             visualization_type: vizType,
             group_name: groupName || null,
+            is_audience: isAudience,
           }),
         });
       }
@@ -615,6 +619,7 @@ export default function CustomMetricsTab() {
     setDescription("");
     setVizType("table");
     setGroupName("");
+    setIsAudience(false);
     setEditingId(null);
     setResult(null);
     setError("");
@@ -631,6 +636,7 @@ export default function CustomMetricsTab() {
     setDescription(m.description);
     setVizType(m.visualization_type);
     setGroupName(m.group_name || "");
+    setIsAudience(m.is_audience || false);
     setEditingId(m.id);
     setResult(null);
     setError("");
@@ -770,6 +776,41 @@ export default function CustomMetricsTab() {
                 </datalist>
               </div>
             </div>
+
+            {/* Audience toggle */}
+            <label className="flex items-center gap-3 cursor-pointer">
+              <span
+                role="switch"
+                aria-checked={isAudience}
+                tabIndex={0}
+                onClick={() => setIsAudience(!isAudience)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    setIsAudience(!isAudience);
+                  }
+                }}
+                className={`relative inline-flex h-5 w-9 shrink-0 rounded-full transition-colors ${
+                  isAudience ? "bg-accent-purple" : "bg-glass-border"
+                }`}
+              >
+                <span
+                  className={`inline-block h-4 w-4 rounded-full bg-white shadow transform transition-transform mt-0.5 ${
+                    isAudience ? "translate-x-4 ml-0.5" : "translate-x-0.5"
+                  }`}
+                />
+              </span>
+              <span className="text-sm text-text-secondary">
+                Audience Query
+              </span>
+              {isAudience && (
+                <span className="text-xs text-text-muted">
+                  Query must return a{" "}
+                  <code className="text-accent-purple font-mono">user_id</code>{" "}
+                  column
+                </span>
+              )}
+            </label>
 
             {/* Error */}
             {error && (
@@ -1017,6 +1058,11 @@ export default function CustomMetricsTab() {
                               <h4 className="text-sm font-medium text-text-primary truncate">
                                 {m.name}
                               </h4>
+                              {m.is_audience && (
+                                <span className="shrink-0 text-[10px] font-medium uppercase tracking-wider px-1.5 py-0.5 rounded bg-accent-purple/15 text-accent-purple">
+                                  Audience
+                                </span>
+                              )}
                             </div>
                             {m.description && (
                               <p className="text-xs text-text-muted mt-1 line-clamp-1">

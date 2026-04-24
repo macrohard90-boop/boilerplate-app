@@ -378,6 +378,7 @@ class SavedMetricCreate(BaseModel):
         "table", pattern=r"^(table|line_chart|bar_chart|number)$"
     )
     group_name: str | None = Field(None, max_length=100)
+    is_audience: bool = False
 
 
 class SavedMetricUpdate(BaseModel):
@@ -388,6 +389,7 @@ class SavedMetricUpdate(BaseModel):
         None, pattern=r"^(table|line_chart|bar_chart|number)$"
     )
     group_name: str | None = Field(None, max_length=100)
+    is_audience: bool | None = None
 
 
 class SavedMetricResponse(BaseModel):
@@ -401,6 +403,7 @@ class SavedMetricResponse(BaseModel):
     updated_at: datetime
     group_name: str | None = None
     display_order: int = 0
+    is_audience: bool = False
 
 
 class SavedMetricList(BaseModel):
