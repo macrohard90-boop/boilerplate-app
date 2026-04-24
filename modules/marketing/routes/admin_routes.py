@@ -827,7 +827,7 @@ async def list_audience_groups(
     """List all audience groups with nested presets."""
     from modules.marketing.services import group_service
 
-    return await group_service.list_groups(db)
+    return {"groups": await group_service.list_groups(db)}
 
 
 @router.post("/audience-groups", status_code=201)

@@ -926,7 +926,7 @@ function TemplatesTab() {
             <option value="campaign">Campaign</option>
             <option value="automation">Automation</option>
           </select>
-          <span className="text-xs text-text-muted">
+          <span className="text-xs text-text-muted whitespace-nowrap">
             {total} template{total !== 1 ? "s" : ""}
           </span>
         </div>
@@ -1402,7 +1402,7 @@ function CampaignsTab() {
             <option value="sent">Sent</option>
             <option value="cancelled">Cancelled</option>
           </select>
-          <span className="text-xs text-text-muted">
+          <span className="text-xs text-text-muted whitespace-nowrap">
             {total} campaign{total !== 1 ? "s" : ""}
           </span>
         </div>
@@ -1739,7 +1739,7 @@ function EmailLogsTab() {
             }
           }}
         />
-        <span className="text-xs text-text-muted">
+        <span className="text-xs text-text-muted whitespace-nowrap">
           {total} event{total !== 1 ? "s" : ""}
         </span>
       </div>
