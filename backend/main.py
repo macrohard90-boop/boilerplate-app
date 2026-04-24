@@ -45,6 +45,17 @@ async def lifespan(app: FastAPI):
         except Exception:
             logger.exception("Page registry sync failed on startup")
 
+    # Seed test data (VM/staging only — toggle via SEED_TEST_DATA=true)
+    if settings.seed_test_data:
+        try:
+            from scripts.startup_seeder import run_startup_seed
+
+            factory = get_session_factory()
+            async with factory() as db:
+                await run_startup_seed(db)
+        except Exception:
+            logger.exception("Startup seeder failed (non-fatal)")
+
     # Start background tasks
     tasks: list[asyncio.Task] = []
     if settings.enable_payments:

@@ -127,6 +127,9 @@ class Settings(BaseSettings):
     email_retry_interval: int = 60  # seconds between retry attempts
     enable_marketing_emails: bool = True  # Toggle for marketing email campaigns
 
+    # Test data seeding (set true on staging/VM to auto-seed on startup)
+    seed_test_data: bool = False
+
     # Scaling
     uvicorn_workers: int = 2
 
