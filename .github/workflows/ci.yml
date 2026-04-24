@@ -150,9 +150,19 @@ jobs:
             docker compose build
             docker compose up -d
             sleep 10
-            echo "--- Baseline existing migrations ---"
-            docker compose exec -T fastapi python scripts/migrate.py baseline --to 031
-            echo "--- Run pending migrations ---"
+            echo "--- Reset migration tracking and re-apply ---"
+            docker compose exec -T fastapi python -c "
+            import asyncio
+            from backend.core.database import get_session_factory
+            from sqlalchemy import text
+            async def reset():
+                sf = get_session_factory()
+                async with sf() as db:
+                    await db.execute(text('DROP TABLE IF EXISTS public.schema_migrations'))
+                    await db.commit()
+            asyncio.run(reset())
+            " 2>/dev/null || true
+            docker compose exec -T fastapi python scripts/migrate.py baseline --to 024
             docker compose exec -T fastapi python scripts/migrate.py up
             docker compose ps
             echo "--- Health check ---"

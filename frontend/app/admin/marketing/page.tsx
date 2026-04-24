@@ -1004,7 +1004,7 @@ function TemplatesTab() {
                   srcDoc={previewHtml}
                   title="Template Preview"
                   className="w-full bg-white"
-                  sandbox="allow-same-origin allow-scripts"
+                  sandbox="allow-same-origin"
                   style={{ border: "none", minHeight: "200px" }}
                   onLoad={(e) => {
                     const frame = e.currentTarget;
