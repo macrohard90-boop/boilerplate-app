@@ -151,7 +151,7 @@ jobs:
             docker compose up -d
             sleep 10
             echo "--- Baseline existing migrations ---"
-            docker compose exec -T fastapi python scripts/migrate.py baseline --to 030
+            docker compose exec -T fastapi python scripts/migrate.py baseline --to 031
             echo "--- Run pending migrations ---"
             docker compose exec -T fastapi python scripts/migrate.py up
             docker compose ps
