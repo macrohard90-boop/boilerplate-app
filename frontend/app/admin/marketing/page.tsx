@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { apiFetch } from "../../../lib/api";
 import { useConfig } from "../../../lib/config-context";
 import { useToast } from "../../../components/Toast";
@@ -507,10 +507,11 @@ function TemplatesTab() {
   const [cloneDisplayName, setCloneDisplayName] = useState("");
   const [cloning, setCloning] = useState(false);
 
-  // Preview modal
+  // Preview panel (persistent at top, server-rendered)
   const [previewTemplate, setPreviewTemplate] = useState<EmailTemplate | null>(
     null,
   );
+  const [previewHtml, setPreviewHtml] = useState("");
   const [previewLoading, setPreviewLoading] = useState(false);
 
   // Sample values for the "Rendered Preview" — covers current + future BP variables
@@ -597,6 +598,16 @@ function TemplatesTab() {
   useEffect(() => {
     fetchTemplates();
   }, [fetchTemplates]);
+
+  // Auto-preview the first template on initial load
+  const autoPreviewDone = useRef(false);
+  useEffect(() => {
+    if (!autoPreviewDone.current && templates.length > 0 && !previewTemplate) {
+      autoPreviewDone.current = true;
+      openPreview(templates[0]);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [templates]);
 
   function openCreate() {
     setEditingTemplate(null);
@@ -712,26 +723,30 @@ function TemplatesTab() {
   }
 
   async function openPreview(t: EmailTemplate) {
+    setPreviewTemplate(t);
     setPreviewLoading(true);
     try {
       const full = await apiFetch<EmailTemplate>(
         `/marketing/admin/templates/${t.id}`,
       );
       setPreviewTemplate(full);
+      // Server-side Jinja2 render with sample data
+      const sampleData = buildSampleData(full.variables ?? []);
+      const res = await apiFetch<{ html: string }>(
+        "/marketing/admin/templates/preview",
+        {
+          method: "POST",
+          body: JSON.stringify({
+            html_content: full.html_content || "",
+            template_data: sampleData,
+          }),
+        },
+      );
+      setPreviewHtml(res.html);
     } catch {
       showToast("Failed to load template preview", "error");
     }
     setPreviewLoading(false);
-  }
-
-  function renderPreviewHtml(t: EmailTemplate): string {
-    const sampleData = buildSampleData(t.variables ?? []);
-    let html = t.html_content || "<p>No content</p>";
-    // Replace {{ var }} and {{var}} patterns
-    for (const [key, val] of Object.entries(sampleData)) {
-      html = html.replace(new RegExp(`\\{\\{\\s*${key}\\s*\\}\\}`, "g"), val);
-    }
-    return html;
   }
 
   function openClone(t: EmailTemplate) {
@@ -836,13 +851,6 @@ function TemplatesTab() {
               >
                 Test
               </button>
-              <button
-                className="text-text-muted hover:text-text-primary text-lg leading-none px-1"
-                onClick={() => setPreviewTemplate(null)}
-                title="Close preview"
-              >
-                &times;
-              </button>
             </div>
           </div>
 
@@ -891,16 +899,22 @@ function TemplatesTab() {
               </div>
             )}
 
-          {/* Rendered HTML */}
+          {/* Rendered HTML (server-side Jinja2) */}
           <div className="p-4">
             <div className="rounded-lg overflow-hidden border border-glass-border">
-              <iframe
-                srcDoc={renderPreviewHtml(previewTemplate)}
-                title="Template Preview"
-                className="w-full bg-white"
-                sandbox="allow-same-origin"
-                style={{ border: "none", height: "500px" }}
-              />
+              {previewHtml ? (
+                <iframe
+                  srcDoc={previewHtml}
+                  title="Template Preview"
+                  className="w-full bg-white"
+                  sandbox="allow-same-origin"
+                  style={{ border: "none", height: "500px" }}
+                />
+              ) : (
+                <div className="flex items-center justify-center py-16 bg-white/5">
+                  <LoadingSpinner />
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -942,7 +956,11 @@ function TemplatesTab() {
               {templates.map((t) => (
                 <tr
                   key={t.id}
-                  className="border-b border-glass-border/50 hover:bg-glass-hover transition-colors cursor-pointer"
+                  className={`border-b border-glass-border/50 hover:bg-glass-hover transition-colors cursor-pointer ${
+                    previewTemplate?.id === t.id
+                      ? "bg-accent-blue/10 border-l-2 border-l-accent-blue"
+                      : ""
+                  }`}
                   onClick={() => openPreview(t)}
                 >
                   <td className="p-3">

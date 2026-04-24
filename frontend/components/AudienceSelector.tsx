@@ -46,6 +46,13 @@ interface SendTimeSuggestion {
   confidence: string;
 }
 
+interface CustomerConsent {
+  total_customers: number;
+  opted_in: number;
+  opted_out: number;
+  opt_out_reasons: Array<{ type: string; count: number }>;
+}
+
 interface Segment {
   id: string;
   name: string;
@@ -116,6 +123,11 @@ export default function AudienceSelector({
   const [detailSendTime, setDetailSendTime] =
     useState<SendTimeSuggestion | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
+  const [detailConsent, setDetailConsent] = useState<CustomerConsent | null>(
+    null,
+  );
+  const [detailSql, setDetailSql] = useState<string | null>(null);
+  const [showSql, setShowSql] = useState(false);
 
   // Custom builder
   const [showCustom, setShowCustom] = useState(false);
@@ -164,6 +176,15 @@ export default function AudienceSelector({
         ? `AOV $${globalInsights.avg_order_value}`
         : undefined,
       filters: {},
+    },
+    {
+      id: "all_customers",
+      label: "All Customers",
+      category: "Audience Overview",
+      count: null,
+      color: "text-accent-green",
+      detail: "Users with at least 1 order",
+      filters: { has_orders: true },
     },
     // Purchase Behavior
     {
@@ -336,10 +357,13 @@ export default function AudienceSelector({
     setDetailInsights(null);
     setDetailBehavior(null);
     setDetailSendTime(null);
+    setDetailConsent(null);
+    setDetailSql(null);
+    setShowSql(false);
     setDetailLoading(true);
 
     const body = JSON.stringify({ filters: cleanFilters(card.filters) });
-    const [si, bi, st] = await Promise.allSettled([
+    const fetches: Promise<unknown>[] = [
       apiFetch<SegmentInsights>("/marketing/admin/insights/segment", {
         method: "POST",
         body,
@@ -352,11 +376,31 @@ export default function AudienceSelector({
         method: "POST",
         body,
       }),
-    ]);
+      apiFetch<{ sql: string }>("/marketing/admin/insights/explain-query", {
+        method: "POST",
+        body,
+      }),
+    ];
+    // Fetch consent breakdown for "All Customers"
+    if (card.id === "all_customers") {
+      fetches.push(
+        apiFetch<CustomerConsent>("/marketing/admin/insights/customer-consent"),
+      );
+    }
 
-    if (si.status === "fulfilled") setDetailInsights(si.value);
-    if (bi.status === "fulfilled") setDetailBehavior(bi.value);
-    if (st.status === "fulfilled") setDetailSendTime(st.value);
+    const results = await Promise.allSettled(fetches);
+
+    if (results[0].status === "fulfilled")
+      setDetailInsights(results[0].value as SegmentInsights);
+    if (results[1].status === "fulfilled")
+      setDetailBehavior(results[1].value as BehaviorInsights);
+    if (results[2].status === "fulfilled")
+      setDetailSendTime(results[2].value as SendTimeSuggestion);
+    if (results[3].status === "fulfilled")
+      setDetailSql((results[3].value as { sql: string }).sql);
+    if (card.id === "all_customers" && results[4]?.status === "fulfilled")
+      setDetailConsent(results[4].value as CustomerConsent);
+
     setDetailLoading(false);
   }, []);
 
@@ -750,6 +794,146 @@ export default function AudienceSelector({
                 </div>
               )}
             </div>
+
+            {/* Customer Consent Breakdown (All Customers only) */}
+            {detailConsent && (
+              <div className="glass rounded-xl p-5 space-y-4">
+                <h3 className="text-sm font-semibold text-text-primary">
+                  Marketing Consent
+                </h3>
+                <div className="flex items-center gap-6">
+                  {/* Donut chart */}
+                  <div className="relative w-28 h-28 shrink-0">
+                    <svg viewBox="0 0 36 36" className="w-full h-full">
+                      <circle
+                        cx="18"
+                        cy="18"
+                        r="15.9"
+                        fill="none"
+                        stroke="rgba(255,255,255,0.05)"
+                        strokeWidth="3"
+                      />
+                      {detailConsent.total_customers > 0 && (
+                        <>
+                          <circle
+                            cx="18"
+                            cy="18"
+                            r="15.9"
+                            fill="none"
+                            stroke="#22c55e"
+                            strokeWidth="3"
+                            strokeDasharray={`${(detailConsent.opted_in / detailConsent.total_customers) * 100} ${100 - (detailConsent.opted_in / detailConsent.total_customers) * 100}`}
+                            strokeDashoffset="25"
+                            strokeLinecap="round"
+                          />
+                          <circle
+                            cx="18"
+                            cy="18"
+                            r="15.9"
+                            fill="none"
+                            stroke="#ef4444"
+                            strokeWidth="3"
+                            strokeDasharray={`${(detailConsent.opted_out / detailConsent.total_customers) * 100} ${100 - (detailConsent.opted_out / detailConsent.total_customers) * 100}`}
+                            strokeDashoffset={`${25 - (detailConsent.opted_in / detailConsent.total_customers) * 100}`}
+                            strokeLinecap="round"
+                          />
+                        </>
+                      )}
+                    </svg>
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <span className="text-lg font-bold text-text-primary">
+                        {detailConsent.total_customers}
+                      </span>
+                    </div>
+                  </div>
+                  {/* Legend */}
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <span className="w-3 h-3 rounded-full bg-green-500 shrink-0" />
+                      <span className="text-sm text-text-secondary">
+                        Opted In:{" "}
+                        <strong className="text-accent-green">
+                          {detailConsent.opted_in}
+                        </strong>
+                        {detailConsent.total_customers > 0 && (
+                          <span className="text-text-muted ml-1">
+                            (
+                            {Math.round(
+                              (detailConsent.opted_in /
+                                detailConsent.total_customers) *
+                                100,
+                            )}
+                            %)
+                          </span>
+                        )}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="w-3 h-3 rounded-full bg-red-500 shrink-0" />
+                      <span className="text-sm text-text-secondary">
+                        Opted Out:{" "}
+                        <strong className="text-accent-pink">
+                          {detailConsent.opted_out}
+                        </strong>
+                        {detailConsent.total_customers > 0 && (
+                          <span className="text-text-muted ml-1">
+                            (
+                            {Math.round(
+                              (detailConsent.opted_out /
+                                detailConsent.total_customers) *
+                                100,
+                            )}
+                            %)
+                          </span>
+                        )}
+                      </span>
+                    </div>
+                  </div>
+                  {/* Opt-out reasons */}
+                  {detailConsent.opt_out_reasons.length > 0 && (
+                    <div className="border-l border-glass-border pl-4 space-y-1.5">
+                      <p className="text-xs text-text-muted font-medium">
+                        Not Opted In By Type
+                      </p>
+                      {detailConsent.opt_out_reasons.map((r) => (
+                        <div
+                          key={r.type}
+                          className="flex items-center justify-between gap-4 text-xs"
+                        >
+                          <span className="text-text-secondary capitalize">
+                            {r.type}
+                          </span>
+                          <span className="text-text-muted tabular-nums">
+                            {r.count}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* View Query (collapsible SQL) */}
+            {detailSql && (
+              <div className="glass rounded-xl overflow-hidden">
+                <button
+                  type="button"
+                  onClick={() => setShowSql(!showSql)}
+                  className="w-full px-5 py-3 flex items-center justify-between text-sm text-text-muted hover:text-text-primary transition-colors"
+                >
+                  <span className="font-medium">View Query</span>
+                  <span>{showSql ? "\u25B2" : "\u25BC"}</span>
+                </button>
+                {showSql && (
+                  <div className="px-5 pb-4 border-t border-glass-border">
+                    <pre className="mt-3 p-3 bg-glass-bg/50 rounded-lg text-xs font-mono text-text-secondary overflow-x-auto whitespace-pre-wrap">
+                      {detailSql}
+                    </pre>
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Select button */}
             <button

@@ -615,6 +615,106 @@ async def get_analytics_filter_options(db: AsyncSession) -> dict[str, Any]:
     }
 
 
+async def get_customer_consent_breakdown(db: AsyncSession) -> dict[str, Any]:
+    """Consent breakdown for users with at least 1 order.
+
+    Returns opted-in vs opted-out counts and per-communication-type opt-out stats.
+    """
+
+    # Total customers (has orders)
+    total_row = (
+        (
+            await db.execute(
+                text(
+                    "SELECT COUNT(DISTINCT u.id) AS cnt "
+                    "FROM core.users u "
+                    "JOIN ecommerce.customer_metrics cm ON cm.user_id = u.id "
+                    "WHERE u.is_active = TRUE AND u.deleted_at IS NULL "
+                    "  AND cm.order_count > 0"
+                )
+            )
+        )
+        .mappings()
+        .first()
+    )
+    total_customers = total_row["cnt"] if total_row else 0
+
+    # Opted-in customers (marketing_email = TRUE)
+    opted_in_row = (
+        (
+            await db.execute(
+                text(
+                    "SELECT COUNT(DISTINCT u.id) AS cnt "
+                    "FROM core.users u "
+                    "JOIN ecommerce.customer_metrics cm ON cm.user_id = u.id "
+                    "JOIN gdpr.email_preferences ep ON ep.user_id = u.id "
+                    "WHERE u.is_active = TRUE AND u.deleted_at IS NULL "
+                    "  AND cm.order_count > 0 "
+                    "  AND ep.marketing_email = TRUE "
+                    "  AND ep.suppressed_at IS NULL"
+                )
+            )
+        )
+        .mappings()
+        .first()
+    )
+    opted_in = opted_in_row["cnt"] if opted_in_row else 0
+    opted_out = total_customers - opted_in
+
+    # Per communication-type opt-out breakdown
+    opt_out_rows = (
+        (
+            await db.execute(
+                text(
+                    "SELECT ct.name AS type, "
+                    "COUNT(DISTINCT u.id) FILTER "
+                    "  (WHERE ucp.allowed = FALSE OR ucp.allowed IS NULL) AS opt_out_count "
+                    "FROM marketing.communication_types ct "
+                    "CROSS JOIN core.users u "
+                    "JOIN ecommerce.customer_metrics cm ON cm.user_id = u.id "
+                    "LEFT JOIN marketing.user_communication_preferences ucp "
+                    "  ON ucp.user_id = u.id AND ucp.communication_type_id = ct.id "
+                    "WHERE ct.enabled = TRUE "
+                    "  AND u.is_active = TRUE AND u.deleted_at IS NULL "
+                    "  AND cm.order_count > 0 "
+                    "GROUP BY ct.name "
+                    "ORDER BY opt_out_count DESC"
+                )
+            )
+        )
+        .mappings()
+        .all()
+    )
+    opt_out_reasons = [
+        {"type": r["type"], "count": r["opt_out_count"]} for r in opt_out_rows
+    ]
+
+    return {
+        "total_customers": total_customers,
+        "opted_in": opted_in,
+        "opted_out": opted_out,
+        "opt_out_reasons": opt_out_reasons,
+    }
+
+
+async def explain_segment_query(filters: dict[str, Any]) -> str:
+    """Return the SQL query that would be used to fetch a segment's users."""
+    sql, params = _build_segment_query(filters)
+    # Replace parameter placeholders with their values for display
+    display_sql = sql
+    for key, val in sorted(params.items(), key=lambda x: -len(x[0])):
+        if isinstance(val, str):
+            display_sql = display_sql.replace(f":{key}", f"'{val}'")
+        elif isinstance(val, (int, float)):
+            display_sql = display_sql.replace(f":{key}", str(val))
+        elif isinstance(val, list):
+            joined = ", ".join(f"'{v}'" if isinstance(v, str) else str(v) for v in val)
+            display_sql = display_sql.replace(f":{key}", joined)
+        else:
+            display_sql = display_sql.replace(f":{key}", str(val))
+    return display_sql
+
+
 def _empty_segment_insights() -> dict[str, Any]:
     """Return empty insights for a segment with zero users."""
     return {

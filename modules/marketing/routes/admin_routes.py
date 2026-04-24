@@ -755,3 +755,26 @@ async def get_send_time_suggestion(
     from modules.marketing.services import insights_service
 
     return await insights_service.get_send_time_suggestion(db, body.filters)
+
+
+@router.get("/insights/customer-consent")
+async def get_customer_consent(
+    db: AsyncSession = Depends(get_db),
+    user: dict = Depends(require_role("admin")),
+):
+    """Consent breakdown for customers (users with orders)."""
+    from modules.marketing.services import insights_service
+
+    return await insights_service.get_customer_consent_breakdown(db)
+
+
+@router.post("/insights/explain-query")
+async def explain_query(
+    body: InsightsSegmentRequest,
+    user: dict = Depends(require_role("admin")),
+):
+    """Return the SQL query that would be used for these filters."""
+    from modules.marketing.services import insights_service
+
+    sql = await insights_service.explain_segment_query(body.filters)
+    return {"sql": sql}
