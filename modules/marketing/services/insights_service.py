@@ -62,8 +62,12 @@ async def get_global_insights(db: AsyncSession) -> dict[str, Any]:
         .mappings()
         .first()
     )
-    avg_order_value = round(float(aov_row["avg_total_spent"] or 0) / 100, 2)
-    avg_orders_per_user = round(float(aov_row["avg_orders"] or 0), 1)
+    if aov_row and aov_row["avg_total_spent"] is not None:
+        avg_order_value = round(float(aov_row["avg_total_spent"]) / 100, 2)
+        avg_orders_per_user = round(float(aov_row["avg_orders"] or 0), 1)
+    else:
+        avg_order_value = 0.0
+        avg_orders_per_user = 0.0
 
     # Active in last 30 days (has page view)
     active_row = (
@@ -92,7 +96,7 @@ async def get_global_insights(db: AsyncSession) -> dict[str, Any]:
             await db.execute(
                 text(
                     "SELECT COUNT(DISTINCT c.user_id) AS cnt "
-                    "FROM ecommerce.carts c "
+                    "FROM ecommerce.cart c "
                     "JOIN core.users u ON u.id = c.user_id "
                     "JOIN gdpr.email_preferences ep ON ep.user_id = u.id "
                     "WHERE c.status = 'abandoned' "

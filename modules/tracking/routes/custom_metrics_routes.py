@@ -292,16 +292,16 @@ async def list_audience_metrics(db: AsyncSession = Depends(get_db)):
             "ORDER BY sm.group_name NULLS LAST, sm.display_order, sm.created_at DESC"
         )
     )
-    rows = result.fetchall()
+    rows = result.mappings().all()
     metrics = [
         {
-            "id": str(r.id),
-            "name": r.name,
-            "description": r.description or "",
-            "group_name": r.group_name,
-            "display_order": r.display_order,
-            "user_count": r.user_count,
-            "segment_id": str(r.segment_id) if r.segment_id else None,
+            "id": str(r["id"]),
+            "name": r["name"],
+            "description": r["description"] or "",
+            "group_name": r["group_name"],
+            "display_order": r["display_order"],
+            "user_count": r["user_count"],
+            "segment_id": str(r["segment_id"]) if r["segment_id"] else None,
         }
         for r in rows
     ]

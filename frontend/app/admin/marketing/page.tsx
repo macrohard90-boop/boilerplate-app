@@ -516,7 +516,6 @@ function TemplatesTab() {
 
   // Inline creator mode (replaces full-screen modal for new templates)
   const [creatorMode, setCreatorMode] = useState(false);
-  const [creatorStep, setCreatorStep] = useState(1);
 
   // Sample values for the "Rendered Preview" — covers current + future BP variables
   const SAMPLE_VALUES: Record<string, string> = {
@@ -621,7 +620,6 @@ function TemplatesTab() {
     setFormCategory("campaign");
     setFormDescription("");
     setFormHtml("<h1>Hello {{ first_name }}</h1>\n<p>Your content here.</p>");
-    setCreatorStep(1);
     setCreatorMode(true);
   }
 
@@ -637,7 +635,6 @@ function TemplatesTab() {
       setFormCategory(full.category);
       setFormDescription(full.description || "");
       setFormHtml(full.html_content || "");
-      setCreatorStep(1);
       setCreatorMode(true);
     } catch {
       showToast("Failed to load template", "error");
@@ -804,139 +801,109 @@ function TemplatesTab() {
               ? `Edit: ${editingTemplate.display_name}`
               : "New Template"}
           </h2>
-          <div className="flex gap-1 ml-auto">
-            {[1, 2].map((s) => (
-              <div
-                key={s}
-                className={`h-1.5 rounded-full transition-all ${
-                  s <= creatorStep
-                    ? "w-8 bg-accent-blue"
-                    : "w-8 bg-glass-border"
-                }`}
-              />
-            ))}
-          </div>
         </div>
 
-        {creatorStep === 1 && (
-          <div className="glass rounded-xl p-6 space-y-4">
-            <h3 className="text-text-primary font-medium text-sm">
-              Template Details
-            </h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <label className="text-xs text-text-muted block mb-1">
-                  Template ID
-                </label>
-                <input
-                  className="input-glass w-full font-mono text-sm"
-                  value={formName}
-                  onChange={(e) => setFormName(e.target.value)}
-                  placeholder="my_template"
-                  disabled={isEditing}
-                />
-                {!isEditing && (
-                  <p className="text-[10px] text-text-muted mt-1">
-                    Lowercase, underscores only
-                  </p>
-                )}
-              </div>
-              <div>
-                <label className="text-xs text-text-muted block mb-1">
-                  Display Name
-                </label>
-                <input
-                  className="input-glass w-full"
-                  value={formDisplayName}
-                  onChange={(e) => setFormDisplayName(e.target.value)}
-                  placeholder="My Template"
-                />
-              </div>
-              <div>
-                <label className="text-xs text-text-muted block mb-1">
-                  Subject Line
-                </label>
-                <input
-                  className="input-glass w-full"
-                  value={formSubject}
-                  onChange={(e) => setFormSubject(e.target.value)}
-                  placeholder="Hello {{first_name}}!"
-                />
-              </div>
-              <div>
-                <label className="text-xs text-text-muted block mb-1">
-                  Category
-                </label>
-                <select
-                  className="input-glass w-full"
-                  value={formCategory}
-                  onChange={(e) => setFormCategory(e.target.value)}
-                >
-                  <option value="transactional">Transactional</option>
-                  <option value="campaign">Campaign</option>
-                  <option value="automation">Automation</option>
-                </select>
-              </div>
+        <div className="glass rounded-xl p-6 space-y-4">
+          <h3 className="text-text-primary font-medium text-sm">
+            Template Details
+          </h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs text-text-muted block mb-1">
+                Template ID
+              </label>
+              <input
+                className="input-glass w-full font-mono text-sm"
+                value={formName}
+                onChange={(e) => setFormName(e.target.value)}
+                placeholder="my_template"
+                disabled={isEditing}
+              />
+              {!isEditing && (
+                <p className="text-[10px] text-text-muted mt-1">
+                  Lowercase, underscores only
+                </p>
+              )}
             </div>
             <div>
               <label className="text-xs text-text-muted block mb-1">
-                Description (optional)
+                Display Name
               </label>
               <input
-                className="input-glass w-full text-sm"
-                value={formDescription}
-                onChange={(e) => setFormDescription(e.target.value)}
-                placeholder="Internal notes about this template..."
+                className="input-glass w-full"
+                value={formDisplayName}
+                onChange={(e) => setFormDisplayName(e.target.value)}
+                placeholder="My Template"
               />
             </div>
-            <div className="flex justify-end pt-2">
-              <button
-                className="btn-primary text-sm"
-                onClick={() => setCreatorStep(2)}
-                disabled={!formName.trim() || !formDisplayName.trim()}
+            <div>
+              <label className="text-xs text-text-muted block mb-1">
+                Subject Line
+              </label>
+              <input
+                className="input-glass w-full"
+                value={formSubject}
+                onChange={(e) => setFormSubject(e.target.value)}
+                placeholder="Hello {{first_name}}!"
+              />
+            </div>
+            <div>
+              <label className="text-xs text-text-muted block mb-1">
+                Category
+              </label>
+              <select
+                className="input-glass w-full"
+                value={formCategory}
+                onChange={(e) => setFormCategory(e.target.value)}
               >
-                Next: Edit HTML &rarr;
-              </button>
+                <option value="transactional">Transactional</option>
+                <option value="campaign">Campaign</option>
+                <option value="automation">Automation</option>
+              </select>
             </div>
           </div>
-        )}
-
-        {creatorStep === 2 && (
-          <div className="glass rounded-xl p-6 space-y-4">
-            <h3 className="text-text-primary font-medium text-sm">
-              HTML Content
-            </h3>
-            <TemplateEditor
-              initialContent={formHtml}
-              onChange={setFormHtml}
-              templateData={buildSampleData(editingTemplate?.variables ?? [])}
-              variables={editingTemplate?.variables ?? []}
+          <div>
+            <label className="text-xs text-text-muted block mb-1">
+              Description (optional)
+            </label>
+            <input
+              className="input-glass w-full text-sm"
+              value={formDescription}
+              onChange={(e) => setFormDescription(e.target.value)}
+              placeholder="Internal notes about this template..."
             />
-            <div className="flex justify-between pt-2">
-              <button
-                className="btn-secondary text-sm"
-                onClick={() => setCreatorStep(1)}
-              >
-                &larr; Back
-              </button>
-              <button
-                className="btn-primary text-sm"
-                onClick={async () => {
-                  await handleSave();
-                  setCreatorMode(false);
-                  setEditingTemplate(null);
-                }}
-                disabled={saving}
-              >
-                {saving
-                  ? "Saving..."
-                  : isEditing
-                    ? "Update Template"
-                    : "Create Template"}
-              </button>
-            </div>
           </div>
-        )}
+        </div>
+
+        <div className="glass rounded-xl p-6 space-y-4">
+          <h3 className="text-text-primary font-medium text-sm">
+            HTML Content
+          </h3>
+          <TemplateEditor
+            initialContent={formHtml}
+            onChange={setFormHtml}
+            templateData={buildSampleData(editingTemplate?.variables ?? [])}
+            variables={editingTemplate?.variables ?? []}
+          />
+        </div>
+
+        <div className="flex justify-end">
+          <button
+            className="btn-primary text-sm"
+            onClick={async () => {
+              await handleSave();
+              setCreatorMode(false);
+              setEditingTemplate(null);
+            }}
+            disabled={saving || !formName.trim() || !formDisplayName.trim()}
+          >
+            {saving
+              ? "Saving..."
+              : isEditing
+                ? "Update Template"
+                : "Create Template"}
+          </button>
+        </div>
       </div>
     );
   }
@@ -1037,7 +1004,7 @@ function TemplatesTab() {
                   srcDoc={previewHtml}
                   title="Template Preview"
                   className="w-full bg-white"
-                  sandbox="allow-same-origin"
+                  sandbox="allow-same-origin allow-scripts"
                   style={{ border: "none", minHeight: "200px" }}
                   onLoad={(e) => {
                     const frame = e.currentTarget;
