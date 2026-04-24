@@ -124,6 +124,63 @@ STATEMENTS = [
         updated_at TIMESTAMPTZ DEFAULT NOW()
     )""",
     "CREATE INDEX IF NOT EXISTS idx_agp_group ON marketing.audience_group_presets(group_id)",
+    # --- Migration 031: seed audience groups (idempotent) ---
+    """INSERT INTO marketing.audience_groups (name, display_order)
+    SELECT name, display_order FROM (VALUES
+        ('Audience Overview', 0),
+        ('Purchase Behavior', 1),
+        ('Event Behavior',    2),
+        ('Engagement',        3),
+        ('Device & Platform', 4)
+    ) AS v(name, display_order)
+    WHERE NOT EXISTS (SELECT 1 FROM marketing.audience_groups LIMIT 1)""",
+    # --- Migration 031: seed audience group presets (idempotent) ---
+    """INSERT INTO marketing.audience_group_presets
+        (group_id, preset_key, label, detail, color, filters, is_dynamic, display_order)
+    VALUES
+        ((SELECT id FROM marketing.audience_groups WHERE name = 'Audience Overview'),
+         'all', 'All Subscribers', NULL, 'text-accent-blue', '{}', FALSE, 0),
+        ((SELECT id FROM marketing.audience_groups WHERE name = 'Audience Overview'),
+         'all_customers', 'All Customers', 'Users with at least 1 order', 'text-accent-green', '{"has_orders": true}', FALSE, 1)
+    ON CONFLICT (preset_key) DO NOTHING""",
+    """INSERT INTO marketing.audience_group_presets
+        (group_id, preset_key, label, detail, color, filters, is_dynamic, display_order)
+    VALUES
+        ((SELECT id FROM marketing.audience_groups WHERE name = 'Purchase Behavior'),
+         'champions', 'Champions', 'High-value repeat buyers', 'text-accent-green', '{"rfm_segment": ["champion"]}', FALSE, 0),
+        ((SELECT id FROM marketing.audience_groups WHERE name = 'Purchase Behavior'),
+         'at_risk', 'At-Risk', 'Fading engagement', 'text-accent-yellow', '{"rfm_segment": ["at_risk"]}', FALSE, 1),
+        ((SELECT id FROM marketing.audience_groups WHERE name = 'Purchase Behavior'),
+         'cart_abandoners', 'Cart Abandoners', 'Left items in cart', 'text-accent-orange', '{"cart_status": "abandoned"}', FALSE, 2),
+        ((SELECT id FROM marketing.audience_groups WHERE name = 'Purchase Behavior'),
+         'new_customers', 'New Customers', 'Recently acquired', 'text-accent-purple', '{"rfm_segment": ["new"]}', FALSE, 3)
+    ON CONFLICT (preset_key) DO NOTHING""",
+    """INSERT INTO marketing.audience_group_presets
+        (group_id, preset_key, label, detail, color, filters, is_dynamic, display_order)
+    VALUES
+        ((SELECT id FROM marketing.audience_groups WHERE name = 'Event Behavior'),
+         'added_to_cart', 'Added to Cart', 'Added items but no orders yet', 'text-accent-orange', '{"event_type": ["add_to_cart"], "has_orders": false}', FALSE, 0),
+        ((SELECT id FROM marketing.audience_groups WHERE name = 'Event Behavior'),
+         'checkout_dropoff', 'Checkout Drop-off', 'Started checkout but abandoned', 'text-accent-pink', '{"event_type": ["checkout_abandoned"]}', FALSE, 1),
+        ((SELECT id FROM marketing.audience_groups WHERE name = 'Event Behavior'),
+         'high_intent', 'High-Intent Browsers', '5+ product views in 7 days', 'text-accent-blue', '{"event_type": ["product_viewed"], "event_min_count": 5, "event_days_lookback": 7}', FALSE, 2),
+        ((SELECT id FROM marketing.audience_groups WHERE name = 'Event Behavior'),
+         'repeat_searchers', 'Repeat Searchers', '3+ searches in 30 days', 'text-accent-blue', '{"event_type": ["search_performed"], "event_min_count": 3, "event_days_lookback": 30}', FALSE, 3)
+    ON CONFLICT (preset_key) DO NOTHING""",
+    """INSERT INTO marketing.audience_group_presets
+        (group_id, preset_key, label, detail, color, filters, is_dynamic, display_order)
+    VALUES
+        ((SELECT id FROM marketing.audience_groups WHERE name = 'Engagement'),
+         'active_30d', 'Active (30d)', 'Active in the last 30 days', 'text-accent-green', '{"last_purchase_days_max": 30}', FALSE, 0),
+        ((SELECT id FROM marketing.audience_groups WHERE name = 'Engagement'),
+         'high_engagers', 'High Engagers', '5+ sessions in 90 days', 'text-accent-blue', '{"min_sessions": 5}', FALSE, 1)
+    ON CONFLICT (preset_key) DO NOTHING""",
+    """INSERT INTO marketing.audience_group_presets
+        (group_id, preset_key, label, detail, color, filters, is_dynamic, display_order)
+    VALUES
+        ((SELECT id FROM marketing.audience_groups WHERE name = 'Device & Platform'),
+         'device_dynamic', '(Dynamic)', 'Auto-populated from analytics', 'text-accent-blue', '{}', TRUE, 0)
+    ON CONFLICT (preset_key) DO NOTHING""",
 ]
 
 
