@@ -295,10 +295,7 @@ export default function AudienceSelector({
   // Derive categories from API groups, preserving display_order
   const categories = apiGroups.map((g) => g.name);
   // Ensure "Device & Platform" is included if dynamic cards exist but no API group has that name
-  if (
-    dynamicCards.length > 0 &&
-    !categories.includes("Device & Platform")
-  ) {
+  if (dynamicCards.length > 0 && !categories.includes("Device & Platform")) {
     categories.push("Device & Platform");
   }
 
