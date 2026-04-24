@@ -506,6 +506,185 @@ async def get_segment_behavior_insights(
     }
 
 
+async def get_segment_dashboard(
+    db: AsyncSession, filters: dict[str, Any]
+) -> dict[str, Any]:
+    """Full dashboard data for the segment builder panel.
+
+    Returns KPIs (avg order value, total revenue, avg sessions),
+    RFM distribution, device breakdown, top pages, and a 30-day
+    activity timeline for the users matching the given filters.
+    """
+    # Get user IDs from segment query
+    sql, params = _build_segment_query(filters, count_only=False, limit=10000)
+    result = await db.execute(text(sql), params)
+    rows = result.mappings().all()
+    user_ids = [str(r["user_id"]) for r in rows]
+    user_count = len(user_ids)
+
+    if user_count == 0:
+        return {
+            "kpis": {
+                "total_users": 0,
+                "avg_order_value": 0,
+                "total_revenue": 0,
+                "avg_sessions": 0,
+            },
+            "rfm_distribution": [],
+            "device_breakdown": {},
+            "top_pages": [],
+            "activity_timeline": [],
+        }
+
+    # Build user ID params for subqueries
+    id_placeholders = ", ".join(f":uid_{i}" for i in range(len(user_ids)))
+    uid_params = {f"uid_{i}": uid for i, uid in enumerate(user_ids)}
+
+    # KPIs: avg order value, total revenue from customer_metrics
+    kpi_row = (
+        (
+            await db.execute(
+                text(
+                    f"SELECT "
+                    f"  COALESCE(AVG(cm.total_spent / NULLIF(cm.order_count, 0)), 0) "
+                    f"    AS avg_order_value, "
+                    f"  COALESCE(SUM(cm.total_spent), 0) AS total_revenue "
+                    f"FROM ecommerce.customer_metrics cm "
+                    f"WHERE cm.user_id::text IN ({id_placeholders}) "
+                    f"  AND cm.order_count > 0"
+                ),
+                uid_params,
+            )
+        )
+        .mappings()
+        .first()
+    )
+    avg_order_value = round(float(kpi_row["avg_order_value"] or 0), 2) if kpi_row else 0
+    total_revenue = int(kpi_row["total_revenue"] or 0) if kpi_row else 0
+
+    # Avg sessions per user (90d)
+    sessions_row = (
+        (
+            await db.execute(
+                text(
+                    f"SELECT COALESCE(AVG(cnt), 0) AS avg_sessions FROM ("
+                    f"  SELECT s.user_id, COUNT(*) AS cnt "
+                    f"  FROM analytics.analytics_sessions s "
+                    f"  WHERE s.user_id IN ({id_placeholders}) "
+                    f"    AND s.started_at >= NOW() - INTERVAL '90 days' "
+                    f"  GROUP BY s.user_id"
+                    f") sub"
+                ),
+                uid_params,
+            )
+        )
+        .mappings()
+        .first()
+    )
+    avg_sessions = (
+        round(float(sessions_row["avg_sessions"] or 0), 1) if sessions_row else 0.0
+    )
+
+    # RFM distribution
+    rfm_rows = (
+        (
+            await db.execute(
+                text(
+                    f"SELECT COALESCE(cm.rfm_segment, 'unscored') AS segment, "
+                    f"COUNT(*) AS count "
+                    f"FROM ecommerce.customer_metrics cm "
+                    f"WHERE cm.user_id::text IN ({id_placeholders}) "
+                    f"GROUP BY cm.rfm_segment "
+                    f"ORDER BY count DESC"
+                ),
+                uid_params,
+            )
+        )
+        .mappings()
+        .all()
+    )
+    rfm_distribution = [
+        {"segment": r["segment"], "count": r["count"]} for r in rfm_rows
+    ]
+
+    # Device breakdown
+    device_rows = (
+        (
+            await db.execute(
+                text(
+                    f"SELECT ua.device_type, COUNT(DISTINCT s.user_id) AS count "
+                    f"FROM analytics.analytics_sessions s "
+                    f"JOIN analytics.user_agents ua ON ua.session_id = s.session_id "
+                    f"WHERE s.user_id IN ({id_placeholders}) "
+                    f"  AND s.started_at >= NOW() - INTERVAL '90 days' "
+                    f"GROUP BY ua.device_type "
+                    f"ORDER BY count DESC"
+                ),
+                uid_params,
+            )
+        )
+        .mappings()
+        .all()
+    )
+    device_breakdown = {r["device_type"]: r["count"] for r in device_rows}
+
+    # Top 5 pages
+    page_rows = (
+        (
+            await db.execute(
+                text(
+                    f"SELECT pv.path, COUNT(*) AS views "
+                    f"FROM analytics.page_views pv "
+                    f"WHERE pv.user_id IN ({id_placeholders}) "
+                    f"  AND pv.created_at >= NOW() - INTERVAL '90 days' "
+                    f"GROUP BY pv.path "
+                    f"ORDER BY views DESC "
+                    f"LIMIT 5"
+                ),
+                uid_params,
+            )
+        )
+        .mappings()
+        .all()
+    )
+    top_pages = [{"path": r["path"], "views": r["views"]} for r in page_rows]
+
+    # Activity timeline (30d, daily)
+    timeline_rows = (
+        (
+            await db.execute(
+                text(
+                    f"SELECT DATE(pv.created_at) AS day, COUNT(*) AS views "
+                    f"FROM analytics.page_views pv "
+                    f"WHERE pv.user_id IN ({id_placeholders}) "
+                    f"  AND pv.created_at >= NOW() - INTERVAL '30 days' "
+                    f"GROUP BY day "
+                    f"ORDER BY day"
+                ),
+                uid_params,
+            )
+        )
+        .mappings()
+        .all()
+    )
+    activity_timeline = [
+        {"day": str(r["day"]), "views": r["views"]} for r in timeline_rows
+    ]
+
+    return {
+        "kpis": {
+            "total_users": user_count,
+            "avg_order_value": avg_order_value,
+            "total_revenue": total_revenue,
+            "avg_sessions": avg_sessions,
+        },
+        "rfm_distribution": rfm_distribution,
+        "device_breakdown": device_breakdown,
+        "top_pages": top_pages,
+        "activity_timeline": activity_timeline,
+    }
+
+
 async def get_analytics_filter_options(db: AsyncSession) -> dict[str, Any]:
     """Return distinct device types, browsers, and OS values from analytics.
 

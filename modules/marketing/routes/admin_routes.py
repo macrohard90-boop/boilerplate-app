@@ -8,6 +8,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.core.database import get_db
 from backend.core.dependencies import require_role
+from pydantic import BaseModel, Field
+
 from modules.marketing.models.schemas import (
     CampaignCreateRequest,
     CampaignResponse,
@@ -768,6 +770,18 @@ async def get_customer_consent(
     return await insights_service.get_customer_consent_breakdown(db)
 
 
+@router.post("/segments/dashboard")
+async def segment_dashboard(
+    body: InsightsSegmentRequest,
+    db: AsyncSession = Depends(get_db),
+    user: dict = Depends(require_role("admin")),
+):
+    """Full dashboard data (KPIs, RFM, devices, pages, timeline) for a segment."""
+    from modules.marketing.services.insights_service import get_segment_dashboard
+
+    return await get_segment_dashboard(db, body.filters)
+
+
 @router.post("/insights/explain-query")
 async def explain_query(
     body: InsightsSegmentRequest,
@@ -778,3 +792,129 @@ async def explain_query(
 
     sql = await insights_service.explain_segment_query(body.filters)
     return {"sql": sql}
+
+
+# ── Audience Group Management ─────────────────────────────
+
+
+class AudienceGroupCreateRequest(BaseModel):
+    name: str = Field(..., min_length=1, max_length=100)
+    display_order: int = 0
+
+
+class AudienceGroupUpdateRequest(BaseModel):
+    name: str | None = Field(None, min_length=1, max_length=100)
+    display_order: int | None = None
+
+
+class AudienceGroupReorderRequest(BaseModel):
+    group_ids: list[str]
+
+
+class PresetMoveRequest(BaseModel):
+    target_group_id: str | None = None
+
+
+class PresetReorderRequest(BaseModel):
+    preset_ids: list[str]
+
+
+@router.get("/audience-groups")
+async def list_audience_groups(
+    db: AsyncSession = Depends(get_db),
+    user: dict = Depends(require_role("admin")),
+):
+    """List all audience groups with nested presets."""
+    from modules.marketing.services import group_service
+
+    return await group_service.list_groups(db)
+
+
+@router.post("/audience-groups", status_code=201)
+async def create_audience_group(
+    body: AudienceGroupCreateRequest,
+    db: AsyncSession = Depends(get_db),
+    user: dict = Depends(require_role("admin")),
+):
+    """Create a new audience group."""
+    from modules.marketing.services import group_service
+
+    return await group_service.create_group(db, body.name, body.display_order)
+
+
+@router.put("/audience-groups/{group_id}")
+async def update_audience_group(
+    group_id: str,
+    body: AudienceGroupUpdateRequest,
+    db: AsyncSession = Depends(get_db),
+    user: dict = Depends(require_role("admin")),
+):
+    """Update an audience group's name and/or display order."""
+    from modules.marketing.services import group_service
+
+    try:
+        return await group_service.update_group(
+            db, group_id, name=body.name, display_order=body.display_order
+        )
+    except ValueError as e:
+        status = 400 if "No fields" in str(e) else 404
+        raise HTTPException(status_code=status, detail=str(e))
+
+
+@router.delete("/audience-groups/{group_id}")
+async def delete_audience_group(
+    group_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: dict = Depends(require_role("admin")),
+):
+    """Delete an audience group. Presets become uncategorized."""
+    from modules.marketing.services import group_service
+
+    try:
+        await group_service.delete_group(db, group_id)
+        return {"ok": True}
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@router.post("/audience-groups/reorder")
+async def reorder_audience_groups(
+    body: AudienceGroupReorderRequest,
+    db: AsyncSession = Depends(get_db),
+    user: dict = Depends(require_role("admin")),
+):
+    """Bulk reorder audience groups by position."""
+    from modules.marketing.services import group_service
+
+    await group_service.reorder_groups(db, body.group_ids)
+    return {"ok": True}
+
+
+@router.put("/audience-presets/{preset_id}/move")
+async def move_audience_preset(
+    preset_id: str,
+    body: PresetMoveRequest,
+    db: AsyncSession = Depends(get_db),
+    user: dict = Depends(require_role("admin")),
+):
+    """Move an audience preset to a different group (or uncategorized)."""
+    from modules.marketing.services import group_service
+
+    try:
+        return await group_service.move_preset(db, preset_id, body.target_group_id)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@router.post("/audience-presets/reorder")
+async def reorder_audience_presets(
+    body: PresetReorderRequest,
+    group_id: str = Query(..., description="Group ID to reorder presets within"),
+    db: AsyncSession = Depends(get_db),
+    user: dict = Depends(require_role("admin")),
+):
+    """Reorder presets within a group."""
+    from modules.marketing.services import group_service
+
+    await group_service.reorder_presets(db, group_id, body.preset_ids)
+    return {"ok": True}

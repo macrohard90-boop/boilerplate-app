@@ -131,6 +131,17 @@ def _build_segment_query(
         wheres.append("u.is_verified = :verified")
         params["verified"] = bool(filters["is_verified"])
 
+    # --- User role filter ---
+    if "user_role" in filters and filters["user_role"]:
+        roles = filters["user_role"]
+        if isinstance(roles, str):
+            roles = [roles]
+        role_placeholders = ", ".join(f":role_{i}" for i in range(len(roles)))
+        joins.append("JOIN core.roles _r ON _r.id = u.role_id")
+        wheres.append(f"_r.name IN ({role_placeholders})")
+        for i, role in enumerate(roles):
+            params[f"role_{i}"] = role
+
     # --- Device type filter (mobile/desktop/tablet) ---
     if "device_type" in filters and filters["device_type"]:
         device_types = filters["device_type"]

@@ -22,10 +22,21 @@ logger = logging.getLogger(__name__)
 # ── Analytics seed constants ────────────────────────────────────────────────
 
 PAGES = [
-    "/", "/products", "/products/wireless-headphones", "/products/usb-c-hub",
-    "/products/classic-t-shirt", "/products/running-shoes", "/products/smart-watch",
-    "/about", "/contact", "/cart", "/checkout", "/dashboard", "/auth/login",
-    "/categories/electronics", "/categories/clothing",
+    "/",
+    "/products",
+    "/products/wireless-headphones",
+    "/products/usb-c-hub",
+    "/products/classic-t-shirt",
+    "/products/running-shoes",
+    "/products/smart-watch",
+    "/about",
+    "/contact",
+    "/cart",
+    "/checkout",
+    "/dashboard",
+    "/auth/login",
+    "/categories/electronics",
+    "/categories/clothing",
 ]
 
 BROWSERS = ["Chrome", "Safari", "Edge", "Firefox"]
@@ -43,13 +54,22 @@ OS_MAP = {
     "tablet": ["iPadOS 17", "Android 14"],
 }
 REFERRAL_SOURCES = [
-    ("google", "organic"), ("direct", "none"), ("facebook", "social"),
-    ("instagram", "social"), ("email", "email"), ("twitter", "social"),
+    ("google", "organic"),
+    ("direct", "none"),
+    ("facebook", "social"),
+    ("instagram", "social"),
+    ("email", "email"),
+    ("twitter", "social"),
 ]
 EVENT_TYPES = [
-    "product_viewed", "add_to_cart", "remove_from_cart",
-    "checkout_started", "checkout_abandoned", "search_performed",
-    "wishlist_added", "coupon_applied",
+    "product_viewed",
+    "add_to_cart",
+    "remove_from_cart",
+    "checkout_started",
+    "checkout_abandoned",
+    "search_performed",
+    "wishlist_added",
+    "coupon_applied",
 ]
 EVENT_WEIGHTS = [40, 20, 5, 10, 5, 10, 5, 5]
 
@@ -97,14 +117,13 @@ def _random_ts(days_back: int = 30) -> datetime:
 
 # ── Main entry point ────────────────────────────────────────────────────────
 
+
 async def run_startup_seed(db: AsyncSession) -> None:
     """Run all seed steps. Idempotent — safe on every restart."""
 
     # Check if seeding was already done (marker row)
     result = await db.execute(
-        text(
-            "SELECT 1 FROM analytics.analytics_sessions LIMIT 1"
-        )
+        text("SELECT 1 FROM analytics.analytics_sessions LIMIT 1")
     )
     if result.scalar() is not None:
         logger.info("Seed data already present — skipping startup seeder")
@@ -125,12 +144,16 @@ async def _activate_users(db: AsyncSession) -> None:
 
     # 1. Verify unverified users
     r = await db.execute(
-        text("UPDATE core.users SET is_verified = TRUE WHERE is_verified = FALSE AND is_active = TRUE")
+        text(
+            "UPDATE core.users SET is_verified = TRUE WHERE is_verified = FALSE AND is_active = TRUE"
+        )
     )
     logger.info("Verified %d users", r.rowcount)
 
     # 2. Ensure email_preferences with marketing_email = TRUE
-    await db.execute(text("""
+    await db.execute(
+        text(
+            """
         INSERT INTO gdpr.email_preferences (user_id, marketing_email, transactional_email)
         SELECT u.id, TRUE, TRUE
         FROM core.users u
@@ -138,34 +161,46 @@ async def _activate_users(db: AsyncSession) -> None:
           AND NOT EXISTS (
             SELECT 1 FROM gdpr.email_preferences ep WHERE ep.user_id = u.id
           )
-    """))
+    """
+        )
+    )
 
-    await db.execute(text("""
+    await db.execute(
+        text(
+            """
         UPDATE gdpr.email_preferences
         SET marketing_email = TRUE
         WHERE user_id IN (SELECT id FROM core.users WHERE is_active = TRUE)
-    """))
+    """
+        )
+    )
 
     # 3. Opt into all enabled communication types
-    await db.execute(text("""
+    await db.execute(
+        text(
+            """
         INSERT INTO marketing.user_communication_preferences (user_id, communication_type_id, allowed)
         SELECT u.id, ct.id, TRUE
         FROM core.users u
         CROSS JOIN marketing.communication_types ct
         WHERE u.is_active = TRUE AND ct.enabled = TRUE
         ON CONFLICT (user_id, communication_type_id) DO UPDATE SET allowed = TRUE
-    """))
+    """
+        )
+    )
 
     logger.info("All active users opted into marketing")
 
 
 async def _compute_rfm(db: AsyncSession) -> None:
     """Compute RFM segments for customers with orders."""
-    result = await db.execute(text(
-        "SELECT user_id, order_count, total_spent, last_purchase_at "
-        "FROM ecommerce.customer_metrics "
-        "WHERE order_count > 0 AND last_purchase_at IS NOT NULL"
-    ))
+    result = await db.execute(
+        text(
+            "SELECT user_id, order_count, total_spent, last_purchase_at "
+            "FROM ecommerce.customer_metrics "
+            "WHERE order_count > 0 AND last_purchase_at IS NOT NULL"
+        )
+    )
     rows = result.fetchall()
     if not rows:
         logger.info("No customers with orders — skipping RFM")
@@ -229,7 +264,13 @@ async def _seed_analytics(db: AsyncSession) -> None:
                     "VALUES (:uid, :sid, :start, :end, :pc) "
                     "ON CONFLICT DO NOTHING"
                 ),
-                {"uid": str(user_id), "sid": session_id, "start": session_start, "end": session_end, "pc": num_pages},
+                {
+                    "uid": str(user_id),
+                    "sid": session_id,
+                    "start": session_start,
+                    "end": session_end,
+                    "pc": num_pages,
+                },
             )
             total_sessions += 1
 
@@ -242,7 +283,14 @@ async def _seed_analytics(db: AsyncSession) -> None:
                     "VALUES (:sid, :raw, :br, :bv, :os, :dt) "
                     "ON CONFLICT DO NOTHING"
                 ),
-                {"sid": session_id, "raw": raw_ua, "br": browser, "bv": browser_version, "os": os_name, "dt": device},
+                {
+                    "sid": session_id,
+                    "raw": raw_ua,
+                    "br": browser,
+                    "bv": browser_version,
+                    "os": os_name,
+                    "dt": device,
+                },
             )
 
             # Referral source (50% of sessions)
@@ -264,20 +312,33 @@ async def _seed_analytics(db: AsyncSession) -> None:
                     seconds=i * (duration_minutes * 60 / max(num_pages, 1))
                 )
                 duration_ms = random.randint(2000, 60000)
-                trigger = "navigation" if i == 0 else random.choice(["navigation", "click", "popstate"])
+                trigger = (
+                    "navigation"
+                    if i == 0
+                    else random.choice(["navigation", "click", "popstate"])
+                )
                 await db.execute(
                     text(
-                        'INSERT INTO analytics.page_views '
+                        "INSERT INTO analytics.page_views "
                         '(user_id, session_id, path, duration_ms, "trigger", created_at) '
                         "VALUES (:uid, :sid, :path, :dur, :trig, :ts)"
                     ),
-                    {"uid": str(user_id), "sid": session_id, "path": page_path, "dur": duration_ms, "trig": trigger, "ts": pv_time},
+                    {
+                        "uid": str(user_id),
+                        "sid": session_id,
+                        "path": page_path,
+                        "dur": duration_ms,
+                        "trig": trigger,
+                        "ts": pv_time,
+                    },
                 )
                 total_pageviews += 1
 
             # Events (1-4 per session)
             num_events = random.randint(1, 4)
-            event_types = random.choices(EVENT_TYPES, weights=EVENT_WEIGHTS, k=num_events)
+            event_types = random.choices(
+                EVENT_TYPES, weights=EVENT_WEIGHTS, k=num_events
+            )
             for event_type in event_types:
                 ev_time = session_start + timedelta(
                     seconds=random.randint(10, duration_minutes * 60)
@@ -286,7 +347,11 @@ async def _seed_analytics(db: AsyncSession) -> None:
                 if event_type == "product_viewed":
                     event_data = {"product": random.choice(PAGES[2:7])}
                 elif event_type == "search_performed":
-                    event_data = {"query": random.choice(["shoes", "headphones", "shirt", "watch", "gift"])}
+                    event_data = {
+                        "query": random.choice(
+                            ["shoes", "headphones", "shirt", "watch", "gift"]
+                        )
+                    }
                 elif event_type == "add_to_cart":
                     event_data = {"product": random.choice(PAGES[2:7]), "quantity": 1}
 
@@ -296,8 +361,19 @@ async def _seed_analytics(db: AsyncSession) -> None:
                         "(user_id, session_id, event_type, event_data, created_at) "
                         "VALUES (:uid, :sid, :etype, :edata, :ts)"
                     ),
-                    {"uid": str(user_id), "sid": session_id, "etype": event_type, "edata": json.dumps(event_data), "ts": ev_time},
+                    {
+                        "uid": str(user_id),
+                        "sid": session_id,
+                        "etype": event_type,
+                        "edata": json.dumps(event_data),
+                        "ts": ev_time,
+                    },
                 )
                 total_events += 1
 
-    logger.info("Seeded: %d sessions, %d page views, %d events", total_sessions, total_pageviews, total_events)
+    logger.info(
+        "Seeded: %d sessions, %d page views, %d events",
+        total_sessions,
+        total_pageviews,
+        total_events,
+    )

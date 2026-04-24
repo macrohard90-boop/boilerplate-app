@@ -513,6 +513,11 @@ function TemplatesTab() {
   );
   const [previewHtml, setPreviewHtml] = useState("");
   const [previewLoading, setPreviewLoading] = useState(false);
+  const [showVars, setShowVars] = useState(false);
+
+  // Inline creator mode (replaces full-screen modal for new templates)
+  const [creatorMode, setCreatorMode] = useState(false);
+  const [creatorStep, setCreatorStep] = useState(1);
 
   // Sample values for the "Rendered Preview" — covers current + future BP variables
   const SAMPLE_VALUES: Record<string, string> = {
@@ -617,7 +622,8 @@ function TemplatesTab() {
     setFormCategory("campaign");
     setFormDescription("");
     setFormHtml("<h1>Hello {{ first_name }}</h1>\n<p>Your content here.</p>");
-    setEditorOpen(true);
+    setCreatorStep(1);
+    setCreatorMode(true);
   }
 
   async function openEdit(t: EmailTemplate) {
@@ -778,6 +784,148 @@ function TemplatesTab() {
     setCloning(false);
   }
 
+  // ── Inline Creator Flow (replaces full-screen modal for new templates) ──
+  if (creatorMode) {
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center gap-3 mb-2">
+          <button
+            className="text-text-muted hover:text-text-primary text-sm transition-colors"
+            onClick={() => setCreatorMode(false)}
+          >
+            &larr; Back to Templates
+          </button>
+          <span className="text-text-muted">|</span>
+          <h2 className="text-text-primary font-semibold">New Template</h2>
+          <div className="flex gap-1 ml-auto">
+            {[1, 2].map((s) => (
+              <div
+                key={s}
+                className={`h-1.5 rounded-full transition-all ${
+                  s <= creatorStep
+                    ? "w-8 bg-accent-blue"
+                    : "w-8 bg-glass-border"
+                }`}
+              />
+            ))}
+          </div>
+        </div>
+
+        {creatorStep === 1 && (
+          <div className="glass rounded-xl p-6 space-y-4">
+            <h3 className="text-text-primary font-medium text-sm">
+              Template Details
+            </h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs text-text-muted block mb-1">
+                  Template ID
+                </label>
+                <input
+                  className="input-glass w-full font-mono text-sm"
+                  value={formName}
+                  onChange={(e) => setFormName(e.target.value)}
+                  placeholder="my_template"
+                />
+                <p className="text-[10px] text-text-muted mt-1">
+                  Lowercase, underscores only
+                </p>
+              </div>
+              <div>
+                <label className="text-xs text-text-muted block mb-1">
+                  Display Name
+                </label>
+                <input
+                  className="input-glass w-full"
+                  value={formDisplayName}
+                  onChange={(e) => setFormDisplayName(e.target.value)}
+                  placeholder="My Template"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-text-muted block mb-1">
+                  Subject Line
+                </label>
+                <input
+                  className="input-glass w-full"
+                  value={formSubject}
+                  onChange={(e) => setFormSubject(e.target.value)}
+                  placeholder="Hello {{first_name}}!"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-text-muted block mb-1">
+                  Category
+                </label>
+                <select
+                  className="input-glass w-full"
+                  value={formCategory}
+                  onChange={(e) => setFormCategory(e.target.value)}
+                >
+                  <option value="transactional">Transactional</option>
+                  <option value="campaign">Campaign</option>
+                  <option value="automation">Automation</option>
+                </select>
+              </div>
+            </div>
+            <div>
+              <label className="text-xs text-text-muted block mb-1">
+                Description (optional)
+              </label>
+              <input
+                className="input-glass w-full text-sm"
+                value={formDescription}
+                onChange={(e) => setFormDescription(e.target.value)}
+                placeholder="Internal notes about this template..."
+              />
+            </div>
+            <div className="flex justify-end pt-2">
+              <button
+                className="btn-primary text-sm"
+                onClick={() => setCreatorStep(2)}
+                disabled={!formName.trim() || !formDisplayName.trim()}
+              >
+                Next: Edit HTML &rarr;
+              </button>
+            </div>
+          </div>
+        )}
+
+        {creatorStep === 2 && (
+          <div className="glass rounded-xl p-6 space-y-4">
+            <h3 className="text-text-primary font-medium text-sm">
+              HTML Content
+            </h3>
+            <TemplateEditor
+              initialContent={formHtml}
+              onChange={setFormHtml}
+              templateData={buildSampleData([])}
+              variables={[]}
+            />
+            <div className="flex justify-between pt-2">
+              <button
+                className="btn-secondary text-sm"
+                onClick={() => setCreatorStep(1)}
+              >
+                &larr; Back
+              </button>
+              <button
+                className="btn-primary text-sm"
+                onClick={async () => {
+                  await handleSave();
+                  setCreatorMode(false);
+                }}
+                disabled={saving}
+              >
+                {saving ? "Creating..." : "Create Template"}
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
   return (
     <>
       {/* Header */}
@@ -800,7 +948,7 @@ function TemplatesTab() {
             {total} template{total !== 1 ? "s" : ""}
           </span>
         </div>
-        <button className="btn-primary text-sm" onClick={openCreate}>
+        <button className="btn-primary text-sm" onClick={() => openCreate()}>
           + New Template
         </button>
       </div>
@@ -813,78 +961,89 @@ function TemplatesTab() {
       )}
       {previewTemplate && !previewLoading && (
         <div className="glass rounded-xl mb-4 overflow-hidden">
-          {/* Preview header */}
-          <div className="flex items-center justify-between p-4 border-b border-glass-border">
-            <div className="flex flex-wrap items-center gap-3">
-              <h3 className="text-text-primary font-semibold">
+          {/* Compact header */}
+          <div className="flex items-center justify-between px-4 py-2.5 border-b border-glass-border">
+            <div className="flex items-center gap-2">
+              <h3 className="text-text-primary font-semibold text-sm">
                 {previewTemplate.display_name}
               </h3>
-              <span className="font-mono text-xs text-text-muted">
-                {previewTemplate.name}
-              </span>
               <span
-                className={`badge ${categoryBadge(previewTemplate.category)}`}
+                className={`badge text-[10px] ${categoryBadge(previewTemplate.category)}`}
               >
                 {previewTemplate.category}
               </span>
-              {previewTemplate.is_builtin && (
-                <span className="badge badge-blue">built-in</span>
+              {previewTemplate.subject && (
+                <span className="text-xs text-text-muted hidden sm:inline">
+                  &mdash; {truncate(previewTemplate.subject, 50)}
+                </span>
               )}
-              <span className="text-xs text-text-muted">
-                v{previewTemplate.version}
-              </span>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5">
+              {previewTemplate.variables &&
+                previewTemplate.variables.length > 0 && (
+                  <button
+                    className="text-[10px] text-text-muted hover:text-text-secondary transition-colors"
+                    onClick={() => setShowVars(!showVars)}
+                  >
+                    {showVars ? "Hide" : "Vars"} (
+                    {previewTemplate.variables.length})
+                  </button>
+                )}
               <button
-                className="text-accent-blue hover:underline text-xs"
+                className="p-1 text-text-muted hover:text-accent-blue transition-colors"
                 onClick={() => {
                   const t = previewTemplate;
                   setPreviewTemplate(null);
                   openEdit(t);
                 }}
+                title="Edit"
               >
-                Edit
+                <svg
+                  className="w-3.5 h-3.5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                  />
+                </svg>
               </button>
               <button
-                className="text-accent-green hover:underline text-xs"
+                className="p-1 text-text-muted hover:text-accent-green transition-colors"
                 onClick={() => handleSendTest(previewTemplate)}
+                title="Send Test"
               >
-                Test
+                <svg
+                  className="w-3.5 h-3.5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"
+                  />
+                </svg>
               </button>
             </div>
           </div>
 
-          {/* Subject + description */}
-          {(previewTemplate.subject || previewTemplate.description) && (
-            <div className="px-4 pt-3 space-y-1">
-              {previewTemplate.subject && (
-                <div className="text-sm">
-                  <span className="text-text-muted">Subject: </span>
-                  <span className="text-text-secondary">
-                    {previewTemplate.subject}
-                  </span>
-                </div>
-              )}
-              {previewTemplate.description && (
-                <p className="text-xs text-text-muted">
-                  {previewTemplate.description}
-                </p>
-              )}
-            </div>
-          )}
-
-          {/* Sample variables */}
-          {previewTemplate.variables &&
+          {/* Collapsible variables */}
+          {showVars &&
+            previewTemplate.variables &&
             previewTemplate.variables.length > 0 && (
-              <div className="px-4 pt-3">
-                <div className="text-xs text-text-muted mb-1.5 font-medium">
-                  Sample Variables
-                </div>
+              <div className="px-4 py-2 border-b border-glass-border/50 bg-glass-hover/30">
                 <div className="flex flex-wrap gap-1.5">
                   {previewTemplate.variables.map((v) => (
                     <span
                       key={v.name}
-                      className="inline-flex items-center gap-1 text-xs bg-glass-hover rounded px-2 py-0.5"
+                      className="inline-flex items-center gap-1 text-[10px] bg-glass-hover rounded px-1.5 py-0.5"
                     >
                       <span className="font-mono text-accent-purple">
                         {v.name}
@@ -899,8 +1058,8 @@ function TemplatesTab() {
               </div>
             )}
 
-          {/* Rendered HTML (server-side Jinja2) */}
-          <div className="p-4">
+          {/* Rendered email preview */}
+          <div className="p-3">
             <div className="rounded-lg overflow-hidden border border-glass-border">
               {previewHtml ? (
                 <iframe
@@ -908,10 +1067,10 @@ function TemplatesTab() {
                   title="Template Preview"
                   className="w-full bg-white"
                   sandbox="allow-same-origin"
-                  style={{ border: "none", height: "500px" }}
+                  style={{ border: "none", height: "350px" }}
                 />
               ) : (
-                <div className="flex items-center justify-center py-16 bg-white/5">
+                <div className="flex items-center justify-center py-12 bg-white/5">
                   <LoadingSpinner />
                 </div>
               )}
@@ -1034,19 +1193,14 @@ function TemplatesTab() {
         />
       </div>
 
-      {/* Editor modal (full-screen) */}
+      {/* Editor modal (for editing existing templates only) */}
       <Modal
         isOpen={editorOpen}
         onClose={() => setEditorOpen(false)}
-        title={
-          editingTemplate
-            ? `Edit: ${editingTemplate.display_name}`
-            : "New Template"
-        }
+        title={`Edit: ${editingTemplate?.display_name ?? "Template"}`}
         size="full"
       >
         <div className="space-y-4">
-          {/* Meta fields row */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             <div>
               <label className="text-xs text-text-muted block mb-1">
@@ -1055,9 +1209,7 @@ function TemplatesTab() {
               <input
                 className="input-glass w-full font-mono text-sm"
                 value={formName}
-                onChange={(e) => setFormName(e.target.value)}
-                placeholder="my_template"
-                disabled={!!editingTemplate}
+                disabled
               />
             </div>
             <div>
@@ -1068,7 +1220,6 @@ function TemplatesTab() {
                 className="input-glass w-full"
                 value={formDisplayName}
                 onChange={(e) => setFormDisplayName(e.target.value)}
-                placeholder="My Template"
               />
             </div>
             <div>
@@ -1079,7 +1230,6 @@ function TemplatesTab() {
                 className="input-glass w-full"
                 value={formSubject}
                 onChange={(e) => setFormSubject(e.target.value)}
-                placeholder="Hello {{first_name}}!"
               />
             </div>
             <div>
@@ -1097,8 +1247,6 @@ function TemplatesTab() {
               </select>
             </div>
           </div>
-
-          {/* Description */}
           <div>
             <label className="text-xs text-text-muted block mb-1">
               Description (optional)
@@ -1107,19 +1255,14 @@ function TemplatesTab() {
               className="input-glass w-full text-sm"
               value={formDescription}
               onChange={(e) => setFormDescription(e.target.value)}
-              placeholder="Internal notes about this template..."
             />
           </div>
-
-          {/* Code editor + preview */}
           <TemplateEditor
             initialContent={formHtml}
             onChange={setFormHtml}
             templateData={buildSampleData(editingTemplate?.variables ?? [])}
             variables={editingTemplate?.variables ?? []}
           />
-
-          {/* Footer */}
           <div className="flex justify-end gap-3 pt-2">
             <button
               className="btn-secondary text-sm"
@@ -1132,11 +1275,7 @@ function TemplatesTab() {
               onClick={handleSave}
               disabled={saving}
             >
-              {saving
-                ? "Saving..."
-                : editingTemplate
-                  ? "Update Template"
-                  : "Create Template"}
+              {saving ? "Saving..." : "Update Template"}
             </button>
           </div>
         </div>

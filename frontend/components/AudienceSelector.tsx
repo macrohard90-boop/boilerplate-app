@@ -82,6 +82,25 @@ interface AudienceCard {
   filters: SegmentFilters;
 }
 
+interface ApiGroup {
+  id: string;
+  name: string;
+  display_order: number;
+  presets: ApiPreset[];
+}
+
+interface ApiPreset {
+  id: string;
+  group_id: string | null;
+  preset_key: string;
+  label: string;
+  detail: string | null;
+  color: string;
+  filters: Record<string, unknown>;
+  is_dynamic: boolean;
+  display_order: number;
+}
+
 export interface SelectedAudience {
   label: string;
   filters: SegmentFilters;
@@ -112,6 +131,12 @@ export default function AudienceSelector({
   const [audienceMetrics, setAudienceMetrics] = useState<AudienceMetric[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // API-driven groups
+  const [apiGroups, setApiGroups] = useState<ApiGroup[]>([]);
+  const [managingGroups, setManagingGroups] = useState(false);
+  const [editingGroupId, setEditingGroupId] = useState<string | null>(null);
+  const [editingGroupName, setEditingGroupName] = useState("");
+
   // Detail view state
   const [detailCard, setDetailCard] = useState<AudienceCard | null>(null);
   const [detailInsights, setDetailInsights] = useState<SegmentInsights | null>(
@@ -133,6 +158,19 @@ export default function AudienceSelector({
   const [showCustom, setShowCustom] = useState(false);
   const [customFilters, setCustomFilters] = useState<SegmentFilters>({});
   const [customCount, setCustomCount] = useState<number | null>(null);
+
+  // ─── Fetch API groups ───────────────────────────────────
+
+  const fetchGroups = useCallback(async () => {
+    try {
+      const res = await apiFetch<{ groups: ApiGroup[] }>(
+        "/marketing/admin/audience-groups",
+      );
+      setApiGroups(res.groups);
+    } catch {
+      // If endpoint unavailable, apiGroups stays empty
+    }
+  }, []);
 
   // ─── Fetch global data on mount ────────────────────────
 
@@ -160,137 +198,59 @@ export default function AudienceSelector({
       setLoading(false);
     }
     fetchData();
-  }, []);
+    fetchGroups();
+  }, [fetchGroups]);
 
-  // ─── Preset cards (always visible) ─────────────────────
+  // ─── Helper: map preset_key to a count from globalInsights ──
 
-  const presetCards: AudienceCard[] = [
-    // Audience Overview
-    {
-      id: "all",
-      label: "All Subscribers",
-      category: "Audience Overview",
-      count: globalInsights?.total_eligible ?? null,
-      color: "text-accent-blue",
-      detail: globalInsights
-        ? `AOV $${globalInsights.avg_order_value}`
-        : undefined,
-      filters: {},
-    },
-    {
-      id: "all_customers",
-      label: "All Customers",
-      category: "Audience Overview",
-      count: null,
-      color: "text-accent-green",
-      detail: "Users with at least 1 order",
-      filters: { has_orders: true },
-    },
-    // Purchase Behavior
-    {
-      id: "champions",
-      label: "Champions",
-      category: "Purchase Behavior",
-      count: globalInsights?.by_rfm_segment?.champion ?? null,
-      color: "text-green-400",
-      detail: "High-value repeat buyers",
-      filters: { rfm_segment: ["champion"] },
-    },
-    {
-      id: "at_risk",
-      label: "At-Risk",
-      category: "Purchase Behavior",
-      count: globalInsights
-        ? (globalInsights.by_rfm_segment?.at_risk ?? 0) +
+  function getPresetCount(
+    presetKey: string,
+    filters: Record<string, unknown>,
+  ): number | null {
+    if (!globalInsights) return null;
+    switch (presetKey) {
+      case "all":
+        return globalInsights.total_eligible;
+      case "all_customers": {
+        // Look for has_orders filter — count not directly available
+        if (filters.has_orders) return null;
+        return null;
+      }
+      case "champions":
+        return globalInsights.by_rfm_segment?.champion ?? null;
+      case "at_risk":
+        return (
+          (globalInsights.by_rfm_segment?.at_risk ?? 0) +
           (globalInsights.by_rfm_segment?.hibernating ?? 0)
-        : null,
-      color: "text-yellow-400",
-      detail: "Fading engagement",
-      filters: { rfm_segment: ["at_risk", "hibernating"] },
-    },
-    {
-      id: "cart_abandon",
-      label: "Cart Abandoners",
-      category: "Purchase Behavior",
-      count: globalInsights?.cart_abandonment_count ?? null,
-      color: "text-orange-400",
-      detail: "Left items in cart",
-      filters: { cart_status: "abandoned" },
-    },
-    {
-      id: "new_customers",
-      label: "New Customers",
-      category: "Purchase Behavior",
-      count: globalInsights?.by_rfm_segment?.new ?? null,
-      color: "text-purple-400",
-      detail: "Recently acquired",
-      filters: { rfm_segment: ["new"] },
-    },
-    // Engagement
-    {
-      id: "active_30d",
-      label: "Active (30d)",
-      category: "Engagement",
-      count: globalInsights?.active_last_30_days ?? null,
-      color: "text-cyan-400",
-      detail: "Recent site activity",
-      filters: { last_purchase_days_max: 30 },
-    },
-    {
-      id: "high_engagers",
-      label: "High Engagers",
-      category: "Engagement",
-      count: null,
-      color: "text-accent-green",
-      detail: "10+ sessions (90d)",
-      filters: { min_sessions: 10 },
-    },
-    // Event Behavior
-    {
-      id: "add_to_cart_no_purchase",
-      label: "Added to Cart",
-      category: "Event Behavior",
-      count: null,
-      color: "text-orange-400",
-      detail: "Added items but no orders yet",
-      filters: { event_type: ["add_to_cart"], has_orders: false },
-    },
-    {
-      id: "checkout_dropoff",
-      label: "Checkout Drop-off",
-      category: "Event Behavior",
-      count: null,
-      color: "text-red-400",
-      detail: "Started checkout but abandoned",
-      filters: { event_type: ["checkout_abandoned"] },
-    },
-    {
-      id: "high_intent",
-      label: "High-Intent Browsers",
-      category: "Event Behavior",
-      count: null,
-      color: "text-accent-blue",
-      detail: "5+ product views in 7 days",
-      filters: {
-        event_type: ["product_viewed"],
-        event_min_count: 5,
-        event_days_lookback: 7,
-      },
-    },
-    {
-      id: "repeat_searchers",
-      label: "Repeat Searchers",
-      category: "Event Behavior",
-      count: null,
-      color: "text-cyan-400",
-      detail: "3+ searches in 30 days",
-      filters: {
-        event_type: ["search_performed"],
-        event_min_count: 3,
-        event_days_lookback: 30,
-      },
-    },
-  ];
+        );
+      case "new_customers":
+        return globalInsights.by_rfm_segment?.new ?? null;
+      case "cart_abandon":
+      case "cart_abandoners":
+        return globalInsights.cart_abandonment_count ?? null;
+      case "active_30d":
+        return globalInsights.active_last_30_days ?? null;
+      default:
+        // Event-based presets — computed on demand
+        return null;
+    }
+  }
+
+  // ─── Build preset cards from API groups ─────────────────
+
+  const presetCards: AudienceCard[] = apiGroups.flatMap((g) =>
+    g.presets
+      .filter((p) => !p.is_dynamic)
+      .map((p) => ({
+        id: p.preset_key,
+        label: p.label,
+        category: g.name,
+        count: getPresetCount(p.preset_key, p.filters),
+        color: p.color,
+        detail: p.detail || "",
+        filters: p.filters as Record<string, unknown>,
+      })),
+  );
 
   // Dynamic cards from behavior insights (device, browser) — appended when data loads
   const dynamicCards: AudienceCard[] = [];
@@ -332,23 +292,88 @@ export default function AudienceSelector({
 
   const cards = [...presetCards, ...dynamicCards];
 
-  // Group cards by category
-  const categories = [
-    "Audience Overview",
-    "Purchase Behavior",
-    "Event Behavior",
-    "Device & Platform",
-    "Engagement",
-  ];
+  // Derive categories from API groups, preserving display_order
+  const categories = apiGroups.map((g) => g.name);
+  // Ensure "Device & Platform" is included if dynamic cards exist but no API group has that name
+  if (
+    dynamicCards.length > 0 &&
+    !categories.includes("Device & Platform")
+  ) {
+    categories.push("Device & Platform");
+  }
+
   const grouped = categories
     .map((cat) => ({
       label: cat,
+      groupId: apiGroups.find((g) => g.name === cat)?.id || null,
       items: cards.filter((c) => c.category === cat),
     }))
     .filter((g) => g.items.length > 0);
 
   // Saved segments (non-system custom ones)
   const savedSegments = segments.filter((s) => !s.is_system);
+
+  // ─── Group management API calls ─────────────────────────
+
+  async function renameGroup(groupId: string, newName: string) {
+    try {
+      await apiFetch(`/marketing/admin/audience-groups/${groupId}`, {
+        method: "PUT",
+        body: JSON.stringify({ name: newName }),
+      });
+      await fetchGroups();
+    } catch {
+      // Rename failed — keep old name
+    }
+    setEditingGroupId(null);
+    setEditingGroupName("");
+  }
+
+  async function reorderGroups(groupIds: string[]) {
+    try {
+      await apiFetch("/marketing/admin/audience-groups/reorder", {
+        method: "POST",
+        body: JSON.stringify({ group_ids: groupIds }),
+      });
+      await fetchGroups();
+    } catch {
+      // Reorder failed
+    }
+  }
+
+  async function movePreset(presetId: string, targetGroupId: string) {
+    try {
+      await apiFetch(`/marketing/admin/audience-presets/${presetId}/move`, {
+        method: "PUT",
+        body: JSON.stringify({ target_group_id: targetGroupId }),
+      });
+      await fetchGroups();
+    } catch {
+      // Move failed
+    }
+  }
+
+  function swapGroups(index: number, direction: "up" | "down") {
+    const swapIdx = direction === "up" ? index - 1 : index + 1;
+    if (swapIdx < 0 || swapIdx >= apiGroups.length) return;
+    const reordered = [...apiGroups];
+    [reordered[index], reordered[swapIdx]] = [
+      reordered[swapIdx],
+      reordered[index],
+    ];
+    const ids = reordered.map((g) => g.id);
+    reorderGroups(ids);
+  }
+
+  // Find preset ID from preset_key by searching apiGroups
+  function findPresetId(presetKey: string): string | null {
+    for (const g of apiGroups) {
+      for (const p of g.presets) {
+        if (p.preset_key === presetKey) return p.id;
+      }
+    }
+    return null;
+  }
 
   // ─── Detail view data fetching ─────────────────────────
 
@@ -970,50 +995,190 @@ export default function AudienceSelector({
 
       <>
         {/* Categorized cards — compact table-style rows */}
-        {grouped.map((group) => (
-          <div key={group.label} className="glass rounded-xl overflow-hidden">
-            <div className="px-4 py-2.5 border-b border-glass-border/50">
-              <h3 className="text-xs text-text-muted font-medium uppercase tracking-wider">
-                {group.label}
-              </h3>
-            </div>
-            <div className="divide-y divide-glass-border/30">
-              {group.items.map((card) => (
-                <button
-                  key={card.id}
-                  type="button"
-                  onClick={() => openDetail(card)}
-                  className="w-full px-4 py-3 flex items-center gap-4 hover:bg-glass-hover/50 transition-colors group text-left"
-                >
-                  <p
-                    className={`text-xl font-bold tabular-nums w-20 shrink-0 ${card.color}`}
+        {grouped.map((group, groupIndex) => {
+          const apiGroupIndex = apiGroups.findIndex(
+            (g) => g.id === group.groupId,
+          );
+          return (
+            <div key={group.label} className="glass rounded-xl overflow-hidden">
+              <div className="px-4 py-2.5 border-b border-glass-border/50 flex items-center gap-2">
+                {/* Group header: inline rename or label */}
+                {managingGroups && editingGroupId === group.groupId ? (
+                  <form
+                    className="flex items-center gap-2 flex-1"
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      if (group.groupId && editingGroupName.trim()) {
+                        renameGroup(group.groupId, editingGroupName.trim());
+                      }
+                    }}
                   >
-                    {card.count !== null ? (
-                      card.count.toLocaleString()
-                    ) : loading ? (
-                      <span className="inline-block w-12 h-5 bg-glass-border/50 rounded animate-pulse" />
-                    ) : (
-                      "\u2014"
-                    )}
-                  </p>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm text-text-primary font-medium">
-                      {card.label}
-                    </p>
-                    {card.detail && (
-                      <p className="text-xs text-text-muted truncate">
-                        {card.detail}
-                      </p>
-                    )}
+                    <input
+                      type="text"
+                      value={editingGroupName}
+                      onChange={(e) => setEditingGroupName(e.target.value)}
+                      className="bg-glass-bg border border-glass-border rounded px-2 py-0.5 text-xs text-text-primary font-medium uppercase tracking-wider focus:outline-none focus:border-accent-blue"
+                      autoFocus
+                      onBlur={() => {
+                        if (group.groupId && editingGroupName.trim()) {
+                          renameGroup(group.groupId, editingGroupName.trim());
+                        } else {
+                          setEditingGroupId(null);
+                          setEditingGroupName("");
+                        }
+                      }}
+                    />
+                    <button
+                      type="submit"
+                      className="text-xs text-accent-green hover:text-accent-green/80"
+                    >
+                      Save
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditingGroupId(null);
+                        setEditingGroupName("");
+                      }}
+                      className="text-xs text-text-muted hover:text-text-primary"
+                    >
+                      Cancel
+                    </button>
+                  </form>
+                ) : (
+                  <h3
+                    className={`text-xs text-text-muted font-medium uppercase tracking-wider flex-1 ${
+                      managingGroups && group.groupId
+                        ? "cursor-pointer hover:text-text-primary"
+                        : ""
+                    }`}
+                    onClick={() => {
+                      if (managingGroups && group.groupId) {
+                        setEditingGroupId(group.groupId);
+                        setEditingGroupName(group.label);
+                      }
+                    }}
+                    title={
+                      managingGroups && group.groupId
+                        ? "Click to rename"
+                        : undefined
+                    }
+                  >
+                    {group.label}
+                  </h3>
+                )}
+
+                {/* Manage mode: reorder arrows */}
+                {managingGroups && group.groupId && apiGroupIndex >= 0 && (
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      disabled={apiGroupIndex === 0}
+                      onClick={() => swapGroups(apiGroupIndex, "up")}
+                      className="text-xs text-text-muted hover:text-text-primary disabled:opacity-30 disabled:cursor-not-allowed px-1 py-0.5"
+                      title="Move group up"
+                    >
+                      &#9650;
+                    </button>
+                    <button
+                      type="button"
+                      disabled={apiGroupIndex === apiGroups.length - 1}
+                      onClick={() => swapGroups(apiGroupIndex, "down")}
+                      className="text-xs text-text-muted hover:text-text-primary disabled:opacity-30 disabled:cursor-not-allowed px-1 py-0.5"
+                      title="Move group down"
+                    >
+                      &#9660;
+                    </button>
                   </div>
-                  <span className="text-xs text-accent-blue opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
-                    View &rarr;
-                  </span>
-                </button>
-              ))}
+                )}
+
+                {/* Gear icon to toggle manage mode (shown on first group) */}
+                {groupIndex === 0 && apiGroups.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setManagingGroups(!managingGroups);
+                      setEditingGroupId(null);
+                      setEditingGroupName("");
+                    }}
+                    className={`text-sm transition-colors px-1.5 py-0.5 rounded ${
+                      managingGroups
+                        ? "text-accent-blue bg-accent-blue/10"
+                        : "text-text-muted hover:text-text-primary"
+                    }`}
+                    title={managingGroups ? "Done managing" : "Manage groups"}
+                  >
+                    &#9881;
+                  </button>
+                )}
+              </div>
+              <div className="divide-y divide-glass-border/30">
+                {group.items.map((card) => (
+                  <div key={card.id} className="relative group/card">
+                    <button
+                      type="button"
+                      onClick={() => openDetail(card)}
+                      className="w-full px-4 py-3 flex items-center gap-4 hover:bg-glass-hover/50 transition-colors group text-left"
+                    >
+                      <p
+                        className={`text-xl font-bold tabular-nums w-20 shrink-0 ${card.color}`}
+                      >
+                        {card.count !== null ? (
+                          card.count.toLocaleString()
+                        ) : loading ? (
+                          <span className="inline-block w-12 h-5 bg-glass-border/50 rounded animate-pulse" />
+                        ) : (
+                          "\u2014"
+                        )}
+                      </p>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm text-text-primary font-medium">
+                          {card.label}
+                        </p>
+                        {card.detail && (
+                          <p className="text-xs text-text-muted truncate">
+                            {card.detail}
+                          </p>
+                        )}
+                      </div>
+                      <span className="text-xs text-accent-blue opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                        View &rarr;
+                      </span>
+                    </button>
+                    {/* Move preset dropdown (visible in manage mode on hover) */}
+                    {managingGroups &&
+                      !card.id.startsWith("device-") &&
+                      !card.id.startsWith("browser-") && (
+                        <div className="absolute top-1 right-20 opacity-0 group-hover/card:opacity-100 transition-opacity z-10">
+                          <select
+                            className="text-[10px] bg-glass-bg border border-glass-border rounded px-1.5 py-0.5 text-text-muted cursor-pointer focus:outline-none focus:border-accent-blue appearance-none"
+                            value=""
+                            onChange={(e) => {
+                              const targetGroupId = e.target.value;
+                              if (!targetGroupId) return;
+                              const presetId = findPresetId(card.id);
+                              if (presetId) {
+                                movePreset(presetId, targetGroupId);
+                              }
+                            }}
+                          >
+                            <option value="">Move to...</option>
+                            {apiGroups
+                              .filter((g) => g.name !== card.category)
+                              .map((g) => (
+                                <option key={g.id} value={g.id}>
+                                  {g.name}
+                                </option>
+                              ))}
+                          </select>
+                        </div>
+                      )}
+                  </div>
+                ))}
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
 
         {/* Saved Segments */}
         {savedSegments.length > 0 && (
