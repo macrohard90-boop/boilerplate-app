@@ -238,8 +238,8 @@ export default function AudienceSelector({
 
   // ─── Build preset cards from API groups ─────────────────
 
-  const presetCards: AudienceCard[] = apiGroups.flatMap((g) =>
-    g.presets
+  const presetCards: AudienceCard[] = (apiGroups ?? []).flatMap((g) =>
+    (g.presets ?? [])
       .filter((p) => !p.is_dynamic)
       .map((p) => ({
         id: p.preset_key,
@@ -293,7 +293,7 @@ export default function AudienceSelector({
   const cards = [...presetCards, ...dynamicCards];
 
   // Derive categories from API groups, preserving display_order
-  const categories = apiGroups.map((g) => g.name);
+  const categories = (apiGroups ?? []).map((g) => g.name);
   // Ensure "Device & Platform" is included if dynamic cards exist but no API group has that name
   if (dynamicCards.length > 0 && !categories.includes("Device & Platform")) {
     categories.push("Device & Platform");
@@ -302,7 +302,7 @@ export default function AudienceSelector({
   const grouped = categories
     .map((cat) => ({
       label: cat,
-      groupId: apiGroups.find((g) => g.name === cat)?.id || null,
+      groupId: (apiGroups ?? []).find((g) => g.name === cat)?.id || null,
       items: cards.filter((c) => c.category === cat),
     }))
     .filter((g) => g.items.length > 0);
