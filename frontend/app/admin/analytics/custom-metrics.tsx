@@ -485,8 +485,7 @@ export default function CustomMetricsTab() {
   // When marketing is enabled, audience metrics are shown in the dedicated
   // Audience Segments section above — filter them out here to avoid duplication.
   const displayMetrics = useMemo(
-    () =>
-      enable_marketing ? metrics.filter((m) => !m.is_audience) : metrics,
+    () => (enable_marketing ? metrics.filter((m) => !m.is_audience) : metrics),
     [metrics, enable_marketing],
   );
 
@@ -1158,7 +1157,8 @@ export default function CustomMetricsTab() {
       {displayMetrics.length > 0 && (
         <div className="space-y-4">
           <h3 className="text-sm font-semibold text-text-primary">
-            {enable_marketing ? "Analytics Metrics" : "Saved Metrics"} ({displayMetrics.length})
+            {enable_marketing ? "Analytics Metrics" : "Saved Metrics"} (
+            {displayMetrics.length})
           </h3>
           {groupedMetrics.map((group) => {
             const isCollapsed = collapsedGroups.has(group.key);

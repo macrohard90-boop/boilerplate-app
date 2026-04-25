@@ -106,15 +106,16 @@ async def seed_audience_presets(
         except Exception as e:
             logger.warning("Failed to generate SQL for preset %s: %s", preset_key, e)
             skipped += 1
-            details.append({"preset_key": preset_key, "status": "error", "error": str(e)})
+            details.append(
+                {"preset_key": preset_key, "status": "error", "error": str(e)}
+            )
             continue
 
         # Check if a saved metric with this preset_key already exists
         existing = (
             await db.execute(
                 text(
-                    "SELECT id FROM analytics.saved_metrics "
-                    "WHERE preset_key = :pk"
+                    "SELECT id FROM analytics.saved_metrics " "WHERE preset_key = :pk"
                 ),
                 {"pk": preset_key},
             )
