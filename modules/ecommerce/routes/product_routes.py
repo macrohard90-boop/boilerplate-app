@@ -18,8 +18,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from backend.core.config import settings
 from backend.core.database import get_db
 from backend.core.dependencies import require_role
-
-logger = logging.getLogger(__name__)
 from modules.ecommerce.models.schemas import (
     ImageCreate,
     ImageResponse,
@@ -39,6 +37,8 @@ from modules.ecommerce.services import (
     product_service,
     variant_service,
 )
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/products", tags=["products"])
 
