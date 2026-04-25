@@ -315,13 +315,9 @@ function MessageLogPanel() {
 
   const channelBadge = (ch: string) => {
     if (ch === "sms")
-      return (
-        <span className="badge badge-blue text-xs">SMS</span>
-      );
+      return <span className="badge badge-blue text-xs">SMS</span>;
     if (ch === "whatsapp")
-      return (
-        <span className="badge badge-green text-xs">WhatsApp</span>
-      );
+      return <span className="badge badge-green text-xs">WhatsApp</span>;
     return <span className="badge badge-purple text-xs">{ch}</span>;
   };
 
@@ -451,8 +447,9 @@ function AutomationRulesPanel({
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const res =
-        await apiFetch<AutomationRule[]>("/notifications/admin/automation-rules");
+      const res = await apiFetch<AutomationRule[]>(
+        "/notifications/admin/automation-rules",
+      );
       setRules(res);
     } catch {
       // ignore
@@ -472,9 +469,7 @@ function AutomationRulesPanel({
         body: JSON.stringify({ enabled: !rule.enabled }),
       });
       setRules((prev) =>
-        prev.map((r) =>
-          r.id === rule.id ? { ...r, enabled: !r.enabled } : r,
-        ),
+        prev.map((r) => (r.id === rule.id ? { ...r, enabled: !r.enabled } : r)),
       );
       showToast(
         `Rule ${!rule.enabled ? "enabled" : "disabled"}: ${rule.event_name} / ${rule.channel}`,

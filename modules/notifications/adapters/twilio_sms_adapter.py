@@ -13,13 +13,9 @@ Configuration:
   TWILIO_SMS_FROM=+1234567890  (or short code, or alphanumeric sender ID)
 """
 
-import base64
-import hashlib
-import hmac
 import json
 import logging
 import urllib.parse
-from typing import Any
 
 import httpx
 

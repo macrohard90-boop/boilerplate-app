@@ -13,7 +13,6 @@ Step types:
 - webhook: POST to external URL → advance immediately
 """
 
-import asyncio
 import json
 import logging
 import random
@@ -171,7 +170,6 @@ async def advance_enrollment(
 
     current_step_id = str(enrollment["current_step_id"])
     flow_id = str(enrollment["flow_id"])
-    user_id = str(enrollment["user_id"])
 
     # Find next step(s) via connections
     connections = (

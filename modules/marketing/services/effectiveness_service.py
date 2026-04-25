@@ -9,8 +9,6 @@ from typing import Any
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from modules.marketing.services.attribution_engine import apply_model
-
 
 async def get_campaign_rankings(
     db: AsyncSession,

@@ -9,8 +9,6 @@ Replaces the old send_campaign flow with the full pipeline:
 6. Update status, log pressure, track progress in Redis
 """
 
-import asyncio
-import json
 import logging
 import re
 from typing import Any
@@ -636,7 +634,6 @@ async def deliver_campaign(
                     else:
                         # Legacy: render from template
                         from modules.gdpr.services.template_service import (
-                            render_from_content,
                             render_template_db,
                         )
 

@@ -10,7 +10,12 @@ interface NavItem {
   href: string;
   label: string;
   icon: string;
-  feature?: "products" | "subscriptions" | "tracking" | "marketing" | "notifications";
+  feature?:
+    | "products"
+    | "subscriptions"
+    | "tracking"
+    | "marketing"
+    | "notifications";
 }
 
 const NAV_ITEMS: NavItem[] = [

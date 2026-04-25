@@ -5,7 +5,6 @@ SMS delivery/bounce and WhatsApp delivery/read events.
 Always returns 200 to prevent provider retries.
 """
 
-import json
 import logging
 
 from fastapi import APIRouter, Depends, Request, Response

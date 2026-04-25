@@ -85,9 +85,7 @@ export default function CampaignAnalyticsPage() {
 
       {activeTab === "rankings" && (
         <RankingsTab
-          onSelectCampaign={(id, name) =>
-            setSelectedCampaign({ id, name })
-          }
+          onSelectCampaign={(id, name) => setSelectedCampaign({ id, name })}
         />
       )}
       {activeTab === "trends" && <TrendsTab />}

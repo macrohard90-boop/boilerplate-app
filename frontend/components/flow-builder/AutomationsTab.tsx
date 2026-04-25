@@ -8,7 +8,9 @@ import FlowToolbar from "./FlowToolbar";
 import FlowConfigPanel from "./FlowConfigPanel";
 
 const FlowCanvas = dynamic(() => import("./FlowCanvas"), { ssr: false });
-const FlowStatsPanel = dynamic(() => import("./FlowStatsPanel"), { ssr: false });
+const FlowStatsPanel = dynamic(() => import("./FlowStatsPanel"), {
+  ssr: false,
+});
 
 export default function AutomationsTab() {
   // View mode: "list" or "canvas"
@@ -20,7 +22,9 @@ export default function AutomationsTab() {
   // Config panel state
   const [selectedStepId, setSelectedStepId] = useState<string | null>(null);
   const [selectedStepType, setSelectedStepType] = useState("");
-  const [selectedStepConfig, setSelectedStepConfig] = useState<Record<string, unknown>>({});
+  const [selectedStepConfig, setSelectedStepConfig] = useState<
+    Record<string, unknown>
+  >({});
 
   const handleOpenFlow = useCallback((flowId: string) => {
     setActiveFlowId(flowId);
@@ -39,7 +43,11 @@ export default function AutomationsTab() {
   }, []);
 
   const handleNodeSelect = useCallback(
-    (stepId: string | null, stepType: string, config: Record<string, unknown>) => {
+    (
+      stepId: string | null,
+      stepType: string,
+      config: Record<string, unknown>,
+    ) => {
       setSelectedStepId(stepId);
       setSelectedStepType(stepType);
       setSelectedStepConfig(config);

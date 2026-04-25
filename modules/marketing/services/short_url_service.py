@@ -11,9 +11,7 @@ Code: 8-char base62 hash of original URL + campaign_id + recipient_id
 import hashlib
 import logging
 import re
-from typing import Any
 
-from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.core.config import settings

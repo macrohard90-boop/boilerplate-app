@@ -112,10 +112,14 @@ export default function FlowList({ onOpenFlow }: FlowListProps) {
 
   function statusBadge(status: string): string {
     switch (status) {
-      case "active": return "badge-green";
-      case "paused": return "badge-purple";
-      case "archived": return "badge-pink";
-      default: return "badge-blue";
+      case "active":
+        return "badge-green";
+      case "paused":
+        return "badge-purple";
+      case "archived":
+        return "badge-pink";
+      default:
+        return "badge-blue";
     }
   }
 
@@ -165,12 +169,24 @@ export default function FlowList({ onOpenFlow }: FlowListProps) {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-glass-border">
-                <th className="text-left p-3 text-text-muted font-medium">Name</th>
-                <th className="text-left p-3 text-text-muted font-medium">Trigger</th>
-                <th className="text-left p-3 text-text-muted font-medium">Status</th>
-                <th className="text-left p-3 text-text-muted font-medium">Steps</th>
-                <th className="text-left p-3 text-text-muted font-medium">Updated</th>
-                <th className="text-right p-3 text-text-muted font-medium">Actions</th>
+                <th className="text-left p-3 text-text-muted font-medium">
+                  Name
+                </th>
+                <th className="text-left p-3 text-text-muted font-medium">
+                  Trigger
+                </th>
+                <th className="text-left p-3 text-text-muted font-medium">
+                  Status
+                </th>
+                <th className="text-left p-3 text-text-muted font-medium">
+                  Steps
+                </th>
+                <th className="text-left p-3 text-text-muted font-medium">
+                  Updated
+                </th>
+                <th className="text-right p-3 text-text-muted font-medium">
+                  Actions
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -181,7 +197,9 @@ export default function FlowList({ onOpenFlow }: FlowListProps) {
                   onClick={() => onOpenFlow(f.id)}
                 >
                   <td className="p-3">
-                    <div className="text-text-primary font-medium">{f.name}</div>
+                    <div className="text-text-primary font-medium">
+                      {f.name}
+                    </div>
                     {f.description && (
                       <div className="text-text-muted text-xs mt-0.5 truncate max-w-[200px]">
                         {f.description}
@@ -263,7 +281,9 @@ export default function FlowList({ onOpenFlow }: FlowListProps) {
       >
         <div className="space-y-4">
           <div>
-            <label className="text-xs text-text-muted block mb-1">Flow Name</label>
+            <label className="text-xs text-text-muted block mb-1">
+              Flow Name
+            </label>
             <input
               className="input-glass w-full"
               value={formName}
@@ -272,7 +292,9 @@ export default function FlowList({ onOpenFlow }: FlowListProps) {
             />
           </div>
           <div>
-            <label className="text-xs text-text-muted block mb-1">Trigger Event</label>
+            <label className="text-xs text-text-muted block mb-1">
+              Trigger Event
+            </label>
             <select
               className="input-glass w-full"
               value={formTrigger}
@@ -307,7 +329,8 @@ export default function FlowList({ onOpenFlow }: FlowListProps) {
               placeholder="purchase_completed"
             />
             <p className="text-[10px] text-text-muted mt-1">
-              When a user triggers this event, they&apos;re marked as having reached the goal
+              When a user triggers this event, they&apos;re marked as having
+              reached the goal
             </p>
           </div>
           <div className="flex justify-end gap-3 pt-2">

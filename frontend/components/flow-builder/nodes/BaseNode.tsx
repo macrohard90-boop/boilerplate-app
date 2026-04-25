@@ -55,7 +55,9 @@ export default function BaseNode({
         <p className="text-xs font-medium text-text-primary truncate">
           {label}
         </p>
-        <span className={`inline-block mt-1.5 text-[10px] px-1.5 py-0.5 rounded ${badgeColor}`}>
+        <span
+          className={`inline-block mt-1.5 text-[10px] px-1.5 py-0.5 rounded ${badgeColor}`}
+        >
           {typeBadge}
         </span>
         {children}

@@ -58,8 +58,18 @@ export default function FlowConfigPanel({
           onClick={onClose}
           className="text-text-muted hover:text-text-primary transition-colors"
         >
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          <svg
+            className="w-4 h-4"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M6 18L18 6M6 6l12 12"
+            />
           </svg>
         </button>
       </div>
@@ -79,12 +89,24 @@ export default function FlowConfigPanel({
 
         {/* Type-specific fields */}
         {stepType === "trigger" && <TriggerFields />}
-        {stepType === "send" && <SendFields config={config} onUpdate={updateField} />}
-        {stepType === "wait" && <WaitFields config={config} onUpdate={updateField} />}
-        {stepType === "branch" && <BranchFields config={config} onUpdate={updateField} />}
-        {stepType === "split" && <SplitFields config={config} onUpdate={updateField} />}
-        {stepType === "update" && <UpdateFields config={config} onUpdate={updateField} />}
-        {stepType === "webhook" && <WebhookFields config={config} onUpdate={updateField} />}
+        {stepType === "send" && (
+          <SendFields config={config} onUpdate={updateField} />
+        )}
+        {stepType === "wait" && (
+          <WaitFields config={config} onUpdate={updateField} />
+        )}
+        {stepType === "branch" && (
+          <BranchFields config={config} onUpdate={updateField} />
+        )}
+        {stepType === "split" && (
+          <SplitFields config={config} onUpdate={updateField} />
+        )}
+        {stepType === "update" && (
+          <UpdateFields config={config} onUpdate={updateField} />
+        )}
+        {stepType === "webhook" && (
+          <WebhookFields config={config} onUpdate={updateField} />
+        )}
 
         {/* Save button */}
         {stepId && (
@@ -106,8 +128,8 @@ export default function FlowConfigPanel({
 function TriggerFields() {
   return (
     <p className="text-xs text-text-muted">
-      The trigger is configured at the flow level. Use the toolbar to change
-      the trigger event.
+      The trigger is configured at the flow level. Use the toolbar to change the
+      trigger event.
     </p>
   );
 }
@@ -137,7 +159,9 @@ function SendFields({
         </select>
       </div>
       <div>
-        <label className="text-xs text-text-muted block mb-1">Template ID</label>
+        <label className="text-xs text-text-muted block mb-1">
+          Template ID
+        </label>
         <input
           className="input-glass w-full text-sm font-mono"
           value={(config.template_id as string) || ""}
@@ -146,7 +170,9 @@ function SendFields({
         />
       </div>
       <div>
-        <label className="text-xs text-text-muted block mb-1">Subject Override</label>
+        <label className="text-xs text-text-muted block mb-1">
+          Subject Override
+        </label>
         <input
           className="input-glass w-full text-sm"
           value={(config.subject as string) || ""}
@@ -225,7 +251,9 @@ function WaitFields({
 
       {(config.wait_type as string) === "event" && (
         <div>
-          <label className="text-xs text-text-muted block mb-1">Event Name</label>
+          <label className="text-xs text-text-muted block mb-1">
+            Event Name
+          </label>
           <input
             className="input-glass w-full text-sm font-mono"
             value={(config.wait_event as string) || ""}
@@ -291,24 +319,30 @@ function BranchFields({
 
       {(config.condition_type as string) === "score_above" && (
         <div>
-          <label className="text-xs text-text-muted block mb-1">Threshold</label>
+          <label className="text-xs text-text-muted block mb-1">
+            Threshold
+          </label>
           <input
             type="number"
             className="input-glass w-full text-sm"
             value={(config.threshold as number) || 0}
-            onChange={(e) => onUpdate("threshold", parseInt(e.target.value) || 0)}
+            onChange={(e) =>
+              onUpdate("threshold", parseInt(e.target.value) || 0)
+            }
           />
         </div>
       )}
 
       {(config.condition_type as string) === "custom" && (
         <div>
-          <label className="text-xs text-text-muted block mb-1">Expression</label>
+          <label className="text-xs text-text-muted block mb-1">
+            Expression
+          </label>
           <textarea
             className="input-glass w-full text-sm h-20 font-mono resize-none"
             value={(config.expression as string) || ""}
             onChange={(e) => onUpdate("expression", e.target.value)}
-            placeholder='e.g. user.total_spent > 100'
+            placeholder="e.g. user.total_spent > 100"
           />
         </div>
       )}
@@ -323,9 +357,13 @@ function BranchFields({
             min={0}
             className="input-glass w-full text-sm"
             value={(config.lookback_hours as number) || 24}
-            onChange={(e) => onUpdate("lookback_hours", parseInt(e.target.value) || 24)}
+            onChange={(e) =>
+              onUpdate("lookback_hours", parseInt(e.target.value) || 24)
+            }
           />
-          <span className="text-xs text-text-muted whitespace-nowrap">hours</span>
+          <span className="text-xs text-text-muted whitespace-nowrap">
+            hours
+          </span>
         </div>
       </div>
     </>
@@ -410,7 +448,9 @@ function UpdateFields({
       {(config.action as string) === "set_attribute" && (
         <>
           <div>
-            <label className="text-xs text-text-muted block mb-1">Attribute</label>
+            <label className="text-xs text-text-muted block mb-1">
+              Attribute
+            </label>
             <input
               className="input-glass w-full text-sm"
               value={(config.attribute as string) || ""}
@@ -439,7 +479,9 @@ function UpdateFields({
             type="number"
             className="input-glass w-full text-sm"
             value={(config.score_delta as number) || 0}
-            onChange={(e) => onUpdate("score_delta", parseInt(e.target.value) || 0)}
+            onChange={(e) =>
+              onUpdate("score_delta", parseInt(e.target.value) || 0)
+            }
           />
           <p className="text-[10px] text-text-muted mt-1">
             Positive to add, negative to subtract

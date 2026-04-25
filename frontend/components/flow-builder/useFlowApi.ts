@@ -71,9 +71,7 @@ export interface StepPerformance {
 
 const BASE = "/marketing/flows";
 
-export async function listFlows(
-  status?: string,
-): Promise<AutomationFlow[]> {
+export async function listFlows(status?: string): Promise<AutomationFlow[]> {
   const params = status ? `?status=${status}` : "";
   return apiFetch<AutomationFlow[]>(`${BASE}${params}`);
 }
@@ -115,9 +113,7 @@ export async function updateFlow(
   });
 }
 
-export async function deleteFlow(
-  flowId: string,
-): Promise<{ status: string }> {
+export async function deleteFlow(flowId: string): Promise<{ status: string }> {
   return apiFetch<{ status: string }>(`${BASE}/${flowId}`, {
     method: "DELETE",
   });
@@ -131,7 +127,11 @@ export async function addStep(
 ): Promise<FlowStep> {
   return apiFetch<FlowStep>(`${BASE}/${flowId}/steps`, {
     method: "POST",
-    body: JSON.stringify({ step_type: stepType, config, step_order: stepOrder }),
+    body: JSON.stringify({
+      step_type: stepType,
+      config,
+      step_order: stepOrder,
+    }),
   });
 }
 
@@ -145,9 +145,7 @@ export async function updateStep(
   });
 }
 
-export async function deleteStep(
-  stepId: string,
-): Promise<{ status: string }> {
+export async function deleteStep(stepId: string): Promise<{ status: string }> {
   return apiFetch<{ status: string }>(`${BASE}/steps/${stepId}`, {
     method: "DELETE",
   });
@@ -174,10 +172,9 @@ export async function addConnection(
 export async function deleteConnection(
   connectionId: string,
 ): Promise<{ status: string }> {
-  return apiFetch<{ status: string }>(
-    `${BASE}/connections/${connectionId}`,
-    { method: "DELETE" },
-  );
+  return apiFetch<{ status: string }>(`${BASE}/connections/${connectionId}`, {
+    method: "DELETE",
+  });
 }
 
 export async function activateFlow(

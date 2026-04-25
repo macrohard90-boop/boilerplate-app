@@ -9,7 +9,7 @@ Enforced on every marketing send. Check order:
 """
 
 import logging
-from datetime import datetime, time, timezone
+from datetime import datetime, timezone
 from typing import Any
 
 from sqlalchemy import text

@@ -51,7 +51,11 @@ const NODE_Y_GAP = 120;
 
 interface FlowCanvasProps {
   flowId: string;
-  onNodeSelect: (stepId: string | null, stepType: string, config: Record<string, unknown>) => void;
+  onNodeSelect: (
+    stepId: string | null,
+    stepType: string,
+    config: Record<string, unknown>,
+  ) => void;
   onFlowLoaded: (flow: AutomationFlow) => void;
   onDirtyChange: (dirty: boolean) => void;
 }
@@ -84,7 +88,10 @@ export default function FlowCanvas({
         id: "__trigger__",
         type: "trigger",
         position: (flow as unknown as Record<string, unknown>)._trigger_position
-          ? ((flow as unknown as Record<string, unknown>)._trigger_position as { x: number; y: number })
+          ? ((flow as unknown as Record<string, unknown>)._trigger_position as {
+              x: number;
+              y: number;
+            })
           : { x: 250, y: 30 },
         data: { label: flow.trigger_event || "Trigger", config: {} },
       });
@@ -108,12 +115,16 @@ export default function FlowCanvas({
       // Convert connections → edges
       const newEdges: Edge[] = flow.connections.map((conn) => ({
         id: conn.id,
-        source: conn.from_step_id === "trigger" ? "__trigger__" : conn.from_step_id,
+        source:
+          conn.from_step_id === "trigger" ? "__trigger__" : conn.from_step_id,
         target: conn.to_step_id,
         sourceHandle: conn.condition_label || "default",
         animated: true,
         style: { stroke: "rgba(192,132,252,0.5)", strokeWidth: 2 },
-        markerEnd: { type: MarkerType.ArrowClosed, color: "rgba(192,132,252,0.5)" },
+        markerEnd: {
+          type: MarkerType.ArrowClosed,
+          color: "rgba(192,132,252,0.5)",
+        },
         label: conn.condition_label || undefined,
         labelStyle: { fill: "rgba(240,240,248,0.6)", fontSize: 11 },
         labelBgStyle: { fill: "rgba(8,8,26,0.8)", fillOpacity: 0.8 },
@@ -137,7 +148,9 @@ export default function FlowCanvas({
   const onNodesChange: OnNodesChange = useCallback(
     (changes) => {
       // Check if any position changes
-      const hasPositionChange = changes.some((c) => c.type === "position" && c.dragging === false);
+      const hasPositionChange = changes.some(
+        (c) => c.type === "position" && c.dragging === false,
+      );
       if (hasPositionChange && !dirtyPositions.current) {
         dirtyPositions.current = true;
         onDirtyChange(true);
@@ -157,12 +170,21 @@ export default function FlowCanvas({
     async (connection: Connection) => {
       if (!connection.source || !connection.target) return;
 
-      const fromStepId = connection.source === "__trigger__" ? "trigger" : connection.source;
+      const fromStepId =
+        connection.source === "__trigger__" ? "trigger" : connection.source;
       const toStepId = connection.target;
-      const conditionLabel = connection.sourceHandle !== "default" ? connection.sourceHandle : undefined;
+      const conditionLabel =
+        connection.sourceHandle !== "default"
+          ? connection.sourceHandle
+          : undefined;
 
       try {
-        const conn = await addConnection(flowId, fromStepId, toStepId, conditionLabel || undefined);
+        const conn = await addConnection(
+          flowId,
+          fromStepId,
+          toStepId,
+          conditionLabel || undefined,
+        );
         const newEdge: Edge = {
           id: conn.id,
           source: connection.source,
@@ -170,7 +192,10 @@ export default function FlowCanvas({
           sourceHandle: connection.sourceHandle,
           animated: true,
           style: { stroke: "rgba(192,132,252,0.5)", strokeWidth: 2 },
-          markerEnd: { type: MarkerType.ArrowClosed, color: "rgba(192,132,252,0.5)" },
+          markerEnd: {
+            type: MarkerType.ArrowClosed,
+            color: "rgba(192,132,252,0.5)",
+          },
           label: conn.condition_label || undefined,
           labelStyle: { fill: "rgba(240,240,248,0.6)", fontSize: 11 },
           labelBgStyle: { fill: "rgba(8,8,26,0.8)", fillOpacity: 0.8 },
@@ -184,33 +209,27 @@ export default function FlowCanvas({
   );
 
   // ── Delete edges via backspace/delete ──────────────────
-  const onEdgesDelete = useCallback(
-    async (deletedEdges: Edge[]) => {
-      for (const edge of deletedEdges) {
-        try {
-          await deleteConnection(edge.id);
-        } catch {
-          // best effort
-        }
+  const onEdgesDelete = useCallback(async (deletedEdges: Edge[]) => {
+    for (const edge of deletedEdges) {
+      try {
+        await deleteConnection(edge.id);
+      } catch {
+        // best effort
       }
-    },
-    [],
-  );
+    }
+  }, []);
 
   // ── Delete nodes via backspace/delete ──────────────────
-  const onNodesDelete = useCallback(
-    async (deletedNodes: Node[]) => {
-      for (const node of deletedNodes) {
-        if (node.id === "__trigger__") continue; // can't delete trigger
-        try {
-          await deleteStep(node.id);
-        } catch {
-          // best effort
-        }
+  const onNodesDelete = useCallback(async (deletedNodes: Node[]) => {
+    for (const node of deletedNodes) {
+      if (node.id === "__trigger__") continue; // can't delete trigger
+      try {
+        await deleteStep(node.id);
+      } catch {
+        // best effort
       }
-    },
-    [],
-  );
+    }
+  }, []);
 
   // ── Node click → open config panel ─────────────────────
   const onNodeClick = useCallback(
@@ -263,7 +282,10 @@ export default function FlowCanvas({
       if (node.id === "__trigger__") continue;
       const step = flowRef.current?.steps.find((s) => s.id === node.id);
       if (!step) continue;
-      const config = { ...step.config, _position: { x: node.position.x, y: node.position.y } };
+      const config = {
+        ...step.config,
+        _position: { x: node.position.x, y: node.position.y },
+      };
       updates.push(updateStep(step.id, { config }));
     }
     await Promise.all(updates);
@@ -279,7 +301,14 @@ export default function FlowCanvas({
         setNodes((nds) =>
           nds.map((n) =>
             n.id === stepId
-              ? { ...n, data: { ...n.data, label: (config.label as string) || "", config } }
+              ? {
+                  ...n,
+                  data: {
+                    ...n.data,
+                    label: (config.label as string) || "",
+                    config,
+                  },
+                }
               : n,
           ),
         );
@@ -334,22 +363,27 @@ export default function FlowCanvas({
         className="flow-canvas"
       >
         <Background color="rgba(255,255,255,0.03)" gap={20} />
-        <Controls
-          className="flow-controls"
-          showInteractive={false}
-        />
+        <Controls className="flow-controls" showInteractive={false} />
         <MiniMap
           className="flow-minimap"
           nodeColor={(node) => {
             switch (node.type) {
-              case "trigger": return "#34d399";
-              case "send": return "#38bdf8";
-              case "wait": return "#c084fc";
-              case "branch": return "#ff6b9d";
-              case "split": return "#facc15";
-              case "update": return "#2dd4bf";
-              case "webhook": return "#818cf8";
-              default: return "rgba(255,255,255,0.2)";
+              case "trigger":
+                return "#34d399";
+              case "send":
+                return "#38bdf8";
+              case "wait":
+                return "#c084fc";
+              case "branch":
+                return "#ff6b9d";
+              case "split":
+                return "#facc15";
+              case "update":
+                return "#2dd4bf";
+              case "webhook":
+                return "#818cf8";
+              default:
+                return "rgba(255,255,255,0.2)";
             }
           }}
           maskColor="rgba(8,8,26,0.85)"
@@ -363,10 +397,16 @@ export default function FlowCanvas({
 export interface FlowCanvasApi {
   addNewStep: (stepType: FlowStep["step_type"]) => Promise<void>;
   saveLayout: () => Promise<void>;
-  updateNodeConfig: (stepId: string, config: Record<string, unknown>) => Promise<FlowStep | null>;
+  updateNodeConfig: (
+    stepId: string,
+    config: Record<string, unknown>,
+  ) => Promise<FlowStep | null>;
   reload: () => Promise<void>;
 }
 
 export function getFlowCanvasApi(): FlowCanvasApi | null {
-  return ((window as unknown as Record<string, unknown>).__flowCanvasApi as FlowCanvasApi) || null;
+  return (
+    ((window as unknown as Record<string, unknown>)
+      .__flowCanvasApi as FlowCanvasApi) || null
+  );
 }

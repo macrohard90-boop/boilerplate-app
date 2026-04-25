@@ -6,13 +6,41 @@ import { updateFlow, activateFlow, pauseFlow } from "./useFlowApi";
 import { getFlowCanvasApi } from "./FlowCanvas";
 import { useToast } from "../Toast";
 
-const STEP_TYPES: { type: FlowStep["step_type"]; label: string; icon: string }[] = [
-  { type: "send", label: "Send", icon: "M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" },
-  { type: "wait", label: "Wait", icon: "M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" },
-  { type: "branch", label: "Branch", icon: "M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" },
-  { type: "split", label: "A/B Split", icon: "M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z" },
-  { type: "update", label: "Update", icon: "M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" },
-  { type: "webhook", label: "Webhook", icon: "M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" },
+const STEP_TYPES: {
+  type: FlowStep["step_type"];
+  label: string;
+  icon: string;
+}[] = [
+  {
+    type: "send",
+    label: "Send",
+    icon: "M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z",
+  },
+  {
+    type: "wait",
+    label: "Wait",
+    icon: "M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z",
+  },
+  {
+    type: "branch",
+    label: "Branch",
+    icon: "M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4",
+  },
+  {
+    type: "split",
+    label: "A/B Split",
+    icon: "M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z",
+  },
+  {
+    type: "update",
+    label: "Update",
+    icon: "M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z",
+  },
+  {
+    type: "webhook",
+    label: "Webhook",
+    icon: "M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14",
+  },
 ];
 
 interface FlowToolbarProps {
@@ -41,22 +69,22 @@ export default function FlowToolbar({
   // Close dropdown on outside click
   const handleBlur = useCallback(() => {
     setTimeout(() => {
-      if (dropdownRef.current && !dropdownRef.current.contains(document.activeElement)) {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(document.activeElement)
+      ) {
         setAddOpen(false);
       }
     }, 150);
   }, []);
 
-  const handleAddStep = useCallback(
-    async (stepType: FlowStep["step_type"]) => {
-      setAddOpen(false);
-      const api = getFlowCanvasApi();
-      if (api) {
-        await api.addNewStep(stepType);
-      }
-    },
-    [],
-  );
+  const handleAddStep = useCallback(async (stepType: FlowStep["step_type"]) => {
+    setAddOpen(false);
+    const api = getFlowCanvasApi();
+    if (api) {
+      await api.addNewStep(stepType);
+    }
+  }, []);
 
   const handleSave = useCallback(async () => {
     setSaving(true);
@@ -121,8 +149,18 @@ export default function FlowToolbar({
           onClick={onBack}
           className="text-text-muted hover:text-text-primary transition-colors shrink-0"
         >
-          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+          <svg
+            className="w-5 h-5"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M15 19l-7-7 7-7"
+            />
           </svg>
         </button>
 
@@ -157,9 +195,7 @@ export default function FlowToolbar({
           </span>
         )}
 
-        {dirty && (
-          <span className="text-[10px] text-accent-pink">unsaved</span>
-        )}
+        {dirty && <span className="text-[10px] text-accent-pink">unsaved</span>}
       </div>
 
       {/* Right: actions */}
@@ -192,8 +228,18 @@ export default function FlowToolbar({
                   onClick={() => handleAddStep(st.type)}
                   className="flex items-center gap-2 w-full px-3 py-2 text-xs text-text-secondary hover:bg-glass-hover hover:text-text-primary transition-colors"
                 >
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d={st.icon} />
+                  <svg
+                    className="w-4 h-4"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={1.5}
+                      d={st.icon}
+                    />
                   </svg>
                   {st.label}
                 </button>

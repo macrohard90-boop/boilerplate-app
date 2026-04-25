@@ -15,11 +15,8 @@ Configuration:
   SES_CONFIGURATION_SET=  (optional, enables open/click tracking)
 """
 
-import hashlib
-import hmac
 import json
 import logging
-from datetime import datetime, timezone
 from typing import Any
 
 from modules.gdpr.interfaces.email_provider import (

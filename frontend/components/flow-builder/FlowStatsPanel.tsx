@@ -50,14 +50,20 @@ export default function FlowStatsPanel({ flowId }: FlowStatsPanelProps) {
     ["Goal Reached", stats.goal_reached, "accent-green"],
     ["Exited", stats.exited, "text-muted"],
     ["Errors", stats.error, "accent-pink"],
-    ["Completion %", `${(stats.completion_rate * 100).toFixed(1)}%`, "accent-blue"],
+    [
+      "Completion %",
+      `${(stats.completion_rate * 100).toFixed(1)}%`,
+      "accent-blue",
+    ],
     ["Goal %", `${(stats.goal_rate * 100).toFixed(1)}%`, "accent-green"],
   ];
 
   return (
     <div className="absolute top-12 right-4 w-72 glass rounded-xl z-40 overflow-hidden animate-slide-in-right">
       <div className="p-3 border-b border-glass-border">
-        <h4 className="text-xs font-semibold text-text-primary">Flow Performance</h4>
+        <h4 className="text-xs font-semibold text-text-primary">
+          Flow Performance
+        </h4>
       </div>
 
       {/* KPI grid */}

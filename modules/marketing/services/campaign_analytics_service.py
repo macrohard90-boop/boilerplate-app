@@ -8,13 +8,10 @@ Provides the 5 dashboard views for individual campaign analytics:
 5. Revenue attribution: per-model attribution summaries
 """
 
-import json
 from typing import Any
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
-
-from modules.marketing.services.attribution_engine import apply_model
 
 
 async def get_campaign_funnel(db: AsyncSession, campaign_id: str) -> dict[str, Any]:
