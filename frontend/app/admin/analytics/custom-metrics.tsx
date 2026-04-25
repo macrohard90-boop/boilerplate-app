@@ -124,55 +124,18 @@ const ANALYTICS_SCHEMA = [
   },
 ];
 
-// ── Audience preset types ────────────────────────────────
+// ── Audience metric type (from /audience-metrics endpoint) ──
 
-interface AudiencePreset {
+interface AudienceMetric {
   id: string;
-  preset_key: string;
-  label: string;
-  detail: string | null;
-  color: string;
-  filters: Record<string, unknown>;
-}
-
-interface AudienceGroup {
-  id: string | null;
   name: string;
-  presets: AudiencePreset[];
-}
-
-interface GlobalInsights {
-  total_eligible: number;
-  by_rfm_segment: Record<string, number>;
-  active_last_30_days: number;
-  cart_abandonment_count: number;
-}
-
-function getPresetCount(
-  key: string,
-  insights: GlobalInsights | null,
-): number | null {
-  if (!insights) return null;
-  switch (key) {
-    case "all":
-      return insights.total_eligible;
-    case "champions":
-      return insights.by_rfm_segment?.champion ?? null;
-    case "at_risk":
-      return (
-        (insights.by_rfm_segment?.at_risk ?? 0) +
-        (insights.by_rfm_segment?.hibernating ?? 0)
-      );
-    case "new_customers":
-      return insights.by_rfm_segment?.new ?? null;
-    case "cart_abandon":
-    case "cart_abandoners":
-      return insights.cart_abandonment_count ?? null;
-    case "active_30d":
-      return insights.active_last_30_days ?? null;
-    default:
-      return null;
-  }
+  description: string;
+  group_name: string | null;
+  display_order: number;
+  user_count: number;
+  segment_id: string | null;
+  audience_filters: Record<string, unknown> | null;
+  preset_key: string | null;
 }
 
 // ── Starter templates ────────────────────────────────────
@@ -396,13 +359,9 @@ function ResultsView({
 export default function CustomMetricsTab() {
   const { enable_marketing } = useConfig();
 
-  // Audience presets state
-  const [audienceGroups, setAudienceGroups] = useState<AudienceGroup[]>([]);
-  const [globalInsights, setGlobalInsights] = useState<GlobalInsights | null>(
-    null,
-  );
-  const [presetCounts, setPresetCounts] = useState<Record<string, number>>({});
-  const [loadingPresetId, setLoadingPresetId] = useState<string | null>(null);
+  // Audience metrics state (unified with campaign wizard)
+  const [audienceMetrics, setAudienceMetrics] = useState<AudienceMetric[]>([]);
+  const [seeding, setSeeding] = useState(false);
 
   // List view state
   const [metrics, setMetrics] = useState<SavedMetric[]>([]);
@@ -458,37 +417,60 @@ export default function CustomMetricsTab() {
     fetchMetrics();
   }, [fetchMetrics]);
 
-  // ── Fetch audience presets ────────────────────────
+  // ── Fetch audience metrics (shared CRUD with campaign wizard) ──
 
-  useEffect(() => {
+  const fetchAudienceMetrics = useCallback(async () => {
     if (!enable_marketing) return;
-    Promise.allSettled([
-      apiFetch<{ groups: AudienceGroup[] }>("/marketing/admin/audience-groups"),
-      apiFetch<GlobalInsights>("/marketing/admin/insights/global"),
-    ]).then(([gRes, iRes]) => {
-      if (gRes.status === "fulfilled")
-        setAudienceGroups(gRes.value.groups ?? []);
-      if (iRes.status === "fulfilled") setGlobalInsights(iRes.value);
-    });
+    try {
+      const data = await apiFetch<{
+        metrics: AudienceMetric[];
+        total: number;
+      }>("/tracking/admin/metrics/audience-metrics");
+      setAudienceMetrics(data.metrics ?? []);
+    } catch {
+      // Silent
+    }
   }, [enable_marketing]);
 
-  const fetchPresetCount = async (preset: AudiencePreset) => {
-    setLoadingPresetId(preset.id);
+  useEffect(() => {
+    fetchAudienceMetrics();
+  }, [fetchAudienceMetrics]);
+
+  const seedPresets = async () => {
+    setSeeding(true);
     try {
-      const res = await apiFetch<{ count: number }>(
-        "/marketing/admin/segments/preview",
-        {
-          method: "POST",
-          body: JSON.stringify({ filters: preset.filters }),
-        },
-      );
-      setPresetCounts((prev) => ({ ...prev, [preset.preset_key]: res.count }));
+      await apiFetch("/tracking/admin/metrics/seed-audience-presets", {
+        method: "POST",
+      });
+      await fetchAudienceMetrics();
+      await fetchMetrics();
     } catch {
       // Silent
     } finally {
-      setLoadingPresetId(null);
+      setSeeding(false);
     }
   };
+
+  // Group audience metrics by group_name
+  const audienceGroups = useMemo(() => {
+    if (audienceMetrics.length === 0) return [];
+    const groups = new Map<string, AudienceMetric[]>();
+    for (const m of audienceMetrics) {
+      const key = m.group_name || "Ungrouped";
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key)!.push(m);
+    }
+    return Array.from(groups.entries())
+      .sort(([a], [b]) => {
+        if (a === "Ungrouped") return 1;
+        if (b === "Ungrouped") return -1;
+        return a.localeCompare(b);
+      })
+      .map(([name, items]) => ({
+        name,
+        items: items.sort((a, b) => a.display_order - b.display_order),
+      }));
+  }, [audienceMetrics]);
 
   // ── Grouped metrics ────────────────────────────────
 
@@ -500,9 +482,17 @@ export default function CustomMetricsTab() {
     [metrics],
   );
 
+  // When marketing is enabled, audience metrics are shown in the dedicated
+  // Audience Segments section above — filter them out here to avoid duplication.
+  const displayMetrics = useMemo(
+    () =>
+      enable_marketing ? metrics.filter((m) => !m.is_audience) : metrics,
+    [metrics, enable_marketing],
+  );
+
   const groupedMetrics = useMemo(() => {
     const groups = new Map<string, SavedMetric[]>();
-    for (const m of metrics) {
+    for (const m of displayMetrics) {
       const key = m.group_name || "__ungrouped__";
       if (!groups.has(key)) groups.set(key, []);
       groups.get(key)!.push(m);
@@ -520,7 +510,7 @@ export default function CustomMetricsTab() {
       displayName: key === "__ungrouped__" ? "Ungrouped" : key,
       metrics: groups.get(key)!,
     }));
-  }, [metrics]);
+  }, [displayMetrics]);
 
   // ── Drag-and-drop handlers ─────────────────────────
 
@@ -1011,90 +1001,108 @@ export default function CustomMetricsTab() {
         </button>
       </div>
 
-      {/* Audience Segments (from Marketing) */}
-      {enable_marketing && audienceGroups.length > 0 && (
+      {/* Audience Segments (unified with Campaign Wizard) */}
+      {enable_marketing && (
         <div className="space-y-4">
-          <div className="flex items-center gap-3">
-            <h3 className="text-sm font-semibold text-text-primary">
-              Audience Segments
-            </h3>
-            <span className="text-xs text-text-muted">
-              From campaign presets
-            </span>
-          </div>
-          {audienceGroups
-            .filter((g) => g.presets && g.presets.length > 0)
-            .map((group) => (
-              <div
-                key={group.id ?? group.name}
-                className="glass rounded-xl p-4"
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <h3 className="text-sm font-semibold text-text-primary">
+                Audience Segments
+              </h3>
+              <span className="text-[10px] font-medium uppercase tracking-wider px-1.5 py-0.5 rounded bg-accent-purple/15 text-accent-purple">
+                Shared with Campaigns
+              </span>
+            </div>
+            {audienceMetrics.length === 0 && (
+              <button
+                onClick={seedPresets}
+                disabled={seeding}
+                className="btn-secondary text-xs disabled:opacity-50"
               >
+                {seeding ? "Seeding..." : "Seed Preset Audiences"}
+              </button>
+            )}
+          </div>
+          {audienceGroups.length > 0 ? (
+            audienceGroups.map((group) => (
+              <div key={group.name} className="glass rounded-xl p-4">
                 <h4 className="text-xs font-semibold text-text-muted uppercase tracking-wider mb-3">
                   {group.name}
                 </h4>
                 <div className="space-y-1">
-                  {group.presets.map((preset) => {
-                    const insightCount = getPresetCount(
-                      preset.preset_key,
-                      globalInsights,
-                    );
-                    const liveCount = presetCounts[preset.preset_key];
-                    const count = liveCount ?? insightCount;
-                    const isLoading = loadingPresetId === preset.id;
-
-                    return (
-                      <div
-                        key={preset.id}
-                        className="flex items-center gap-3 py-2 px-2 rounded-lg hover:bg-glass-bg/30 transition-colors group"
+                  {group.items.map((m) => (
+                    <div
+                      key={m.id}
+                      className="flex items-center gap-3 py-2 px-2 rounded-lg hover:bg-glass-bg/30 transition-colors group"
+                    >
+                      {/* Count badge */}
+                      <span
+                        className={`w-14 text-center text-sm font-bold tabular-nums ${
+                          m.user_count > 0
+                            ? "text-accent-purple"
+                            : "text-text-muted"
+                        }`}
                       >
-                        {/* Count badge */}
-                        <span
-                          className={`w-10 text-center text-sm font-bold tabular-nums ${
-                            count != null && count > 0
-                              ? "text-accent-purple"
-                              : "text-text-muted"
-                          }`}
-                        >
-                          {isLoading ? (
-                            <span className="inline-block w-3 h-3 border-2 border-accent-purple/30 border-t-accent-purple rounded-full animate-spin" />
-                          ) : count != null ? (
-                            count.toLocaleString()
-                          ) : (
-                            "\u2014"
-                          )}
+                        {m.user_count > 0
+                          ? m.user_count.toLocaleString()
+                          : "\u2014"}
+                      </span>
+
+                      {/* Label + detail */}
+                      <div className="flex-1 min-w-0">
+                        <span className="text-sm font-medium text-text-primary">
+                          {m.name}
                         </span>
-
-                        {/* Label + detail */}
-                        <div className="flex-1 min-w-0">
-                          <span className="text-sm font-medium text-text-primary">
-                            {preset.label}
+                        {m.description && (
+                          <span className="text-xs text-text-muted ml-2">
+                            {m.description}
                           </span>
-                          {preset.detail && (
-                            <span className="text-xs text-text-muted ml-2">
-                              {preset.detail}
-                            </span>
-                          )}
-                        </div>
-
-                        {/* Actions */}
-                        <button
-                          onClick={() => fetchPresetCount(preset)}
-                          disabled={isLoading}
-                          className="text-xs text-accent-purple hover:text-accent-pink transition-colors opacity-0 group-hover:opacity-100 disabled:opacity-50"
-                        >
-                          {count != null ? "Refresh" : "Count"}
-                        </button>
+                        )}
                       </div>
-                    );
-                  })}
+
+                      {/* Badges */}
+                      {m.preset_key && (
+                        <span className="text-[10px] text-text-muted/60 font-medium uppercase tracking-wider">
+                          Preset
+                        </span>
+                      )}
+
+                      {/* Actions */}
+                      <button
+                        onClick={() => {
+                          const metric = metrics.find((mm) => mm.id === m.id);
+                          if (metric) openEdit(metric);
+                        }}
+                        className="text-xs text-text-muted hover:text-accent-purple transition-colors opacity-0 group-hover:opacity-100"
+                      >
+                        Edit
+                      </button>
+                    </div>
+                  ))}
                 </div>
               </div>
-            ))}
+            ))
+          ) : (
+            <div className="glass rounded-xl p-6 text-center">
+              <p className="text-sm text-text-muted mb-3">
+                No audience segments yet. Seed the preset audiences to get
+                started, or create a new metric with the &quot;Audience
+                Query&quot; toggle enabled.
+              </p>
+              <button
+                onClick={seedPresets}
+                disabled={seeding}
+                className="btn-primary text-sm disabled:opacity-50"
+              >
+                {seeding ? "Seeding..." : "Seed Preset Audiences"}
+              </button>
+            </div>
+          )}
         </div>
       )}
 
       {/* Starter templates */}
-      {metrics.length === 0 && (
+      {displayMetrics.length === 0 && (
         <div className="glass rounded-xl p-6">
           <h3 className="text-sm font-semibold text-text-primary mb-4">
             Get Started
@@ -1124,7 +1132,7 @@ export default function CustomMetricsTab() {
       )}
 
       {/* Always show starter templates link when there are saved metrics */}
-      {metrics.length > 0 && (
+      {displayMetrics.length > 0 && (
         <div className="glass rounded-xl p-4">
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-sm font-semibold text-text-primary">
@@ -1147,10 +1155,10 @@ export default function CustomMetricsTab() {
       )}
 
       {/* Saved metrics — grouped with drag-and-drop */}
-      {metrics.length > 0 && (
+      {displayMetrics.length > 0 && (
         <div className="space-y-4">
           <h3 className="text-sm font-semibold text-text-primary">
-            Saved Metrics ({metrics.length})
+            {enable_marketing ? "Analytics Metrics" : "Saved Metrics"} ({displayMetrics.length})
           </h3>
           {groupedMetrics.map((group) => {
             const isCollapsed = collapsedGroups.has(group.key);
@@ -1326,7 +1334,7 @@ export default function CustomMetricsTab() {
       )}
 
       {/* Empty state */}
-      {metrics.length === 0 && (
+      {displayMetrics.length === 0 && (
         <p className="text-text-muted text-sm text-center py-4">
           No saved metrics yet. Create one using the editor above or click a
           starter template.

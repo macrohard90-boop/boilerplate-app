@@ -167,7 +167,7 @@ async def list_metrics(db: AsyncSession = Depends(get_db)):
         text(
             "SELECT id, name, description, sql_query, visualization_type, "
             "created_by, created_at, updated_at, group_name, display_order, "
-            "is_audience "
+            "is_audience, audience_filters, preset_key "
             "FROM analytics.saved_metrics "
             "ORDER BY group_name NULLS LAST, display_order, created_at DESC"
         )
@@ -180,12 +180,14 @@ async def list_metrics(db: AsyncSession = Depends(get_db)):
             description=r.description or "",
             sql_query=r.sql_query,
             visualization_type=r.visualization_type,
-            created_by=str(r.created_by),
+            created_by=str(r.created_by) if r.created_by else "",
             created_at=r.created_at,
             updated_at=r.updated_at,
             group_name=r.group_name,
             display_order=r.display_order,
             is_audience=r.is_audience,
+            audience_filters=r.audience_filters,
+            preset_key=r.preset_key,
         )
         for r in rows
     ]
@@ -220,15 +222,17 @@ async def create_metric(
     )
     next_order = order_result.fetchone().next_order
 
+    af_json = json.dumps(body.audience_filters) if body.audience_filters else None
+
     result = await db.execute(
         text(
             "INSERT INTO analytics.saved_metrics "
             "(name, description, sql_query, visualization_type, created_by, "
-            "group_name, display_order, is_audience) "
-            "VALUES (:name, :desc, :sql, :viz, :uid, :gn, :order, :is_aud) "
+            "group_name, display_order, is_audience, audience_filters) "
+            "VALUES (:name, :desc, :sql, :viz, :uid, :gn, :order, :is_aud, :af) "
             "RETURNING id, name, description, sql_query, visualization_type, "
             "created_by, created_at, updated_at, group_name, display_order, "
-            "is_audience"
+            "is_audience, audience_filters, preset_key"
         ),
         {
             "name": body.name,
@@ -239,6 +243,7 @@ async def create_metric(
             "gn": body.group_name,
             "order": next_order,
             "is_aud": body.is_audience,
+            "af": af_json,
         },
     )
     await db.commit()
@@ -249,12 +254,14 @@ async def create_metric(
         description=r.description or "",
         sql_query=r.sql_query,
         visualization_type=r.visualization_type,
-        created_by=str(r.created_by),
+        created_by=str(r.created_by) if r.created_by else "",
         created_at=r.created_at,
         updated_at=r.updated_at,
         group_name=r.group_name,
         display_order=r.display_order,
         is_audience=r.is_audience,
+        audience_filters=r.audience_filters,
+        preset_key=r.preset_key,
     )
 
 
@@ -279,11 +286,16 @@ async def reorder_metrics(
 
 @router.get("/audience-metrics")
 async def list_audience_metrics(db: AsyncSession = Depends(get_db)):
-    """List saved metrics marked as audience queries, for the campaign wizard."""
+    """List saved metrics marked as audience queries.
+
+    Used by both the Custom Metrics page and Campaign wizard to display
+    a unified list of audience segments.
+    """
     result = await db.execute(
         text(
             "SELECT sm.id, sm.name, sm.description, sm.group_name, "
             "sm.display_order, sm.created_at, sm.updated_at, "
+            "sm.audience_filters, sm.preset_key, "
             "COALESCE(seg.user_count, 0) AS user_count, "
             "seg.id AS segment_id "
             "FROM analytics.saved_metrics sm "
@@ -302,6 +314,8 @@ async def list_audience_metrics(db: AsyncSession = Depends(get_db)):
             "display_order": r["display_order"],
             "user_count": r["user_count"],
             "segment_id": str(r["segment_id"]) if r["segment_id"] else None,
+            "audience_filters": r["audience_filters"],
+            "preset_key": r["preset_key"],
         }
         for r in rows
     ]
@@ -315,7 +329,7 @@ async def get_metric(metric_id: str, db: AsyncSession = Depends(get_db)):
         text(
             "SELECT id, name, description, sql_query, visualization_type, "
             "created_by, created_at, updated_at, group_name, display_order, "
-            "is_audience "
+            "is_audience, audience_filters, preset_key "
             "FROM analytics.saved_metrics WHERE id = :id"
         ),
         {"id": metric_id},
@@ -329,12 +343,14 @@ async def get_metric(metric_id: str, db: AsyncSession = Depends(get_db)):
         description=r.description or "",
         sql_query=r.sql_query,
         visualization_type=r.visualization_type,
-        created_by=str(r.created_by),
+        created_by=str(r.created_by) if r.created_by else "",
         created_at=r.created_at,
         updated_at=r.updated_at,
         group_name=r.group_name,
         display_order=r.display_order,
         is_audience=r.is_audience,
+        audience_filters=r.audience_filters,
+        preset_key=r.preset_key,
     )
 
 
@@ -365,6 +381,8 @@ async def update_metric(
         updates["group_name"] = body.group_name if body.group_name != "" else None
     if body.is_audience is not None:
         updates["is_audience"] = body.is_audience
+    if body.audience_filters is not None:
+        updates["audience_filters"] = json.dumps(body.audience_filters)
 
     if not updates:
         raise HTTPException(status_code=400, detail="No fields to update")
@@ -411,7 +429,7 @@ async def update_metric(
             "WHERE id = :id "
             "RETURNING id, name, description, sql_query, visualization_type, "
             "created_by, created_at, updated_at, group_name, display_order, "
-            "is_audience"
+            "is_audience, audience_filters, preset_key"
         ),
         params,
     )
@@ -430,12 +448,14 @@ async def update_metric(
         description=r.description or "",
         sql_query=r.sql_query,
         visualization_type=r.visualization_type,
-        created_by=str(r.created_by),
+        created_by=str(r.created_by) if r.created_by else "",
         created_at=r.created_at,
         updated_at=r.updated_at,
         group_name=r.group_name,
         display_order=r.display_order,
         is_audience=r.is_audience,
+        audience_filters=r.audience_filters,
+        preset_key=r.preset_key,
     )
 
 
@@ -482,3 +502,22 @@ async def run_metric(
         if hasattr(e, "orig") and hasattr(e.orig, "pgerror"):
             msg = e.orig.pgerror
         raise HTTPException(status_code=400, detail=f"Query error: {msg}")
+
+
+@router.post("/seed-audience-presets")
+async def seed_audience_presets(
+    user: dict[str, Any] = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Seed marketing audience presets as saved metrics.
+
+    Converts each preset's JSON filters into a standalone SQL query
+    and upserts into analytics.saved_metrics with is_audience=TRUE.
+    Idempotent — safe to call multiple times.
+    """
+    from modules.tracking.services.audience_seed_service import (
+        seed_audience_presets as do_seed,
+    )
+
+    result = await do_seed(db, created_by=user["user_id"])
+    return result

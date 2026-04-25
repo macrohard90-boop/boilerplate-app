@@ -102,6 +102,9 @@ STATEMENTS = [
         ON analytics.saved_metrics(is_audience) WHERE is_audience = TRUE""",
     """CREATE INDEX IF NOT EXISTS idx_audience_segments_metric
         ON marketing.audience_segments(metric_id) WHERE metric_id IS NOT NULL""",
+    # --- Migration 030b: audience_filters JSONB column ---
+    "ALTER TABLE analytics.saved_metrics ADD COLUMN IF NOT EXISTS audience_filters JSONB",
+    "ALTER TABLE analytics.saved_metrics ADD COLUMN IF NOT EXISTS preset_key VARCHAR(100)",
     # --- Migration 031: audience groups ---
     """CREATE TABLE IF NOT EXISTS marketing.audience_groups (
         id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),

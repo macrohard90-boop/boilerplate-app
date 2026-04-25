@@ -18,6 +18,7 @@ import re
 # ── Allowed tables ──────────────────────────────────────────────────
 
 ALLOWED_TABLES: set[str] = {
+    # Analytics
     "analytics.page_views",
     "analytics.analytics_sessions",
     "analytics.events",
@@ -25,13 +26,24 @@ ALLOWED_TABLES: set[str] = {
     "analytics.referral_sources",
     "analytics.utm_tracking",
     "analytics.saved_metrics",
+    "analytics.engagement_scores",
+    # Core
     "core.users",
+    "core.roles",
+    # GDPR (audience eligibility)
+    "gdpr.email_preferences",
+    # Ecommerce (audience segmentation)
+    "ecommerce.customer_metrics",
+    "ecommerce.carts",
+    "ecommerce.wishlists",
+    # Marketing (audience segmentation)
+    "marketing.communication_types",
+    "marketing.user_communication_preferences",
 }
 
 # ── Blocked schemas ─────────────────────────────────────────────────
 
 BLOCKED_SCHEMAS: set[str] = {
-    "ecommerce",
     "saas",
     "public",
     "pg_catalog",
@@ -136,21 +148,24 @@ def validate_query(sql: str) -> str:
         if "." not in ref:
             raise SQLValidationError(
                 f"Unqualified table name '{ref}' — "
-                "all tables must use analytics.table_name format"
+                "all tables must use schema.table_name format"
             )
+
+        # Explicitly allowed tables always pass
+        if ref.lower() in ALLOWED_TABLES:
+            continue
 
         schema = ref.split(".")[0].lower()
         if schema in BLOCKED_SCHEMAS:
             raise SQLValidationError(
                 f"Access to schema '{schema}' is not allowed. "
-                "Only analytics.* tables are accessible."
+                "Only whitelisted tables are accessible."
             )
 
-        if ref.lower() not in ALLOWED_TABLES:
-            raise SQLValidationError(
-                f"Table '{ref}' is not in the allowed list. "
-                f"Allowed: {', '.join(sorted(ALLOWED_TABLES))}"
-            )
+        raise SQLValidationError(
+            f"Table '{ref}' is not in the allowed list. "
+            f"Allowed: {', '.join(sorted(ALLOWED_TABLES))}"
+        )
 
     # ── Enforce row LIMIT ───────────────────────────────────────────
     if not re.search(r"\bLIMIT\b", normalized):

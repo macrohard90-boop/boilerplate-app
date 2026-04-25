@@ -9,16 +9,6 @@ import SegmentBuilder, {
 
 // ─── Types ───────────────────────────────────────────────
 
-interface GlobalInsights {
-  total_eligible: number;
-  by_rfm_segment: Record<string, number>;
-  avg_order_value: number;
-  avg_orders_per_user: number;
-  active_last_30_days: number;
-  cart_abandonment_count: number;
-  top_communication_types: Array<{ name: string; subscriber_count: number }>;
-}
-
 interface BehaviorInsights {
   user_count: number;
   device_breakdown: Record<string, number>;
@@ -70,6 +60,8 @@ interface AudienceMetric {
   display_order: number;
   user_count: number;
   segment_id: string | null;
+  audience_filters: Record<string, unknown> | null;
+  preset_key: string | null;
 }
 
 interface AudienceCard {
@@ -80,25 +72,8 @@ interface AudienceCard {
   color: string;
   detail?: string;
   filters: SegmentFilters;
-}
-
-interface ApiGroup {
-  id: string;
-  name: string;
-  display_order: number;
-  presets: ApiPreset[];
-}
-
-interface ApiPreset {
-  id: string;
-  group_id: string | null;
-  preset_key: string;
-  label: string;
-  detail: string | null;
-  color: string;
-  filters: Record<string, unknown>;
-  is_dynamic: boolean;
-  display_order: number;
+  metricId?: string;
+  segmentId?: string;
 }
 
 export interface SelectedAudience {
@@ -122,22 +97,11 @@ export default function AudienceSelector({
   onSelect,
   onBack,
 }: AudienceSelectorProps) {
-  const [globalInsights, setGlobalInsights] = useState<GlobalInsights | null>(
-    null,
-  );
   const [behaviorInsights, setBehaviorInsights] =
     useState<BehaviorInsights | null>(null);
   const [segments, setSegments] = useState<Segment[]>([]);
   const [audienceMetrics, setAudienceMetrics] = useState<AudienceMetric[]>([]);
   const [loading, setLoading] = useState(true);
-
-  // API-driven groups
-  const [apiGroups, setApiGroups] = useState<ApiGroup[]>([]);
-  const [managingGroups, setManagingGroups] = useState(false);
-  const [editingGroupId, setEditingGroupId] = useState<string | null>(null);
-  const [editingGroupName, setEditingGroupName] = useState("");
-  const [creatingGroup, setCreatingGroup] = useState(false);
-  const [newGroupName, setNewGroupName] = useState("");
 
   // Detail view state
   const [detailCard, setDetailCard] = useState<AudienceCard | null>(null);
@@ -161,26 +125,12 @@ export default function AudienceSelector({
   const [customFilters, setCustomFilters] = useState<SegmentFilters>({});
   const [customCount, setCustomCount] = useState<number | null>(null);
 
-  // ─── Fetch API groups ───────────────────────────────────
-
-  const fetchGroups = useCallback(async () => {
-    try {
-      const res = await apiFetch<{ groups: ApiGroup[] }>(
-        "/marketing/admin/audience-groups",
-      );
-      setApiGroups(res.groups ?? []);
-    } catch {
-      // If endpoint unavailable, apiGroups stays empty
-    }
-  }, []);
-
   // ─── Fetch global data on mount ────────────────────────
 
   useEffect(() => {
     async function fetchData() {
       setLoading(true);
-      const [gi, bi, segs, am] = await Promise.allSettled([
-        apiFetch<GlobalInsights>("/marketing/admin/insights/global"),
+      const [bi, segs, am] = await Promise.allSettled([
         apiFetch<BehaviorInsights>(
           "/marketing/admin/insights/segment/behavior",
           {
@@ -193,68 +143,29 @@ export default function AudienceSelector({
           "/tracking/admin/metrics/audience-metrics",
         ),
       ]);
-      if (gi.status === "fulfilled") setGlobalInsights(gi.value);
       if (bi.status === "fulfilled") setBehaviorInsights(bi.value);
       if (segs.status === "fulfilled") setSegments(segs.value.segments ?? []);
       if (am.status === "fulfilled") setAudienceMetrics(am.value.metrics ?? []);
       setLoading(false);
     }
     fetchData();
-    fetchGroups();
-  }, [fetchGroups]);
+  }, []);
 
-  // ─── Helper: map preset_key to a count from globalInsights ──
+  // ─── Build cards from audience metrics (unified CRUD) ───
 
-  function getPresetCount(
-    presetKey: string,
-    filters: Record<string, unknown>,
-  ): number | null {
-    if (!globalInsights) return null;
-    switch (presetKey) {
-      case "all":
-        return globalInsights.total_eligible;
-      case "all_customers": {
-        // Look for has_orders filter — count not directly available
-        if (filters.has_orders) return null;
-        return null;
-      }
-      case "champions":
-        return globalInsights.by_rfm_segment?.champion ?? null;
-      case "at_risk":
-        return (
-          (globalInsights.by_rfm_segment?.at_risk ?? 0) +
-          (globalInsights.by_rfm_segment?.hibernating ?? 0)
-        );
-      case "new_customers":
-        return globalInsights.by_rfm_segment?.new ?? null;
-      case "cart_abandon":
-      case "cart_abandoners":
-        return globalInsights.cart_abandonment_count ?? null;
-      case "active_30d":
-        return globalInsights.active_last_30_days ?? null;
-      default:
-        // Event-based presets — computed on demand
-        return null;
-    }
-  }
+  const metricCards: AudienceCard[] = audienceMetrics.map((m) => ({
+    id: m.preset_key || `metric-${m.id}`,
+    label: m.name,
+    category: m.group_name || "Ungrouped",
+    count: m.user_count,
+    color: "text-accent-purple",
+    detail: m.description || "",
+    filters: (m.audience_filters ?? {}) as SegmentFilters,
+    metricId: m.id,
+    segmentId: m.segment_id || undefined,
+  }));
 
-  // ─── Build preset cards from API groups ─────────────────
-
-  const presetCards: AudienceCard[] = (apiGroups ?? []).flatMap((g) =>
-    (g.presets ?? [])
-      .filter((p) => !p.is_dynamic)
-      .map((p) => ({
-        id: p.preset_key,
-        label: p.label,
-        category: g.name,
-        count: getPresetCount(p.preset_key, p.filters),
-        color: p.color,
-        detail: p.detail || "",
-        filters: p.filters as Record<string, unknown>,
-      })),
-  );
-
-  // Dynamic cards from behavior insights (device, browser) — appended when data loads
+  // Dynamic cards from behavior insights (device, browser)
   const dynamicCards: AudienceCard[] = [];
   if (behaviorInsights) {
     const deviceColors: Record<string, string> = {
@@ -292,11 +203,13 @@ export default function AudienceSelector({
     }
   }
 
-  const cards = [...presetCards, ...dynamicCards];
+  const cards = [...metricCards, ...dynamicCards];
 
-  // Derive categories from API groups, preserving display_order
-  const categories = (apiGroups ?? []).map((g) => g.name);
-  // Ensure "Device & Platform" is included if dynamic cards exist but no API group has that name
+  // Derive categories from audience metrics group_name
+  const metricCategories = Array.from(
+    new Set(audienceMetrics.map((m) => m.group_name || "Ungrouped")),
+  );
+  const categories = [...metricCategories];
   if (dynamicCards.length > 0 && !categories.includes("Device & Platform")) {
     categories.push("Device & Platform");
   }
@@ -304,103 +217,12 @@ export default function AudienceSelector({
   const grouped = categories
     .map((cat) => ({
       label: cat,
-      groupId: (apiGroups ?? []).find((g) => g.name === cat)?.id || null,
       items: cards.filter((c) => c.category === cat),
     }))
-    .filter((g) => g.items.length > 0 || managingGroups);
+    .filter((g) => g.items.length > 0);
 
   // Saved segments (non-system custom ones)
   const savedSegments = segments.filter((s) => !s.is_system);
-
-  // ─── Group management API calls ─────────────────────────
-
-  async function renameGroup(groupId: string, newName: string) {
-    try {
-      await apiFetch(`/marketing/admin/audience-groups/${groupId}`, {
-        method: "PUT",
-        body: JSON.stringify({ name: newName }),
-      });
-      await fetchGroups();
-    } catch {
-      // Rename failed — keep old name
-    }
-    setEditingGroupId(null);
-    setEditingGroupName("");
-  }
-
-  async function reorderGroups(groupIds: string[]) {
-    try {
-      await apiFetch("/marketing/admin/audience-groups/reorder", {
-        method: "POST",
-        body: JSON.stringify({ group_ids: groupIds }),
-      });
-      await fetchGroups();
-    } catch {
-      // Reorder failed
-    }
-  }
-
-  async function createGroup(name: string) {
-    try {
-      await apiFetch("/marketing/admin/audience-groups", {
-        method: "POST",
-        body: JSON.stringify({
-          name,
-          display_order: apiGroups.length,
-        }),
-      });
-      await fetchGroups();
-    } catch {
-      // Create failed
-    }
-    setCreatingGroup(false);
-    setNewGroupName("");
-  }
-
-  async function deleteGroup(groupId: string) {
-    try {
-      await apiFetch(`/marketing/admin/audience-groups/${groupId}`, {
-        method: "DELETE",
-      });
-      await fetchGroups();
-    } catch {
-      // Delete failed
-    }
-  }
-
-  async function movePreset(presetId: string, targetGroupId: string) {
-    try {
-      await apiFetch(`/marketing/admin/audience-presets/${presetId}/move`, {
-        method: "PUT",
-        body: JSON.stringify({ target_group_id: targetGroupId }),
-      });
-      await fetchGroups();
-    } catch {
-      // Move failed
-    }
-  }
-
-  function swapGroups(index: number, direction: "up" | "down") {
-    const swapIdx = direction === "up" ? index - 1 : index + 1;
-    if (swapIdx < 0 || swapIdx >= apiGroups.length) return;
-    const reordered = [...apiGroups];
-    [reordered[index], reordered[swapIdx]] = [
-      reordered[swapIdx],
-      reordered[index],
-    ];
-    const ids = reordered.map((g) => g.id);
-    reorderGroups(ids);
-  }
-
-  // Find preset ID from preset_key by searching apiGroups
-  function findPresetId(presetKey: string): string | null {
-    for (const g of apiGroups ?? []) {
-      for (const p of g.presets ?? []) {
-        if (p.preset_key === presetKey) return p.id;
-      }
-    }
-    return null;
-  }
 
   // ─── Detail view data fetching ─────────────────────────
 
@@ -502,6 +324,8 @@ export default function AudienceSelector({
     onSelect({
       label: detailCard.label,
       filters: detailCard.filters,
+      metricId: detailCard.metricId,
+      segmentId: detailCard.segmentId,
       userCount: detailInsights?.user_count ?? detailCard.count ?? 0,
       avgOrderValue: detailInsights?.avg_order_value,
       totalRevenue: detailInsights?.total_revenue,
@@ -516,34 +340,6 @@ export default function AudienceSelector({
       userCount: customCount ?? 0,
     });
   }
-
-  function selectAudienceMetric(m: AudienceMetric) {
-    onSelect({
-      label: m.name,
-      filters: {},
-      metricId: m.id,
-      segmentId: m.segment_id || undefined,
-      userCount: m.user_count,
-    });
-  }
-
-  // Group audience metrics by group_name
-  const audienceMetricGroups = (() => {
-    if (audienceMetrics.length === 0) return [];
-    const groups = new Map<string, AudienceMetric[]>();
-    for (const m of audienceMetrics) {
-      const key = m.group_name || "Ungrouped";
-      if (!groups.has(key)) groups.set(key, []);
-      groups.get(key)!.push(m);
-    }
-    return Array.from(groups.entries())
-      .sort(([a], [b]) => {
-        if (a === "Ungrouped") return 1;
-        if (b === "Ungrouped") return -1;
-        return a.localeCompare(b);
-      })
-      .map(([name, items]) => ({ name, items }));
-  })();
 
   // ─── Render: Detail View ───────────────────────────────
 
@@ -1021,269 +817,51 @@ export default function AudienceSelector({
       </div>
 
       <>
-        {/* + New Group card (above all groups, manage mode only) */}
-        {managingGroups && (
-          <div className="glass rounded-xl overflow-hidden">
-            {!creatingGroup ? (
-              <button
-                type="button"
-                onClick={() => setCreatingGroup(true)}
-                className="w-full px-4 py-3 text-sm text-text-muted hover:text-accent-blue transition-colors flex items-center justify-center gap-2"
-              >
-                <span>+</span> New Group
-              </button>
-            ) : (
-              <form
-                className="flex items-center gap-2 px-4 py-2.5"
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  if (newGroupName.trim()) createGroup(newGroupName.trim());
-                }}
-              >
-                <input
-                  type="text"
-                  value={newGroupName}
-                  onChange={(e) => setNewGroupName(e.target.value)}
-                  placeholder="Group name..."
-                  className="bg-glass-bg border border-glass-border rounded px-3 py-1.5 text-sm text-text-primary placeholder:text-text-muted/50 focus:outline-none focus:border-accent-blue flex-1"
-                  autoFocus
-                  onBlur={() => {
-                    if (!newGroupName.trim()) {
-                      setCreatingGroup(false);
-                      setNewGroupName("");
-                    }
-                  }}
-                />
-                <button
-                  type="submit"
-                  disabled={!newGroupName.trim()}
-                  className="text-sm text-accent-green hover:text-accent-green/80 disabled:opacity-40 px-2 py-1"
-                >
-                  Add
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setCreatingGroup(false);
-                    setNewGroupName("");
-                  }}
-                  className="text-sm text-text-muted hover:text-text-primary px-2 py-1"
-                >
-                  Cancel
-                </button>
-              </form>
-            )}
-          </div>
-        )}
-
         {/* Categorized cards — compact table-style rows */}
-        {grouped.map((group, groupIndex) => {
-          const apiGroupIndex = apiGroups.findIndex(
-            (g) => g.id === group.groupId,
-          );
-          return (
-            <div key={group.label} className="glass rounded-xl overflow-hidden">
-              <div className="px-4 py-2.5 border-b border-glass-border/50 flex items-center gap-2">
-                {/* Group header: inline rename or label */}
-                {managingGroups && editingGroupId === group.groupId ? (
-                  <form
-                    className="flex items-center gap-2 flex-1"
-                    onSubmit={(e) => {
-                      e.preventDefault();
-                      if (group.groupId && editingGroupName.trim()) {
-                        renameGroup(group.groupId, editingGroupName.trim());
-                      }
-                    }}
-                  >
-                    <input
-                      type="text"
-                      value={editingGroupName}
-                      onChange={(e) => setEditingGroupName(e.target.value)}
-                      className="bg-glass-bg border border-glass-border rounded px-2 py-0.5 text-xs text-text-primary font-medium uppercase tracking-wider focus:outline-none focus:border-accent-blue"
-                      autoFocus
-                      onBlur={() => {
-                        if (group.groupId && editingGroupName.trim()) {
-                          renameGroup(group.groupId, editingGroupName.trim());
-                        } else {
-                          setEditingGroupId(null);
-                          setEditingGroupName("");
-                        }
-                      }}
-                    />
-                    <button
-                      type="submit"
-                      className="text-xs text-accent-green hover:text-accent-green/80"
-                    >
-                      Save
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setEditingGroupId(null);
-                        setEditingGroupName("");
-                      }}
-                      className="text-xs text-text-muted hover:text-text-primary"
-                    >
-                      Cancel
-                    </button>
-                  </form>
-                ) : (
-                  <h3
-                    className={`text-xs text-text-muted font-medium uppercase tracking-wider flex-1 ${
-                      managingGroups && group.groupId
-                        ? "cursor-pointer hover:text-text-primary"
-                        : ""
-                    }`}
-                    onClick={() => {
-                      if (managingGroups && group.groupId) {
-                        setEditingGroupId(group.groupId);
-                        setEditingGroupName(group.label);
-                      }
-                    }}
-                    title={
-                      managingGroups && group.groupId
-                        ? "Click to rename"
-                        : undefined
-                    }
-                  >
-                    {group.label}
-                  </h3>
-                )}
-
-                {/* Manage mode: reorder arrows + delete */}
-                {managingGroups && group.groupId && apiGroupIndex >= 0 && (
-                  <div className="flex items-center gap-1">
-                    <button
-                      type="button"
-                      disabled={apiGroupIndex === 0}
-                      onClick={() => swapGroups(apiGroupIndex, "up")}
-                      className="text-xs text-text-muted hover:text-text-primary disabled:opacity-30 disabled:cursor-not-allowed px-1 py-0.5"
-                      title="Move group up"
-                    >
-                      &#9650;
-                    </button>
-                    <button
-                      type="button"
-                      disabled={apiGroupIndex === apiGroups.length - 1}
-                      onClick={() => swapGroups(apiGroupIndex, "down")}
-                      className="text-xs text-text-muted hover:text-text-primary disabled:opacity-30 disabled:cursor-not-allowed px-1 py-0.5"
-                      title="Move group down"
-                    >
-                      &#9660;
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (
-                          confirm(
-                            `Delete "${group.label}"? Presets will move to Uncategorized.`,
-                          )
-                        ) {
-                          deleteGroup(group.groupId!);
-                        }
-                      }}
-                      className="text-xs text-accent-pink/60 hover:text-accent-pink px-1 py-0.5 ml-1"
-                      title="Delete group (presets move to Uncategorized)"
-                    >
-                      &#10005;
-                    </button>
-                  </div>
-                )}
-
-                {/* Gear icon (shown on first group) */}
-                {groupIndex === 0 && apiGroups.length > 0 && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setManagingGroups(!managingGroups);
-                      setEditingGroupId(null);
-                      setEditingGroupName("");
-                      setCreatingGroup(false);
-                      setNewGroupName("");
-                    }}
-                    className={`text-sm transition-colors px-1.5 py-0.5 rounded ${
-                      managingGroups
-                        ? "text-accent-blue bg-accent-blue/10"
-                        : "text-text-muted hover:text-text-primary"
-                    }`}
-                    title={managingGroups ? "Done managing" : "Manage groups"}
-                  >
-                    &#9881;
-                  </button>
-                )}
-              </div>
-              <div className="divide-y divide-glass-border/30">
-                {group.items.length === 0 && managingGroups && (
-                  <div className="px-4 py-4 text-xs text-text-muted italic">
-                    Empty group — move presets here from other groups
-                  </div>
-                )}
-                {group.items.map((card) => (
-                  <div key={card.id} className="relative group/card">
-                    <button
-                      type="button"
-                      onClick={() => openDetail(card)}
-                      className="w-full px-4 py-3 flex items-center gap-4 hover:bg-glass-hover/50 transition-colors group text-left"
-                    >
-                      <p
-                        className={`text-xl font-bold tabular-nums w-20 shrink-0 ${card.color}`}
-                      >
-                        {card.count !== null ? (
-                          card.count.toLocaleString()
-                        ) : loading ? (
-                          <span className="inline-block w-12 h-5 bg-glass-border/50 rounded animate-pulse" />
-                        ) : (
-                          "\u2014"
-                        )}
-                      </p>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm text-text-primary font-medium">
-                          {card.label}
-                        </p>
-                        {card.detail && (
-                          <p className="text-xs text-text-muted truncate">
-                            {card.detail}
-                          </p>
-                        )}
-                      </div>
-                      <span className="text-xs text-accent-blue opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
-                        View &rarr;
-                      </span>
-                    </button>
-                    {/* Move preset dropdown (visible in manage mode on hover) */}
-                    {managingGroups &&
-                      !card.id.startsWith("device-") &&
-                      !card.id.startsWith("browser-") && (
-                        <div className="absolute top-1 right-20 opacity-0 group-hover/card:opacity-100 transition-opacity z-10">
-                          <select
-                            className="text-[10px] bg-glass-bg border border-glass-border rounded px-1.5 py-0.5 text-text-muted cursor-pointer focus:outline-none focus:border-accent-blue appearance-none"
-                            value=""
-                            onChange={(e) => {
-                              const targetGroupId = e.target.value;
-                              if (!targetGroupId) return;
-                              const presetId = findPresetId(card.id);
-                              if (presetId) {
-                                movePreset(presetId, targetGroupId);
-                              }
-                            }}
-                          >
-                            <option value="">Move to...</option>
-                            {apiGroups
-                              .filter((g) => g.name !== card.category)
-                              .map((g) => (
-                                <option key={g.id} value={g.id}>
-                                  {g.name}
-                                </option>
-                              ))}
-                          </select>
-                        </div>
-                      )}
-                  </div>
-                ))}
-              </div>
+        {grouped.map((group) => (
+          <div key={group.label} className="glass rounded-xl overflow-hidden">
+            <div className="px-4 py-2.5 border-b border-glass-border/50">
+              <h3 className="text-xs text-text-muted font-medium uppercase tracking-wider">
+                {group.label}
+              </h3>
             </div>
-          );
-        })}
+            <div className="divide-y divide-glass-border/30">
+              {group.items.map((card) => (
+                <button
+                  key={card.id}
+                  type="button"
+                  onClick={() => openDetail(card)}
+                  className="w-full px-4 py-3 flex items-center gap-4 hover:bg-glass-hover/50 transition-colors group text-left"
+                >
+                  <p
+                    className={`text-xl font-bold tabular-nums w-20 shrink-0 ${card.color}`}
+                  >
+                    {card.count !== null ? (
+                      card.count.toLocaleString()
+                    ) : loading ? (
+                      <span className="inline-block w-12 h-5 bg-glass-border/50 rounded animate-pulse" />
+                    ) : (
+                      "\u2014"
+                    )}
+                  </p>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm text-text-primary font-medium">
+                      {card.label}
+                    </p>
+                    {card.detail && (
+                      <p className="text-xs text-text-muted truncate">
+                        {card.detail}
+                      </p>
+                    )}
+                  </div>
+                  <span className="text-xs text-accent-blue opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                    View &rarr;
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+        ))}
 
         {/* Saved Segments */}
         {savedSegments.length > 0 && (
@@ -1322,52 +900,6 @@ export default function AudienceSelector({
             </div>
           </div>
         )}
-
-        {/* Audience Metrics (from SQL editor) */}
-        {audienceMetricGroups.length > 0 &&
-          audienceMetricGroups.map((group) => (
-            <div key={group.name} className="glass rounded-xl overflow-hidden">
-              <div className="px-4 py-2.5 border-b border-glass-border/50 flex items-center gap-2">
-                <h3 className="text-xs text-text-muted font-medium uppercase tracking-wider">
-                  {group.name}
-                </h3>
-                <span className="text-[10px] text-accent-purple/70 font-medium uppercase tracking-wider px-1.5 py-0.5 rounded bg-accent-purple/10">
-                  SQL
-                </span>
-              </div>
-              <div className="divide-y divide-glass-border/30">
-                {group.items.map((m) => (
-                  <button
-                    key={m.id}
-                    type="button"
-                    onClick={() => selectAudienceMetric(m)}
-                    className="w-full px-4 py-3 flex items-center gap-4 hover:bg-glass-hover/50 transition-colors group text-left"
-                  >
-                    <p className="text-xl font-bold tabular-nums w-20 shrink-0 text-accent-purple">
-                      {m.user_count > 0 ? (
-                        m.user_count.toLocaleString()
-                      ) : (
-                        <span className="text-text-muted">&mdash;</span>
-                      )}
-                    </p>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm text-text-primary font-medium">
-                        {m.name}
-                      </p>
-                      {m.description && (
-                        <p className="text-xs text-text-muted truncate">
-                          {m.description}
-                        </p>
-                      )}
-                    </div>
-                    <span className="text-xs text-accent-purple opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
-                      Select &rarr;
-                    </span>
-                  </button>
-                ))}
-              </div>
-            </div>
-          ))}
 
         {/* Build Custom Audience */}
         <div className="glass rounded-xl overflow-hidden">

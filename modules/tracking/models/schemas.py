@@ -379,6 +379,7 @@ class SavedMetricCreate(BaseModel):
     )
     group_name: str | None = Field(None, max_length=100)
     is_audience: bool = False
+    audience_filters: dict[str, Any] | None = None
 
 
 class SavedMetricUpdate(BaseModel):
@@ -390,6 +391,7 @@ class SavedMetricUpdate(BaseModel):
     )
     group_name: str | None = Field(None, max_length=100)
     is_audience: bool | None = None
+    audience_filters: dict[str, Any] | None = None
 
 
 class SavedMetricResponse(BaseModel):
@@ -404,6 +406,8 @@ class SavedMetricResponse(BaseModel):
     group_name: str | None = None
     display_order: int = 0
     is_audience: bool = False
+    audience_filters: dict[str, Any] | None = None
+    preset_key: str | None = None
 
 
 class SavedMetricList(BaseModel):
