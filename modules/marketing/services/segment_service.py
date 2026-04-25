@@ -426,11 +426,56 @@ async def create_segment(
     created_by: str,
     metric_id: str | None = None,
 ) -> dict[str, Any]:
-    """Create a custom audience segment, optionally backed by a metric SQL query."""
+    """Create a custom audience segment, optionally backed by a metric SQL query.
+
+    When no metric_id is provided and filters are non-empty, a linked
+    analytics.saved_metrics row is auto-created so the audience appears
+    in the Custom Metrics page and can be reused across campaigns.
+    """
     if metric_id:
         user_count = await compute_metric_segment_count(db, metric_id)
     else:
         user_count = await compute_segment_count(db, filters)
+
+    # Auto-create a saved metric when this is a filter-based audience
+    # without an existing metric link — keeps both systems in sync.
+    if not metric_id and filters:
+        try:
+            from modules.tracking.services.audience_seed_service import (
+                _filters_to_sql,
+            )
+
+            sql_query = _filters_to_sql(filters)
+            metric_row = (
+                await db.execute(
+                    text(
+                        "INSERT INTO analytics.saved_metrics "
+                        "(name, description, sql_query, visualization_type, "
+                        "created_by, is_audience, audience_filters) "
+                        "VALUES (:name, :desc, :sql, 'table', :uid, TRUE, :af) "
+                        "RETURNING id"
+                    ),
+                    {
+                        "name": name,
+                        "desc": description or "",
+                        "sql": sql_query,
+                        "uid": created_by,
+                        "af": json.dumps(filters),
+                    },
+                )
+            ).fetchone()
+            metric_id = str(metric_row.id)
+            logger.info(
+                "Auto-created saved_metric %s for segment '%s'",
+                metric_id,
+                name,
+            )
+        except Exception as e:
+            logger.warning(
+                "Failed to auto-create saved_metric for segment '%s': %s",
+                name,
+                e,
+            )
 
     row = (
         (
