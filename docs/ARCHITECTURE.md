@@ -77,8 +77,8 @@ class EmailProvider(ABC):
     async def sync_suppression(suppressed_emails: list[str]) -> SyncResult
     async def process_webhook(payload, signature) -> WebhookEvent  # bounce/complaint/delivery
 ```
-Default implementation: placeholder (logs to console). Swap in Mailgun, SendGrid, Postmark, etc.
-Swap by: implementing EmailProvider ABC, updating EMAIL_PROVIDER in .env
+Implementations: console (dev), brevo, ses, sendgrid. Split providers supported (transactional vs marketing).
+Swap by: implementing EmailProvider ABC, updating EMAIL_PROVIDER in .env. See docs/guides/provider-setup.md.
 
 Consent check flow:
 1. Caller requests send with `email_type` (marketing_email | transactional_email)
@@ -92,7 +92,25 @@ Webhook flow (provider → app):
 - Complaint (spam report) → auto-add to `email_preferences.suppressed_at`, reason = 'complaint'
 - Delivery confirmation → update `email_events.delivered_at`
 
-### 1.7 ChatbotProvider (modules/chatbot/interfaces/)
+### 1.7 SmsProvider (modules/notifications/interfaces/)
+```python
+class SmsProvider(ABC):
+    async def send_sms(to_number, content, *, sender, tags) -> SmsSendResult
+    async def send_batch(messages: list[dict]) -> list[SmsSendResult]
+    async def verify_webhook(payload, signature) -> SmsWebhookEvent
+```
+Implementations: console (dev), brevo, twilio. Swap by updating SMS_PROVIDER in .env.
+
+### 1.8 WhatsAppProvider (modules/notifications/interfaces/)
+```python
+class WhatsAppProvider(ABC):
+    async def send_template(to_number, template_name, *, language, parameters, media_url) -> WhatsAppSendResult
+    async def send_text(to_number, text) -> WhatsAppSendResult
+    async def verify_webhook(payload, signature) -> WhatsAppWebhookEvent
+```
+Implementations: console (dev), brevo, twilio. Swap by updating WHATSAPP_PROVIDER in .env.
+
+### 1.9 ChatbotProvider (modules/chatbot/interfaces/)
 ```python
 class ChatbotProvider(ABC):
     async def send_message(conversation_id, message) -> ChatResponse
@@ -519,8 +537,12 @@ OIDC_ISSUER | OIDC_CLIENT_ID | OIDC_CLIENT_SECRET
 STRIPE_SECRET_KEY | STRIPE_PUBLISHABLE_KEY | STRIPE_WEBHOOK_SECRET | PLATFORM_FEE_PERCENT=10
 
 ### Email / Notifications
-EMAIL_PROVIDER=placeholder | FROM_EMAIL | FROM_NAME
-SMTP_HOST | SMTP_PORT | SMTP_USER | SMTP_PASSWORD (fallback if provider uses SMTP relay)
+EMAIL_PROVIDER=console|brevo|ses|sendgrid | TRANSACTIONAL_EMAIL_PROVIDER | MARKETING_EMAIL_PROVIDER
+FROM_EMAIL | FROM_NAME | BREVO_API_KEY | SENDGRID_API_KEY | AWS_ACCESS_KEY_ID | AWS_SECRET_ACCESS_KEY
+
+### SMS / WhatsApp
+ENABLE_SMS | ENABLE_WHATSAPP | SMS_PROVIDER=console|brevo|twilio | WHATSAPP_PROVIDER=console|brevo|twilio
+TWILIO_ACCOUNT_SID | TWILIO_AUTH_TOKEN | TWILIO_SMS_FROM | TWILIO_WHATSAPP_FROM
 
 ### Domain
 DOMAIN | FRONTEND_URL | BACKEND_URL

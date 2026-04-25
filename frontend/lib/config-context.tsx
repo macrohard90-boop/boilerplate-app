@@ -15,6 +15,8 @@ interface AppConfig {
   enable_geo_advisor: boolean;
   enable_marketing: boolean;
   enable_marketing_emails: boolean;
+  enable_sms: boolean;
+  enable_whatsapp: boolean;
   site_name: string;
   site_description: string;
 }
@@ -32,6 +34,8 @@ const DEFAULT_CONFIG: AppConfig = {
   enable_geo_advisor: true,
   enable_marketing: true,
   enable_marketing_emails: true,
+  enable_sms: false,
+  enable_whatsapp: false,
   site_name: "Boilerplate App",
   site_description: "",
 };

@@ -220,6 +220,30 @@ def _build_segment_query(
         )
         params["min_sess"] = int(filters["min_sessions"])
 
+    # --- Engagement score filters ---
+    needs_es = any(
+        k in filters
+        for k in ("score_above", "score_below", "velocity_min", "velocity_max")
+    )
+    if needs_es:
+        joins.append("LEFT JOIN analytics.engagement_scores es ON es.user_id = u.id")
+
+    if "score_above" in filters and filters["score_above"] is not None:
+        wheres.append("COALESCE(es.score, 0) >= :score_above")
+        params["score_above"] = float(filters["score_above"])
+
+    if "score_below" in filters and filters["score_below"] is not None:
+        wheres.append("COALESCE(es.score, 0) <= :score_below")
+        params["score_below"] = float(filters["score_below"])
+
+    if "velocity_min" in filters and filters["velocity_min"] is not None:
+        wheres.append("COALESCE(es.velocity, 0) >= :vel_min")
+        params["vel_min"] = float(filters["velocity_min"])
+
+    if "velocity_max" in filters and filters["velocity_max"] is not None:
+        wheres.append("COALESCE(es.velocity, 0) <= :vel_max")
+        params["vel_max"] = float(filters["velocity_max"])
+
     # --- Referral source filter ---
     if "referral_source" in filters and filters["referral_source"]:
         wheres.append(
@@ -535,6 +559,24 @@ async def refresh_segment_counts(db: AsyncSession) -> int:
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
+
+async def resolve_segment_user_ids(db: AsyncSession, segment_id: str) -> list[str]:
+    """Resolve a segment ID to a list of user IDs.
+
+    Loads the segment's filters and runs the query to find matching users.
+    For metric-backed segments, uses the metric's SQL query instead.
+    """
+    segment = await get_segment(db, segment_id)
+
+    # Check if metric-backed
+    metric_id = segment.get("metric_id")
+    if metric_id:
+        users = await compute_metric_segment_users(db, metric_id)
+    else:
+        users = await compute_segment_users(db, segment["filters"])
+
+    return [u["user_id"] for u in users]
 
 
 def _row_to_dict(r: Any) -> dict[str, Any]:

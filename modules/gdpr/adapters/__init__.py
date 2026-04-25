@@ -34,5 +34,13 @@ def get_email_provider(
         from modules.gdpr.adapters.brevo_adapter import BrevoAdapter
 
         return BrevoAdapter()
+    elif provider_name == "ses":
+        from modules.gdpr.adapters.ses_adapter import SesAdapter
+
+        return SesAdapter()
+    elif provider_name == "sendgrid":
+        from modules.gdpr.adapters.sendgrid_adapter import SendGridAdapter
+
+        return SendGridAdapter()
 
     raise ValueError(f"Unknown email provider: {provider_name}")

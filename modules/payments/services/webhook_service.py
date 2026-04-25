@@ -122,6 +122,26 @@ async def _handle_payment_succeeded(
     if order_id:
         await order_service.update_order_status(db, order_id, "completed")
 
+        # Record campaign attribution conversion (fire-and-forget)
+        try:
+            user_id = payment_intent.get("metadata", {}).get("user_id")
+            if user_id:
+                order_total = payment_intent.get("amount", 0)
+                currency = (payment_intent.get("currency") or "usd").upper()
+                from modules.marketing.services.conversion_service import (
+                    record_conversion_fire_and_forget,
+                )
+
+                await record_conversion_fire_and_forget(
+                    user_id,
+                    conversion_event="order.completed",
+                    conversion_value=order_total,
+                    conversion_currency=currency,
+                    order_id=order_id,
+                )
+        except Exception:
+            logger.debug("Attribution conversion recording failed (non-fatal)")
+
         # Send order confirmation email (fire-and-forget — don't block webhook)
         try:
             user_id = payment_intent.get("metadata", {}).get("user_id")
@@ -139,6 +159,23 @@ async def _handle_payment_succeeded(
                 )
         except Exception:
             logger.exception("Failed to send order confirmation for %s", order_id)
+
+        # Fire automation flow event (non-blocking)
+        try:
+            user_id = payment_intent.get("metadata", {}).get("user_id")
+            if user_id:
+                from modules.marketing.services.flow_execution_service import (
+                    fire_event_for_flows,
+                )
+
+                await fire_event_for_flows(
+                    db,
+                    "order.completed",
+                    user_id,
+                    {"order_id": order_id, "amount": payment_intent.get("amount", 0)},
+                )
+        except Exception:
+            logger.debug("Flow event fire failed (non-fatal)", exc_info=True)
 
 
 async def _build_order_email_data(db: AsyncSession, order_id: str) -> dict[str, Any]:

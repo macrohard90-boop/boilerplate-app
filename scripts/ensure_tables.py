@@ -181,6 +181,271 @@ STATEMENTS = [
         ((SELECT id FROM marketing.audience_groups WHERE name = 'Device & Platform'),
          'device_dynamic', '(Dynamic)', 'Auto-populated from analytics', 'text-accent-blue', '{}', TRUE, 0)
     ON CONFLICT (preset_key) DO NOTHING""",
+    # --- Migration 032: notifications schema ---
+    "CREATE SCHEMA IF NOT EXISTS notifications",
+    """CREATE TABLE IF NOT EXISTS notifications.message_log (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id UUID REFERENCES core.users(id) ON DELETE SET NULL,
+        channel VARCHAR(20) NOT NULL CHECK (channel IN ('sms', 'whatsapp')),
+        provider VARCHAR(50) NOT NULL DEFAULT '',
+        provider_message_id VARCHAR(255),
+        to_number VARCHAR(50) NOT NULL,
+        template_id VARCHAR(100),
+        body_preview VARCHAR(500),
+        status VARCHAR(20) NOT NULL DEFAULT 'sent'
+            CHECK (status IN ('sent', 'delivered', 'failed', 'queued')),
+        error_message TEXT,
+        sent_at TIMESTAMPTZ,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )""",
+    "CREATE INDEX IF NOT EXISTS idx_message_log_user ON notifications.message_log(user_id)",
+    "CREATE INDEX IF NOT EXISTS idx_message_log_channel ON notifications.message_log(channel)",
+    "CREATE INDEX IF NOT EXISTS idx_message_log_created ON notifications.message_log(created_at)",
+    """CREATE TABLE IF NOT EXISTS notifications.automation_rules (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        event_name VARCHAR(100) NOT NULL,
+        channel VARCHAR(20) NOT NULL CHECK (channel IN ('email', 'sms', 'whatsapp')),
+        template_id VARCHAR(100) NOT NULL,
+        delay_seconds INT NOT NULL DEFAULT 0,
+        enabled BOOLEAN NOT NULL DEFAULT false,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )""",
+    "CREATE INDEX IF NOT EXISTS idx_automation_rules_event ON notifications.automation_rules(event_name)",
+    """INSERT INTO notifications.automation_rules (event_name, channel, template_id, enabled)
+    SELECT * FROM (VALUES
+        ('user.registered', 'sms', 'welcome_sms', false),
+        ('user.registered', 'whatsapp', 'welcome_whatsapp', false),
+        ('order.completed', 'sms', 'order_confirmation_sms', false)
+    ) AS v(event_name, channel, template_id, enabled)
+    WHERE NOT EXISTS (SELECT 1 FROM notifications.automation_rules LIMIT 1)""",
+    "ALTER TABLE core.users ADD COLUMN IF NOT EXISTS phone VARCHAR(32)",
+    "ALTER TABLE core.users ADD COLUMN IF NOT EXISTS whatsapp_number VARCHAR(32)",
+    # --- Migration 033: campaign pipeline ---
+    """CREATE TABLE IF NOT EXISTS marketing.campaign_recipients (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        campaign_id UUID NOT NULL REFERENCES marketing.campaigns(id) ON DELETE CASCADE,
+        variant_id UUID REFERENCES marketing.campaign_variants(id) ON DELETE SET NULL,
+        user_id UUID NOT NULL REFERENCES core.users(id) ON DELETE CASCADE,
+        channel VARCHAR(20) NOT NULL DEFAULT 'email'
+            CHECK (channel IN ('email', 'sms', 'whatsapp')),
+        to_address VARCHAR(255) NOT NULL,
+        provider VARCHAR(50),
+        provider_message_id VARCHAR(255),
+        status VARCHAR(20) NOT NULL DEFAULT 'sending'
+            CHECK (status IN ('sending', 'sent', 'delivered', 'opened', 'clicked',
+                              'bounced', 'complained', 'unsubscribed', 'failed')),
+        error_message TEXT,
+        sent_at TIMESTAMPTZ,
+        delivered_at TIMESTAMPTZ,
+        opened_at TIMESTAMPTZ,
+        clicked_at TIMESTAMPTZ,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )""",
+    "CREATE INDEX IF NOT EXISTS idx_cr_campaign ON marketing.campaign_recipients(campaign_id)",
+    "CREATE INDEX IF NOT EXISTS idx_cr_user ON marketing.campaign_recipients(user_id)",
+    "CREATE INDEX IF NOT EXISTS idx_cr_provider_msg ON marketing.campaign_recipients(provider_message_id)",
+    "CREATE INDEX IF NOT EXISTS idx_cr_status ON marketing.campaign_recipients(status)",
+    """CREATE TABLE IF NOT EXISTS marketing.campaign_link_clicks (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        recipient_id UUID NOT NULL REFERENCES marketing.campaign_recipients(id) ON DELETE CASCADE,
+        campaign_id UUID NOT NULL REFERENCES marketing.campaigns(id) ON DELETE CASCADE,
+        user_id UUID REFERENCES core.users(id) ON DELETE SET NULL,
+        url TEXT NOT NULL,
+        zone VARCHAR(20),
+        click_number INT NOT NULL DEFAULT 1,
+        ip_address VARCHAR(45),
+        user_agent TEXT,
+        clicked_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )""",
+    "CREATE INDEX IF NOT EXISTS idx_clc_recipient ON marketing.campaign_link_clicks(recipient_id)",
+    "CREATE INDEX IF NOT EXISTS idx_clc_campaign ON marketing.campaign_link_clicks(campaign_id)",
+    "CREATE INDEX IF NOT EXISTS idx_clc_zone ON marketing.campaign_link_clicks(zone)",
+    """CREATE TABLE IF NOT EXISTS marketing.campaign_attributions (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        campaign_id UUID NOT NULL REFERENCES marketing.campaigns(id) ON DELETE CASCADE,
+        recipient_id UUID REFERENCES marketing.campaign_recipients(id) ON DELETE SET NULL,
+        user_id UUID NOT NULL REFERENCES core.users(id) ON DELETE CASCADE,
+        channel VARCHAR(20) NOT NULL DEFAULT 'email'
+            CHECK (channel IN ('email', 'sms', 'whatsapp')),
+        conversion_event VARCHAR(100) NOT NULL,
+        conversion_value NUMERIC(12,2) DEFAULT 0,
+        conversion_currency VARCHAR(3) DEFAULT 'USD',
+        converted BOOLEAN NOT NULL DEFAULT true,
+        converted_at TIMESTAMPTZ,
+        attribution_window_days INT NOT NULL DEFAULT 7,
+        touch_sequence JSONB DEFAULT '[]'::jsonb,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )""",
+    "CREATE INDEX IF NOT EXISTS idx_ca_campaign ON marketing.campaign_attributions(campaign_id)",
+    "CREATE INDEX IF NOT EXISTS idx_ca_user ON marketing.campaign_attributions(user_id)",
+    "CREATE INDEX IF NOT EXISTS idx_ca_converted ON marketing.campaign_attributions(converted_at)",
+    """CREATE TABLE IF NOT EXISTS marketing.campaign_stats_summary (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        campaign_id UUID NOT NULL REFERENCES marketing.campaigns(id) ON DELETE CASCADE,
+        variant_id UUID REFERENCES marketing.campaign_variants(id) ON DELETE SET NULL,
+        total_sent INT NOT NULL DEFAULT 0,
+        total_delivered INT NOT NULL DEFAULT 0,
+        total_opened INT NOT NULL DEFAULT 0,
+        total_clicked INT NOT NULL DEFAULT 0,
+        total_bounced INT NOT NULL DEFAULT 0,
+        total_complained INT NOT NULL DEFAULT 0,
+        total_unsubscribed INT NOT NULL DEFAULT 0,
+        total_conversions INT NOT NULL DEFAULT 0,
+        total_revenue NUMERIC(12,2) NOT NULL DEFAULT 0,
+        open_rate NUMERIC(6,4) DEFAULT 0,
+        click_rate NUMERIC(6,4) DEFAULT 0,
+        conversion_rate NUMERIC(6,4) DEFAULT 0,
+        computed_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )""",
+    "CREATE UNIQUE INDEX IF NOT EXISTS idx_css_campaign_variant ON marketing.campaign_stats_summary(campaign_id, variant_id) WHERE variant_id IS NOT NULL",
+    "CREATE UNIQUE INDEX IF NOT EXISTS idx_css_campaign_overall ON marketing.campaign_stats_summary(campaign_id) WHERE variant_id IS NULL",
+    "CREATE INDEX IF NOT EXISTS idx_css_campaign ON marketing.campaign_stats_summary(campaign_id)",
+    """CREATE TABLE IF NOT EXISTS marketing.automation_flows (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        name VARCHAR(255) NOT NULL,
+        description TEXT,
+        trigger_event VARCHAR(100) NOT NULL,
+        trigger_conditions JSONB DEFAULT '{}'::jsonb,
+        status VARCHAR(20) NOT NULL DEFAULT 'draft'
+            CHECK (status IN ('draft', 'active', 'paused', 'archived')),
+        goal_event VARCHAR(100),
+        goal_window_days INT DEFAULT 7,
+        allow_reentry BOOLEAN NOT NULL DEFAULT false,
+        max_chain_depth INT NOT NULL DEFAULT 5,
+        exit_tag VARCHAR(100),
+        created_by UUID REFERENCES core.users(id) ON DELETE SET NULL,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )""",
+    "CREATE INDEX IF NOT EXISTS idx_af_trigger ON marketing.automation_flows(trigger_event)",
+    "CREATE INDEX IF NOT EXISTS idx_af_status ON marketing.automation_flows(status)",
+    """CREATE TABLE IF NOT EXISTS marketing.automation_flow_steps (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        flow_id UUID NOT NULL REFERENCES marketing.automation_flows(id) ON DELETE CASCADE,
+        step_type VARCHAR(20) NOT NULL
+            CHECK (step_type IN ('send', 'wait', 'branch', 'split', 'update', 'webhook')),
+        step_order INT NOT NULL DEFAULT 0,
+        config JSONB NOT NULL DEFAULT '{}'::jsonb,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )""",
+    "CREATE INDEX IF NOT EXISTS idx_afs_flow ON marketing.automation_flow_steps(flow_id)",
+    "CREATE INDEX IF NOT EXISTS idx_afs_order ON marketing.automation_flow_steps(flow_id, step_order)",
+    """CREATE TABLE IF NOT EXISTS marketing.automation_flow_connections (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        flow_id UUID NOT NULL REFERENCES marketing.automation_flows(id) ON DELETE CASCADE,
+        from_step_id UUID NOT NULL REFERENCES marketing.automation_flow_steps(id) ON DELETE CASCADE,
+        to_step_id UUID NOT NULL REFERENCES marketing.automation_flow_steps(id) ON DELETE CASCADE,
+        condition_label VARCHAR(100),
+        condition_expr JSONB
+    )""",
+    "CREATE INDEX IF NOT EXISTS idx_afc_flow ON marketing.automation_flow_connections(flow_id)",
+    "CREATE INDEX IF NOT EXISTS idx_afc_from ON marketing.automation_flow_connections(from_step_id)",
+    """CREATE TABLE IF NOT EXISTS marketing.flow_enrollments (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        flow_id UUID NOT NULL REFERENCES marketing.automation_flows(id) ON DELETE CASCADE,
+        user_id UUID NOT NULL REFERENCES core.users(id) ON DELETE CASCADE,
+        current_step_id UUID REFERENCES marketing.automation_flow_steps(id) ON DELETE SET NULL,
+        status VARCHAR(20) NOT NULL DEFAULT 'active'
+            CHECK (status IN ('active', 'completed', 'goal_reached', 'exited', 'error')),
+        enrolled_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        completed_at TIMESTAMPTZ,
+        exit_reason VARCHAR(255),
+        trigger_payload JSONB DEFAULT '{}'::jsonb,
+        chain_depth INT NOT NULL DEFAULT 0
+    )""",
+    "CREATE INDEX IF NOT EXISTS idx_fe_flow ON marketing.flow_enrollments(flow_id)",
+    "CREATE INDEX IF NOT EXISTS idx_fe_user ON marketing.flow_enrollments(user_id)",
+    "CREATE INDEX IF NOT EXISTS idx_fe_status ON marketing.flow_enrollments(status)",
+    """CREATE TABLE IF NOT EXISTS marketing.flow_step_executions (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        enrollment_id UUID NOT NULL REFERENCES marketing.flow_enrollments(id) ON DELETE CASCADE,
+        step_id UUID NOT NULL REFERENCES marketing.automation_flow_steps(id) ON DELETE CASCADE,
+        status VARCHAR(20) NOT NULL DEFAULT 'pending'
+            CHECK (status IN ('pending', 'waiting', 'executed', 'skipped', 'failed')),
+        result JSONB,
+        scheduled_at TIMESTAMPTZ,
+        executed_at TIMESTAMPTZ,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )""",
+    "CREATE INDEX IF NOT EXISTS idx_fse_enrollment ON marketing.flow_step_executions(enrollment_id)",
+    "CREATE INDEX IF NOT EXISTS idx_fse_status ON marketing.flow_step_executions(status)",
+    """CREATE TABLE IF NOT EXISTS marketing.messaging_config (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        channel VARCHAR(20) NOT NULL UNIQUE
+            CHECK (channel IN ('email', 'sms', 'whatsapp', 'global')),
+        freq_cap_marketing_per_day INT DEFAULT 2,
+        freq_cap_marketing_per_week INT DEFAULT 5,
+        freq_cap_marketing_per_month INT DEFAULT 15,
+        quiet_hours_start TIME,
+        quiet_hours_end TIME,
+        quiet_hours_timezone VARCHAR(50) DEFAULT 'UTC',
+        sunset_inactivity_days INT DEFAULT 180,
+        enabled BOOLEAN NOT NULL DEFAULT true,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )""",
+    """INSERT INTO marketing.messaging_config
+        (channel, freq_cap_marketing_per_day, freq_cap_marketing_per_week,
+         freq_cap_marketing_per_month, quiet_hours_start, quiet_hours_end)
+    SELECT * FROM (VALUES
+        ('global'::VARCHAR(20), 3, 7, 20, '22:00'::TIME, '08:00'::TIME),
+        ('email'::VARCHAR(20), 2, 5, 15, NULL::TIME, NULL::TIME),
+        ('sms'::VARCHAR(20), 1, 3, 8, '21:00'::TIME, '09:00'::TIME),
+        ('whatsapp'::VARCHAR(20), 1, 3, 8, '21:00'::TIME, '09:00'::TIME)
+    ) AS v(channel, d, w, m, qs, qe)
+    WHERE NOT EXISTS (SELECT 1 FROM marketing.messaging_config LIMIT 1)""",
+    """CREATE TABLE IF NOT EXISTS marketing.message_pressure_log (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id UUID NOT NULL REFERENCES core.users(id) ON DELETE CASCADE,
+        channel VARCHAR(20) NOT NULL
+            CHECK (channel IN ('email', 'sms', 'whatsapp')),
+        message_type VARCHAR(20) NOT NULL DEFAULT 'marketing'
+            CHECK (message_type IN ('marketing', 'transactional')),
+        campaign_id UUID REFERENCES marketing.campaigns(id) ON DELETE SET NULL,
+        sent_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )""",
+    "CREATE INDEX IF NOT EXISTS idx_mpl_user_channel ON marketing.message_pressure_log(user_id, channel)",
+    "CREATE INDEX IF NOT EXISTS idx_mpl_sent ON marketing.message_pressure_log(sent_at)",
+    """CREATE TABLE IF NOT EXISTS analytics.page_click_interactions (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        session_id VARCHAR(255) NOT NULL,
+        user_id UUID REFERENCES core.users(id) ON DELETE SET NULL,
+        campaign_id UUID REFERENCES marketing.campaigns(id) ON DELETE SET NULL,
+        page_url TEXT NOT NULL,
+        element_selector TEXT,
+        element_text VARCHAR(500),
+        x_position INT,
+        y_position INT,
+        viewport_width INT,
+        viewport_height INT,
+        clicked_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )""",
+    "CREATE INDEX IF NOT EXISTS idx_pci_session ON analytics.page_click_interactions(session_id)",
+    "CREATE INDEX IF NOT EXISTS idx_pci_campaign ON analytics.page_click_interactions(campaign_id)",
+    """CREATE TABLE IF NOT EXISTS analytics.engagement_scores (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id UUID NOT NULL REFERENCES core.users(id) ON DELETE CASCADE UNIQUE,
+        score NUMERIC(8,2) NOT NULL DEFAULT 0,
+        velocity NUMERIC(8,2) NOT NULL DEFAULT 0,
+        last_email_open TIMESTAMPTZ,
+        last_email_click TIMESTAMPTZ,
+        last_sms_click TIMESTAMPTZ,
+        last_site_visit TIMESTAMPTZ,
+        last_purchase TIMESTAMPTZ,
+        computed_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )""",
+    "CREATE INDEX IF NOT EXISTS idx_es_score ON analytics.engagement_scores(score)",
+    # --- Migration 033: ALTER existing tables ---
+    "ALTER TABLE marketing.campaigns ADD COLUMN IF NOT EXISTS medium VARCHAR(20) DEFAULT 'email'",
+    "ALTER TABLE marketing.campaigns ADD COLUMN IF NOT EXISTS goal_event VARCHAR(100)",
+    "ALTER TABLE marketing.campaigns ADD COLUMN IF NOT EXISTS goal_window_days INT DEFAULT 7",
+    "ALTER TABLE marketing.campaigns ADD COLUMN IF NOT EXISTS attribution_window_days INT DEFAULT 7",
+    "ALTER TABLE marketing.campaigns ADD COLUMN IF NOT EXISTS enable_heatmap BOOLEAN DEFAULT false",
+    "ALTER TABLE marketing.campaigns ADD COLUMN IF NOT EXISTS last_reconciled_at TIMESTAMPTZ",
+    "ALTER TABLE marketing.campaigns ADD COLUMN IF NOT EXISTS reconciliation_delta JSONB",
+    "ALTER TABLE analytics.utm_tracking ADD COLUMN IF NOT EXISTS campaign_id UUID",
+    "ALTER TABLE analytics.events ADD COLUMN IF NOT EXISTS campaign_id UUID",
 ]
 
 

@@ -21,7 +21,7 @@ MODULE_TOGGLES: dict[str, str] = {
 }
 
 # Modules that are always enabled (no toggle)
-ALWAYS_ENABLED = {"auth", "gdpr", "seo"}
+ALWAYS_ENABLED = {"auth", "gdpr", "seo", "notifications"}
 
 # Template-specific modules
 TEMPLATE_MODULES = {

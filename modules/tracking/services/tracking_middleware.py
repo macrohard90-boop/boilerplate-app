@@ -126,7 +126,12 @@ async def _track_request(request: Request, path: str) -> None:
             url = str(request.url)
             utm_params = utm_service.extract_utm_params(url)
             if utm_service.has_utm_params(utm_params):
-                await utm_service.store_utm(db, session_id, utm_params)
+                # Extract campaign_id from _cid param if present
+                from urllib.parse import parse_qs, urlparse
+
+                qs = parse_qs(urlparse(url).query)
+                cid = qs.get("_cid", [None])[0]
+                await utm_service.store_utm(db, session_id, utm_params, campaign_id=cid)
 
     except Exception:
         logger.debug("Tracking middleware error (non-fatal)", exc_info=True)

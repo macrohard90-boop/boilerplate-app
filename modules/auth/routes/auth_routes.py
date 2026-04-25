@@ -167,6 +167,21 @@ async def register(
     except Exception:
         logger.exception("Failed to send welcome email to %s", body.email)
 
+    # Fire automation flow event (non-blocking)
+    try:
+        from modules.marketing.services.flow_execution_service import (
+            fire_event_for_flows,
+        )
+
+        await fire_event_for_flows(
+            db,
+            "user.registered",
+            user_id,
+            {"email": body.email, "first_name": getattr(body, "first_name", None)},
+        )
+    except Exception:
+        logger.debug("Flow event fire failed (non-fatal)", exc_info=True)
+
     await audit_service.log_audit(
         db,
         user_id=user_id,

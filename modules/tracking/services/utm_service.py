@@ -32,6 +32,7 @@ async def store_utm(
     db: AsyncSession,
     session_id: str,
     params: dict[str, str | None],
+    campaign_id: str | None = None,
 ) -> None:
     """Store UTM parameters for a session."""
     if not has_utm_params(params):
@@ -40,8 +41,8 @@ async def store_utm(
     await db.execute(
         text(
             "INSERT INTO analytics.utm_tracking "
-            "(session_id, utm_source, utm_medium, utm_campaign, utm_content, utm_term) "
-            "VALUES (:sid, :src, :med, :camp, :cont, :term)"
+            "(session_id, utm_source, utm_medium, utm_campaign, utm_content, utm_term, campaign_id) "
+            "VALUES (:sid, :src, :med, :camp, :cont, :term, :cid)"
         ),
         {
             "sid": session_id,
@@ -50,6 +51,7 @@ async def store_utm(
             "camp": params.get("utm_campaign"),
             "cont": params.get("utm_content"),
             "term": params.get("utm_term"),
+            "cid": campaign_id,
         },
     )
     await db.commit()

@@ -22,6 +22,11 @@ const CampaignWizard = dynamic(
   { ssr: false },
 );
 
+const AutomationsTab = dynamic(
+  () => import("../../../components/flow-builder/AutomationsTab"),
+  { ssr: false },
+);
+
 // ── Interfaces ──────────────────────────────────────────
 
 interface EmailTemplate {
@@ -397,7 +402,8 @@ type TabId =
   | "email_logs"
   | "suppressed"
   | "comm_types"
-  | "audience";
+  | "audience"
+  | "automations";
 
 const TABS: { id: TabId; label: string }[] = [
   { id: "templates", label: "Templates" },
@@ -406,6 +412,7 @@ const TABS: { id: TabId; label: string }[] = [
   { id: "suppressed", label: "Suppressed" },
   { id: "comm_types", label: "Comm Types" },
   { id: "audience", label: "Audience" },
+  { id: "automations", label: "Automations" },
 ];
 
 // ── Main Page ───────────────────────────────────────────
@@ -458,6 +465,7 @@ export default function AdminMarketingPage() {
       {activeTab === "suppressed" && <SuppressedTab />}
       {activeTab === "comm_types" && <CommTypesTab />}
       {activeTab === "audience" && <AudienceTab />}
+      {activeTab === "automations" && <AutomationsTab />}
     </div>
   );
 }

@@ -86,11 +86,43 @@ async def send_campaign(
     db: AsyncSession = Depends(get_db),
     user: dict = Depends(require_role("admin")),
 ):
-    """Send or schedule a draft/scheduled campaign."""
+    """Send a campaign via the multi-channel delivery pipeline.
+
+    Uses the new campaign_delivery_service which handles:
+    - Multi-channel (email, SMS, WhatsApp) via campaign.medium field
+    - Audience resolution from segments
+    - Recipient filtering (suppression, consent, dedup)
+    - A/B variant assignment
+    - INSERT-BEFORE-SEND pattern
+    - Link rewriting per channel
+    - Redis progress tracking
+    """
+    from modules.marketing.services.campaign_delivery_service import deliver_campaign
+
     try:
-        return await campaign_service.send_campaign(db, campaign_id)
+        return await deliver_campaign(db, campaign_id)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
+
+
+@router.get("/campaigns/{campaign_id}/progress")
+async def get_campaign_progress(
+    campaign_id: str,
+    user: dict = Depends(require_role("admin")),
+):
+    """Get real-time campaign send progress from Redis.
+
+    Returns: {total, sent, failed, status}
+    Status is one of: sending, complete, unknown
+    """
+    from modules.marketing.services.campaign_delivery_service import (
+        get_campaign_progress as _get_progress,
+    )
+
+    progress = await _get_progress(campaign_id)
+    if not progress:
+        return {"total": 0, "sent": 0, "failed": 0, "status": "unknown"}
+    return progress
 
 
 @router.get("/campaigns/{campaign_id}/stats", response_model=CampaignStatsResponse)

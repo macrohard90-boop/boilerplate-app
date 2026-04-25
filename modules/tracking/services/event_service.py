@@ -13,19 +13,21 @@ async def record_event(
     event_type: str,
     event_data: dict[str, Any] | None = None,
     user_id: str | None = None,
+    campaign_id: str | None = None,
 ) -> None:
     """Insert a single event record."""
     await db.execute(
         text(
             "INSERT INTO analytics.events "
-            "(user_id, session_id, event_type, event_data) "
-            "VALUES (:uid, :sid, :etype, CAST(:edata AS jsonb))"
+            "(user_id, session_id, event_type, event_data, campaign_id) "
+            "VALUES (:uid, :sid, :etype, CAST(:edata AS jsonb), :cid)"
         ),
         {
             "uid": user_id,
             "sid": session_id,
             "etype": event_type,
             "edata": json.dumps(event_data or {}),
+            "cid": campaign_id,
         },
     )
     await db.commit()

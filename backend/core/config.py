@@ -127,6 +127,30 @@ class Settings(BaseSettings):
     email_retry_interval: int = 60  # seconds between retry attempts
     enable_marketing_emails: bool = True  # Toggle for marketing email campaigns
 
+    # SMS / WhatsApp channels
+    enable_sms: bool = False
+    enable_whatsapp: bool = False
+    sms_provider: str = "console"  # console | brevo | twilio
+    whatsapp_provider: str = "console"  # console | brevo | twilio
+    brevo_sms_sender: str = "MyApp"  # 3-11 alphanumeric, displayed on handset
+    brevo_whatsapp_number: str = ""  # Brevo-provisioned WhatsApp sender number
+
+    # SendGrid (alternative email provider)
+    sendgrid_api_key: str = ""
+    sendgrid_webhook_secret: str = ""
+
+    # AWS SES (alternative email provider)
+    aws_region: str = "us-east-1"
+    aws_access_key_id: str = ""
+    aws_secret_access_key: str = ""
+    ses_configuration_set: str = ""  # Optional, enables open/click tracking
+
+    # Twilio (SMS + WhatsApp provider)
+    twilio_account_sid: str = ""
+    twilio_auth_token: str = ""
+    twilio_sms_from: str = ""  # Twilio phone number or short code
+    twilio_whatsapp_from: str = ""  # Twilio WhatsApp-provisioned number
+
     # Test data seeding (set true on staging/VM to auto-seed on startup)
     seed_test_data: bool = False
 

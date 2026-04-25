@@ -1,12 +1,25 @@
 """Product, variant, and image endpoints."""
 
+import logging
 from typing import Any
 
-from fastapi import APIRouter, Depends, Form, HTTPException, Query, UploadFile, File
+from fastapi import (
+    APIRouter,
+    Depends,
+    Form,
+    HTTPException,
+    Query,
+    Request,
+    UploadFile,
+    File,
+)
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from backend.core.config import settings
 from backend.core.database import get_db
 from backend.core.dependencies import require_role
+
+logger = logging.getLogger(__name__)
 from modules.ecommerce.models.schemas import (
     ImageCreate,
     ImageResponse,
@@ -59,7 +72,9 @@ async def list_products(
 
 
 @router.get("/{slug}", response_model=ProductDetailResponse)
-async def get_product(slug: str, db: AsyncSession = Depends(get_db)) -> Any:
+async def get_product(
+    slug: str, request: Request, db: AsyncSession = Depends(get_db)
+) -> Any:
     product = await product_service.get_product_by_slug(db, slug)
     if not product:
         raise HTTPException(
@@ -74,6 +89,31 @@ async def get_product(slug: str, db: AsyncSession = Depends(get_db)) -> Any:
     categories = await product_service.get_product_categories(db, str(product["id"]))
     variants = await variant_service.list_variants(db, str(product["id"]))
     images = await image_service.list_images(db, str(product["id"]))
+
+    # Fire product_viewed event
+    if settings.enable_tracking:
+        try:
+            from modules.tracking.services.event_service import record_event
+
+            user = getattr(request.state, "user", None)
+            user_id = user["user_id"] if user else None
+            session_id = (
+                user.get("session_id") if user else request.headers.get("x-session-id")
+            )
+            if session_id:
+                await record_event(
+                    db,
+                    session_id,
+                    "product_viewed",
+                    {
+                        "product_id": str(product["id"]),
+                        "product_slug": slug,
+                        "product_name": product.get("name", ""),
+                    },
+                    user_id=user_id,
+                )
+        except Exception:
+            logger.debug("Failed to record product_viewed event", exc_info=True)
 
     return {**product, "categories": categories, "variants": variants, "images": images}
 

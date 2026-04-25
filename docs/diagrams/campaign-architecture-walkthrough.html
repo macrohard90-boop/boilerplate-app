@@ -1,0 +1,3570 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Campaign Architecture Walkthrough v1.0</title>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<style>
+  :root {
+    --bg: #0d1117;
+    --surface: #161b22;
+    --surface2: #1c2333;
+    --border: #30363d;
+    --text: #e6edf3;
+    --text-dim: #8b949e;
+    --accent-blue: #58a6ff;
+    --accent-green: #3fb950;
+    --accent-orange: #d29922;
+    --accent-pink: #f778ba;
+    --accent-purple: #bc8cff;
+    --accent-red: #f85149;
+    --accent-cyan: #56d4dd;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+    line-height: 1.6;
+    padding: 2rem;
+    max-width: 1400px;
+    margin: 0 auto;
+  }
+
+  h1 {
+    font-size: 2rem;
+    margin-bottom: 0.5rem;
+    background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .subtitle {
+    color: var(--text-dim);
+    font-size: 0.95rem;
+    margin-bottom: 2rem;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 1rem;
+  }
+
+  /* Table of Contents */
+  .toc {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.5rem 2rem;
+    margin-bottom: 2.5rem;
+  }
+  .toc h2 {
+    font-size: 1rem;
+    color: var(--accent-cyan);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-bottom: 1rem;
+  }
+  .toc-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 0.5rem;
+  }
+  .toc a {
+    color: var(--accent-blue);
+    text-decoration: none;
+    padding: 0.4rem 0.8rem;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    transition: background 0.2s;
+  }
+  .toc a:hover { background: var(--surface2); }
+  .toc .num {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    font-size: 0.75rem;
+    padding: 0.1rem 0.4rem;
+    color: var(--text-dim);
+    font-weight: 600;
+    min-width: 1.8rem;
+    text-align: center;
+  }
+
+  /* Sections */
+  .section {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 2rem;
+    margin-bottom: 2rem;
+  }
+  .section h2 {
+    font-size: 1.5rem;
+    margin-bottom: 0.3rem;
+  }
+  .section h2 .tag {
+    font-size: 0.7rem;
+    padding: 0.2rem 0.6rem;
+    border-radius: 4px;
+    vertical-align: middle;
+    margin-left: 0.5rem;
+    font-weight: 600;
+    text-transform: uppercase;
+  }
+  .tag-overview { background: var(--accent-blue); color: #000; }
+  .tag-campaign { background: var(--accent-green); color: #000; }
+  .tag-automation { background: var(--accent-purple); color: #000; }
+  .tag-medium { background: var(--accent-orange); color: #000; }
+  .tag-tracking { background: var(--accent-pink); color: #000; }
+  .tag-guardrails { background: var(--accent-red); color: #fff; }
+
+  .section-desc {
+    color: var(--text-dim);
+    margin-bottom: 1.5rem;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 1rem;
+  }
+
+  h3 {
+    font-size: 1.15rem;
+    color: var(--accent-blue);
+    margin: 1.5rem 0 0.75rem;
+  }
+  h3:first-of-type { margin-top: 0.5rem; }
+
+  h4 {
+    font-size: 1rem;
+    color: var(--accent-cyan);
+    margin: 1.2rem 0 0.5rem;
+  }
+
+  p { margin-bottom: 0.75rem; }
+
+  /* Mermaid containers */
+  .mermaid-wrap {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1.5rem;
+    margin: 1rem 0;
+    overflow-x: auto;
+  }
+
+  /* Payload blocks */
+  .payload {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    margin: 1rem 0;
+    overflow: hidden;
+  }
+  .payload-header {
+    background: var(--surface2);
+    padding: 0.5rem 1rem;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--text-dim);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: pointer;
+    user-select: none;
+  }
+  .payload-header:hover { color: var(--text); }
+  .payload-header .arrow { transition: transform 0.2s; }
+  .payload-header.collapsed .arrow { transform: rotate(-90deg); }
+  .payload-body {
+    padding: 1rem;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-size: 0.82rem;
+    line-height: 1.5;
+    white-space: pre;
+    overflow-x: auto;
+    color: var(--accent-green);
+  }
+  .payload-body.hidden { display: none; }
+
+  /* Comparison tables */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1rem 0;
+    font-size: 0.9rem;
+  }
+  th {
+    background: var(--surface2);
+    padding: 0.6rem 1rem;
+    text-align: left;
+    font-weight: 600;
+    color: var(--accent-cyan);
+    border-bottom: 2px solid var(--border);
+  }
+  td {
+    padding: 0.5rem 1rem;
+    border-bottom: 1px solid var(--border);
+    color: var(--text);
+  }
+  tr:hover td { background: rgba(88, 166, 255, 0.04); }
+
+  /* Callout boxes */
+  .callout {
+    border-radius: 8px;
+    padding: 1rem 1.25rem;
+    margin: 1rem 0;
+    border-left: 4px solid;
+  }
+  .callout-insight {
+    background: rgba(88, 166, 255, 0.08);
+    border-color: var(--accent-blue);
+  }
+  .callout-insight .callout-title { color: var(--accent-blue); }
+  .callout-warning {
+    background: rgba(210, 153, 34, 0.08);
+    border-color: var(--accent-orange);
+  }
+  .callout-warning .callout-title { color: var(--accent-orange); }
+  .callout-key {
+    background: rgba(63, 185, 80, 0.08);
+    border-color: var(--accent-green);
+  }
+  .callout-key .callout-title { color: var(--accent-green); }
+  .callout-title {
+    font-weight: 700;
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 0.4rem;
+  }
+  .callout p { margin-bottom: 0.3rem; font-size: 0.9rem; }
+
+  /* Flow step cards */
+  .flow-steps {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    margin: 1rem 0;
+  }
+  .flow-step {
+    display: flex;
+    gap: 1rem;
+    position: relative;
+  }
+  .flow-step-num {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 0.85rem;
+    flex-shrink: 0;
+    z-index: 1;
+  }
+  .flow-step-content {
+    flex: 1;
+    padding-bottom: 1.5rem;
+    border-left: 2px solid var(--border);
+    padding-left: 1.5rem;
+    margin-left: -21px;
+    padding-top: 0.5rem;
+  }
+  .flow-step:last-child .flow-step-content { border-left-color: transparent; }
+  .flow-step-title {
+    font-weight: 600;
+    font-size: 0.95rem;
+    margin-bottom: 0.3rem;
+  }
+  .flow-step-detail {
+    font-size: 0.85rem;
+    color: var(--text-dim);
+  }
+  .step-blue .flow-step-num { background: var(--accent-blue); color: #000; }
+  .step-green .flow-step-num { background: var(--accent-green); color: #000; }
+  .step-purple .flow-step-num { background: var(--accent-purple); color: #000; }
+  .step-orange .flow-step-num { background: var(--accent-orange); color: #000; }
+  .step-pink .flow-step-num { background: var(--accent-pink); color: #000; }
+  .step-cyan .flow-step-num { background: var(--accent-cyan); color: #000; }
+
+  /* Two-column layout */
+  .two-col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+    margin: 1rem 0;
+  }
+  @media (max-width: 900px) { .two-col { grid-template-columns: 1fr; } }
+
+  .col-card {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1.25rem;
+  }
+  .col-card h4 {
+    margin-top: 0;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--border);
+  }
+
+  /* Badge/pill */
+  .badge {
+    display: inline-block;
+    padding: 0.15rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+  .badge-email { background: rgba(88, 166, 255, 0.2); color: var(--accent-blue); }
+  .badge-sms { background: rgba(63, 185, 80, 0.2); color: var(--accent-green); }
+  .badge-whatsapp { background: rgba(188, 140, 255, 0.2); color: var(--accent-purple); }
+  .badge-shared { background: rgba(86, 212, 221, 0.2); color: var(--accent-cyan); }
+
+  /* Code inline */
+  code {
+    background: var(--surface2);
+    padding: 0.15rem 0.4rem;
+    border-radius: 3px;
+    font-size: 0.85em;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    color: var(--accent-orange);
+  }
+
+  /* Version footer */
+  .footer {
+    text-align: center;
+    color: var(--text-dim);
+    font-size: 0.8rem;
+    padding: 2rem 0 1rem;
+    border-top: 1px solid var(--border);
+    margin-top: 2rem;
+  }
+
+  ul, ol { padding-left: 1.5rem; margin-bottom: 0.75rem; }
+  li { margin-bottom: 0.3rem; font-size: 0.9rem; }
+</style>
+</head>
+<body>
+
+<h1>Campaign & Automation Architecture Walkthrough</h1>
+<p class="subtitle">
+  Full payload flows, medium-specific paths, conversion tracking, and system architecture.<br>
+  <strong>Version 1.0</strong> &mdash; 2026-04-25
+</p>
+
+<!-- ============================================================ -->
+<!-- TABLE OF CONTENTS -->
+<!-- ============================================================ -->
+<div class="toc">
+  <h2>Contents</h2>
+  <div class="toc-grid">
+    <a href="#s1"><span class="num">1</span> System Overview &mdash; The Two Entry Points</a>
+    <a href="#s2"><span class="num">2</span> Campaign Flow &mdash; End-to-End Payload</a>
+    <a href="#s3"><span class="num">3</span> Automation Flow &mdash; End-to-End Payload</a>
+    <a href="#s4"><span class="num">4</span> Medium-Specific Paths &mdash; Email vs SMS vs WhatsApp</a>
+    <a href="#s5"><span class="num">5</span> Tracking & Conversion Attribution Loop</a>
+    <a href="#s6"><span class="num">6</span> Guardrails &mdash; Delivery Gating</a>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- SECTION 1: SYSTEM OVERVIEW -->
+<!-- ============================================================ -->
+<div class="section" id="s1">
+  <h2>1. System Overview <span class="tag tag-overview">Overview</span></h2>
+  <p class="section-desc">
+    The entire messaging system has <strong>two entry points</strong> (Campaign and Automation) that both funnel
+    into a <strong>single shared delivery pipeline</strong>. The delivery pipeline is medium-agnostic &mdash;
+    it dispatches to the correct provider adapter based on channel. Every send is tracked, every interaction
+    feeds back into analytics, and every conversion is attributed.
+  </p>
+
+  <h3>The Big Picture</h3>
+  <div class="mermaid-wrap">
+    <pre class="mermaid">
+%%{init: {'theme': 'dark', 'themeVariables': {'primaryColor': '#1c2333', 'primaryTextColor': '#e6edf3', 'lineColor': '#58a6ff', 'secondaryColor': '#161b22'}}}%%
+flowchart TB
+    subgraph ENTRY["TWO ENTRY POINTS"]
+        direction LR
+        CAM["<b>Campaign</b><br/>Admin creates &amp; sends<br/>one-off broadcast"]
+        AUTO["<b>Automation</b><br/>Event-triggered flow<br/>multi-step sequence"]
+    end
+
+    subgraph SHARED["SHARED DELIVERY PIPELINE"]
+        direction TB
+        GUARD["Guardrails Gate<br/><i>freq cap, quiet hours,<br/>sunset, consent</i>"]
+        RESOLVE["Recipient Resolution<br/><i>segment query, phone lookup,<br/>suppress/filter</i>"]
+        RENDER["Content Preparation<br/><i>template render, link rewrite,<br/>UTM injection, zone params</i>"]
+        DISPATCH["Channel Dispatch<br/><i>route to correct adapter</i>"]
+    end
+
+    subgraph PROVIDERS["PROVIDER ADAPTERS"]
+        direction LR
+        EMAIL["EmailProvider<br/><i>Brevo / SES / SendGrid / Console</i>"]
+        SMS["SmsProvider<br/><i>Brevo / Twilio / Console</i>"]
+        WA["WhatsAppProvider<br/><i>Brevo / Twilio / Console</i>"]
+    end
+
+    subgraph FEEDBACK["FEEDBACK LOOP"]
+        direction TB
+        WEBHOOK["Webhook Ingestion<br/><i>delivered, opened, clicked,<br/>bounced, read</i>"]
+        TRACK["On-Site Tracking<br/><i>UTM capture, page views,<br/>events, purchases</i>"]
+        ATTR["Attribution Engine<br/><i>link message &rarr; session &rarr; conversion</i>"]
+        ANALYTICS["Analytics &amp; Reporting<br/><i>funnels, timelines, scores,<br/>cross-campaign comparison</i>"]
+    end
+
+    CAM --> GUARD
+    AUTO --> GUARD
+    GUARD --> RESOLVE
+    RESOLVE --> RENDER
+    RENDER --> DISPATCH
+    DISPATCH --> EMAIL
+    DISPATCH --> SMS
+    DISPATCH --> WA
+
+    EMAIL -.->|webhooks| WEBHOOK
+    SMS -.->|webhooks| WEBHOOK
+    WA -.->|webhooks| WEBHOOK
+
+    WEBHOOK --> ATTR
+    TRACK --> ATTR
+    ATTR --> ANALYTICS
+    ANALYTICS -.->|"engagement scores<br/>feed back into"| RESOLVE
+
+    style ENTRY fill:#1a2332,stroke:#58a6ff,stroke-width:2px
+    style SHARED fill:#1a2820,stroke:#3fb950,stroke-width:2px
+    style PROVIDERS fill:#2a1a33,stroke:#bc8cff,stroke-width:2px
+    style FEEDBACK fill:#2a1a22,stroke:#f778ba,stroke-width:2px
+    </pre>
+  </div>
+
+  <h3>Campaign vs Automation &mdash; Side by Side</h3>
+  <div class="two-col">
+    <div class="col-card">
+      <h4 style="color: var(--accent-green);">Campaign (One-Off Broadcast)</h4>
+      <table>
+        <tr><td><strong>Trigger</strong></td><td>Admin clicks "Send" in UI</td></tr>
+        <tr><td><strong>Audience</strong></td><td>Explicit segment selection at creation time</td></tr>
+        <tr><td><strong>Timing</strong></td><td>Immediate or scheduled (single moment)</td></tr>
+        <tr><td><strong>Content</strong></td><td>1-N variants (A/B test), same for all recipients</td></tr>
+        <tr><td><strong>Channels</strong></td><td>Single medium per campaign (email, SMS, or WA)</td></tr>
+        <tr><td><strong>Lifecycle</strong></td><td>Draft &rarr; Scheduled &rarr; Sending &rarr; Sent &rarr; Analyzing</td></tr>
+        <tr><td><strong>State</strong></td><td>Stateless per recipient &mdash; send once, track outcome</td></tr>
+        <tr><td><strong>Goal</strong></td><td>Optional (e.g., purchase within 7 days). Measured, not enforced.</td></tr>
+        <tr><td><strong>Analytics</strong></td><td>Campaign-level funnel, variant comparison, heatmaps</td></tr>
+      </table>
+    </div>
+    <div class="col-card">
+      <h4 style="color: var(--accent-purple);">Automation (Event-Triggered Flow)</h4>
+      <table>
+        <tr><td><strong>Trigger</strong></td><td>System event (user.registered, order.completed, segment.entered, etc.)</td></tr>
+        <tr><td><strong>Audience</strong></td><td>Implicit &mdash; whoever triggers the event</td></tr>
+        <tr><td><strong>Timing</strong></td><td>Continuous &mdash; runs whenever trigger fires</td></tr>
+        <tr><td><strong>Content</strong></td><td>Per-step templates, personalized per user context</td></tr>
+        <tr><td><strong>Channels</strong></td><td>Mixed mediums within one flow (email step, then SMS step, etc.)</td></tr>
+        <tr><td><strong>Lifecycle</strong></td><td>Draft &rarr; Active &rarr; Paused (always running while active)</td></tr>
+        <tr><td><strong>State</strong></td><td>Stateful per enrollment &mdash; tracks which step each user is on</td></tr>
+        <tr><td><strong>Goal</strong></td><td>Enforced &mdash; user exits flow early when goal is met</td></tr>
+        <tr><td><strong>Analytics</strong></td><td>Per-step funnels, drop-off rates, time-to-goal, revenue per flow</td></tr>
+      </table>
+    </div>
+  </div>
+
+  <div class="callout callout-key">
+    <div class="callout-title">Key Architectural Insight</div>
+    <p>Both campaigns and automations converge into the <strong>same delivery pipeline</strong> at the "Guardrails Gate" step.
+    From that point forward, the system doesn't care whether a message originated from an admin clicking "Send" or from a
+    <code>user.registered</code> event firing. The delivery pipeline handles consent checking, recipient filtering,
+    template rendering, link rewriting, provider dispatch, logging, and webhook processing identically.</p>
+    <p>This means: <strong>build the delivery pipeline once, both entry points use it.</strong></p>
+  </div>
+
+  <h3>What's Shared vs What's Specific</h3>
+  <table>
+    <thead>
+      <tr>
+        <th>Component</th>
+        <th>Campaign-Specific</th>
+        <th>Automation-Specific</th>
+        <th>Shared</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Audience resolution</td>
+        <td>Segment query at send time</td>
+        <td>Single user from event</td>
+        <td>&mdash;</td>
+      </tr>
+      <tr>
+        <td>Guardrails check</td>
+        <td>&mdash;</td>
+        <td>&mdash;</td>
+        <td><span class="badge badge-shared">SHARED</span> Same freq cap, quiet hours, consent logic</td>
+      </tr>
+      <tr>
+        <td>Template rendering</td>
+        <td>&mdash;</td>
+        <td>&mdash;</td>
+        <td><span class="badge badge-shared">SHARED</span> Same Jinja2 engine, same DB templates</td>
+      </tr>
+      <tr>
+        <td>Link rewriting</td>
+        <td>&mdash;</td>
+        <td>&mdash;</td>
+        <td><span class="badge badge-shared">SHARED</span> UTM + zone params injected identically</td>
+      </tr>
+      <tr>
+        <td>Provider dispatch</td>
+        <td>&mdash;</td>
+        <td>&mdash;</td>
+        <td><span class="badge badge-shared">SHARED</span> Same adapter factory, same send call</td>
+      </tr>
+      <tr>
+        <td>Message logging</td>
+        <td>campaign_recipients table</td>
+        <td>flow_step_executions table + campaign_recipients</td>
+        <td><span class="badge badge-shared">SHARED</span> Both insert into campaign_recipients</td>
+      </tr>
+      <tr>
+        <td>Webhook processing</td>
+        <td>&mdash;</td>
+        <td>&mdash;</td>
+        <td><span class="badge badge-shared">SHARED</span> Same webhook routes update same tables</td>
+      </tr>
+      <tr>
+        <td>Attribution</td>
+        <td>&mdash;</td>
+        <td>&mdash;</td>
+        <td><span class="badge badge-shared">SHARED</span> Same UTM tracking, same attribution engine</td>
+      </tr>
+      <tr>
+        <td>A/B variant splitting</td>
+        <td>Yes &mdash; split audience by variant weight</td>
+        <td>&mdash;</td>
+        <td>&mdash;</td>
+      </tr>
+      <tr>
+        <td>Flow state machine</td>
+        <td>&mdash;</td>
+        <td>Yes &mdash; step progression, branching, waits</td>
+        <td>&mdash;</td>
+      </tr>
+      <tr>
+        <td>Goal checking</td>
+        <td>Measured at report time</td>
+        <td>Enforced at runtime (exit on goal)</td>
+        <td>&mdash;</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>The Internal "Send Request" &mdash; Universal Payload</h3>
+  <p>
+    Regardless of whether a campaign or automation initiated the message, the delivery pipeline works with
+    a single internal data structure. This is the payload that flows from the entry point into the shared pipeline:
+  </p>
+
+  <div class="payload">
+    <div class="payload-header" onclick="togglePayload(this)">
+      <span>INTERNAL: DeliveryRequest (what enters the shared pipeline)</span>
+      <span class="arrow">&#9660;</span>
+    </div>
+    <div class="payload-body">{
+  // === WHO ===
+  "user_id": "uuid",
+  "to_email": "user@example.com",       // resolved from core.users
+  "to_phone": "+15551234567",            // resolved from core.users (nullable)
+  "to_whatsapp": "+15551234567",         // resolved from core.users (nullable)
+
+  // === WHAT ===
+  "channel": "email",                    // "email" | "sms" | "whatsapp"
+  "template_id": "welcome_series_1",     // DB template name
+  "template_data": {                     // per-user merge variables
+    "first_name": "Alice",
+    "product_name": "Premium Plan",
+    "unsubscribe_url": "https://..."
+  },
+  "subject": "Welcome to MyApp!",        // email only (from template or override)
+  "html_content": null,                  // pre-rendered HTML (if skipping template)
+
+  // === WHERE FROM ===
+  "source_type": "campaign",             // "campaign" | "automation"
+  "campaign_id": "uuid",                 // which campaign (always set)
+  "variant_label": "A",                  // A/B variant (campaign only)
+  "flow_id": "uuid | null",             // which flow (automation only)
+  "flow_step_id": "uuid | null",        // which step (automation only)
+  "enrollment_id": "uuid | null",       // which enrollment (automation only)
+
+  // === TRACKING ===
+  "utm_source": "myapp",
+  "utm_medium": "email",                 // "email" | "sms" | "whatsapp"
+  "utm_campaign": "welcome_series",
+  "utm_content": "variant_a",
+
+  // === GUARDRAILS (pre-computed) ===
+  "bypass_frequency_cap": false,         // true for critical transactional
+  "bypass_quiet_hours": false,
+  "message_type": "marketing"            // "transactional" | "marketing"
+}</div>
+  </div>
+
+  <div class="callout callout-insight">
+    <div class="callout-title">Why This Matters</div>
+    <p>This universal <code>DeliveryRequest</code> is the contract between entry points and the pipeline.
+    A campaign resolves its audience segment into N of these requests (one per recipient). An automation flow's "send" step
+    creates exactly one. The pipeline doesn't need to know which path generated it.</p>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- SECTION 2: CAMPAIGN FLOW (placeholder) -->
+<!-- ============================================================ -->
+<div class="section" id="s2">
+  <h2>2. Campaign Flow <span class="tag tag-campaign">Campaign</span></h2>
+  <p class="section-desc">
+    End-to-end payload flow for a one-off campaign &mdash; from admin clicking "Send" through delivery,
+    webhooks, and analytics. Covers all mediums.
+  </p>
+
+  <h3>Campaign Lifecycle</h3>
+  <div class="mermaid-wrap">
+    <pre class="mermaid">
+%%{init: {'theme': 'dark'}}%%
+stateDiagram-v2
+    [*] --> Draft: Admin creates campaign
+    Draft --> Scheduled: Admin schedules send
+    Draft --> Sending: Admin clicks "Send Now"
+    Scheduled --> Sending: Scheduled time arrives
+    Sending --> Sent: All recipients processed
+    Sent --> Analyzing: Webhooks flowing in
+    Analyzing --> [*]: Campaign archived
+
+    state Draft {
+        [*] --> SelectAudience
+        SelectAudience --> PickChannel
+        PickChannel --> WriteContent
+        WriteContent --> ConfigureAB
+        ConfigureAB --> SetUTMs
+        SetUTMs --> ReviewSend
+    }
+
+    state Sending {
+        [*] --> ResolveSegment
+        ResolveSegment --> FilterRecipients
+        FilterRecipients --> CheckGuardrails
+        CheckGuardrails --> AssignVariants
+        AssignVariants --> RenderTemplates
+        RenderTemplates --> RewriteLinks
+        RewriteLinks --> BatchDispatch
+    }
+    </pre>
+  </div>
+
+  <h3>Step-by-Step: What Happens When Admin Clicks "Send"</h3>
+
+  <div class="flow-steps">
+    <!-- Step 1 -->
+    <div class="flow-step step-blue">
+      <div class="flow-step-num">1</div>
+      <div class="flow-step-content">
+        <div class="flow-step-title">API Call &mdash; Admin Triggers Send</div>
+        <div class="flow-step-detail">
+          <p>Admin clicks "Send" in the campaign wizard UI. Frontend calls the campaign send endpoint.</p>
+        </div>
+        <div class="payload">
+          <div class="payload-header" onclick="togglePayload(this)">
+            <span>REQUEST: POST /api/marketing/admin/campaigns/{id}/send</span>
+            <span class="arrow">&#9660;</span>
+          </div>
+          <div class="payload-body">{
+  "campaign_id": "c8f2a1b4-...",
+  "send_now": true,             // false = just validate, true = send immediately
+  "scheduled_at": null          // ISO 8601 datetime if scheduling for later
+}
+
+// Campaign already has on record (from creation/draft):
+// - medium: "email" | "sms" | "whatsapp"
+// - segment_ids: ["seg-1", "seg-2"]
+// - variants: [{ label: "A", subject: "...", html_content: "...", weight: 50 }, ...]
+// - utm_source, utm_medium, utm_campaign, utm_content
+// - goal_event: "purchase" (optional)
+// - goal_window_days: 7 (optional)</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Step 2 -->
+    <div class="flow-step step-green">
+      <div class="flow-step-num">2</div>
+      <div class="flow-step-content">
+        <div class="flow-step-title">Audience Resolution</div>
+        <div class="flow-step-detail">
+          <p>The delivery service calls <code>segment_service.compute_segment_users(segment_ids)</code> to
+          resolve who should receive the campaign. This runs the segment's filter rules against the database.</p>
+        </div>
+        <div class="payload">
+          <div class="payload-header" onclick="togglePayload(this)">
+            <span>INTERNAL: Segment Resolution Query</span>
+            <span class="arrow">&#9660;</span>
+          </div>
+          <div class="payload-body">-- segment_service builds this SQL dynamically from segment filters:
+SELECT DISTINCT u.id, u.email, u.phone, u.whatsapp_number, u.first_name
+FROM core.users u
+LEFT JOIN ecommerce.customer_metrics cm ON cm.user_id = u.id
+WHERE u.email_verified = true
+  AND u.id NOT IN (SELECT user_id FROM gdpr.email_preferences WHERE suppressed_at IS NOT NULL)
+  -- Segment filter: "purchased in last 30 days"
+  AND cm.last_order_at >= NOW() - INTERVAL '30 days'
+  -- Segment filter: "RFM segment = champion or loyal"
+  AND cm.rfm_segment IN ('champion', 'loyal')
+
+-- Result: list of user records
+-- e.g., 2,847 users match this segment</div>
+        </div>
+        <div class="payload">
+          <div class="payload-header" onclick="togglePayload(this)">
+            <span>INTERNAL: Resolved Audience (per user)</span>
+            <span class="arrow">&#9660;</span>
+          </div>
+          <div class="payload-body">[
+  {
+    "user_id": "a1b2c3d4-...",
+    "email": "alice@example.com",
+    "phone": "+15551234567",
+    "whatsapp_number": "+15551234567",
+    "first_name": "Alice"
+  },
+  {
+    "user_id": "e5f6g7h8-...",
+    "email": "bob@example.com",
+    "phone": null,              // no phone on file
+    "whatsapp_number": null,
+    "first_name": "Bob"
+  },
+  // ... 2,845 more
+]</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Step 3 -->
+    <div class="flow-step step-orange">
+      <div class="flow-step-num">3</div>
+      <div class="flow-step-content">
+        <div class="flow-step-title">Recipient Filtering</div>
+        <div class="flow-step-detail">
+          <p>Each resolved user is checked against multiple exclusion criteria. Users who fail any check
+          are skipped and logged as "excluded" with a reason.</p>
+        </div>
+        <div class="payload">
+          <div class="payload-header" onclick="togglePayload(this)">
+            <span>INTERNAL: Filter Pipeline (per user)</span>
+            <span class="arrow">&#9660;</span>
+          </div>
+          <div class="payload-body">Filter Pipeline (each user passes through ALL checks):
+
+1. CHANNEL AVAILABILITY
+   - If medium=email: does user have email? (always yes, required field)
+   - If medium=sms: does user have phone? Bob has no phone → SKIP (reason: "no_phone")
+   - If medium=whatsapp: does user have whatsapp_number? → SKIP if missing
+
+2. SUPPRESSION CHECK
+   - Query gdpr.email_preferences WHERE user_id = :uid AND suppressed_at IS NOT NULL
+   - If suppressed → SKIP (reason: "suppressed")
+
+3. CONSENT CHECK
+   - If message_type = "marketing":
+     - Email: check gdpr.email_preferences.marketing_email = true
+     - SMS: check marketing.user_communication_preferences has sms consent
+     - WA: check marketing.user_communication_preferences has whatsapp consent
+   - If no consent → SKIP (reason: "no_consent")
+
+4. ALREADY RECEIVED CHECK
+   - Query campaign_recipients WHERE campaign_id = :cid AND user_id = :uid
+   - If already sent → SKIP (reason: "already_sent")
+   - Prevents duplicates on retry/resume
+
+5. SUNSET POLICY CHECK
+   - If user hasn't opened any message in N days (configurable) → SKIP (reason: "sunset")
+
+Result for 2,847 resolved users:
+  - 2,412 pass all filters → eligible to receive
+  - 187 skipped: no_phone (SMS campaign)
+  - 143 skipped: no_consent
+  - 89 skipped: sunset
+  - 16 skipped: suppressed</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Step 4 -->
+    <div class="flow-step step-purple">
+      <div class="flow-step-num">4</div>
+      <div class="flow-step-content">
+        <div class="flow-step-title">Guardrails Check (per recipient)</div>
+        <div class="flow-step-detail">
+          <p>Each eligible recipient is checked against frequency caps and quiet hours.
+          Users over their cap are deferred or skipped. Users in quiet hours are delayed.</p>
+        </div>
+        <div class="payload">
+          <div class="payload-header" onclick="togglePayload(this)">
+            <span>INTERNAL: Guardrails Check</span>
+            <span class="arrow">&#9660;</span>
+          </div>
+          <div class="payload-body">For each eligible recipient:
+
+1. FREQUENCY CAP
+   - Query message_pressure_log:
+     SELECT COUNT(*) FROM marketing.message_pressure_log
+     WHERE user_id = :uid AND channel = :ch
+       AND sent_at >= NOW() - INTERVAL '7 days'
+   - Config: max 3 marketing emails per 7 days
+   - If count >= 3 → DEFER or SKIP (reason: "frequency_cap")
+
+2. QUIET HOURS
+   - Resolve user's timezone (from profile or geo)
+   - Config: no marketing messages between 21:00-08:00 local time
+   - If within quiet hours → DEFER to 08:00 next day
+   - Deferred sends get scheduled_at set, not skipped
+
+3. PER-CHANNEL DAILY CAP
+   - Config: max 1 SMS per day per user
+   - If already sent SMS today → SKIP
+
+Result for 2,412 eligible users:
+  - 2,298 clear all guardrails → proceed to send
+  - 87 deferred: quiet hours (will send at 08:00 their time)
+  - 27 skipped: frequency_cap</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Step 5 -->
+    <div class="flow-step step-cyan">
+      <div class="flow-step-num">5</div>
+      <div class="flow-step-content">
+        <div class="flow-step-title">Variant Assignment + Template Rendering</div>
+        <div class="flow-step-detail">
+          <p>Recipients are assigned to A/B variants by weight, then templates are rendered
+          with per-user merge variables.</p>
+        </div>
+        <div class="payload">
+          <div class="payload-header" onclick="togglePayload(this)">
+            <span>INTERNAL: Variant Assignment + Render</span>
+            <span class="arrow">&#9660;</span>
+          </div>
+          <div class="payload-body">A/B Variant Assignment:
+  Campaign has 2 variants:
+    Variant A: weight=60, subject="Welcome back, {{first_name}}!"
+    Variant B: weight=40, subject="We miss you, {{first_name}}!"
+
+  For each recipient:
+    random(0-100) → if < 60: assign variant A, else: assign variant B
+    Result: ~1,379 get variant A, ~919 get variant B
+
+Template Rendering (per recipient, per variant):
+  Input:
+    template_id = variant.source_template_id (e.g., "winback_v2")
+    template_data = {
+      "first_name": "Alice",
+      "product_name": "Premium Plan",
+      "discount_code": "COMEBACK20",
+      "unsubscribe_url": "https://myapp.com/api/gdpr/email-preferences/unsubscribe?token=..."
+    }
+
+  Process:
+    1. Load template from marketing.email_templates WHERE name = 'winback_v2'
+    2. Jinja2 render: html_content with template_data merged
+    3. Result: fully rendered HTML string per user
+
+  Output:
+    rendered_html = "&lt;html&gt;...Hello Alice, here's 20% off...&lt;/html&gt;"
+    subject = "Welcome back, Alice!"</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Step 6 -->
+    <div class="flow-step step-pink">
+      <div class="flow-step-num">6</div>
+      <div class="flow-step-content">
+        <div class="flow-step-title">Link Rewriting (Email Only)</div>
+        <div class="flow-step-detail">
+          <p>For email campaigns, every <code>&lt;a href&gt;</code> in the rendered HTML is rewritten to inject
+          UTM parameters and heatmap zone position IDs. SMS/WhatsApp get a shortened tracking URL appended instead.</p>
+        </div>
+        <div class="payload">
+          <div class="payload-header" onclick="togglePayload(this)">
+            <span>INTERNAL: Link Rewriting (Email)</span>
+            <span class="arrow">&#9660;</span>
+          </div>
+          <div class="payload-body">Before rewriting:
+  &lt;a href="https://myapp.com/products/premium-plan"&gt;Check it out&lt;/a&gt;
+
+After rewriting:
+  &lt;a href="https://myapp.com/products/premium-plan
+    ?utm_source=myapp
+    &amp;utm_medium=email
+    &amp;utm_campaign=winback_q4
+    &amp;utm_content=variant_a
+    &amp;_zp=3            ← zone position (row 1, col 3 in email grid)
+    &amp;_cid=c8f2a1b4    ← campaign ID (short)
+    &amp;_rid=a1b2c3d4    ← recipient ID (short)
+  "&gt;Check it out&lt;/a&gt;
+
+Zone Position Map (_zp values):
+  Email is divided into an invisible grid:
+  ┌─────────────────────────┐
+  │  _zp=1  │  _zp=2  │  _zp=3  │  ← Header row
+  │─────────┼─────────┼─────────│
+  │  _zp=4  │  _zp=5  │  _zp=6  │  ← Body row 1
+  │─────────┼─────────┼─────────│
+  │  _zp=7  │  _zp=8  │  _zp=9  │  ← Body row 2
+  │─────────┼─────────┼─────────│
+  │  _zp=10 │  _zp=11 │  _zp=12 │  ← Footer row
+  └─────────────────────────────┘
+
+  When user clicks → webhook includes full URL → we extract _zp → aggregate into heatmap</div>
+        </div>
+        <div class="payload">
+          <div class="payload-header" onclick="togglePayload(this)">
+            <span>INTERNAL: Link Rewriting (SMS / WhatsApp)</span>
+            <span class="arrow">&#9660;</span>
+          </div>
+          <div class="payload-body">SMS (plain text, no HTML):
+  Content: "Hi Alice! 20% off Premium Plan. Use code COMEBACK20: https://myapp.com/go/abc123"
+
+  The shortened URL "https://myapp.com/go/abc123" maps to:
+  {
+    "short_code": "abc123",
+    "destination": "https://myapp.com/products/premium-plan",
+    "utm_source": "myapp",
+    "utm_medium": "sms",
+    "utm_campaign": "winback_q4",
+    "campaign_id": "c8f2a1b4-...",
+    "recipient_id": "a1b2c3d4-..."
+  }
+  When user clicks → our redirect endpoint logs click → redirects to destination with UTMs
+
+WhatsApp (template-based):
+  Templates are pre-approved by Meta, so we can't rewrite links in the template body.
+  Instead, the CTA button URL is parameterized:
+  {
+    "template_name": "winback_offer",
+    "parameters": {
+      "body": ["Alice", "20%", "COMEBACK20"],
+      "button_url_suffix": "?utm_source=myapp&utm_medium=whatsapp&utm_campaign=winback_q4&_cid=c8f2a1b4&_rid=a1b2c3d4"
+    }
+  }</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Step 7 -->
+    <div class="flow-step step-blue">
+      <div class="flow-step-num">7</div>
+      <div class="flow-step-content">
+        <div class="flow-step-title">INSERT-BEFORE-SEND + Provider Dispatch</div>
+        <div class="flow-step-detail">
+          <p>This is the critical send step. We INSERT the recipient record <strong>before</strong> calling the provider
+          (F20 fix), then dispatch to the correct adapter. This prevents webhook race conditions.</p>
+        </div>
+        <div class="payload">
+          <div class="payload-header" onclick="togglePayload(this)">
+            <span>DB: INSERT campaign_recipients (BEFORE send)</span>
+            <span class="arrow">&#9660;</span>
+          </div>
+          <div class="payload-body">-- F20: INSERT-BEFORE-SEND pattern
+-- Record exists BEFORE provider API call, so incoming webhooks always find a match
+
+INSERT INTO marketing.campaign_recipients (
+  id, campaign_id, user_id, variant_label,
+  channel, to_address, status, created_at
+) VALUES (
+  'recip-uuid-1',         -- generated UUID
+  'c8f2a1b4-...',          -- campaign
+  'a1b2c3d4-...',          -- user
+  'A',                     -- assigned variant
+  'email',                 -- channel
+  'alice@example.com',     -- to_address (email, phone, or WA number)
+  'sending',               -- status = 'sending' (not 'sent' yet!)
+  NOW()
+);
+
+-- Status lifecycle:
+-- 'sending'   → INSERT before provider call
+-- 'sent'      → UPDATE after provider returns success + message_id
+-- 'delivered'  → UPDATE when delivery webhook arrives
+-- 'opened'    → UPDATE when open webhook arrives
+-- 'clicked'   → UPDATE when click webhook arrives
+-- 'bounced'   → UPDATE when bounce webhook arrives
+-- 'failed'    → UPDATE if provider returns error</div>
+        </div>
+        <div class="payload">
+          <div class="payload-header" onclick="togglePayload(this)">
+            <span>PROVIDER CALL: Email (Brevo API)</span>
+            <span class="arrow">&#9660;</span>
+          </div>
+          <div class="payload-body">POST https://api.brevo.com/v3/smtp/email
+Headers:
+  api-key: xkeysib-xxxx...
+  Content-Type: application/json
+
+Body:
+{
+  "sender": { "email": "noreply@myapp.com", "name": "MyApp" },
+  "to": [{ "email": "alice@example.com", "name": "Alice" }],
+  "subject": "Welcome back, Alice!",
+  "htmlContent": "&lt;html&gt;...rendered HTML with rewritten links...&lt;/html&gt;",
+  "headers": {
+    "List-Unsubscribe": "&lt;https://myapp.com/api/gdpr/email-preferences/unsubscribe?token=...&gt;",
+    "List-Unsubscribe-Post": "List-Unsubscribe=One-Click"
+  },
+  "tags": ["winback_q4", "marketing_email"]
+}
+
+Response (201):
+{
+  "messageId": "&lt;202604251234.abc123@smtp-relay.brevo.com&gt;"
+}</div>
+        </div>
+        <div class="payload">
+          <div class="payload-header" onclick="togglePayload(this)">
+            <span>PROVIDER CALL: SMS (Brevo API)</span>
+            <span class="arrow">&#9660;</span>
+          </div>
+          <div class="payload-body">POST https://api.brevo.com/v3/transactionalSMS/sms
+Headers:
+  api-key: xkeysib-xxxx...
+  Content-Type: application/json
+
+Body:
+{
+  "type": "transactional",
+  "sender": "MyApp",
+  "recipient": "15551234567",
+  "content": "Hi Alice! 20% off Premium Plan. Use code COMEBACK20: https://myapp.com/go/abc123",
+  "tag": "winback_q4"
+}
+
+Response (201):
+{
+  "reference": "sms-12345-abcde",
+  "messageId": 67890,
+  "smsCount": 1,
+  "usedCredits": 0.7
+}</div>
+        </div>
+        <div class="payload">
+          <div class="payload-header" onclick="togglePayload(this)">
+            <span>PROVIDER CALL: WhatsApp (Brevo API)</span>
+            <span class="arrow">&#9660;</span>
+          </div>
+          <div class="payload-body">POST https://api.brevo.com/v3/whatsapp/sendMessage
+Headers:
+  api-key: xkeysib-xxxx...
+  Content-Type: application/json
+
+Body:
+{
+  "senderNumber": "15559876543",
+  "contactNumbers": ["15551234567"],
+  "templateId": 42,
+  "params": {
+    "body": ["Alice", "20%", "COMEBACK20"]
+  }
+}
+
+Response (201):
+{
+  "messageId": "wamid.HBgL..."
+}</div>
+        </div>
+        <div class="payload">
+          <div class="payload-header" onclick="togglePayload(this)">
+            <span>DB: UPDATE campaign_recipients (AFTER send)</span>
+            <span class="arrow">&#9660;</span>
+          </div>
+          <div class="payload-body">-- After provider returns success:
+UPDATE marketing.campaign_recipients
+SET status = 'sent',
+    provider_message_id = '&lt;202604251234.abc123@smtp-relay.brevo.com&gt;',
+    sent_at = NOW()
+WHERE id = 'recip-uuid-1';
+
+-- Also log to pressure table:
+INSERT INTO marketing.message_pressure_log (user_id, channel, campaign_id, sent_at)
+VALUES ('a1b2c3d4-...', 'email', 'c8f2a1b4-...', NOW());
+
+-- If provider returns error:
+UPDATE marketing.campaign_recipients
+SET status = 'failed',
+    error_message = 'HTTP 429: Rate limited'
+WHERE id = 'recip-uuid-1';
+-- Failed sends are pushed to retry queue</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Step 8 -->
+    <div class="flow-step step-green">
+      <div class="flow-step-num">8</div>
+      <div class="flow-step-content">
+        <div class="flow-step-title">Batch Processing + Progress Tracking</div>
+        <div class="flow-step-detail">
+          <p>Recipients are processed in batches (e.g., 50 at a time) to respect provider rate limits.
+          Progress is tracked in real-time.</p>
+        </div>
+        <div class="payload">
+          <div class="payload-header" onclick="togglePayload(this)">
+            <span>INTERNAL: Batch Processing Loop</span>
+            <span class="arrow">&#9660;</span>
+          </div>
+          <div class="payload-body">Campaign Send Orchestration:
+
+  total_eligible = 2,298
+  batch_size = 50
+  batches = ceil(2298 / 50) = 46 batches
+
+  For batch 1..46:
+    recipients = eligible[batch_start : batch_start + batch_size]
+
+    For each recipient in batch (concurrent, up to 10 parallel):
+      1. INSERT campaign_recipients (status='sending')
+      2. Call provider.send_*(...)
+      3. UPDATE campaign_recipients (status='sent' or 'failed')
+      4. INSERT message_pressure_log
+
+    After batch completes:
+      Update campaign progress in Redis:
+        HSET campaign:c8f2a1b4:progress
+          "total" "2298"
+          "sent" "150"
+          "failed" "2"
+          "skipped" "0"
+          "pct" "6.5"
+
+  Frontend polls: GET /api/marketing/admin/campaigns/{id}/progress
+  Response:
+  {
+    "total": 2298,
+    "sent": 2291,
+    "failed": 7,
+    "percent_complete": 99.7,
+    "estimated_remaining_seconds": 3,
+    "status": "sending"
+  }
+
+  When all batches done:
+    UPDATE marketing.campaigns SET status = 'sent', sent_at = NOW()
+    DELETE Redis key campaign:c8f2a1b4:progress</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Step 9 -->
+    <div class="flow-step step-orange">
+      <div class="flow-step-num">9</div>
+      <div class="flow-step-content">
+        <div class="flow-step-title">Webhooks Arrive (Minutes to Hours Later)</div>
+        <div class="flow-step-detail">
+          <p>The provider fires webhooks as recipients interact. Our webhook route verifies signatures,
+          matches to campaign_recipients via provider_message_id, and updates status.</p>
+          <p><em>See <a href="#s5" style="color: var(--accent-pink);">Section 5: Tracking & Conversion</a> for the
+          full attribution flow after clicks.</em></p>
+        </div>
+        <div class="payload">
+          <div class="payload-header" onclick="togglePayload(this)">
+            <span>WEBHOOK: Email Delivered (from Brevo)</span>
+            <span class="arrow">&#9660;</span>
+          </div>
+          <div class="payload-body">POST /api/gdpr/webhooks/email (our endpoint)
+Headers:
+  X-Brevo-Signature: sha256=abcdef...
+
+Body:
+{
+  "event": "delivered",
+  "email": "alice@example.com",
+  "message-id": "&lt;202604251234.abc123@smtp-relay.brevo.com&gt;",
+  "ts": 1714060800,
+  "ts_event": 1714060803
+}
+
+Our processing:
+  1. Verify signature (brevo_adapter.verify_webhook)
+  2. Lookup: SELECT * FROM campaign_recipients WHERE provider_message_id = :mid
+  3. UPDATE campaign_recipients SET delivered_at = NOW() WHERE id = 'recip-uuid-1'</div>
+        </div>
+        <div class="payload">
+          <div class="payload-header" onclick="togglePayload(this)">
+            <span>WEBHOOK: Email Opened</span>
+            <span class="arrow">&#9660;</span>
+          </div>
+          <div class="payload-body">Body:
+{
+  "event": "opened",
+  "email": "alice@example.com",
+  "message-id": "&lt;202604251234.abc123@smtp-relay.brevo.com&gt;",
+  "ts": 1714061400
+}
+
+Our processing:
+  1. Verify signature
+  2. Lookup campaign_recipient
+  3. Bot/proxy detection: check IP against known proxy ranges, check user-agent
+  4. UPDATE campaign_recipients SET
+       opened_at = COALESCE(opened_at, NOW()),  -- first open only
+       open_count = open_count + 1,
+       is_bot_open = :is_bot
+     WHERE id = 'recip-uuid-1'</div>
+        </div>
+        <div class="payload">
+          <div class="payload-header" onclick="togglePayload(this)">
+            <span>WEBHOOK: Email Link Clicked</span>
+            <span class="arrow">&#9660;</span>
+          </div>
+          <div class="payload-body">Body:
+{
+  "event": "click",
+  "email": "alice@example.com",
+  "message-id": "&lt;202604251234.abc123@smtp-relay.brevo.com&gt;",
+  "link": "https://myapp.com/products/premium-plan?utm_source=myapp&amp;utm_medium=email&amp;utm_campaign=winback_q4&amp;_zp=5&amp;_cid=c8f2a1b4&amp;_rid=a1b2c3d4",
+  "ts": 1714062000,
+  "ip": "203.0.113.42"
+}
+
+Our processing:
+  1. Verify signature
+  2. Lookup campaign_recipient
+  3. Extract zone position (_zp=5) from URL
+  4. Bot check (IP, user-agent, timing from open)
+  5. UPDATE campaign_recipients SET
+       clicked_at = COALESCE(clicked_at, NOW()),
+       click_count = click_count + 1
+     WHERE id = 'recip-uuid-1'
+  6. INSERT campaign_link_clicks (
+       campaign_id, recipient_id, url, zone_position,
+       is_bot, ip_address, clicked_at
+     )
+
+  → This click data feeds into:
+    - Heatmap aggregation (zone_position counts)
+    - Attribution (links this campaign to user's next session)
+    - Conversion tracking (if user purchases within attribution window)</div>
+        </div>
+        <div class="payload">
+          <div class="payload-header" onclick="togglePayload(this)">
+            <span>WEBHOOK: SMS Delivery Receipt (from Brevo)</span>
+            <span class="arrow">&#9660;</span>
+          </div>
+          <div class="payload-body">POST /api/notifications/webhooks/sms
+
+Body:
+{
+  "event": "delivered",
+  "phone": "15551234567",
+  "messageId": 67890,
+  "date": "2026-04-25T12:35:00Z"
+}
+
+Our processing:
+  1. Verify signature
+  2. Lookup: SELECT * FROM campaign_recipients WHERE provider_message_id = '67890' AND channel = 'sms'
+  3. UPDATE campaign_recipients SET delivered_at = NOW()</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Step 10 -->
+    <div class="flow-step step-pink">
+      <div class="flow-step-num">10</div>
+      <div class="flow-step-content">
+        <div class="flow-step-title">Analytics Aggregation (Background Workers)</div>
+        <div class="flow-step-detail">
+          <p>Background workers periodically aggregate individual recipient data into campaign-level stats.</p>
+        </div>
+        <div class="payload">
+          <div class="payload-header" onclick="togglePayload(this)">
+            <span>WORKER: Stats Summary Refresh (every 30 min)</span>
+            <span class="arrow">&#9660;</span>
+          </div>
+          <div class="payload-body">-- Pre-aggregation (F24) avoids expensive 6-table JOINs at query time
+
+INSERT INTO marketing.campaign_stats_summary (
+  campaign_id, variant_label, channel,
+  total_sent, total_delivered, total_opened, total_clicked,
+  total_bounced, total_conversions, total_revenue,
+  unique_opens, unique_clicks,
+  open_rate, click_rate, conversion_rate,
+  refreshed_at
+)
+SELECT
+  cr.campaign_id,
+  cr.variant_label,
+  cr.channel,
+  COUNT(*) FILTER (WHERE cr.status IN ('sent','delivered')) as total_sent,
+  COUNT(*) FILTER (WHERE cr.delivered_at IS NOT NULL) as total_delivered,
+  COUNT(*) FILTER (WHERE cr.opened_at IS NOT NULL) as total_opened,
+  COUNT(*) FILTER (WHERE cr.clicked_at IS NOT NULL) as total_clicked,
+  COUNT(*) FILTER (WHERE cr.status = 'bounced') as total_bounced,
+  COUNT(*) FILTER (WHERE ca.converted = true) as total_conversions,
+  COALESCE(SUM(ca.conversion_value), 0) as total_revenue,
+  COUNT(DISTINCT cr.user_id) FILTER (WHERE cr.opened_at IS NOT NULL) as unique_opens,
+  COUNT(DISTINCT cr.user_id) FILTER (WHERE cr.clicked_at IS NOT NULL) as unique_clicks,
+  -- rates computed from counts
+  ROUND(unique_opens::numeric / NULLIF(total_delivered, 0), 4) as open_rate,
+  ROUND(unique_clicks::numeric / NULLIF(total_delivered, 0), 4) as click_rate,
+  ROUND(total_conversions::numeric / NULLIF(total_delivered, 0), 4) as conversion_rate,
+  NOW()
+FROM marketing.campaign_recipients cr
+LEFT JOIN marketing.campaign_attributions ca ON ca.recipient_id = cr.id
+WHERE cr.campaign_id = :cid
+GROUP BY cr.campaign_id, cr.variant_label, cr.channel
+ON CONFLICT (campaign_id, variant_label, channel)
+DO UPDATE SET ...all columns... ;
+
+-- Result: campaign analytics dashboard queries hit this summary table
+-- instead of joining campaign_recipients + campaign_link_clicks + campaign_attributions</div>
+        </div>
+        <div class="payload">
+          <div class="payload-header" onclick="togglePayload(this)">
+            <span>WORKER: Webhook Reconciliation (every 6 hours)</span>
+            <span class="arrow">&#9660;</span>
+          </div>
+          <div class="payload-body">-- F10: Provider stats pull to backfill missed webhooks
+
+For each campaign sent in the last 7 days:
+  IF provider.supports_campaign_stats:
+    provider_stats = await provider.get_campaign_stats(campaign.provider_campaign_id)
+    our_stats = SELECT * FROM campaign_stats_summary WHERE campaign_id = :cid
+
+    delta = {
+      "delivered": provider_stats.delivered - our_stats.total_delivered,
+      "opened": provider_stats.opened - our_stats.total_opened,
+      "bounced": provider_stats.bounced - our_stats.total_bounced
+    }
+
+    IF any delta > threshold (e.g., > 5%):
+      LOG warning: "Campaign {id}: provider reports {X} delivered vs our {Y}"
+      UPDATE campaigns SET
+        last_reconciled_at = NOW(),
+        reconciliation_delta = :delta_json
+
+    -- Note: We can't backfill individual recipient records from provider stats.
+    -- We can only detect aggregate discrepancies and flag them for investigation.
+    -- The real fix is webhook reliability (retry, idempotency).</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="callout callout-key">
+    <div class="callout-title">Campaign Flow Summary</div>
+    <p><strong>Admin action</strong> &rarr; Resolve audience &rarr; Filter (suppress/consent/sunset) &rarr;
+    Guardrails (freq cap/quiet hours) &rarr; Assign variant &rarr; Render template &rarr; Rewrite links &rarr;
+    INSERT-BEFORE-SEND &rarr; Provider dispatch &rarr; UPDATE status &rarr; Webhooks update delivery/open/click &rarr;
+    Background workers aggregate stats &rarr; Dashboard shows funnel.</p>
+    <p>The provider's only role: <strong>deliver the message and fire webhooks</strong>. Everything else is ours.</p>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- SECTION 3: AUTOMATION FLOW (placeholder) -->
+<!-- ============================================================ -->
+<div class="section" id="s3">
+  <h2>3. Automation Flow <span class="tag tag-automation">Automation</span></h2>
+  <p class="section-desc">
+    End-to-end payload flow for event-triggered automations &mdash; from event firing through flow state machine,
+    delivery, branching, and goal completion.
+  </p>
+
+  <h3>Flow Architecture: The State Machine</h3>
+  <p>An automation flow is a <strong>directed graph of steps</strong> that users move through. Each enrollment is an
+  independent state machine tracking one user's position in the flow.</p>
+
+  <div class="mermaid-wrap">
+    <pre class="mermaid">
+%%{init: {'theme': 'dark'}}%%
+flowchart LR
+    TRIGGER["Trigger<br/><i>event fires</i>"]
+    ENROLL["Enroll User<br/><i>create enrollment</i>"]
+
+    subgraph FLOW["Flow Steps (state machine)"]
+        direction TB
+        SEND1["Send Email<br/><i>welcome message</i>"]
+        WAIT1["Wait<br/><i>2 days</i>"]
+        BRANCH1["Branch<br/><i>opened email?</i>"]
+        SEND2A["Send Email<br/><i>follow-up A</i>"]
+        SEND2B["Send SMS<br/><i>follow-up B</i>"]
+        WAIT2["Wait<br/><i>3 days</i>"]
+        SEND3["Send Email<br/><i>final offer</i>"]
+    end
+
+    GOAL["Goal Met<br/><i>user purchased</i>"]
+    TIMEOUT["Timeout<br/><i>14 days elapsed</i>"]
+    CHAIN["Chain Exit<br/><i>enter next flow</i>"]
+    DONE["Complete<br/><i>reached end</i>"]
+
+    TRIGGER --> ENROLL
+    ENROLL --> SEND1
+    SEND1 --> WAIT1
+    WAIT1 --> BRANCH1
+    BRANCH1 -->|"Yes (opened)"| SEND2A
+    BRANCH1 -->|"No"| SEND2B
+    SEND2A --> WAIT2
+    SEND2B --> WAIT2
+    WAIT2 --> SEND3
+    SEND3 --> DONE
+
+    SEND1 -.->|"goal check"| GOAL
+    SEND2A -.->|"goal check"| GOAL
+    SEND2B -.->|"goal check"| GOAL
+    SEND3 -.->|"goal check"| GOAL
+
+    ENROLL -.->|"14d limit"| TIMEOUT
+    DONE -.->|"exit tag"| CHAIN
+
+    style FLOW fill:#1a1a2e,stroke:#bc8cff,stroke-width:2px
+    style GOAL fill:#1a2e1a,stroke:#3fb950,stroke-width:2px
+    style TIMEOUT fill:#2e1a1a,stroke:#f85149,stroke-width:2px
+    style CHAIN fill:#1a2332,stroke:#58a6ff,stroke-width:2px
+    </pre>
+  </div>
+
+  <h3>Flow Data Model</h3>
+  <div class="payload">
+    <div class="payload-header" onclick="togglePayload(this)">
+      <span>DB: automation_flows (the flow definition)</span>
+      <span class="arrow">&#9660;</span>
+    </div>
+    <div class="payload-body">{
+  "id": "flow-uuid-1",
+  "name": "Welcome Series",
+  "description": "3-step onboarding sequence for new users",
+  "status": "active",                  // draft | active | paused
+  "trigger_type": "event",             // event | segment | manual
+  "trigger_config": {
+    "event_name": "user.registered",   // which event activates this flow
+    "filters": {                        // optional: only trigger for matching users
+      "plan_type": "free"              // e.g., only free-tier signups
+    }
+  },
+  "re_entry_policy": "never",         // never | after_days:30 | always
+  "goal_event": "purchase",           // optional: what counts as "conversion"
+  "goal_window_days": 14,             // exit flow if goal met within this window
+  "timeout_days": 14,                 // max time a user can be enrolled
+  "exit_tag": "welcome_complete",     // tag for flow chaining (nullable)
+  "chain_depth_limit": 5,             // F5: max chain depth
+  "created_at": "2026-04-25T..."
+}</div>
+  </div>
+
+  <div class="payload">
+    <div class="payload-header" onclick="togglePayload(this)">
+      <span>DB: automation_flow_steps (steps within the flow)</span>
+      <span class="arrow">&#9660;</span>
+    </div>
+    <div class="payload-body">// Steps for the "Welcome Series" flow:
+
+[
+  {
+    "id": "step-1",
+    "flow_id": "flow-uuid-1",
+    "step_type": "send",               // send | wait | branch | split | update | webhook
+    "position": 0,                      // ordering within flow
+    "config": {
+      "channel": "email",
+      "template_id": "welcome_onboarding_1",
+      "subject_override": null          // null = use template's subject
+    },
+    "next_step_id": "step-2"           // linear: next step after this
+  },
+  {
+    "id": "step-2",
+    "flow_id": "flow-uuid-1",
+    "step_type": "wait",
+    "position": 1,
+    "config": {
+      "wait_type": "duration",          // duration | until_date | until_event
+      "duration_hours": 48              // 2 days
+    },
+    "next_step_id": "step-3"
+  },
+  {
+    "id": "step-3",
+    "flow_id": "flow-uuid-1",
+    "step_type": "branch",
+    "position": 2,
+    "config": {
+      "condition_type": "email_opened", // email_opened | email_clicked | page_visited
+                                        // | score_above | tag_has | custom_attribute
+      "condition_config": {
+        "step_ref": "step-1"            // check if step-1's email was opened
+      }
+    },
+    "next_step_id": null,               // branches use connections table instead
+    "connections": [
+      { "branch": "yes", "target_step_id": "step-4a" },
+      { "branch": "no",  "target_step_id": "step-4b" }
+    ]
+  },
+  {
+    "id": "step-4a",
+    "step_type": "send",
+    "config": {
+      "channel": "email",               // engaged users get email follow-up
+      "template_id": "welcome_onboarding_2a"
+    },
+    "next_step_id": "step-5"
+  },
+  {
+    "id": "step-4b",
+    "step_type": "send",
+    "config": {
+      "channel": "sms",                 // non-engaged users get SMS nudge
+      "template_id": "welcome_nudge_sms"
+    },
+    "next_step_id": "step-5"
+  },
+  {
+    "id": "step-5",
+    "step_type": "wait",
+    "config": { "wait_type": "duration", "duration_hours": 72 },
+    "next_step_id": "step-6"
+  },
+  {
+    "id": "step-6",
+    "step_type": "send",
+    "config": {
+      "channel": "email",
+      "template_id": "welcome_final_offer"
+    },
+    "next_step_id": null                // end of flow
+  }
+]</div>
+  </div>
+
+  <div class="payload">
+    <div class="payload-header" onclick="togglePayload(this)">
+      <span>DB: flow_enrollments (runtime state per user)</span>
+      <span class="arrow">&#9660;</span>
+    </div>
+    <div class="payload-body">{
+  "id": "enrollment-uuid-1",
+  "flow_id": "flow-uuid-1",
+  "user_id": "a1b2c3d4-...",
+  "status": "active",                  // active | completed | goal_completed | timed_out | cancelled
+  "current_step_id": "step-2",         // which step the user is currently on
+  "enrolled_at": "2026-04-25T10:00:00Z",
+  "completed_at": null,
+  "goal_completed_at": null,
+  "chain_depth": 0,                    // F5: how deep in chain (0 = first flow)
+  "chain_origin_flow_id": null,        // F5: which flow started the chain
+  "trigger_event_data": {              // snapshot of event that triggered enrollment
+    "event_name": "user.registered",
+    "email": "alice@example.com",
+    "first_name": "Alice"
+  }
+}
+
+-- F21: Enrollment uniqueness constraint
+-- UNIQUE partial index: (flow_id, user_id) WHERE status = 'active'
+-- Prevents same user being enrolled twice in same flow simultaneously</div>
+  </div>
+
+  <h3>Step-by-Step: Automation Trigger &rarr; Execution</h3>
+
+  <div class="flow-steps">
+    <!-- Step 1: Event Fires -->
+    <div class="flow-step step-purple">
+      <div class="flow-step-num">1</div>
+      <div class="flow-step-content">
+        <div class="flow-step-title">Event Fires &mdash; Trigger Point</div>
+        <div class="flow-step-detail">
+          <p>A system event occurs. This can happen anywhere in the application &mdash; auth, payments,
+          ecommerce, tracking. The trigger point calls <code>fire_notification_event()</code>.</p>
+        </div>
+        <div class="payload">
+          <div class="payload-header" onclick="togglePayload(this)">
+            <span>TRIGGER: User Registration (auth_routes.py)</span>
+            <span class="arrow">&#9660;</span>
+          </div>
+          <div class="payload-body">// In modules/auth/routes/auth_routes.py, after welcome email send (~line 168):
+
+from modules.notifications.services.automation_service import fire_notification_event
+
+await fire_notification_event(
+    event_name="user.registered",
+    user_id=user_id,
+    payload={
+        "email": body.email,
+        "first_name": body.first_name or "there",
+        "plan_type": "free",
+        "source": "web_signup"
+    }
+)
+
+// fire_notification_event is fire-and-forget (asyncio.create_task)
+// It NEVER blocks the HTTP response</div>
+        </div>
+        <div class="payload">
+          <div class="payload-header" onclick="togglePayload(this)">
+            <span>TRIGGER: Order Completed (webhook_service.py)</span>
+            <span class="arrow">&#9660;</span>
+          </div>
+          <div class="payload-body">// In modules/payments/services/webhook_service.py, after order confirmation email:
+
+await fire_notification_event(
+    event_name="order.completed",
+    user_id=user_id,
+    payload={
+        "order_id": order_number,
+        "total": str(total),
+        "currency": currency,
+        "items_count": items_count
+    }
+)</div>
+        </div>
+        <div class="payload">
+          <div class="payload-header" onclick="togglePayload(this)">
+            <span>ALL TRIGGER EVENTS (extensible)</span>
+            <span class="arrow">&#9660;</span>
+          </div>
+          <div class="payload-body">Supported Event Names (trigger_config.event_name):
+
+Auth Events:
+  "user.registered"         → new user signs up
+  "user.email_verified"     → email verification completed
+
+Ecommerce Events:
+  "order.completed"         → payment succeeded, order confirmed
+  "order.shipped"           → order status changed to shipped
+  "cart.abandoned"          → cart inactive for N minutes (background check)
+
+Engagement Events:
+  "segment.entered"         → user newly matches a segment (background check)
+  "segment.exited"          → user no longer matches a segment
+  "score.threshold"         → engagement score crossed a threshold
+
+Custom Events:
+  "custom.*"                → any custom event (e.g., "custom.milestone_reached")
+
+Each event carries:
+{
+  "event_name": "string",
+  "user_id": "uuid",
+  "payload": { ... event-specific data ... },
+  "fired_at": "ISO 8601 timestamp"
+}</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Step 2: Flow Lookup + Enrollment -->
+    <div class="flow-step step-blue">
+      <div class="flow-step-num">2</div>
+      <div class="flow-step-content">
+        <div class="flow-step-title">Flow Lookup + Enrollment</div>
+        <div class="flow-step-detail">
+          <p>The automation service finds all active flows that match this event, then attempts
+          to enroll the user in each matching flow.</p>
+        </div>
+        <div class="payload">
+          <div class="payload-header" onclick="togglePayload(this)">
+            <span>INTERNAL: Flow Matching + Enrollment Logic</span>
+            <span class="arrow">&#9660;</span>
+          </div>
+          <div class="payload-body">async def handle_event(event_name, user_id, payload):
+
+    # 1. Find matching flows
+    flows = await db.execute(
+        SELECT * FROM marketing.automation_flows
+        WHERE trigger_type = 'event'
+          AND trigger_config->>'event_name' = :event_name
+          AND status = 'active'
+    )
+
+    # Example: 2 flows match "user.registered":
+    #   - "Welcome Series" (flow-uuid-1)
+    #   - "Free Trial Nurture" (flow-uuid-2)
+
+    for flow in flows:
+
+        # 2. Check trigger filters (optional narrowing)
+        if flow.trigger_config.get("filters"):
+            if not matches_filters(payload, flow.trigger_config["filters"]):
+                continue  # skip — user doesn't match filter
+
+        # 3. Check enrollment uniqueness (F21)
+        existing = await db.execute(
+            SELECT id FROM flow_enrollments
+            WHERE flow_id = :fid AND user_id = :uid AND status = 'active'
+        )
+        if existing:
+            continue  # already enrolled — skip
+
+        # 4. Check re-entry policy
+        if flow.re_entry_policy == "never":
+            any_prior = await db.execute(
+                SELECT id FROM flow_enrollments
+                WHERE flow_id = :fid AND user_id = :uid
+            )
+            if any_prior:
+                continue  # already been through this flow
+
+        elif flow.re_entry_policy.startswith("after_days:"):
+            days = int(flow.re_entry_policy.split(":")[1])
+            recent = await db.execute(
+                SELECT id FROM flow_enrollments
+                WHERE flow_id = :fid AND user_id = :uid
+                  AND completed_at >= NOW() - INTERVAL ':days days'
+            )
+            if recent:
+                continue  # completed too recently
+
+        # 5. Check chain depth (F5)
+        if payload.get("_chain_depth", 0) >= flow.chain_depth_limit:
+            log.warning("Chain depth limit reached for flow %s", flow.id)
+            continue
+
+        # 6. Create enrollment
+        enrollment = INSERT INTO flow_enrollments (
+            flow_id, user_id, status, current_step_id,
+            chain_depth, chain_origin_flow_id, trigger_event_data
+        ) VALUES (
+            flow.id, user_id, 'active', flow.first_step_id,
+            payload.get("_chain_depth", 0),
+            payload.get("_chain_origin_flow_id"),
+            json(payload)
+        )
+
+        # 7. Execute first step immediately
+        await execute_step(enrollment.id, flow.first_step_id)</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Step 3: Step Execution -->
+    <div class="flow-step step-green">
+      <div class="flow-step-num">3</div>
+      <div class="flow-step-content">
+        <div class="flow-step-title">Step Execution &mdash; The State Machine</div>
+        <div class="flow-step-detail">
+          <p>Each step type has its own execution logic. After execution, the system checks for goal
+          completion and advances to the next step (or exits the flow).</p>
+        </div>
+        <div class="payload">
+          <div class="payload-header" onclick="togglePayload(this)">
+            <span>STEP TYPE: "send" &mdash; Send a Message</span>
+            <span class="arrow">&#9660;</span>
+          </div>
+          <div class="payload-body">Step config:
+{
+  "step_type": "send",
+  "config": {
+    "channel": "email",
+    "template_id": "welcome_onboarding_1",
+    "subject_override": null
+  }
+}
+
+Execution:
+  1. Check consent for this channel + user
+     → If no consent: skip step, log as "skipped:no_consent", advance to next
+  2. Check frequency cap
+     → If over cap: defer (re-execute later) or skip
+  3. Check quiet hours
+     → If quiet: schedule resume_at for morning
+  4. Build DeliveryRequest (same universal payload from Section 1):
+     {
+       "user_id": "a1b2c3d4-...",
+       "channel": "email",
+       "template_id": "welcome_onboarding_1",
+       "template_data": { "first_name": "Alice", ...from enrollment trigger_event_data },
+       "source_type": "automation",
+       "campaign_id": null,           // automations create a virtual "campaign" for tracking
+       "flow_id": "flow-uuid-1",
+       "flow_step_id": "step-1",
+       "enrollment_id": "enrollment-uuid-1",
+       "utm_source": "myapp",
+       "utm_medium": "email",
+       "utm_campaign": "welcome_series",
+       "message_type": "marketing"
+     }
+  5. Feed into SHARED delivery pipeline (same as campaign Step 7):
+     → INSERT campaign_recipients (with flow_id, flow_step_id set)
+     → Call provider.send_email(...)
+     → UPDATE campaign_recipients
+     → INSERT message_pressure_log
+  6. Log execution:
+     INSERT INTO flow_step_executions (
+       enrollment_id, step_id, status, result, executed_at
+     ) VALUES (
+       'enrollment-uuid-1', 'step-1', 'executed',
+       '{"provider_message_id": "&lt;abc123&gt;", "channel": "email"}',
+       NOW()
+     )
+  7. Check goal → advance to next step</div>
+        </div>
+        <div class="payload">
+          <div class="payload-header" onclick="togglePayload(this)">
+            <span>STEP TYPE: "wait" &mdash; Pause Execution</span>
+            <span class="arrow">&#9660;</span>
+          </div>
+          <div class="payload-body">Step config:
+{
+  "step_type": "wait",
+  "config": {
+    "wait_type": "duration",       // duration | until_date | until_event
+    "duration_hours": 48           // 2 days
+  }
+}
+
+Execution:
+  1. Calculate resume_at = NOW() + 48 hours
+  2. Log execution:
+     INSERT INTO flow_step_executions (
+       enrollment_id, step_id, status, resume_at, executed_at
+     ) VALUES (
+       'enrollment-uuid-1', 'step-2', 'waiting',
+       '2026-04-27T10:00:00Z',   // resume in 48 hours
+       NOW()
+     )
+  3. UPDATE enrollment: current_step_id = 'step-2'
+  4. STOP — do NOT advance yet
+
+  // The Flow Worker (background, every 60s) will pick this up:
+  SELECT e.id, fse.step_id, fs.next_step_id
+  FROM flow_enrollments e
+  JOIN flow_step_executions fse ON fse.enrollment_id = e.id
+  JOIN automation_flow_steps fs ON fs.id = fse.step_id
+  WHERE e.status = 'active'
+    AND fse.status = 'waiting'
+    AND fse.resume_at <= NOW()
+
+  // When resume_at arrives: mark waiting step as 'completed', execute next step
+
+Wait types:
+  "duration"    → wait N hours
+  "until_date"  → wait until specific datetime
+  "until_event" → wait until user performs action (e.g., opens previous email)
+                   with timeout fallback</div>
+        </div>
+        <div class="payload">
+          <div class="payload-header" onclick="togglePayload(this)">
+            <span>STEP TYPE: "branch" &mdash; Conditional Split</span>
+            <span class="arrow">&#9660;</span>
+          </div>
+          <div class="payload-body">Step config:
+{
+  "step_type": "branch",
+  "config": {
+    "condition_type": "email_opened",
+    "condition_config": {
+      "step_ref": "step-1"           // check if step-1's email was opened
+    }
+  },
+  "connections": [
+    { "branch": "yes", "target_step_id": "step-4a" },
+    { "branch": "no",  "target_step_id": "step-4b" }
+  ]
+}
+
+Execution:
+  1. Evaluate condition:
+     - "email_opened" + step_ref="step-1":
+       SELECT opened_at FROM campaign_recipients
+       WHERE flow_step_id = 'step-1'
+         AND user_id = 'a1b2c3d4-...'
+         AND opened_at IS NOT NULL
+       → Result: opened_at = '2026-04-26T14:30:00Z' → YES
+
+  2. Route to branch:
+     → YES path → next step = "step-4a" (email follow-up)
+     → NO path  → next step = "step-4b" (SMS nudge)
+
+  3. Log execution:
+     INSERT INTO flow_step_executions (
+       enrollment_id, step_id, status, result
+     ) VALUES (
+       'enrollment-uuid-1', 'step-3', 'executed',
+       '{"branch": "yes", "condition_met": true, "next_step": "step-4a"}'
+     )
+
+  4. Execute next step immediately (step-4a)
+
+Branch condition types:
+  "email_opened"      → check if a specific step's email was opened
+  "email_clicked"     → check if a specific step's email was clicked
+  "sms_delivered"     → check if SMS was delivered
+  "page_visited"      → check if user visited a URL (from tracking)
+  "event_performed"   → check if user performed an event (add_to_cart, etc.)
+  "score_above"       → check engagement score threshold
+  "tag_has"           → check if user has a specific tag
+  "custom_attribute"  → check any user attribute</div>
+        </div>
+        <div class="payload">
+          <div class="payload-header" onclick="togglePayload(this)">
+            <span>STEP TYPE: "split" &mdash; A/B Test Within Flow</span>
+            <span class="arrow">&#9660;</span>
+          </div>
+          <div class="payload-body">Step config:
+{
+  "step_type": "split",
+  "config": {
+    "paths": [
+      { "label": "A", "weight": 50, "target_step_id": "step-X" },
+      { "label": "B", "weight": 50, "target_step_id": "step-Y" }
+    ]
+  }
+}
+
+Execution:
+  1. Random assignment by weight
+  2. Route to assigned path
+  3. Log: result = {"path": "A"}
+  4. Execute target step</div>
+        </div>
+        <div class="payload">
+          <div class="payload-header" onclick="togglePayload(this)">
+            <span>STEP TYPE: "update" &mdash; Modify User Data</span>
+            <span class="arrow">&#9660;</span>
+          </div>
+          <div class="payload-body">Step config:
+{
+  "step_type": "update",
+  "config": {
+    "actions": [
+      { "type": "add_tag", "tag": "onboarded" },
+      { "type": "set_attribute", "key": "lifecycle_stage", "value": "activated" },
+      { "type": "adjust_score", "delta": +10 }
+    ]
+  }
+}
+
+Execution:
+  1. Apply each action to the user record
+  2. Log: result = {"actions_applied": 3}
+  3. Advance to next step immediately</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Step 4: Goal Checking -->
+    <div class="flow-step step-orange">
+      <div class="flow-step-num">4</div>
+      <div class="flow-step-content">
+        <div class="flow-step-title">Goal Checking (After Every Step)</div>
+        <div class="flow-step-detail">
+          <p>After every step execution, the system checks if the user has achieved the flow's goal.
+          If so, the user exits the flow early &mdash; this is the conversion event.</p>
+        </div>
+        <div class="payload">
+          <div class="payload-header" onclick="togglePayload(this)">
+            <span>INTERNAL: Goal Check Logic</span>
+            <span class="arrow">&#9660;</span>
+          </div>
+          <div class="payload-body">async def check_goal(enrollment):
+    flow = get_flow(enrollment.flow_id)
+
+    if not flow.goal_event:
+        return False  # no goal defined
+
+    # Check if user performed the goal event since enrollment
+    goal_met = await db.execute(
+        SELECT id FROM analytics.events
+        WHERE user_id = :uid
+          AND event_type = :goal_event              -- e.g., "purchase"
+          AND created_at >= :enrolled_at            -- since enrollment
+          AND created_at <= :enrolled_at + :window  -- within goal window
+    )
+
+    if goal_met:
+        # User converted! Exit flow.
+        UPDATE flow_enrollments
+        SET status = 'goal_completed',
+            goal_completed_at = NOW(),
+            completed_at = NOW()
+        WHERE id = enrollment.id
+
+        # Record conversion in attribution
+        INSERT INTO marketing.campaign_attributions (
+            user_id, flow_id, enrollment_id,
+            conversion_event, conversion_value, converted_at
+        )
+
+        # Cancel any pending wait steps
+        UPDATE flow_step_executions
+        SET status = 'cancelled'
+        WHERE enrollment_id = enrollment.id AND status = 'waiting'
+
+        return True
+
+    return False
+
+// Goal events: "purchase", "subscription_created", "form_submitted",
+// "page_visited:{url}", "custom:{event_name}"</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Step 5: Timeout + Exit -->
+    <div class="flow-step step-pink">
+      <div class="flow-step-num">5</div>
+      <div class="flow-step-content">
+        <div class="flow-step-title">Timeout, Completion, and Flow Chaining</div>
+        <div class="flow-step-detail">
+          <p>Users exit a flow in one of four ways. If the flow has an exit tag and another flow
+          is triggered by that tag, flow chaining occurs.</p>
+        </div>
+        <div class="payload">
+          <div class="payload-header" onclick="togglePayload(this)">
+            <span>INTERNAL: Exit Paths + Flow Chaining</span>
+            <span class="arrow">&#9660;</span>
+          </div>
+          <div class="payload-body">Four Exit Paths:
+
+1. COMPLETED — user reached the last step (next_step_id = null)
+   → status = 'completed', completed_at = NOW()
+
+2. GOAL_COMPLETED — user achieved the goal (checked after each step)
+   → status = 'goal_completed', goal_completed_at = NOW()
+
+3. TIMED_OUT — enrolled_at + timeout_days < NOW()
+   → status = 'timed_out', completed_at = NOW()
+   → Checked by Flow Worker every 60s
+
+4. CANCELLED — admin pauses flow, or user unsubscribes
+   → status = 'cancelled', completed_at = NOW()
+
+Flow Chaining (F5):
+  When a user exits a flow (any path except cancelled):
+
+  if flow.exit_tag:
+      # Find flows triggered by this exit tag
+      next_flows = SELECT * FROM automation_flows
+          WHERE trigger_type = 'event'
+            AND trigger_config->>'event_name' = 'flow.exited'
+            AND trigger_config->>'exit_tag' = :exit_tag
+            AND status = 'active'
+
+      for next_flow in next_flows:
+          # Check chain depth limit
+          new_depth = enrollment.chain_depth + 1
+          if new_depth >= next_flow.chain_depth_limit:
+              log.warning("Chain depth limit: %d >= %d", new_depth, next_flow.chain_depth_limit)
+              continue
+
+          # Enroll in next flow with incremented chain depth
+          await handle_event(
+              event_name="flow.exited",
+              user_id=enrollment.user_id,
+              payload={
+                  "exit_tag": flow.exit_tag,
+                  "exit_status": enrollment.status,
+                  "_chain_depth": new_depth,
+                  "_chain_origin_flow_id": enrollment.chain_origin_flow_id or flow.id,
+                  ...enrollment.trigger_event_data
+              }
+          )
+
+  Chain Example:
+    Welcome Series (depth 0) → exit_tag="welcome_complete"
+    → Activation Series (depth 1) → exit_tag="activation_complete"
+    → Loyalty Program (depth 2)
+    → ...max depth 5</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Step 6: Flow Worker -->
+    <div class="flow-step step-cyan">
+      <div class="flow-step-num">6</div>
+      <div class="flow-step-content">
+        <div class="flow-step-title">Background: Flow Worker (every 60 seconds)</div>
+        <div class="flow-step-detail">
+          <p>The Flow Worker is the heartbeat of the automation engine. It advances users past
+          completed wait steps and checks for timeouts.</p>
+        </div>
+        <div class="payload">
+          <div class="payload-header" onclick="togglePayload(this)">
+            <span>WORKER: Flow Worker Main Loop</span>
+            <span class="arrow">&#9660;</span>
+          </div>
+          <div class="payload-body">async def flow_worker_tick():
+    """Runs every 60 seconds."""
+
+    # 1. Advance expired waits
+    expired_waits = await db.execute("""
+        SELECT e.id as enrollment_id, fse.id as execution_id,
+               fs.next_step_id, fse.step_id
+        FROM flow_enrollments e
+        JOIN flow_step_executions fse ON fse.enrollment_id = e.id
+        JOIN automation_flow_steps fs ON fs.id = fse.step_id
+        WHERE e.status = 'active'
+          AND fse.status = 'waiting'
+          AND fse.resume_at <= NOW()
+        LIMIT 100  -- batch size to prevent overload
+    """)
+
+    for wait in expired_waits:
+        # Mark wait as completed
+        UPDATE flow_step_executions SET status = 'completed' WHERE id = wait.execution_id
+
+        if wait.next_step_id:
+            # Execute next step
+            await execute_step(wait.enrollment_id, wait.next_step_id)
+        else:
+            # No next step — flow complete
+            UPDATE flow_enrollments SET status = 'completed', completed_at = NOW()
+            WHERE id = wait.enrollment_id
+            # Check flow chaining...
+
+    # 2. Check timeouts
+    timed_out = await db.execute("""
+        SELECT id, flow_id FROM flow_enrollments
+        WHERE status = 'active'
+          AND enrolled_at + (
+            SELECT timeout_days FROM automation_flows WHERE id = flow_id
+          ) * INTERVAL '1 day' < NOW()
+        LIMIT 100
+    """)
+
+    for enrollment in timed_out:
+        UPDATE flow_enrollments SET status = 'timed_out', completed_at = NOW()
+        WHERE id = enrollment.id
+        # Cancel pending waits
+        UPDATE flow_step_executions SET status = 'cancelled'
+        WHERE enrollment_id = enrollment.id AND status = 'waiting'
+        # Check flow chaining...</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="callout callout-key">
+    <div class="callout-title">Automation Flow Summary</div>
+    <p><strong>Event fires</strong> &rarr; Find matching flows &rarr; Check uniqueness/re-entry/chain depth &rarr;
+    Create enrollment &rarr; Execute steps sequentially (send/wait/branch/split/update) &rarr;
+    After each step: check goal &rarr; On exit: check chaining &rarr; Flow Worker advances waits every 60s.</p>
+    <p><strong>Send steps route through the SAME delivery pipeline as campaigns</strong> &mdash; same guardrails,
+    same provider dispatch, same webhook processing, same tracking.</p>
+  </div>
+
+  <h3>Automation vs Campaign: Where Sends Actually Differ</h3>
+  <table>
+    <thead>
+      <tr>
+        <th>Aspect</th>
+        <th>Campaign Send</th>
+        <th>Automation Send</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Volume</td>
+        <td>2,000+ recipients in one burst</td>
+        <td>1 recipient at a time, continuously</td>
+      </tr>
+      <tr>
+        <td>Batching</td>
+        <td>50-recipient batches with rate limiting</td>
+        <td>No batching needed &mdash; single sends</td>
+      </tr>
+      <tr>
+        <td>A/B Variants</td>
+        <td>Yes &mdash; split audience by weight</td>
+        <td>Via "split" step type (separate mechanism)</td>
+      </tr>
+      <tr>
+        <td>campaign_recipients row</td>
+        <td>campaign_id set, flow_id = null</td>
+        <td>flow_id + flow_step_id set, campaign_id = virtual</td>
+      </tr>
+      <tr>
+        <td>Progress tracking</td>
+        <td>Redis progress bar (% complete)</td>
+        <td>Not needed &mdash; single send is instant</td>
+      </tr>
+      <tr>
+        <td>Retry on failure</td>
+        <td>Same retry queue</td>
+        <td>Same retry queue</td>
+      </tr>
+      <tr>
+        <td>Guardrails</td>
+        <td>Same pipeline</td>
+        <td>Same pipeline</td>
+      </tr>
+      <tr>
+        <td>Webhooks</td>
+        <td>Same processing</td>
+        <td>Same processing + branch condition evaluation</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- ============================================================ -->
+<!-- SECTION 4: MEDIUM-SPECIFIC PATHS (placeholder) -->
+<!-- ============================================================ -->
+<div class="section" id="s4">
+  <h2>4. Medium-Specific Paths <span class="tag tag-medium">Mediums</span></h2>
+  <p class="section-desc">
+    How the delivery pipeline diverges per channel &mdash; email vs SMS vs WhatsApp.
+    Provider API payloads, tracking differences, and constraints.
+  </p>
+
+  <h3>Where the Pipeline Splits</h3>
+  <p>The shared delivery pipeline is identical up to the "Channel Dispatch" step. After that, each medium
+  has its own content format, provider API call, tracking mechanism, and webhook shape.</p>
+
+  <div class="mermaid-wrap">
+    <pre class="mermaid">
+%%{init: {'theme': 'dark'}}%%
+flowchart TB
+    SHARED["Shared Pipeline<br/><i>guardrails, filtering, template render</i>"]
+
+    SHARED --> SPLIT{"Channel<br/>Dispatch"}
+
+    SPLIT -->|"channel = email"| EMAIL_PATH
+    SPLIT -->|"channel = sms"| SMS_PATH
+    SPLIT -->|"channel = whatsapp"| WA_PATH
+
+    subgraph EMAIL_PATH["EMAIL PATH"]
+        direction TB
+        E1["Render full HTML<br/><i>Jinja2 template</i>"]
+        E2["Rewrite all links<br/><i>UTM + zone params</i>"]
+        E3["Add headers<br/><i>List-Unsubscribe, etc.</i>"]
+        E4["Call EmailProvider<br/><i>.send_email()</i>"]
+        E5["Tracking: open pixel<br/>+ link click webhooks<br/>+ heatmap zones"]
+        E1 --> E2 --> E3 --> E4 --> E5
+    end
+
+    subgraph SMS_PATH["SMS PATH"]
+        direction TB
+        S1["Render plain text<br/><i>Jinja2 &rarr; strip HTML</i>"]
+        S2["Generate short URL<br/><i>with tracking params</i>"]
+        S3["Check character limit<br/><i>160 chars / segment</i>"]
+        S4["Call SmsProvider<br/><i>.send_sms()</i>"]
+        S5["Tracking: delivery<br/>receipt + link redirect<br/>click tracking"]
+        S1 --> S2 --> S3 --> S4 --> S5
+    end
+
+    subgraph WA_PATH["WHATSAPP PATH"]
+        direction TB
+        W1["Select pre-approved<br/>template + params"]
+        W2["Parameterize CTA<br/><i>button URL suffix</i>"]
+        W3["Resolve sender<br/><i>number from config</i>"]
+        W4["Call WhatsAppProvider<br/><i>.send_template()</i>"]
+        W5["Tracking: delivery +<br/>read receipts +<br/>button click"]
+        W1 --> W2 --> W3 --> W4 --> W5
+    end
+
+    style EMAIL_PATH fill:#0d1f2e,stroke:#58a6ff,stroke-width:2px
+    style SMS_PATH fill:#0d2e1a,stroke:#3fb950,stroke-width:2px
+    style WA_PATH fill:#1f0d2e,stroke:#bc8cff,stroke-width:2px
+    </pre>
+  </div>
+
+  <h3>Side-by-Side: The Same Message Across Three Channels</h3>
+  <p>Here's how a "Welcome back, 20% off" message looks in each medium:</p>
+
+  <div class="two-col" style="grid-template-columns: 1fr 1fr 1fr;">
+    <div class="col-card">
+      <h4><span class="badge badge-email">EMAIL</span> Rich HTML</h4>
+      <div style="font-size: 0.82rem; color: var(--text-dim);">
+        <p><strong>Subject:</strong> Welcome back, Alice!</p>
+        <p><strong>Body:</strong> Full HTML with images, buttons, styled layout, multiple CTAs</p>
+        <p><strong>Links:</strong> 5-10 links rewritten with UTM + zone params</p>
+        <p><strong>Size:</strong> 30-100 KB HTML</p>
+        <p><strong>Tracking:</strong> Open pixel + every link click + zone positions</p>
+        <p><strong>Unsubscribe:</strong> RFC 8058 List-Unsubscribe header + link in footer</p>
+      </div>
+    </div>
+    <div class="col-card">
+      <h4><span class="badge badge-sms">SMS</span> Plain Text</h4>
+      <div style="font-size: 0.82rem; color: var(--text-dim);">
+        <p><strong>Subject:</strong> N/A</p>
+        <p><strong>Body:</strong> "Hi Alice! 20% off with code COMEBACK20. Shop now: myapp.com/go/abc"</p>
+        <p><strong>Links:</strong> 1 shortened tracking URL</p>
+        <p><strong>Size:</strong> 160 chars per segment (1-3 segments)</p>
+        <p><strong>Tracking:</strong> Delivery receipt + shortened URL redirect click</p>
+        <p><strong>Unsubscribe:</strong> "Reply STOP" (carrier-level)</p>
+      </div>
+    </div>
+    <div class="col-card">
+      <h4><span class="badge badge-whatsapp">WHATSAPP</span> Template</h4>
+      <div style="font-size: 0.82rem; color: var(--text-dim);">
+        <p><strong>Subject:</strong> N/A</p>
+        <p><strong>Body:</strong> Pre-approved template: "Hi {{1}}, get {{2}} off with code {{3}}"</p>
+        <p><strong>Links:</strong> CTA button with parameterized URL suffix</p>
+        <p><strong>Size:</strong> 1024 char template limit</p>
+        <p><strong>Tracking:</strong> Delivered + read (blue ticks) + button click</p>
+        <p><strong>Unsubscribe:</strong> User blocks number (WhatsApp-level)</p>
+      </div>
+    </div>
+  </div>
+
+  <h3>Deep Dive: Email Path</h3>
+
+  <div class="payload">
+    <div class="payload-header" onclick="togglePayload(this)">
+      <span>EMAIL: Content Preparation</span>
+      <span class="arrow">&#9660;</span>
+    </div>
+    <div class="payload-body">1. TEMPLATE RENDER
+   - Load template from marketing.email_templates WHERE name = 'winback_v2'
+   - Merge user data: { first_name, discount_code, product_name, unsubscribe_url }
+   - Jinja2 render → full HTML string
+
+2. LINK REWRITING (email-specific)
+   - Parse HTML, find all &lt;a href="..."&gt; tags
+   - For each link:
+     a. Append UTM params: ?utm_source=myapp&amp;utm_medium=email&amp;utm_campaign=winback
+     b. Append zone position: &amp;_zp=5 (based on link's position in email grid)
+     c. Append IDs: &amp;_cid=campaign_id&amp;_rid=recipient_id
+   - Replace href with rewritten URL
+
+3. TRACKING INJECTION
+   - Provider (Brevo/SES/SendGrid) typically handles:
+     a. Open tracking: injects invisible pixel automatically
+     b. Click tracking: wraps links in redirect (provider-level)
+   - Our zone params survive the provider's link wrapping
+   - When provider fires click webhook, full URL (with our params) is included
+
+4. HEADERS
+   - List-Unsubscribe (RFC 8058): enables one-click unsubscribe in email clients
+   - List-Unsubscribe-Post: required companion header
+   - Custom X-headers for tracking: X-Campaign-ID, X-Recipient-ID
+
+5. RESULT
+   - to_email: "alice@example.com"
+   - subject: "Welcome back, Alice!"
+   - html_content: "...rendered, link-rewritten HTML..."
+   - headers: { List-Unsubscribe, X-Campaign-ID, ... }
+   - tags: ["winback_q4", "marketing_email"]</div>
+  </div>
+
+  <div class="payload">
+    <div class="payload-header" onclick="togglePayload(this)">
+      <span>EMAIL: Webhook Events We Receive</span>
+      <span class="arrow">&#9660;</span>
+    </div>
+    <div class="payload-body">Events from email provider (in chronological order):
+
+1. "request"     → We called the API (not a webhook, internal tracking)
+2. "delivered"   → Email accepted by recipient's mail server
+3. "opened"      → Tracking pixel loaded (may be bot/proxy)
+4. "clicked"     → User clicked a link (URL included with our params)
+5. "bounced"     → Hard bounce (permanent) or soft bounce (temporary)
+6. "complained"  → User marked as spam
+7. "unsubscribed" → User clicked List-Unsubscribe
+
+What we do with each:
+  delivered  → UPDATE campaign_recipients SET delivered_at
+  opened     → UPDATE opened_at + bot detection (IP/UA analysis)
+  clicked    → UPDATE clicked_at + INSERT campaign_link_clicks (with zone position)
+  bounced    → UPDATE status='bounced' + suppress email address
+  complained → UPDATE status='complained' + suppress + GDPR suppression sync
+  unsubscribed → Update gdpr.email_preferences.marketing_email = false
+
+Email-specific tracking features:
+  - Heatmap Layer 1: aggregate _zp (zone position) from click webhooks
+  - Open-to-click time: clicked_at - opened_at (engagement velocity)
+  - Bot filtering: Apple Mail Privacy Protection, corporate proxies
+  - Click map: which URLs get most clicks</div>
+  </div>
+
+  <h3>Deep Dive: SMS Path</h3>
+
+  <div class="payload">
+    <div class="payload-header" onclick="togglePayload(this)">
+      <span>SMS: Content Preparation</span>
+      <span class="arrow">&#9660;</span>
+    </div>
+    <div class="payload-body">1. TEMPLATE RENDER
+   - Load template from marketing.email_templates WHERE name = 'winback_sms'
+     (same template table, category = 'campaign' or 'automation')
+   - Template is plain text (no HTML): "Hi {{first_name}}! {{discount}}% off..."
+   - Merge user data → plain text string
+
+2. SHORT URL GENERATION (sms-specific)
+   - SMS has ~160 char limit; long URLs waste characters
+   - Generate short tracking URL: https://myapp.com/go/{short_code}
+   - Store mapping in Redis (TTL 90 days):
+     HSET url_redirect:{short_code}
+       "destination" "https://myapp.com/products/premium-plan"
+       "utm_source" "myapp"
+       "utm_medium" "sms"
+       "utm_campaign" "winback_q4"
+       "campaign_id" "c8f2a1b4-..."
+       "recipient_id" "recip-uuid-1"
+       "created_at" "2026-04-25T..."
+   - Append short URL to message text
+
+3. SEGMENT COUNT CHECK
+   - SMS is billed per 160-char segment
+   - Count characters: if > 160, splits into multiple segments (more cost)
+   - If > 3 segments: warn admin or truncate
+   - Unicode (emoji, non-Latin) = 70 chars per segment
+
+4. SENDER ID
+   - "sender" field: alphanumeric (3-11 chars) like "MyApp"
+   - Or dedicated phone number (for 2-way SMS)
+   - Config: settings.brevo_sms_sender or settings.twilio_sms_from
+
+5. RESULT
+   - to_number: "+15551234567"
+   - content: "Hi Alice! 20% off Premium Plan. Use COMEBACK20: myapp.com/go/abc123"
+   - sender: "MyApp"
+   - character_count: 73 (1 segment)</div>
+  </div>
+
+  <div class="payload">
+    <div class="payload-header" onclick="togglePayload(this)">
+      <span>SMS: Tracking Mechanism</span>
+      <span class="arrow">&#9660;</span>
+    </div>
+    <div class="payload-body">SMS tracking is more limited than email:
+
+DELIVERY:
+  ✅ Delivery receipt webhook (carrier confirms delivery)
+  ✅ Failure webhook (undeliverable, invalid number)
+  ❌ No "opened" event — SMS has no tracking pixel
+
+CLICK TRACKING:
+  ✅ Via our shortened URL redirect:
+     1. User taps "myapp.com/go/abc123" in SMS
+     2. Request hits GET /go/{short_code} on our server
+     3. Our redirect endpoint:
+        a. Lookup Redis: url_redirect:abc123
+        b. INSERT campaign_link_clicks (campaign_id, user_id, channel='sms', ...)
+        c. UPDATE campaign_recipients SET clicked_at = NOW()
+        d. 302 Redirect to destination URL with UTM params appended
+     4. User lands on destination page → UTM captured by tracking middleware
+
+  This is how we track SMS clicks without a provider-level click tracker.
+
+ATTRIBUTION:
+  - When user arrives on site via short URL redirect:
+    → UTM params captured → attribution_service links session to campaign
+    → Any purchase in the next N days → attributed to this SMS campaign
+
+SMS-specific webhook events:
+  "delivered"   → carrier confirmed delivery
+  "failed"      → undeliverable (bad number, carrier block, etc.)
+  "replied"     → user sent an inbound SMS (for 2-way)
+  No "opened" or "clicked" webhooks from provider — we handle clicks ourselves</div>
+  </div>
+
+  <h3>Deep Dive: WhatsApp Path</h3>
+
+  <div class="payload">
+    <div class="payload-header" onclick="togglePayload(this)">
+      <span>WHATSAPP: Content Preparation</span>
+      <span class="arrow">&#9660;</span>
+    </div>
+    <div class="payload-body">WhatsApp is fundamentally different from email and SMS:
+
+KEY CONSTRAINT: Marketing messages MUST use pre-approved templates.
+  - Templates are submitted to Meta for review (24-48 hours)
+  - Once approved, you can only fill in variable placeholders
+  - You CANNOT send arbitrary HTML or free-form marketing text
+
+1. TEMPLATE SELECTION
+   - Template is identified by name + language code
+   - Template was pre-registered with Meta via provider dashboard
+   - Example approved template "winback_offer":
+     "Hi {{1}}, get {{2}} off with code {{3}}! Shop now."
+     [CTA Button: "Shop Now" → https://myapp.com/products?suffix={{4}}]
+
+2. PARAMETER MAPPING
+   - Map our template_data to WhatsApp positional parameters:
+     body_params = [
+       user.first_name,           // {{1}} = "Alice"
+       template_data.discount,     // {{2}} = "20%"
+       template_data.code          // {{3}} = "COMEBACK20"
+     ]
+     button_url_suffix = "?utm_source=myapp&amp;utm_medium=whatsapp&amp;utm_campaign=winback&amp;_cid=xxx&amp;_rid=yyy"
+
+3. MESSAGE TYPES
+   a. Template message (marketing — requires approval):
+      - Used for campaigns and automation sends
+      - Must use approved template
+      - Billed per conversation (24-hour window)
+
+   b. Session message (free-form — only after user initiates):
+      - Only usable within 24h of user's last message to us
+      - Can send any text, images, documents
+      - Used for: customer support replies, order updates (if user messaged first)
+      - NOT usable for cold outreach / campaigns
+
+4. RESULT
+   - to_number: "+15551234567"
+   - template_name: "winback_offer"
+   - language: "en"
+   - parameters: { body: ["Alice", "20%", "COMEBACK20"], button_url_suffix: "?utm_..." }
+   - sender_number: "+15559876543" (from config: brevo_whatsapp_number)</div>
+  </div>
+
+  <div class="payload">
+    <div class="payload-header" onclick="togglePayload(this)">
+      <span>WHATSAPP: Tracking Mechanism</span>
+      <span class="arrow">&#9660;</span>
+    </div>
+    <div class="payload-body">WhatsApp has the RICHEST delivery status of all three channels:
+
+DELIVERY STATUS (webhook events):
+  "sent"       → message sent to WhatsApp servers
+  "delivered"  → message arrived on user's device (gray double-check)
+  "read"       → user opened the chat (blue double-check) ← unique to WhatsApp!
+  "failed"     → delivery failed (wrong number, blocked, etc.)
+
+CLICK TRACKING:
+  ✅ CTA button click: when user taps the template's CTA button
+     → URL includes our tracking params (button_url_suffix)
+     → User lands on our site → UTM captured → attribution works
+  ❌ In-body link clicks: WhatsApp doesn't fire webhooks for tapped links in text
+     → Workaround: use CTA buttons exclusively for tracked actions
+
+ATTRIBUTION:
+  - CTA button tap → user arrives on site with UTM params
+  - Same attribution flow as email and SMS
+  - "read" status is gold for engagement scoring (confirmed human attention)
+
+WhatsApp-specific advantages:
+  ✅ "Read" receipts = guaranteed human open (no bot/proxy issue like email)
+  ✅ 98% open rates (WhatsApp notifications are hard to ignore)
+  ✅ Rich media: images, videos, documents, location
+
+WhatsApp-specific constraints:
+  ⚠️ Template approval required (24-48 hours)
+  ⚠️ Cannot modify template text after approval
+  ⚠️ Billed per 24-hour conversation, not per message
+  ⚠️ Must have user's WhatsApp number (separate from phone)
+  ⚠️ Business must be verified on Meta Business Platform</div>
+  </div>
+
+  <h3>Medium Comparison Matrix</h3>
+  <table>
+    <thead>
+      <tr>
+        <th>Capability</th>
+        <th><span class="badge badge-email">Email</span></th>
+        <th><span class="badge badge-sms">SMS</span></th>
+        <th><span class="badge badge-whatsapp">WhatsApp</span></th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Content format</td>
+        <td>Full HTML + images</td>
+        <td>Plain text only</td>
+        <td>Template + params + media</td>
+      </tr>
+      <tr>
+        <td>Max length</td>
+        <td>Unlimited (practical: ~100KB)</td>
+        <td>160 chars/segment</td>
+        <td>1024 chars template body</td>
+      </tr>
+      <tr>
+        <td>Links per message</td>
+        <td>Unlimited (5-10 typical)</td>
+        <td>1 recommended (char limit)</td>
+        <td>1 CTA button</td>
+      </tr>
+      <tr>
+        <td>Open tracking</td>
+        <td>Pixel-based (bot noise)</td>
+        <td>Not possible</td>
+        <td>Read receipts (reliable!)</td>
+      </tr>
+      <tr>
+        <td>Click tracking</td>
+        <td>Provider wraps links</td>
+        <td>Our short URL redirect</td>
+        <td>CTA button tap</td>
+      </tr>
+      <tr>
+        <td>Delivery confirmation</td>
+        <td>Webhook (mail server accepted)</td>
+        <td>Webhook (carrier confirmed)</td>
+        <td>Webhook (on device)</td>
+      </tr>
+      <tr>
+        <td>Heatmap support</td>
+        <td>Full (zone positions)</td>
+        <td>N/A (1 link)</td>
+        <td>N/A (1 CTA)</td>
+      </tr>
+      <tr>
+        <td>Bot/proxy filtering</td>
+        <td>Required (Apple MPP, etc.)</td>
+        <td>Not needed</td>
+        <td>Not needed</td>
+      </tr>
+      <tr>
+        <td>Consent model</td>
+        <td>gdpr.email_preferences</td>
+        <td>communication_preferences</td>
+        <td>communication_preferences</td>
+      </tr>
+      <tr>
+        <td>Unsubscribe</td>
+        <td>List-Unsubscribe header + link</td>
+        <td>Reply STOP (carrier)</td>
+        <td>Block number (WhatsApp)</td>
+      </tr>
+      <tr>
+        <td>Cost model</td>
+        <td>Per email sent</td>
+        <td>Per SMS segment</td>
+        <td>Per 24h conversation</td>
+      </tr>
+      <tr>
+        <td>Template approval</td>
+        <td>Not required</td>
+        <td>Not required</td>
+        <td>Required (Meta review)</td>
+      </tr>
+      <tr>
+        <td>Provider adapter method</td>
+        <td><code>send_email(to, subj, html)</code></td>
+        <td><code>send_sms(to, content)</code></td>
+        <td><code>send_template(to, name, params)</code></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="callout callout-warning">
+    <div class="callout-title">Medium Selection Matters</div>
+    <p><strong>Campaigns are single-medium</strong> &mdash; one campaign = one channel. You can't send the same campaign
+    as both email and SMS. To reach users on multiple channels, create separate campaigns per channel
+    (targeting users who have that channel available).</p>
+    <p><strong>Automation flows are multi-medium</strong> &mdash; step 1 can be email, step 2 can be SMS,
+    step 3 can be WhatsApp. This is the power of flows: you can escalate across channels within a single sequence.</p>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- SECTION 5: TRACKING & CONVERSION (placeholder) -->
+<!-- ============================================================ -->
+<div class="section" id="s5">
+  <h2>5. Tracking & Conversion Attribution <span class="tag tag-tracking">Tracking</span></h2>
+  <p class="section-desc">
+    The full feedback loop &mdash; from message send through user interaction, website visit,
+    conversion event, and attribution back to the originating campaign or flow.
+  </p>
+
+  <h3>The Attribution Loop</h3>
+  <div class="mermaid-wrap">
+    <pre class="mermaid">
+%%{init: {'theme': 'dark'}}%%
+flowchart LR
+    subgraph SEND["MESSAGE SENT"]
+        direction TB
+        S1["campaign_recipients<br/><i>status=sent</i>"]
+        S2["Links contain:<br/><i>UTM + _cid + _rid</i>"]
+    end
+
+    subgraph INTERACT["USER INTERACTS"]
+        direction TB
+        I1["Email: click link<br/><i>webhook with URL</i>"]
+        I2["SMS: tap short URL<br/><i>redirect endpoint</i>"]
+        I3["WA: tap CTA button<br/><i>lands on site</i>"]
+    end
+
+    subgraph ARRIVE["USER ARRIVES ON SITE"]
+        direction TB
+        A1["UTM params captured<br/><i>attribution middleware</i>"]
+        A2["Attribution cookie set<br/><i>_attr = campaign_id</i>"]
+        A3["Session linked<br/><i>analytics.utm_tracking</i>"]
+    end
+
+    subgraph BROWSE["USER BROWSES"]
+        direction TB
+        B1["Page views tracked<br/><i>analytics.page_views</i>"]
+        B2["Events tracked<br/><i>product_viewed, add_to_cart</i>"]
+        B3["Events tagged with<br/><i>campaign_id from cookie</i>"]
+    end
+
+    subgraph CONVERT["USER CONVERTS"]
+        direction TB
+        C1["Purchase / signup / goal"]
+        C2["campaign_attributions<br/><i>links conversion to campaign</i>"]
+        C3["5 attribution models<br/><i>computed at report time</i>"]
+    end
+
+    SEND --> INTERACT
+    INTERACT --> ARRIVE
+    ARRIVE --> BROWSE
+    BROWSE --> CONVERT
+
+    style SEND fill:#0d1f2e,stroke:#58a6ff,stroke-width:2px
+    style INTERACT fill:#1f2e0d,stroke:#3fb950,stroke-width:2px
+    style ARRIVE fill:#2e1f0d,stroke:#d29922,stroke-width:2px
+    style BROWSE fill:#1f0d2e,stroke:#bc8cff,stroke-width:2px
+    style CONVERT fill:#2e0d1f,stroke:#f778ba,stroke-width:2px
+    </pre>
+  </div>
+
+  <h3>Step-by-Step: From Click to Conversion</h3>
+
+  <div class="flow-steps">
+    <!-- Step 1 -->
+    <div class="flow-step step-blue">
+      <div class="flow-step-num">1</div>
+      <div class="flow-step-content">
+        <div class="flow-step-title">User Clicks a Link in the Message</div>
+        <div class="flow-step-detail">
+          <p>The mechanism differs by channel, but the outcome is the same: the user arrives on our site
+          with tracking parameters attached to the URL.</p>
+        </div>
+        <div class="payload">
+          <div class="payload-header" onclick="togglePayload(this)">
+            <span>EMAIL: Click → Webhook → User Arrives</span>
+            <span class="arrow">&#9660;</span>
+          </div>
+          <div class="payload-body">1. User clicks link in email
+2. Provider's click tracking redirects through their server (e.g., clicks.brevo.com/...)
+3. Provider fires CLICK webhook to our endpoint:
+   { "event": "click", "link": "https://myapp.com/products/premium?utm_source=myapp&amp;utm_medium=email&amp;utm_campaign=winback&amp;_zp=5&amp;_cid=c8f2a1&amp;_rid=a1b2c3" }
+4. We process webhook: INSERT campaign_link_clicks, UPDATE campaign_recipients
+5. Provider redirects user to final URL (with all our params intact)
+6. User lands on: https://myapp.com/products/premium?utm_source=myapp&amp;utm_medium=email&amp;...</div>
+        </div>
+        <div class="payload">
+          <div class="payload-header" onclick="togglePayload(this)">
+            <span>SMS: Click → Our Redirect → User Arrives</span>
+            <span class="arrow">&#9660;</span>
+          </div>
+          <div class="payload-body">1. User taps shortened URL in SMS: https://myapp.com/go/abc123
+2. Request hits our redirect endpoint: GET /go/abc123
+3. Our redirect handler:
+   a. Lookup Redis: HGETALL url_redirect:abc123
+   b. Log click: INSERT campaign_link_clicks
+   c. UPDATE campaign_recipients SET clicked_at
+   d. Build destination URL with UTMs:
+      https://myapp.com/products/premium?utm_source=myapp&amp;utm_medium=sms&amp;utm_campaign=winback
+   e. Return 302 Redirect
+4. User lands on: https://myapp.com/products/premium?utm_source=myapp&amp;utm_medium=sms&amp;...</div>
+        </div>
+        <div class="payload">
+          <div class="payload-header" onclick="togglePayload(this)">
+            <span>WHATSAPP: CTA Tap → User Arrives</span>
+            <span class="arrow">&#9660;</span>
+          </div>
+          <div class="payload-body">1. User taps CTA button in WhatsApp message
+2. WhatsApp opens the URL directly (template URL + suffix we provided):
+   https://myapp.com/products/premium?utm_source=myapp&amp;utm_medium=whatsapp&amp;utm_campaign=winback&amp;_cid=c8f2a1&amp;_rid=a1b2c3
+3. User lands on our site with UTM params
+4. Note: no webhook for CTA click from most providers — we detect the click
+   when the user arrives on our site (via UTM + _rid matching)</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Step 2 -->
+    <div class="flow-step step-green">
+      <div class="flow-step-num">2</div>
+      <div class="flow-step-content">
+        <div class="flow-step-title">Attribution Middleware Captures UTM Params</div>
+        <div class="flow-step-detail">
+          <p>When the user lands on any page, our attribution middleware (a Next.js middleware or backend
+          middleware) captures the UTM parameters and creates an attribution record.</p>
+        </div>
+        <div class="payload">
+          <div class="payload-header" onclick="togglePayload(this)">
+            <span>MIDDLEWARE: Attribution Capture</span>
+            <span class="arrow">&#9660;</span>
+          </div>
+          <div class="payload-body">// Attribution middleware runs on every page request
+
+async function attributionMiddleware(request):
+
+    // 1. Extract UTM params from URL
+    utm = {
+        source: request.query.utm_source,      // "myapp"
+        medium: request.query.utm_medium,      // "email" | "sms" | "whatsapp"
+        campaign: request.query.utm_campaign,  // "winback_q4"
+        content: request.query.utm_content,    // "variant_a"
+        term: request.query.utm_term           // (optional)
+    }
+
+    // 2. Extract our custom tracking params
+    campaign_id = request.query._cid           // "c8f2a1"
+    recipient_id = request.query._rid          // "a1b2c3"
+
+    // 3. If UTM params present → create/update attribution
+    if utm.source:
+        // Set attribution cookie (persists across pages)
+        set_cookie("_attr", JSON.stringify({
+            campaign_id: campaign_id,
+            medium: utm.medium,
+            first_touch_at: cookie._attr?.first_touch_at || NOW(),
+            last_touch_at: NOW(),
+            touches: (cookie._attr?.touches || 0) + 1
+        }), max_age=30*86400)  // 30-day window
+
+        // 4. Record in analytics.utm_tracking
+        INSERT INTO analytics.utm_tracking (
+            id, session_id, user_id,
+            utm_source, utm_medium, utm_campaign, utm_content, utm_term,
+            campaign_id, referrer_url, landing_page,
+            created_at
+        ) VALUES (
+            gen_random_uuid(),
+            request.session_id,
+            request.user_id,     // from JWT if logged in
+            utm.source, utm.medium, utm.campaign, utm.content, utm.term,
+            campaign_id,
+            request.headers.referer,
+            request.path,
+            NOW()
+        )
+
+    // 5. For ALL page views (with or without UTM):
+    //    Tag the session with active campaign attribution
+    if cookie._attr?.campaign_id:
+        request.attributed_campaign_id = cookie._attr.campaign_id
+        // This campaign_id gets attached to any events tracked during this session</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Step 3 -->
+    <div class="flow-step step-orange">
+      <div class="flow-step-num">3</div>
+      <div class="flow-step-content">
+        <div class="flow-step-title">On-Site Activity Tagged with Campaign</div>
+        <div class="flow-step-detail">
+          <p>As the user browses, every tracked event (page view, product view, add to cart) is tagged
+          with the campaign ID from the attribution cookie.</p>
+        </div>
+        <div class="payload">
+          <div class="payload-header" onclick="togglePayload(this)">
+            <span>EVENT TRACKING: Campaign-Tagged Events</span>
+            <span class="arrow">&#9660;</span>
+          </div>
+          <div class="payload-body">// User browses after clicking email link:
+
+// Page view
+INSERT INTO analytics.page_views (
+    session_id, user_id, page_path, campaign_id, ...
+) VALUES (
+    'sess-123', 'a1b2c3d4', '/products/premium-plan',
+    'c8f2a1b4-...',   // ← from attribution cookie
+    ...
+);
+
+// Product viewed event
+INSERT INTO analytics.events (
+    session_id, user_id, event_type, campaign_id, properties, ...
+) VALUES (
+    'sess-123', 'a1b2c3d4', 'product_viewed',
+    'c8f2a1b4-...',   // ← tagged with originating campaign
+    '{"product_id": "prod-42", "product_name": "Premium Plan", "price": 99.00}',
+    ...
+);
+
+// Add to cart event
+INSERT INTO analytics.events (
+    session_id, user_id, event_type, campaign_id, properties, ...
+) VALUES (
+    'sess-123', 'a1b2c3d4', 'add_to_cart',
+    'c8f2a1b4-...',
+    '{"product_id": "prod-42", "quantity": 1, "value": 99.00}',
+    ...
+);
+
+// Key: campaign_id is on the events table (nullable column)
+// Events without campaign attribution have campaign_id = NULL
+// This lets us query: "How many add_to_cart events came from campaign X?"</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Step 4 -->
+    <div class="flow-step step-purple">
+      <div class="flow-step-num">4</div>
+      <div class="flow-step-content">
+        <div class="flow-step-title">Conversion Event Fires</div>
+        <div class="flow-step-detail">
+          <p>The user completes a purchase (or other goal event). The conversion is recorded and attributed
+          to the campaign.</p>
+        </div>
+        <div class="payload">
+          <div class="payload-header" onclick="togglePayload(this)">
+            <span>CONVERSION: Purchase Attribution</span>
+            <span class="arrow">&#9660;</span>
+          </div>
+          <div class="payload-body">// Stripe webhook fires → order completed → our webhook handler processes:
+
+// 1. Order is created
+INSERT INTO ecommerce.orders (id, user_id, total, ...) VALUES ('order-123', 'a1b2c3d4', 99.00, ...);
+
+// 2. Purchase event tracked (with campaign_id from cookie)
+INSERT INTO analytics.events (
+    user_id, event_type, campaign_id, properties
+) VALUES (
+    'a1b2c3d4', 'purchase',
+    'c8f2a1b4-...',    // ← still attributed to the email campaign
+    '{"order_id": "order-123", "total": 99.00, "currency": "USD"}'
+);
+
+// 3. Attribution service creates campaign_attributions record
+INSERT INTO marketing.campaign_attributions (
+    id, campaign_id, recipient_id, user_id,
+    conversion_event, conversion_value, conversion_currency,
+    converted, converted_at,
+    attribution_window_days,
+    touch_sequence  // for multi-touch attribution
+) VALUES (
+    gen_random_uuid(),
+    'c8f2a1b4-...',          // campaign
+    'recip-uuid-1',          // recipient record from send
+    'a1b2c3d4-...',          // user
+    'purchase',              // goal event
+    99.00,                   // conversion value
+    'USD',
+    true,
+    NOW(),
+    7,                       // within 7-day attribution window
+    '[                       // all touch points that led here
+      {"campaign_id":"older-campaign","medium":"email","touched_at":"2026-04-20","type":"impression"},
+      {"campaign_id":"c8f2a1b4","medium":"email","touched_at":"2026-04-25","type":"click"}
+    ]'
+);
+
+// 4. If this user is in an automation flow → goal check triggers
+//    → flow_execution_service checks: does this conversion match the flow's goal_event?
+//    → If yes: UPDATE flow_enrollments SET status = 'goal_completed'</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Step 5 -->
+    <div class="flow-step step-pink">
+      <div class="flow-step-num">5</div>
+      <div class="flow-step-content">
+        <div class="flow-step-title">Multi-Touch Attribution (Computed at Report Time)</div>
+        <div class="flow-step-detail">
+          <p>A user might interact with multiple campaigns before converting. The 5 attribution models
+          distribute credit differently. These are computed when an admin views the report, not at conversion time.</p>
+        </div>
+        <div class="payload">
+          <div class="payload-header" onclick="togglePayload(this)">
+            <span>ATTRIBUTION: 5 Models Explained</span>
+            <span class="arrow">&#9660;</span>
+          </div>
+          <div class="payload-body">Example: Alice interacted with 3 campaigns before purchasing ($100):
+
+  Touch 1: Email campaign "Spring Sale" (April 18) — opened, no click
+  Touch 2: SMS campaign "Flash Deal" (April 22) — clicked
+  Touch 3: Email campaign "Winback Q4" (April 25) — clicked → purchased
+
+Attribution Models (computed at report time):
+
+1. LAST-CLICK (default)
+   "Which campaign directly preceded the conversion?"
+   → Winback Q4 gets 100% credit ($100)
+   → Most common, simplest, but ignores awareness campaigns
+
+2. FIRST-TOUCH
+   "Which campaign first brought the user into the funnel?"
+   → Spring Sale gets 100% credit ($100)
+   → Good for measuring top-of-funnel effectiveness
+
+3. LINEAR
+   "Distribute credit equally across all touchpoints"
+   → Spring Sale: 33.3% ($33.33)
+   → Flash Deal: 33.3% ($33.33)
+   → Winback Q4: 33.3% ($33.34)
+   → Fair but dilutes signal
+
+4. TIME-DECAY
+   "Recent touches get more credit (exponential decay)"
+   → Spring Sale: 10% ($10.00)  — 7 days ago
+   → Flash Deal: 30% ($30.00)   — 3 days ago
+   → Winback Q4: 60% ($60.00)   — same day
+   → Formula: weight = 2^(-days_ago / half_life), half_life = 7 days
+
+5. U-SHAPED (Position-Based)
+   "First and last touch get 40% each, middle touches split 20%"
+   → Spring Sale: 40% ($40.00)  — first touch
+   → Flash Deal: 20% ($20.00)   — middle touch
+   → Winback Q4: 40% ($40.00)   — last touch (conversion)
+   → Good balance of awareness + conversion credit
+
+// These are NOT stored as separate records — the touch_sequence JSON
+// on campaign_attributions contains all touches. The attribution model
+// is applied at query time via SQL window functions.
+
+// Admin chooses which model to view in the dashboard.
+// "Switch model" just changes the SQL aggregation, not the data.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Step 6 -->
+    <div class="flow-step step-cyan">
+      <div class="flow-step-num">6</div>
+      <div class="flow-step-content">
+        <div class="flow-step-title">Analytics Surfaces the Data</div>
+        <div class="flow-step-detail">
+          <p>All this tracked and attributed data feeds into the analytics dashboards that admins see.</p>
+        </div>
+        <div class="payload">
+          <div class="payload-header" onclick="togglePayload(this)">
+            <span>DASHBOARD: Campaign Analytics Funnel</span>
+            <span class="arrow">&#9660;</span>
+          </div>
+          <div class="payload-body">GET /api/marketing/admin/campaigns/{id}/analytics
+
+Response (from campaign_stats_summary, pre-aggregated):
+{
+  "campaign_id": "c8f2a1b4-...",
+  "funnel": {
+    "sent": 2298,
+    "delivered": 2251,         // delivery_rate: 97.9%
+    "opened": 1126,            // open_rate: 50.0%
+    "clicked": 338,            // click_rate: 15.0%
+    "converted": 47,           // conversion_rate: 2.1%
+    "revenue": 4653.00         // total attributed revenue
+  },
+  "variants": {
+    "A": {
+      "sent": 1379, "opened": 724, "clicked": 221, "converted": 31,
+      "open_rate": 0.525, "click_rate": 0.160, "conversion_rate": 0.022
+    },
+    "B": {
+      "sent": 919, "opened": 402, "clicked": 117, "converted": 16,
+      "open_rate": 0.437, "click_rate": 0.127, "conversion_rate": 0.017
+    }
+  },
+  "by_medium": {
+    "email": { "sent": 2298, "opened": 1126, "clicked": 338 }
+  },
+  "attribution": {
+    "model": "last_click",     // admin-selected model
+    "total_revenue": 4653.00,
+    "roi": 12.4                // revenue / cost (email cost ≈ $2.30 for 2298 emails)
+  },
+  "heatmap": {                 // email-only: zone click aggregation
+    "zones": [
+      { "position": 1, "clicks": 12, "pct": 3.5 },
+      { "position": 2, "clicks": 89, "pct": 26.3 },
+      { "position": 5, "clicks": 156, "pct": 46.2 },
+      { "position": 8, "clicks": 43, "pct": 12.7 },
+      { "position": 11, "clicks": 38, "pct": 11.2 }
+    ]
+  },
+  "refreshed_at": "2026-04-25T13:30:00Z"
+}</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <h3>The Attribution Window</h3>
+  <div class="callout callout-insight">
+    <div class="callout-title">How the Attribution Window Works</div>
+    <p>Each campaign has an <code>attribution_window_days</code> setting (default: 7 days).
+    A conversion is only attributed to a campaign if it happens within this window after the user's
+    last interaction (click) with the campaign.</p>
+    <p><strong>Example:</strong> Campaign sent April 25, attribution_window = 7 days.
+    If Alice clicks on April 25 and purchases on April 30 → attributed.
+    If she purchases on May 5 → NOT attributed (outside 7-day window).</p>
+    <p>The window is per-campaign. A user can be within the attribution window of multiple campaigns
+    simultaneously — that's exactly when multi-touch attribution models matter.</p>
+  </div>
+
+  <h3>Engagement Scoring (Feeds Back Into Everything)</h3>
+  <div class="payload">
+    <div class="payload-header" onclick="togglePayload(this)">
+      <span>SCORING: Engagement Score Computation</span>
+      <span class="arrow">&#9660;</span>
+    </div>
+    <div class="payload-body">// Computed every 30 minutes by the Engagement Score Refresh Worker
+// Score feeds back into: segment filters, automation branches, sunset policy
+
+Formula: score = Σ(event_weight × recency_decay × frequency_boost)
+
+Event Weights:
+  email_opened:    2 points
+  email_clicked:   5 points
+  sms_clicked:     5 points
+  wa_read:         3 points
+  wa_cta_clicked:  5 points
+  page_viewed:     1 point
+  product_viewed:  2 points
+  add_to_cart:     8 points
+  purchase:       20 points
+
+Recency Decay: weight × 2^(-days_since_event / 14)
+  (half-life = 14 days; an action 14 days ago is worth half)
+
+Frequency Boost: if 3+ actions in 7 days → 1.5x multiplier (momentum)
+
+Stored in: analytics.engagement_scores
+{
+  "user_id": "a1b2c3d4-...",
+  "score": 47.3,
+  "velocity": 12.1,            // change in score over last 7 days
+  "breakdown_json": {
+    "email_engagement": 15.2,
+    "site_engagement": 22.1,
+    "purchase_engagement": 10.0
+  },
+  "computed_at": "2026-04-25T13:30:00Z"
+}
+
+Used by:
+  - Segment filters: "engagement_score > 30" → "highly engaged" segment
+  - Automation branches: "if score > 50 → path A, else → path B"
+  - Sunset policy: "if score < 5 for 90 days → stop sending"
+  - Campaign prioritization: send to highest-score users first
+  - Frequency cap adjustment: high-engagement users may get higher cap</div>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- SECTION 6: GUARDRAILS (placeholder) -->
+<!-- ============================================================ -->
+<div class="section" id="s6">
+  <h2>6. Guardrails <span class="tag tag-guardrails">Guardrails</span></h2>
+  <p class="section-desc">
+    How frequency caps, quiet hours, sunset policies, and consent checks gate every send &mdash;
+    regardless of whether it came from a campaign or automation.
+  </p>
+
+  <h3>Guardrails Architecture</h3>
+  <p>Every message passes through the guardrails gate before reaching the provider. This is enforced
+  in the shared delivery pipeline — campaigns and automations both go through the same checks.</p>
+
+  <div class="mermaid-wrap">
+    <pre class="mermaid">
+%%{init: {'theme': 'dark'}}%%
+flowchart TB
+    MSG["Delivery Request<br/><i>from campaign or automation</i>"]
+
+    MSG --> CONSENT{"Consent<br/>Check"}
+    CONSENT -->|"no consent"| SKIP_C["SKIP<br/><i>reason: no_consent</i>"]
+    CONSENT -->|"has consent"| SUPPRESS{"Suppression<br/>Check"}
+    SUPPRESS -->|"suppressed"| SKIP_S["SKIP<br/><i>reason: suppressed</i>"]
+    SUPPRESS -->|"not suppressed"| FREQ{"Frequency<br/>Cap Check"}
+    FREQ -->|"over cap"| SKIP_F["SKIP<br/><i>reason: freq_cap</i>"]
+    FREQ -->|"under cap"| QUIET{"Quiet Hours<br/>Check"}
+    QUIET -->|"in quiet hours"| DEFER["DEFER<br/><i>schedule for morning</i>"]
+    QUIET -->|"outside quiet hours"| SUNSET{"Sunset<br/>Policy Check"}
+    SUNSET -->|"user sunset"| SKIP_SU["SKIP<br/><i>reason: sunset</i>"]
+    SUNSET -->|"user active"| FATIGUE{"Fatigue<br/>Detection"}
+    FATIGUE -->|"fatigued"| SKIP_FA["SKIP<br/><i>reason: fatigue</i>"]
+    FATIGUE -->|"OK"| SEND["PROCEED<br/><i>send via provider</i>"]
+
+    SKIP_C --> LOG["Log to audit trail"]
+    SKIP_S --> LOG
+    SKIP_F --> LOG
+    SKIP_SU --> LOG
+    SKIP_FA --> LOG
+
+    style SEND fill:#1a2e1a,stroke:#3fb950,stroke-width:2px
+    style DEFER fill:#2e2a0d,stroke:#d29922,stroke-width:2px
+    style LOG fill:#1a1a2e,stroke:#58a6ff,stroke-width:1px
+    </pre>
+  </div>
+
+  <h3>Guardrail 1: Consent Check</h3>
+  <div class="payload">
+    <div class="payload-header" onclick="togglePayload(this)">
+      <span>CONSENT: How Consent Is Checked Per Channel</span>
+      <span class="arrow">&#9660;</span>
+    </div>
+    <div class="payload-body">Consent is checked DIFFERENTLY depending on channel and message type:
+
+EMAIL (marketing):
+  → Query: gdpr.email_preferences WHERE user_id = :uid
+  → Check: marketing_email = true
+  → Also: gdpr.consent_records for GDPR audit trail
+  → Bypass: force=true for critical transactional (verification, password reset)
+
+EMAIL (transactional):
+  → Query: gdpr.email_preferences WHERE user_id = :uid
+  → Check: transactional_email = true (default = true for new users)
+  → Transactional emails are almost never blocked
+
+SMS (marketing):
+  → Query: marketing.user_communication_preferences
+    WHERE user_id = :uid AND channel = 'sms'
+  → Check: opted_in = true
+  → SMS requires EXPLICIT opt-in (TCPA compliance in US)
+
+SMS (transactional):
+  → Query: marketing.user_communication_preferences
+    WHERE user_id = :uid AND channel = 'sms'
+  → Check: transactional_opted_in = true
+  → Transactional SMS (order confirmations, OTP) has separate consent
+
+WHATSAPP:
+  → Query: marketing.user_communication_preferences
+    WHERE user_id = :uid AND channel = 'whatsapp'
+  → Check: opted_in = true
+  → WhatsApp is inherently opt-in (user must message first or accept template)
+
+If bypass_frequency_cap = true AND message_type = "transactional":
+  → Skip ALL guardrails except suppression
+  → Used for: password reset, order confirmation, security alerts</div>
+  </div>
+
+  <h3>Guardrail 2: Suppression Check</h3>
+  <div class="payload">
+    <div class="payload-header" onclick="togglePayload(this)">
+      <span>SUPPRESSION: Hard Block on All Messages</span>
+      <span class="arrow">&#9660;</span>
+    </div>
+    <div class="payload-body">Suppression is a HARD BLOCK — overrides all consent.
+A suppressed user receives ZERO messages of any type on the suppressed channel.
+
+Suppression sources:
+  1. Hard bounce → email bounced, address invalid → auto-suppress
+  2. Spam complaint → user marked as spam → auto-suppress
+  3. Admin action → admin manually suppresses a user
+  4. GDPR deletion request → user requests data deletion → suppress all channels
+  5. Carrier block (SMS) → carrier rejected messages → auto-suppress number
+
+Check:
+  EMAIL: gdpr.email_preferences WHERE user_id = :uid AND suppressed_at IS NOT NULL
+  SMS: marketing.user_communication_preferences WHERE user_id = :uid AND channel = 'sms' AND suppressed_at IS NOT NULL
+  WA: marketing.user_communication_preferences WHERE user_id = :uid AND channel = 'whatsapp' AND suppressed_at IS NOT NULL
+
+Suppression also syncs to provider:
+  → email_provider.sync_suppression(suppressed_emails)
+  → Prevents provider from even attempting delivery</div>
+  </div>
+
+  <h3>Guardrail 3: Frequency Cap</h3>
+  <div class="payload">
+    <div class="payload-header" onclick="togglePayload(this)">
+      <span>FREQUENCY CAP: Per-User Message Limits</span>
+      <span class="arrow">&#9660;</span>
+    </div>
+    <div class="payload-body">Frequency cap prevents over-messaging users. Configured per channel in messaging_config.
+
+Configuration (admin-editable via API):
+{
+  "frequency_caps": {
+    "email": {
+      "marketing": { "max_per_window": 3, "window_days": 7 },
+      "transactional": null       // no cap on transactional
+    },
+    "sms": {
+      "marketing": { "max_per_window": 1, "window_days": 7 },
+      "transactional": { "max_per_window": 3, "window_days": 1 }
+    },
+    "whatsapp": {
+      "marketing": { "max_per_window": 2, "window_days": 7 },
+      "transactional": null
+    }
+  }
+}
+
+Check:
+  SELECT COUNT(*) FROM marketing.message_pressure_log
+  WHERE user_id = :uid
+    AND channel = :channel
+    AND message_type = :message_type
+    AND sent_at >= NOW() - INTERVAL ':window_days days'
+
+  If count >= max_per_window → SKIP (reason: "frequency_cap")
+
+Tracking:
+  Every successful send inserts into message_pressure_log:
+  INSERT INTO marketing.message_pressure_log (
+    user_id, channel, message_type, campaign_id, flow_id, sent_at
+  )
+
+  This table is the source of truth for frequency cap enforcement.
+  It's lightweight (no content, just counts) and indexed on (user_id, channel, sent_at).
+
+Priority override:
+  If a campaign is marked "high_priority" and user has 1 slot left in their cap,
+  the high-priority campaign takes the slot and lower-priority campaigns are blocked.</div>
+  </div>
+
+  <h3>Guardrail 4: Quiet Hours</h3>
+  <div class="payload">
+    <div class="payload-header" onclick="togglePayload(this)">
+      <span>QUIET HOURS: Time-of-Day Gating</span>
+      <span class="arrow">&#9660;</span>
+    </div>
+    <div class="payload-body">Quiet hours prevent messages from arriving at inappropriate times.
+
+Configuration:
+{
+  "quiet_hours": {
+    "enabled": true,
+    "start_hour": 21,           // 9 PM local time
+    "end_hour": 8,              // 8 AM local time
+    "timezone_source": "user_profile",  // user_profile | geo_lookup | fixed
+    "fixed_timezone": "America/New_York",
+    "applies_to": ["marketing"]  // only marketing, not transactional
+  }
+}
+
+Check:
+  1. Resolve user's timezone:
+     - From user profile (if set)
+     - From geo lookup (last known IP → timezone)
+     - Fallback to fixed_timezone from config
+
+  2. Convert current UTC time to user's local time
+
+  3. If local_hour >= start_hour OR local_hour < end_hour:
+     → DEFER: schedule for end_hour in user's timezone
+     → Store as: campaign_recipients.scheduled_at = next_morning_utc
+
+  4. Deferred sends are picked up by the batch processor at the scheduled time
+
+Example:
+  - UTC time: 2026-04-25T02:00:00Z (2 AM UTC)
+  - Alice is in America/Los_Angeles: 7 PM (19:00) → NOT quiet
+  - Bob is in America/New_York: 10 PM (22:00) → QUIET → defer to 8 AM ET
+
+Transactional bypass:
+  - Password resets, OTPs, security alerts: NEVER deferred
+  - Order confirmations: configurable (usually not deferred)</div>
+  </div>
+
+  <h3>Guardrail 5: Sunset Policy</h3>
+  <div class="payload">
+    <div class="payload-header" onclick="togglePayload(this)">
+      <span>SUNSET: Auto-Stop Sending to Unengaged Users</span>
+      <span class="arrow">&#9660;</span>
+    </div>
+    <div class="payload-body">Sunset policy automatically stops messaging users who haven't engaged.
+This protects sender reputation and reduces cost.
+
+Configuration:
+{
+  "sunset_policy": {
+    "enabled": true,
+    "email": {
+      "inactivity_days": 90,         // no opens/clicks in 90 days
+      "action": "suppress_marketing"  // suppress_marketing | suppress_all | tag_only
+    },
+    "sms": {
+      "inactivity_days": 60,
+      "action": "suppress_marketing"
+    },
+    "whatsapp": {
+      "inactivity_days": 60,
+      "action": "suppress_marketing"
+    }
+  }
+}
+
+Daily Sunset Worker checks:
+  FOR EACH channel:
+    SELECT u.id, u.email
+    FROM core.users u
+    WHERE u.id NOT IN (
+      -- Users who engaged (opened/clicked) within the window
+      SELECT DISTINCT cr.user_id
+      FROM marketing.campaign_recipients cr
+      WHERE cr.channel = :channel
+        AND (cr.opened_at IS NOT NULL OR cr.clicked_at IS NOT NULL)
+        AND cr.created_at >= NOW() - INTERVAL ':inactivity_days days'
+    )
+    AND u.id IN (
+      -- Users we've actually sent to (don't sunset users who never received anything)
+      SELECT DISTINCT cr.user_id
+      FROM marketing.campaign_recipients cr
+      WHERE cr.channel = :channel
+        AND cr.sent_at IS NOT NULL
+    )
+
+  For each unengaged user:
+    IF action = "suppress_marketing":
+      → Update preferences: marketing consent = false for this channel
+      → User still receives transactional messages
+    IF action = "suppress_all":
+      → Full suppression on this channel
+    IF action = "tag_only":
+      → Add tag "sunset_candidate" (admin reviews before action)
+
+Engagement score integration:
+  Users with engagement_score > threshold are NEVER sunset
+  (they might be engaging via a different channel)</div>
+  </div>
+
+  <h3>Guardrail 6: Fatigue Detection</h3>
+  <div class="payload">
+    <div class="payload-header" onclick="togglePayload(this)">
+      <span>FATIGUE: Dynamic Engagement-Based Throttling</span>
+      <span class="arrow">&#9660;</span>
+    </div>
+    <div class="payload-body">Fatigue detection goes beyond simple frequency caps.
+It detects declining engagement TRENDS and throttles proactively.
+
+Signals:
+  1. Declining open rate: user opened 5 of last 10 emails → 2 of last 10 → trending down
+  2. No clicks in N messages: received 5 emails, clicked 0 → fatigue
+  3. Engagement score velocity negative: score dropping over time
+  4. Unsubscribe signal: user visited unsubscribe page but didn't complete
+
+Algorithm:
+  fatigue_score = (
+    0.4 × (1 - recent_open_rate) +
+    0.3 × (1 - recent_click_rate) +
+    0.2 × max(0, -engagement_velocity / 10) +
+    0.1 × (recent_unsubscribe_page_visits > 0 ? 1 : 0)
+  )
+
+  If fatigue_score > 0.7 → SKIP (reason: "fatigue")
+  If fatigue_score > 0.5 → reduce frequency cap by 50%
+  If fatigue_score < 0.3 → normal sending
+
+This is a softer gate than sunset — it doesn't permanently suppress,
+it just temporarily reduces message frequency until engagement recovers.
+
+Dashboard alert:
+  Admin sees: "47 users showing fatigue signals in the last 7 days"
+  with breakdown by channel and recommended action.</div>
+  </div>
+
+  <h3>Guardrails in the Delivery Pipeline: Where They Run</h3>
+  <table>
+    <thead>
+      <tr>
+        <th>Guardrail</th>
+        <th>When Checked</th>
+        <th>Outcome if Failed</th>
+        <th>Applies To</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Consent</td>
+        <td>Before any send</td>
+        <td>SKIP (immediate, permanent for this send)</td>
+        <td>All channels, all message types</td>
+      </tr>
+      <tr>
+        <td>Suppression</td>
+        <td>Before any send</td>
+        <td>SKIP (until suppression lifted)</td>
+        <td>All channels, overrides consent</td>
+      </tr>
+      <tr>
+        <td>Frequency cap</td>
+        <td>Before each send</td>
+        <td>SKIP (until window expires)</td>
+        <td>Marketing only (configurable per channel)</td>
+      </tr>
+      <tr>
+        <td>Quiet hours</td>
+        <td>Before each send</td>
+        <td>DEFER (reschedule for morning)</td>
+        <td>Marketing only (transactional bypasses)</td>
+      </tr>
+      <tr>
+        <td>Sunset</td>
+        <td>Daily background check</td>
+        <td>SUPPRESS channel (long-term)</td>
+        <td>Marketing only, per channel</td>
+      </tr>
+      <tr>
+        <td>Fatigue</td>
+        <td>Before each send</td>
+        <td>SKIP or reduce frequency</td>
+        <td>Marketing only</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="callout callout-warning">
+    <div class="callout-title">Transactional Messages Bypass Most Guardrails</div>
+    <p>Password resets, email verification, order confirmations, and security alerts skip frequency caps,
+    quiet hours, sunset, and fatigue checks. They only respect <strong>suppression</strong> (hard block)
+    and <strong>transactional consent</strong> (which defaults to true for all users).</p>
+    <p>This is controlled by the <code>message_type</code> field on the DeliveryRequest.
+    If <code>message_type = "transactional"</code>, the guardrails pipeline short-circuits after
+    consent + suppression checks.</p>
+  </div>
+
+  <h3>Configuration Storage</h3>
+  <div class="payload">
+    <div class="payload-header" onclick="togglePayload(this)">
+      <span>DB: marketing.messaging_config (admin-editable)</span>
+      <span class="arrow">&#9660;</span>
+    </div>
+    <div class="payload-body">-- Single-row config table (one config per deployment)
+
+CREATE TABLE marketing.messaging_config (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    frequency_caps JSONB NOT NULL DEFAULT '{
+      "email": {"marketing": {"max_per_window": 3, "window_days": 7}},
+      "sms": {"marketing": {"max_per_window": 1, "window_days": 7}},
+      "whatsapp": {"marketing": {"max_per_window": 2, "window_days": 7}}
+    }',
+    quiet_hours JSONB NOT NULL DEFAULT '{
+      "enabled": true, "start_hour": 21, "end_hour": 8,
+      "timezone_source": "user_profile", "applies_to": ["marketing"]
+    }',
+    sunset_policy JSONB NOT NULL DEFAULT '{
+      "enabled": true,
+      "email": {"inactivity_days": 90, "action": "suppress_marketing"},
+      "sms": {"inactivity_days": 60, "action": "suppress_marketing"}
+    }',
+    fatigue_detection JSONB NOT NULL DEFAULT '{
+      "enabled": true, "threshold": 0.7, "reduce_at": 0.5
+    }',
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_by UUID REFERENCES core.users(id)
+);
+
+-- Admin endpoints:
+-- GET  /api/notifications/admin/messaging-config  → read config
+-- PUT  /api/notifications/admin/messaging-config  → update config
+-- GET  /api/notifications/admin/pressure-dashboard → per-user message counts</div>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<div class="footer">
+  Campaign &amp; Automation Architecture Walkthrough v1.0 &mdash; Generated 2026-04-25
+</div>
+
+<script>
+  mermaid.initialize({
+    startOnLoad: true,
+    theme: 'dark',
+    themeVariables: {
+      darkMode: true,
+      background: '#0d1117',
+      primaryColor: '#1c2333',
+      primaryTextColor: '#e6edf3',
+      primaryBorderColor: '#30363d',
+      lineColor: '#58a6ff',
+      secondaryColor: '#161b22',
+      tertiaryColor: '#1a2332'
+    },
+    flowchart: { curve: 'basis', padding: 15 }
+  });
+
+  function togglePayload(header) {
+    const body = header.nextElementSibling;
+    body.classList.toggle('hidden');
+    header.classList.toggle('collapsed');
+  }
+</script>
+</body>
+</html>

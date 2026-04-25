@@ -1,0 +1,1249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Campaign Pipeline — Complete User Journey Map</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #1a1b26;
+      color: #c0caf5;
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      padding: 1.5rem;
+      line-height: 1.6;
+    }
+    h1 { text-align: center; font-size: 1.5rem; font-weight: 600; margin-bottom: 0.3rem; color: #7aa2f7; }
+    h2 { font-size: 1.2rem; color: #bb9af7; margin: 2rem 0 0.8rem; border-bottom: 1px solid #2d3250; padding-bottom: 0.4rem; }
+    h3 { font-size: 1rem; color: #e0af68; margin: 1.2rem 0 0.5rem; }
+    .subtitle { text-align: center; font-size: 0.85rem; color: #565f89; margin-bottom: 1rem; }
+    .mermaid { display: flex; justify-content: center; overflow-x: auto; margin: 1rem 0; }
+    .mermaid svg { max-width: 100%; }
+
+    .section { background: #1e2030; border: 1px solid #2d3250; border-radius: 8px; padding: 1.2rem; margin: 1rem 0; }
+    .section-blue { border-left: 3px solid #7aa2f7; }
+    .section-green { border-left: 3px solid #9ece6a; }
+    .section-purple { border-left: 3px solid #bb9af7; }
+    .section-orange { border-left: 3px solid #e0af68; }
+    .section-pink { border-left: 3px solid #f7768e; }
+    .section-teal { border-left: 3px solid #73daca; }
+
+    .story { background: #24283b; border-radius: 6px; padding: 0.8rem 1rem; margin: 0.5rem 0; font-size: 0.85rem; }
+    .story-id { color: #7aa2f7; font-weight: 600; font-size: 0.75rem; margin-right: 0.5rem; }
+    .story em { color: #9ece6a; font-style: normal; }
+    .story .so-that { color: #bb9af7; }
+    .condition { background: #2d1e30; border-left: 2px solid #f7768e; padding: 0.5rem 0.8rem; margin: 0.3rem 0; border-radius: 4px; font-size: 0.8rem; }
+    .condition::before { content: "IF "; color: #f7768e; font-weight: 600; }
+    .data-note { background: #1e2d30; border-left: 2px solid #73daca; padding: 0.5rem 0.8rem; margin: 0.3rem 0; border-radius: 4px; font-size: 0.8rem; }
+    .data-note::before { content: "DATA: "; color: #73daca; font-weight: 600; }
+
+    .phase-label { display: inline-block; background: #364fc7; color: #c0caf5; padding: 0.15rem 0.6rem; border-radius: 12px; font-size: 0.7rem; font-weight: 600; margin-bottom: 0.4rem; }
+    .where-badge { display: inline-block; padding: 0.25rem 0.7rem; border-radius: 4px; font-size: 0.75rem; font-weight: 600; margin-bottom: 0.6rem; margin-right: 0.4rem; }
+    .where-app { background: #1e3a2d; border: 1px solid #9ece6a; color: #9ece6a; }
+    .where-brevo { background: #1e2d3a; border: 1px solid #7aa2f7; color: #7aa2f7; }
+    .where-both { background: #2d1e3a; border: 1px solid #bb9af7; color: #bb9af7; }
+    .where-user { background: #3a2d1e; border: 1px solid #e0af68; color: #e0af68; }
+    .nav { display: flex; flex-wrap: wrap; gap: 0.5rem; justify-content: center; margin: 1rem 0; }
+    .nav a { color: #7aa2f7; text-decoration: none; font-size: 0.8rem; padding: 0.3rem 0.7rem; border: 1px solid #2d3250; border-radius: 4px; }
+    .nav a:hover { background: #2d3250; }
+
+    table { width: 100%; border-collapse: collapse; margin: 0.5rem 0; font-size: 0.82rem; }
+    th { background: #24283b; color: #7aa2f7; text-align: left; padding: 0.5rem; border: 1px solid #2d3250; }
+    td { padding: 0.5rem; border: 1px solid #2d3250; }
+    tr:nth-child(even) { background: #1e2030; }
+
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+    @media (max-width: 768px) { .grid-2 { grid-template-columns: 1fr; } }
+
+    .badge { display: inline-block; padding: 0.1rem 0.4rem; border-radius: 3px; font-size: 0.7rem; font-weight: 600; }
+    .badge-email { background: #364fc7; color: #c0caf5; }
+    .badge-sms { background: #2d6a2e; color: #9ece6a; }
+    .badge-whatsapp { background: #2d4a2e; color: #73daca; }
+    .badge-web { background: #4a2d2d; color: #f7768e; }
+
+    .count { color: #565f89; font-size: 0.75rem; }
+  </style>
+</head>
+<body>
+
+<h1>Campaign Pipeline &mdash; Complete User Journey Map</h1>
+<p class="subtitle">13 stages &bull; 97 user stories &bull; All conditions, data flows, and decision points</p>
+
+<nav class="nav">
+  <a href="#stage1">1. Discover Audience</a>
+  <a href="#stage2">2. Create Campaign</a>
+  <a href="#stage3">3. Deliver</a>
+  <a href="#stage4">4. In-Message Interaction</a>
+  <a href="#stage5">5. Website Attribution</a>
+  <a href="#stage6">6. On-Site Tracking</a>
+  <a href="#stage7">7. Campaign Analytics</a>
+  <a href="#stage8">8. User Timeline</a>
+  <a href="#stage9">9. Effectiveness</a>
+  <a href="#stage10">10. Automation Builder</a>
+  <a href="#stage11">11. Flow Execution</a>
+  <a href="#stage12">12. Flow Analytics</a>
+  <a href="#stage13">13. Guardrails</a>
+</nav>
+
+<!-- ==================== MASTER FLOW DIAGRAM ==================== -->
+
+<h2>Master Flow</h2>
+<div class="mermaid">
+%%{init: {
+  "theme": "dark",
+  "themeVariables": {
+    "primaryColor": "#364fc7",
+    "primaryBorderColor": "#7aa2f7",
+    "primaryTextColor": "#c0caf5",
+    "lineColor": "#565f89",
+    "secondaryColor": "#2d3250",
+    "tertiaryColor": "#1e2030",
+    "fontFamily": "Segoe UI, system-ui, sans-serif"
+  }
+}}%%
+
+flowchart TB
+
+  subgraph S1["STAGE 1: Audience Discovery [YOUR APP]"]
+    style S1 fill:#1e2d30,stroke:#73daca,stroke-width:1px
+    CM["Admin creates<br/>Custom Metric (SQL)"]
+    AUD["Toggle is_audience=true<br/>Validates user_id column"]
+    SEG["Or: Use Preset Segment<br/>(filter-based)"]
+    CAMPFILT["Or: Campaign Engagement Filter<br/>(opened-not-clicked, multi-campaign overlap)"]
+    CM --> AUD
+  end
+
+  subgraph S2["STAGE 2: Campaign Creation [YOUR APP]"]
+    style S2 fill:#1e2030,stroke:#bb9af7,stroke-width:1px
+    SEL["Select Audience<br/>(metric, segment, engagement, or combo)"]
+    MED["Choose Medium<br/>Email | SMS | WhatsApp"]
+    DESIGN["Design Content<br/>Template + Subject + Body"]
+    TRACK["Configure Tracking<br/>Attribution Window (days)<br/>Interaction Heatmap: on/off"]
+    AB["Optional: A/B Variants"]
+    SCHED["Schedule or Send Now"]
+    SEL --> MED --> DESIGN --> TRACK --> AB --> SCHED
+  end
+
+  subgraph S3["STAGE 3: Delivery [APP + BREVO]"]
+    style S3 fill:#2d1e30,stroke:#f7768e,stroke-width:1px
+    RESOLVE["Resolve Audience<br/>→ user_ids → emails/phones"]
+    SYNC["Sync Contacts to Brevo<br/>(if campaign medium)"]
+    SEND["Send via Brevo API<br/>Log each recipient"]
+    WH["Receive Delivery Webhooks<br/>sent/delivered/bounced"]
+    RESOLVE --> SYNC --> SEND --> WH
+  end
+
+  subgraph S4["STAGE 4: In-Message Interactions [BREVO → APP]"]
+    style S4 fill:#3d2d1e,stroke:#e0af68,stroke-width:1px
+    OPEN["User Opens<br/>(webhook: opened)"]
+    CLICK["User Clicks Link<br/>(webhook: click + URL)"]
+    HEAT["Heatmap Tracking<br/>L1: Email link clicks (Brevo)<br/>L2: Landing page clicks (our JS + Clarity)"]
+    OPEN --> CLICK --> HEAT
+  end
+
+  subgraph S5["STAGE 5: Website Attribution [YOUR APP]"]
+    style S5 fill:#1e2d30,stroke:#7aa2f7,stroke-width:1px
+    LAND["User Lands on Site<br/>UTM params detected"]
+    ATTR["Link Session to Campaign<br/>campaign_id → session"]
+    WINDOW["Start Attribution Window<br/>(X days, configurable)"]
+    COOKIE["Store campaign_id<br/>in first-party cookie"]
+    LAND --> ATTR --> WINDOW --> COOKIE
+  end
+
+  subgraph S6["STAGE 6: On-Site Engagement [YOUR APP]"]
+    style S6 fill:#2d3d1e,stroke:#9ece6a,stroke-width:1px
+    PV["Page Views<br/>(path, duration, scroll)"]
+    PROD["Product Views"]
+    CART["Add to Cart"]
+    CHECK["Checkout Started"]
+    PURCH["Purchase<br/>(order + revenue)"]
+    ABANDON["Cart Abandoned"]
+    PV --> PROD --> CART
+    CART --> CHECK --> PURCH
+    CART --> ABANDON
+  end
+
+  subgraph S7["STAGE 7: Campaign Analytics [APP + BREVO stats]"]
+    style S7 fill:#1e2030,stroke:#bb9af7,stroke-width:1px
+    FUNNEL["Conversion Funnel<br/>Sent→Delivered→Opened→<br/>Clicked→Visited→Engaged→<br/>Converted→Revenue"]
+    HEATMAP["Email Click Heatmap<br/>Which links got most clicks"]
+    VARIANT["A/B Variant Comparison"]
+    SEGCOMP["Segment Comparison<br/>How did each group respond?"]
+    FUNNEL --- HEATMAP --- VARIANT --- SEGCOMP
+  end
+
+  subgraph S8["STAGE 8: User Timeline [YOUR APP]"]
+    style S8 fill:#3d2d1e,stroke:#e0af68,stroke-width:1px
+    TIMELINE["Chronological Event Stream<br/>per user across all campaigns"]
+    SCORE["Engagement Score<br/>+ Momentum Velocity"]
+    MULTI["Multi-Campaign Touch Map<br/>Which campaigns touched this user?"]
+    TIMELINE --- SCORE --- MULTI
+  end
+
+  subgraph S9["STAGE 9: Effectiveness [APP + BREVO revenue]"]
+    style S9 fill:#1e2d30,stroke:#73daca,stroke-width:1px
+    CROSS["Cross-Campaign Comparison<br/>Which drove most revenue?"]
+    MULTITOUCH["Multi-Touch Attribution<br/>Which combination of<br/>campaigns led to sales?"]
+    ROI["ROI per Campaign<br/>Revenue vs Cost"]
+    TREND["Trend Analysis<br/>Getting better or worse?"]
+    CROSS --- MULTITOUCH --- ROI --- TREND
+  end
+
+  subgraph S10["STAGE 10: Automation Builder [YOUR APP]"]
+    style S10 fill:#1e3030,stroke:#2ac3de,stroke-width:1px
+    TRIGGER["Define Trigger<br/>event / segment / schedule / score"]
+    STEPS["Build Step Sequence<br/>Send → Wait → Branch → Update"]
+    EXITS["Set Exit Conditions<br/>Goal met / timeout / unsubscribe"]
+    FLOWSET["Flow Settings<br/>Freq cap, quiet hours, re-entry"]
+    TRIGGER --> STEPS --> EXITS --> FLOWSET
+  end
+
+  subgraph S11["STAGE 11: Flow Execution [YOUR APP + BREVO delivery]"]
+    style S11 fill:#302030,stroke:#ff9e64,stroke-width:1px
+    ENROLL["Trigger Fires<br/>→ Enroll user in flow"]
+    EXECSTEP["Execute Current Step<br/>Send / Wait / Branch / Update"]
+    WORKER["Background Worker<br/>Checks waits every minute"]
+    GOALCHK["Goal Check<br/>User converted? → Exit flow"]
+    ENROLL --> EXECSTEP --> WORKER
+    EXECSTEP --> GOALCHK
+  end
+
+  subgraph S12["STAGE 12: Flow Analytics [YOUR APP]"]
+    style S12 fill:#1e2030,stroke:#c0caf5,stroke-width:1px
+    FLOWFUNNEL["Per-Flow Funnel<br/>Entered → Step 1 → Step 2 →<br/>... → Goal Completed"]
+    STEPDROP["Step Dropoff Analysis<br/>Where do users exit?"]
+    FLOWREV["Revenue per Flow<br/>Attributed conversions"]
+    FLOWCOMP["Flow vs Campaign<br/>Comparison"]
+    FLOWFUNNEL --- STEPDROP --- FLOWREV --- FLOWCOMP
+  end
+
+  subgraph S13["STAGE 13: Guardrails [YOUR APP]"]
+    style S13 fill:#301e1e,stroke:#f7768e,stroke-width:1px
+    FREQCAP["Frequency Capping<br/>Max N messages/user/week"]
+    QUIET["Quiet Hours<br/>No SMS 9pm-8am"]
+    SUNSET["Sunset Policy<br/>Auto-suppress unengaged"]
+    FATIGUE["Fatigue Detection<br/>Alert if engagement drops"]
+    FREQCAP --- QUIET --- SUNSET --- FATIGUE
+  end
+
+  AUD --> SEL
+  SEG --> SEL
+  CAMPFILT --> SEL
+  SCHED --> RESOLVE
+  WH --> OPEN
+  CLICK --> LAND
+  WINDOW --> PV
+  PURCH --> FUNNEL
+  ABANDON --> FUNNEL
+  FUNNEL --> TIMELINE
+  SEGCOMP --> CROSS
+
+  %% Stage 4 feeds into analytics + timeline
+  HEAT --> FUNNEL
+  OPEN --> TIMELINE
+  CLICK --> TIMELINE
+
+  %% Stages 5+6 feed into user timeline
+  ATTR --> TIMELINE
+  PURCH --> TIMELINE
+  ABANDON --> TIMELINE
+
+  %% Guardrails gate delivery + flow execution
+  FREQCAP --> SEND
+  QUIET --> SEND
+
+  %% Automation connections
+  PURCH --> ENROLL
+  ABANDON --> ENROLL
+  SCORE --> ENROLL
+  FLOWSET --> ENROLL
+  EXECSTEP --> SEND
+  GOALCHK --> FLOWFUNNEL
+  FLOWCOMP --> CROSS
+  FREQCAP --> EXECSTEP
+
+  %% Reconciliation: app periodically pulls Brevo stats
+  FUNNEL -.->|"reconcile every 6h"| HEAT
+
+  %% Feedback loop: effectiveness insights → new audiences
+  TREND -.->|"admin insight"| CAMPFILT
+</div>
+
+<!-- ==================== STAGE 1 ==================== -->
+
+<h2 id="stage1">Stage 1: Audience Discovery</h2>
+<div class="section section-teal">
+  <span class="where-badge where-app">YOUR APP</span>
+  <span class="phase-label">ADMIN ACTION</span>
+  <p>The admin identifies WHO to target. This is the entry point to the entire pipeline. Entirely in your app &mdash; Brevo is not involved.</p>
+
+  <h3>User Stories <span class="count">(9)</span></h3>
+
+  <div class="story">
+    <span class="story-id">US-1.1</span>
+    As an admin, I want to <em>write a custom SQL query that returns user_ids</em> so that I can target a specific behavioral segment.
+  </div>
+  <div class="story">
+    <span class="story-id">US-1.2</span>
+    As an admin, I want to <em>toggle a saved metric as "audience-eligible"</em> so that it appears in the Campaign Wizard audience picker.
+  </div>
+  <div class="story">
+    <span class="story-id">US-1.3</span>
+    As an admin, I want to <em>use a preset segment (Champions, At-Risk, Cart Abandoners, etc.)</em> so that I can quickly target common audiences without writing SQL.
+  </div>
+  <div class="story">
+    <span class="story-id">US-1.4</span>
+    As an admin, I want to <em>combine multiple audiences (metric A AND segment B)</em> so that I can create intersected targeting.
+  </div>
+  <div class="story">
+    <span class="story-id">US-1.5</span>
+    As an admin, I want to <em>preview the audience size before creating a campaign</em> so that I know how many users I'm targeting.
+  </div>
+  <div class="story">
+    <span class="story-id">US-1.6</span>
+    As an admin, I want to <em>exclude users who are already in another active campaign</em> so that I don't over-message them.
+  </div>
+  <div class="story">
+    <span class="story-id">US-1.7</span>
+    As an admin, I want to <em>save an audience query for reuse across multiple campaigns</em> so that I don't have to rebuild it each time.
+  </div>
+  <div class="story">
+    <span class="story-id">US-1.8</span>
+    As an admin, I want to <em>create an audience from campaign engagement results</em> (e.g., "users who opened Campaign A but didn't click", "users who clicked but didn't purchase") so that I can re-target based on past campaign behavior.
+  </div>
+  <div class="story">
+    <span class="story-id">US-1.9</span>
+    As an admin, I want to <em>target users who appear in multiple campaign audiences</em> (e.g., "received Campaign A AND Campaign B but converted on neither") so that I can identify resistant segments and try a different approach.
+  </div>
+
+  <div class="condition">admin has at least one saved metric with is_audience=true OR one audience segment → audience picker shows options</div>
+  <div class="condition">custom metric SQL returns a user_id column → system validates and accepts as audience</div>
+  <div class="condition">audience query returns 0 users → warn admin, block campaign creation</div>
+
+  <div class="data-note">Tables: analytics.saved_metrics, marketing.audience_segments, marketing.audience_group_presets. New segment filter types: campaign_engagement (opened/clicked/converted by campaign_id), multi_campaign_overlap (in campaign A AND B), engagement_score (threshold, velocity). These extend marketing.audience_segments filter schema.</div>
+</div>
+
+<!-- ==================== STAGE 2 ==================== -->
+
+<h2 id="stage2">Stage 2: Campaign Creation</h2>
+<div class="section section-purple">
+  <span class="where-badge where-app">YOUR APP</span>
+  <span class="phase-label">ADMIN ACTION</span>
+  <p>The admin designs the campaign — choosing medium, content, tracking settings, and optional A/B testing. Entirely in your app &mdash; stored in your DB. Brevo is not involved until send.</p>
+
+  <h3>User Stories <span class="count">(9)</span></h3>
+
+  <div class="story">
+    <span class="story-id">US-2.1</span>
+    As an admin, I want to <em>choose a medium (Email, SMS, WhatsApp)</em> so that I can reach users on their preferred channel.
+  </div>
+  <div class="story">
+    <span class="story-id">US-2.2</span>
+    As an admin, I want to <em>design email content with a visual template editor</em> so that I can create professional-looking campaigns without coding.
+  </div>
+  <div class="story">
+    <span class="story-id">US-2.3</span>
+    As an admin, I want to <em>create A/B variants with different subjects</em> so that I can test which subject line performs better.
+  </div>
+  <div class="story">
+    <span class="story-id">US-2.4</span>
+    As an admin, I want to <em>set a custom attribution window (e.g., 7 days, 14 days, 30 days)</em> so that I can control how long post-campaign user activity is tracked.
+  </div>
+  <div class="story">
+    <span class="story-id">US-2.5</span>
+    As an admin, I want to <em>enable click heatmap tracking for this campaign's emails</em> so that I can see where users click most within the email layout.
+  </div>
+  <div class="story">
+    <span class="story-id">US-2.6</span>
+    As an admin, I want to <em>add UTM parameters automatically based on campaign name</em> so that on-site visits are attributed to this campaign.
+  </div>
+  <div class="story">
+    <span class="story-id">US-2.7</span>
+    As an admin, I want to <em>schedule a campaign for a future date/time</em> so that I can plan ahead.
+  </div>
+  <div class="story">
+    <span class="story-id">US-2.8</span>
+    As an admin, I want to <em>send a test to myself before launching</em> so that I can preview how it looks.
+  </div>
+  <div class="story">
+    <span class="story-id">US-2.9</span>
+    As an admin, I want to <em>set campaign-level goals (target conversion rate, target revenue)</em> so that I can measure success against expectations.
+  </div>
+
+  <div class="condition">medium = SMS → content limited to 160 chars (or concatenated), no heatmap</div>
+  <div class="condition">medium = WhatsApp → must use Brevo-approved template for first message</div>
+  <div class="condition">medium = Email → heatmap tracking available, A/B variants available</div>
+  <div class="condition">A/B testing → min 2 variants, split rule percentage, winner criteria (open or click), test duration</div>
+  <div class="condition">audience has no phone numbers → SMS/WhatsApp medium disabled with warning</div>
+
+  <div class="data-note">Tables: marketing.campaigns, marketing.campaign_variants, marketing.campaign_segments. New fields: attribution_window_days, enable_heatmap, goal_conversion_rate, goal_revenue</div>
+</div>
+
+<!-- ==================== STAGE 3 ==================== -->
+
+<h2 id="stage3">Stage 3: Delivery</h2>
+<div class="section section-pink">
+  <span class="where-badge where-both">YOUR APP + BREVO</span>
+  <span class="phase-label">SYSTEM ACTION</span>
+  <p>System resolves audience, syncs contacts to Brevo, sends messages, and logs every recipient. <strong>Your app</strong> resolves the audience, syncs contacts, and logs recipients. <strong>Brevo</strong> handles the actual email/SMS/WhatsApp delivery and fires delivery webhooks back to your app.</p>
+
+  <h3>User Stories <span class="count">(5)</span></h3>
+
+  <div class="story">
+    <span class="story-id">US-3.1</span>
+    As a system, I must <em>resolve the audience query to a list of user_ids with their contact info (email, phone)</em> so that I know who to send to.
+  </div>
+  <div class="story">
+    <span class="story-id">US-3.2</span>
+    As a system, I must <em>sync resolved contacts to Brevo's contact database</em> so that Brevo campaign sends can reach them.
+  </div>
+  <div class="story">
+    <span class="story-id">US-3.3</span>
+    As a system, I must <em>record every recipient in a campaign_recipients table</em> so that we can track per-user campaign delivery.
+  </div>
+  <div class="story">
+    <span class="story-id">US-3.4</span>
+    As a system, I must <em>rewrite all links in email content to include campaign tracking parameters</em> so that click-through visits are attributed.
+  </div>
+  <div class="story">
+    <span class="story-id">US-3.5</span>
+    As an admin, I want to <em>see real-time delivery progress (sent/delivered/bounced counts)</em> so that I know the campaign is running.
+  </div>
+
+  <div class="condition">user is_verified=false → skip (unless overridden)</div>
+  <div class="condition">user marketing_email=false → skip for email medium</div>
+  <div class="condition">user suppressed_at IS NOT NULL → skip</div>
+  <div class="condition">user has no phone number → skip for SMS/WhatsApp medium</div>
+  <div class="condition">Brevo returns bounce → mark recipient as bounced, update suppression list</div>
+  <div class="condition"><strong style="color:#f7768e;">INSERT-BEFORE-SEND (F20):</strong> INSERT campaign_recipients row with status='sending' BEFORE calling Brevo API. If Brevo returns success → update to 'sent'. If Brevo returns error → update to 'failed'. This prevents lost tracking if webhook arrives before the send callback returns (race condition). Never fire-and-forget the send without a pre-existing recipient row.</div>
+
+  <div class="data-note">NEW table: marketing.campaign_recipients (campaign_id, variant_label, user_id, email, phone, medium, provider_message_id, status [sending/sent/delivered/bounced/failed], sent_at, delivered_at, opened_at, clicked_at). Status lifecycle: sending → sent → delivered (or bounced/failed at any point).</div>
+</div>
+
+<!-- ==================== STAGE 4 ==================== -->
+
+<h2 id="stage4">Stage 4: In-Message Interaction Tracking</h2>
+<div class="section section-orange">
+  <span class="where-badge where-brevo">BREVO &rarr; YOUR APP</span>
+  <span class="phase-label">USER ACTION + SYSTEM TRACKING</span>
+  <p>User interacts with the campaign message. <strong>Brevo</strong> tracks opens, clicks, and proxy opens automatically and fires webhooks. <strong>Your app</strong> receives those webhooks and stores them for heatmap/analytics. The user never touches your app at this stage &mdash; they're in their email client, phone, or WhatsApp.</p>
+
+  <h3>User Stories <span class="count">(10)</span></h3>
+
+  <div class="story">
+    <span class="story-id">US-4.1</span>
+    As a system, I must <em>record when a user opens an email (webhook: opened)</em> so that open rates are tracked.
+  </div>
+  <div class="story">
+    <span class="story-id">US-4.2</span>
+    As a system, I must <em>record which specific link a user clicks (webhook: click + URL)</em> so that we know what content drives action.
+  </div>
+  <div style="background:#24283b;border-radius:6px;padding:0.8rem 1rem;margin:0.8rem 0 0.4rem;border-left:3px solid #e0af68;">
+    <strong style="color:#e0af68;">THREE-LAYER HEATMAP SYSTEM</strong>
+    <p style="font-size:0.8rem;margin-top:0.3rem;color:#565f89;">Email clients strip all JavaScript — no mouse tracking inside emails is possible. We use three complementary layers to get full heatmap coverage of campaign content.</p>
+  </div>
+
+  <div class="story">
+    <span class="story-id">US-4.3a</span>
+    <span class="badge" style="background:#3d2d1e;color:#e0af68;">LAYER 1: INVISIBLE LINK GRID</span><br>
+    As an admin, I want the <em>email template builder to automatically slice every visual section of the email into distinct clickable zones</em> (hero-left, hero-center, hero-right, product-1-image, product-1-title, product-1-price, product-1-button, footer-social, etc.) — each zone is a unique tracked URL going to the same destination but with a different position ID. <span class="so-that">This gives me a heatmap OF the email itself showing exactly which zones users click, not just which CTA buttons.</span>
+    <br><span style="color:#565f89;font-size:0.75rem;">HOW: At send time, the system rewrites the email HTML to wrap every section in a tracked link with a unique <code>pos=zone-id</code> param. Brevo click webhooks return the URL including the zone param. We store zone clicks in <code>campaign_link_clicks</code>. Admin sees an overlay of the email template with zones color-coded by click frequency. Coverage: 100% of clickers. Granularity: 20-100 zones per email.</span>
+  </div>
+  <div class="story">
+    <span class="story-id">US-4.3b</span>
+    <span class="badge" style="background:#2d1e3a;color:#bb9af7;">LAYER 2: MIRROR PAGE</span><br>
+    As an admin, I want every email to include a <em>"View in browser" link that opens a mirror page on our website</em> rendering the exact same email content — but with full JS heatmap tracking (mouse coordinates, scroll depth, hover time, click positions). <span class="so-that">This gives me pixel-level heatmap data of the email content itself from the ~5-15% of users who click "View in browser."</span>
+    <br><span style="color:#565f89;font-size:0.75rem;">HOW: Mirror page at <code>/campaigns/{slug}/mirror?uid=X&cid=Y</code> renders the email HTML + loads our click tracker JS + Clarity. Full mouse/click/scroll recording. Data stored in <code>page_click_interactions</code>. Coverage: 5-15% of recipients. Granularity: pixel-level.</span>
+  </div>
+  <div class="story">
+    <span class="story-id">US-4.3c</span>
+    <span class="badge" style="background:#1e2d30;color:#73daca;">LAYER 3: CAMPAIGN LANDING PAGE</span><br>
+    As an admin, I want the campaign email to <em>drive users to a dedicated campaign landing page on our site</em> where the full campaign content lives (product showcases, forms, interactive elements). This page has full JS heatmap tracking + Clarity. <span class="so-that">The email is the teaser, the landing page IS the campaign. I get full heatmaps on the actual campaign experience.</span>
+    <br><span style="color:#565f89;font-size:0.75rem;">HOW: Landing page at <code>/campaigns/{slug}</code> with our click tracker JS + Clarity. All interactions attributed to campaign via UTM. Data stored in <code>page_click_interactions</code>. Coverage: everyone who clicks through. Granularity: pixel-level.</span>
+  </div>
+  <div class="story">
+    <span class="story-id">US-4.3d</span>
+    As an admin, I want to <em>aggregate heatmap data across multiple campaigns (e.g., 5 campaigns)</em> so that I can see patterns in where users consistently click and optimize my templates and pages accordingly.
+    <br><span style="color:#565f89;font-size:0.75rem;">Layer 1: aggregate zone clicks by position_id across campaigns sharing the same email template. Layer 2: aggregate mirror page click coordinates across campaigns. Layer 3: aggregate landing page click coordinates across campaigns driving to the same page template. All three layers are aggregatable independently or combined.</span>
+  </div>
+  <div class="story">
+    <span class="story-id">US-4.4</span>
+    As a system, I must <em>record time-to-open (gap between delivery and first open)</em> so that we know when users are most responsive.
+  </div>
+  <div class="story">
+    <span class="story-id">US-4.5</span>
+    As a system, I must <em>distinguish bot clicks from human clicks (clicks &lt;2 seconds after delivery are likely bots)</em> so that engagement metrics are accurate.
+  </div>
+  <div class="story">
+    <span class="story-id">US-4.6</span>
+    As a system, I must <em>detect Apple MPP proxy opens and flag them separately</em> so that open rates reflect real engagement.
+  </div>
+  <div class="story">
+    <span class="story-id">US-4.7</span>
+    As an admin, I want to <em>see per-link click counts for SMS/WhatsApp campaigns</em> so that I can evaluate CTA effectiveness across all mediums.
+  </div>
+
+  <div class="condition">event = proxy_open or unique_proxy_open → flag as "proxy" in our DB, show separately in stats</div>
+  <div class="condition">time-to-click &lt; 2 seconds → flag as probable bot click</div>
+  <div class="condition">medium = SMS → no open tracking (SMS doesn't support it), only click tracking via short URLs</div>
+  <div class="condition">medium = WhatsApp → delivery + read receipts from Brevo, click tracking via links</div>
+  <div class="condition"><strong style="color:#f7768e;">WEBHOOK RECONCILIATION (F10):</strong> A scheduled job runs every 6 hours and pulls Brevo campaign stats via <code>GET /emailCampaigns/{id}/statistics</code>. It compares Brevo's aggregate counts (sent, delivered, opened, clicked, bounced, unsubscribed) against our campaign_recipients aggregate. Any missing events are backfilled. This catches webhooks lost to network issues, app downtime, or Brevo retry exhaustion. A "last reconciled at" timestamp is shown on the campaign dashboard.</div>
+
+  <div class="data-note">Expand gdpr.email_webhook_events to store: opened events (with user_agent, device), click events (with URL, user_agent, device, is_bot flag, is_proxy flag). NEW table or columns: marketing.campaign_link_clicks (campaign_id, variant_label, user_id, link_url, link_position, clicked_at, is_bot). Reconciliation metadata stored in marketing.campaigns: last_reconciled_at, reconciliation_delta (JSON — counts diff at last reconciliation).</div>
+</div>
+
+<!-- ==================== STAGE 5 ==================== -->
+
+<h2 id="stage5">Stage 5: Website Attribution</h2>
+<div class="section section-blue">
+  <span class="where-badge where-app">YOUR APP</span>
+  <span class="phase-label">SYSTEM TRACKING</span>
+  <p>User clicks through from campaign to website. <strong>Your app</strong> detects UTM params, links the session to a campaign, stores a first-party cookie, and starts the attribution window. Brevo is not involved &mdash; this is your tracking middleware.</p>
+
+  <h3>User Stories <span class="count">(5)</span></h3>
+
+  <div class="story">
+    <span class="story-id">US-5.1</span>
+    As a system, I must <em>detect UTM parameters on landing and resolve them to a campaign_id</em> so that the visit is attributed to the right campaign.
+  </div>
+  <div class="story">
+    <span class="story-id">US-5.2</span>
+    As a system, I must <em>store the campaign_id in a first-party cookie with the configured TTL (attribution window days)</em> so that return visits within the window are still attributed.
+  </div>
+  <div class="story">
+    <span class="story-id">US-5.3</span>
+    As a system, I must <em>link the current session to the campaign in our DB</em> so that all page views and events in this session are campaign-attributed.
+  </div>
+  <div class="story">
+    <span class="story-id">US-5.4</span>
+    As a system, I must <em>continue attributing user sessions to the campaign for X days (configurable per campaign)</em> so that delayed conversions are tracked.
+  </div>
+  <div class="story">
+    <span class="story-id">US-5.5</span>
+    As a system, I must <em>handle multiple campaign attributions (user clicked campaign A on Monday, campaign B on Wednesday)</em> by storing all touchpoints for multi-touch attribution.
+  </div>
+
+  <div class="condition">user is authenticated → use server-side user_id for reliable attribution</div>
+  <div class="condition">user is anonymous → rely on first-party cookie for session linking</div>
+  <div class="condition">attribution window expired → no more campaign credit for this user's actions</div>
+  <div class="condition">user has multiple campaign cookies → store ALL touchpoints (multi-touch)</div>
+  <div class="condition">no UTM params but user came from campaign link → fallback to referrer detection</div>
+
+  <div class="data-note">NEW table: marketing.campaign_attributions (id, user_id, session_id, campaign_id, variant_label, medium, touchpoint_type [click/open/visit], touchpoint_at, attribution_window_end). Modify analytics.utm_tracking to add campaign_id FK.</div>
+</div>
+
+<!-- ==================== STAGE 6 ==================== -->
+
+<h2 id="stage6">Stage 6: On-Site Engagement Tracking</h2>
+<div class="section section-green">
+  <span class="where-badge where-app">YOUR APP</span>
+  <span class="phase-label">USER ACTION + SYSTEM TRACKING</span>
+  <p>User browses the site. <strong>Your app</strong> tracks every interaction (page views, product views, cart adds, purchases) and links them to the originating campaign(s). Entirely your tracking module &mdash; Brevo is not involved.</p>
+
+  <h3>User Stories <span class="count">(6)</span></h3>
+
+  <div class="story">
+    <span class="story-id">US-6.1</span>
+    As a system, I must <em>track all page views with path, duration, and scroll depth during attributed sessions</em> so that post-campaign engagement is measured.
+  </div>
+  <div class="story">
+    <span class="story-id">US-6.2</span>
+    As a system, I must <em>fire and store product_viewed events</em> so that we know which products attracted campaign-driven visitors.
+  </div>
+  <div class="story">
+    <span class="story-id">US-6.3</span>
+    As a system, I must <em>fire and store add_to_cart events</em> so that we track purchase intent from campaigns.
+  </div>
+  <div class="story">
+    <span class="story-id">US-6.4</span>
+    As a system, I must <em>fire and store checkout_abandoned events</em> so that drop-off points are identified.
+  </div>
+  <div class="story">
+    <span class="story-id">US-6.5</span>
+    As a system, I must <em>track click interactions on the website (which elements users click)</em> so that we can build on-site heatmaps showing where campaign-driven users interact most.
+  </div>
+  <div class="story">
+    <span class="story-id">US-6.6</span>
+    As an admin, I want to <em>adjust the attribution window per user</em> (e.g., extend it for high-value prospects) so that I can customize tracking for important leads.
+  </div>
+
+  <div class="condition">session has campaign attribution → all events in session tagged with campaign_id(s)</div>
+  <div class="condition">user returns within attribution window → new session still attributed</div>
+  <div class="condition">user returns AFTER attribution window → session NOT attributed to campaign</div>
+  <div class="condition">user converts (purchase) → mark campaign_recipients.converted_at, log revenue</div>
+
+  <div class="data-note">Fire new events: product_viewed, add_to_cart, checkout_abandoned, purchase_completed. Add campaign_id to analytics.events for attributed sessions. NEW: on-site click tracking (element, coordinates, page) for heatmap.</div>
+</div>
+
+<!-- ==================== STAGE 7 ==================== -->
+
+<h2 id="stage7">Stage 7: Campaign-Level Analytics (Conversion Funnel)</h2>
+<div class="section section-purple">
+  <span class="where-badge where-both">YOUR APP (primary) + BREVO (supplemental)</span>
+  <span class="phase-label">ADMIN VIEW</span>
+  <p>The campaign dashboard. <strong>Your app</strong> builds all funnel views from your own DB (campaign_recipients + webhook events + page_views + orders). <strong>Brevo</strong> provides supplemental per-campaign stats (globalStats, linksStats, statsByDevice) that you can pull periodically to enrich your dashboard. Cross-campaign aggregation, segment comparison, and attribution are 100% your app.</p>
+
+  <h3>User Stories <span class="count">(8)</span></h3>
+
+  <div class="story">
+    <span class="story-id">US-7.1</span>
+    As an admin, I want to <em>see the full conversion funnel for a campaign</em> (Sent → Delivered → Opened → Clicked → Visited → Engaged → Added to Cart → Purchased → Revenue) with counts and drop-off rates at each stage.
+  </div>
+  <div class="story">
+    <span class="story-id">US-7.2</span>
+    As an admin, I want to <em>see an email click heatmap</em> showing which links and sections of the email got the most clicks, so that I can design future emails to match user behavior.
+  </div>
+  <div class="story">
+    <span class="story-id">US-7.3</span>
+    As an admin, I want to <em>compare A/B variant performance side by side</em> (open rate, click rate, conversion rate, revenue) so that I can pick the winning variant.
+  </div>
+  <div class="story">
+    <span class="story-id">US-7.4</span>
+    As an admin, I want to <em>see performance broken down by audience segment</em> so that I know which segments responded best.
+  </div>
+  <div class="story">
+    <span class="story-id">US-7.5</span>
+    As an admin, I want to <em>see device/browser/email-client breakdown</em> so that I know how users are consuming my campaigns.
+  </div>
+  <div class="story">
+    <span class="story-id">US-7.6</span>
+    As an admin, I want to <em>see the time distribution of opens and clicks</em> (heatmap by hour of day) so that I can optimize send times.
+  </div>
+  <div class="story">
+    <span class="story-id">US-7.7</span>
+    As an admin, I want to <em>see revenue attributed to this campaign</em> (total, per user, average basket) so that I can measure ROI.
+  </div>
+  <div class="story">
+    <span class="story-id">US-7.8</span>
+    As an admin, I want to <em>compare this campaign's performance against campaign goals I set</em> so that I can evaluate success/failure objectively.
+  </div>
+
+  <div class="condition">campaign is still within attribution window → stats are "live" (still accumulating)</div>
+  <div class="condition">campaign attribution window closed → stats are "final"</div>
+  <div class="condition">A/B test → show winner badge, statistical significance indicator</div>
+
+  <div class="condition"><strong style="color:#f7768e;">PRE-AGGREGATION STRATEGY (F24):</strong> Campaign analytics are NOT computed on-the-fly for every page load. A <code>marketing.campaign_stats_summary</code> materialized table is refreshed periodically (every 30 minutes via background job) and on-demand (admin clicks "Refresh" button). This avoids the 6-table JOIN (campaign_recipients → webhooks → attributions → page_views → events → orders) on every dashboard view. The summary stores: sent, delivered, opened, clicked, visited, engaged, carted, converted, revenue, bounce_rate, open_rate, click_rate — per campaign + per variant.</div>
+
+  <div class="data-note">Funnel query joins: campaign_recipients → email_webhook_events → campaign_attributions → page_views → analytics.events → ecommerce.orders. Pre-aggregated into <code>marketing.campaign_stats_summary</code> (refreshed every 30min + on-demand). Raw tables still used for drill-down views (per-user, per-link, time-distribution). NEW table: marketing.campaign_stats_summary (campaign_id, variant_label, sent, delivered, opened, unique_opened, clicked, unique_clicked, visited, engaged, carted, converted, revenue, last_refreshed_at).</div>
+</div>
+
+<!-- ==================== STAGE 8 ==================== -->
+
+<h2 id="stage8">Stage 8: User-Level Timeline</h2>
+<div class="section section-orange">
+  <span class="where-badge where-app">YOUR APP</span>
+  <span class="phase-label">ADMIN VIEW</span>
+  <p>The user journey view &mdash; a chronological event stream for a single user across ALL campaigns and interactions. 100% <strong>your app</strong>. Brevo's per-contact stats (GET /contacts/{id}/campaignStats) is limited to 90-day windows and doesn't include on-site behavior. Your DB has everything needed.</p>
+
+  <h3>User Stories <span class="count">(5)</span></h3>
+
+  <div class="story">
+    <span class="story-id">US-8.1</span>
+    As an admin, I want to <em>see a chronological timeline of everything a user did</em> — campaign deliveries, opens, clicks, site visits, page views, cart actions, purchases — so that I understand their full journey.
+  </div>
+  <div class="story">
+    <span class="story-id">US-8.2</span>
+    As an admin, I want to <em>see campaign touchpoints highlighted on the timeline</em> (which campaigns touched this user, when, and what happened after each) so that I can see which campaigns influenced their behavior.
+  </div>
+  <div class="story">
+    <span class="story-id">US-8.3</span>
+    As an admin, I want to <em>see the user's engagement score over time</em> (graph showing momentum rising and falling) so that I can understand their engagement pattern.
+  </div>
+  <div class="story">
+    <span class="story-id">US-8.4</span>
+    As an admin, I want to <em>see which campaigns this user belongs to</em> (active, completed, pending) and their status in each so that I know their current marketing context.
+  </div>
+  <div class="story">
+    <span class="story-id">US-8.5</span>
+    As an admin, I want to <em>see the user's conversion history</em> — what they purchased, when, and which campaign(s) are attributed — so that I can measure lifetime campaign impact.
+  </div>
+
+  <div class="data-note">Timeline query: UNION ALL across campaign_recipients, email_webhook_events, campaign_attributions, page_views, analytics.events, ecommerce.orders — all for one user_id, sorted by timestamp. Engagement score computed from weighted sum of recent events with decay.</div>
+</div>
+
+<!-- ==================== STAGE 9 ==================== -->
+
+<h2 id="stage9">Stage 9: Effectiveness Evaluation &amp; Continuous Improvement</h2>
+<div class="section section-teal">
+  <span class="where-badge where-both">YOUR APP (primary) + BREVO (revenue data)</span>
+  <span class="phase-label">ADMIN VIEW</span>
+  <p>The big picture. <strong>Your app</strong> computes all cross-campaign comparisons, multi-touch attribution, trend lines, and cohort analysis from your DB. <strong>Brevo</strong> can supplement with its own revenue attribution (GET /ecommerce/attribution/metrics) as a cross-check &mdash; but Brevo's model is fixed (last-click, 48hr) while yours is configurable. Insights from this stage feed back into Stage 1 &mdash; admin creates new audiences using campaign engagement filters based on what they learn here.</p>
+
+  <h3>User Stories <span class="count">(4 + sub-views)</span></h3>
+
+  <div class="story">
+    <span class="story-id">US-9.1</span>
+    As an admin, I want to <em>see a cross-campaign comparison dashboard</em> showing all campaigns ranked by: conversion rate, revenue, ROI, engagement rate — so that I can identify what works.
+  </div>
+  <div class="story">
+    <span class="story-id">US-9.2</span>
+    As an admin, I want to <em>see multi-touch attribution</em> showing how combinations of campaigns contributed to conversions (e.g., "users who received campaigns A, B, and C converted at 3x the rate of those who received only A") so that I understand campaign synergy.
+  </div>
+  <div class="story">
+    <span class="story-id">US-9.3</span>
+    As an admin, I want to <em>see time-based trend lines</em> (weekly/monthly engagement rates, conversion rates, revenue per campaign) so that I can detect list fatigue, seasonality, and improvement over time.
+  </div>
+  <div class="story">
+    <span class="story-id">US-9.4</span>
+    As an admin, I want to <em>switch between attribution models</em> (last-click, first-touch, linear, time-decay, U-shaped) and see how the numbers change so that I can choose the model that best represents my business.
+  </div>
+
+  <h3>Sub-Views</h3>
+  <table>
+    <tr><th>View</th><th>What It Shows</th><th>Key Metrics</th></tr>
+    <tr><td>Campaign Ranking</td><td>All campaigns sorted by chosen metric</td><td>Conversion rate, revenue, ROI, cost per conversion</td></tr>
+    <tr><td>Attribution Comparison</td><td>Same data under different attribution models side by side</td><td>Credit per campaign under each model</td></tr>
+    <tr><td>Trend Lines</td><td>Rolling averages over weeks/months</td><td>Open rate, CTR, conversion rate, revenue, engagement score distribution</td></tr>
+    <tr><td>Cohort Analysis</td><td>Users grouped by first-campaign-received date</td><td>Retention, LTV, engagement decay over time</td></tr>
+    <tr><td>Medium Comparison</td><td>Email vs SMS vs WhatsApp effectiveness</td><td>Per-medium conversion rate, cost per conversion</td></tr>
+    <tr><td>Segment Performance</td><td>Which audience segments convert best across all campaigns</td><td>Per-segment conversion rate, revenue, engagement</td></tr>
+  </table>
+
+  <div class="data-note">All computed from the same underlying tables — campaign_recipients, email_webhook_events, campaign_attributions, analytics.events, ecommerce.orders. Attribution model is a report-time parameter, not stored.</div>
+</div>
+
+<!-- ==================== STAGE 10 ==================== -->
+
+<h2 id="stage10">Stage 10: Automation Flow Builder</h2>
+<div class="section section-blue">
+  <span class="where-badge where-app">YOUR APP</span>
+  <span class="phase-label">ADMIN ACTION</span>
+  <p>The admin builds automated multi-step sequences that fire when events occur. This is the "Klaviyo Flows" equivalent. 100% <strong>your app</strong> &mdash; flow definitions are stored in your DB, version-controlled, and template-portable. Brevo is only involved when a Send step executes (it goes through the same Stage 3 delivery pipeline).</p>
+
+  <h3>Trigger Types</h3>
+  <table>
+    <tr><th>Trigger</th><th>Fires When</th><th>Example</th></tr>
+    <tr><td>Event</td><td>A specific event is recorded</td><td><code>user.registered</code>, <code>cart.abandoned</code>, <code>order.completed</code></td></tr>
+    <tr><td>Segment Entry</td><td>User enters a segment (filter match)</td><td>User's RFM segment changes to "At-Risk"</td></tr>
+    <tr><td>Segment Exit</td><td>User leaves a segment</td><td>User no longer qualifies as "Champion"</td></tr>
+    <tr><td>Engagement Score</td><td>Score crosses threshold or velocity spike</td><td>Score > 60, or velocity_7d > 30</td></tr>
+    <tr><td>Date-Based</td><td>Relative to a user attribute date</td><td>7 days after signup, birthday, subscription renewal</td></tr>
+    <tr><td>Campaign-Based</td><td>User did/didn't act on a campaign</td><td>Received Campaign X but didn't open within 48hrs</td></tr>
+    <tr><td>Manual</td><td>Admin enrolls specific users</td><td>Bulk-enroll a CSV list of user_ids</td></tr>
+  </table>
+
+  <h3>User Stories <span class="count">(12)</span></h3>
+
+  <div class="story">
+    <span class="story-id">US-10.1</span>
+    As an admin, I want to <em>create an automation flow by choosing a trigger type and defining a sequence of steps</em> so that campaigns fire automatically when events occur.
+  </div>
+  <div class="story">
+    <span class="story-id">US-10.2</span>
+    As an admin, I want to <em>add a Send step that sends an email, SMS, or WhatsApp message using a chosen template</em> so that the flow can reach users on the right channel.
+  </div>
+  <div class="story">
+    <span class="story-id">US-10.3</span>
+    As an admin, I want to <em>add a Wait step with a configurable delay (hours, days, or "until next weekday at 10am")</em> so that messages are spaced out naturally.
+  </div>
+  <div class="story">
+    <span class="story-id">US-10.4</span>
+    As an admin, I want to <em>add a Branch (IF/ELSE) step that splits the flow based on user behavior</em> (opened previous email? clicked? visited page? has attribute? score above N?) so that flows adapt to each user's actions.
+  </div>
+  <div class="story">
+    <span class="story-id">US-10.5</span>
+    As an admin, I want to <em>add an A/B Split step that randomly divides users into paths</em> (e.g., 50/50 or 70/30) so that I can test different flow strategies against each other.
+  </div>
+  <div class="story">
+    <span class="story-id">US-10.6</span>
+    As an admin, I want to <em>add an Update step that tags a user, updates an attribute, or adjusts their engagement score</em> so that flow progression leaves a data trail for future targeting.
+  </div>
+  <div class="story">
+    <span class="story-id">US-10.7</span>
+    As an admin, I want to <em>define a Goal for the flow</em> (e.g., "user makes a purchase", "user verifies email") so that users who complete the goal automatically exit the flow and are counted as converted.
+  </div>
+  <div class="story">
+    <span class="story-id">US-10.8</span>
+    As an admin, I want to <em>set flow-level re-entry rules</em> (never re-enter, re-enter after N days, always re-enter) so that I control whether users can go through the same flow multiple times.
+  </div>
+  <div class="story">
+    <span class="story-id">US-10.9</span>
+    As an admin, I want to <em>set a flow timeout</em> (e.g., "exit after 30 days if goal not reached") so that users don't linger in flows forever.
+  </div>
+  <div class="story">
+    <span class="story-id">US-10.10</span>
+    As an admin, I want to <em>chain flows together</em> &mdash; the exit of Flow A (with a specific exit tag) triggers entry into Flow B &mdash; so that I can build complex multi-phase journeys without one monolithic flow.
+  </div>
+  <div class="story">
+    <span class="story-id">US-10.11</span>
+    As an admin, I want to <em>preview a flow visually before activating</em> (step diagram with estimated audience sizes at each branch) so that I can validate the logic.
+  </div>
+  <div class="story">
+    <span class="story-id">US-10.12</span>
+    As an admin, I want to <em>clone an existing flow as a starting point</em> so that I don't rebuild common patterns from scratch.
+  </div>
+
+  <div class="condition">flow must have at least one trigger + one Send step to be activatable</div>
+  <div class="condition">flow with segment trigger → system checks segment membership periodically (every 15min or configurable)</div>
+  <div class="condition">flow with event trigger → enrolls user synchronously when event fires</div>
+  <div class="condition">user already enrolled in this flow + re-entry = "never" → skip enrollment</div>
+  <div class="condition">user unsubscribed / suppressed → skip Send steps, log as "skipped_consent"</div>
+  <div class="condition"><strong style="color:#f7768e;">CHAIN DEPTH LIMIT (F5):</strong> Maximum chain depth = 5. When Flow A's exit triggers Flow B, the enrollment carries <code>chain_depth</code> (incremented) and <code>chain_origin_flow_id</code> (set to Flow A's origin or Flow A itself). At enrollment time, if chain_depth >= 5 → reject with log "max_chain_depth_exceeded". Cycle detection: before activating a flow, traverse all chained triggers to verify no cycle exists (A → B → C → A). Reject activation with a clear error if cycle detected.</div>
+
+  <div class="data-note">NEW tables: marketing.automation_flows (id, name, trigger_type, trigger_config JSON, goal_config JSON, re_entry_policy, timeout_days, <strong>chain_depth_limit INT DEFAULT 5</strong>, status [draft/active/paused/archived], created_at, updated_at). marketing.automation_flow_steps (id, flow_id, step_order, step_type [send/wait/branch/split/update/webhook], config JSON, parent_step_id, branch_label). marketing.automation_flow_connections (from_step_id, to_step_id, branch_label) for non-linear flows.</div>
+</div>
+
+<!-- ==================== STAGE 11 ==================== -->
+
+<h2 id="stage11">Stage 11: Flow Execution Engine</h2>
+<div class="section section-orange">
+  <span class="where-badge where-both">YOUR APP (engine) + BREVO (delivery)</span>
+  <span class="phase-label">SYSTEM ACTION</span>
+  <p>The runtime engine that executes flows. <strong>Your app</strong> manages the state machine &mdash; enrollment, step progression, wait resolution, branch evaluation, goal checking. When a Send step fires, it goes through the same Stage 3 delivery pipeline (resolve → Brevo API → webhook). <strong>A background worker</strong> checks every minute for wait steps that have expired and advances those enrollments.</p>
+
+  <h3>User Stories <span class="count">(8)</span></h3>
+
+  <div class="story">
+    <span class="story-id">US-11.1</span>
+    As a system, I must <em>enroll a user into a flow when the trigger condition is met</em> and create an enrollment record tracking their position in the flow.
+  </div>
+  <div class="story">
+    <span class="story-id">US-11.2</span>
+    As a system, I must <em>execute Send steps by routing through the Stage 3 delivery pipeline</em> (resolve contact → send via Brevo → log recipient → receive webhooks) so that flow messages have identical tracking to one-off campaigns.
+  </div>
+  <div class="story">
+    <span class="story-id">US-11.3</span>
+    As a system, I must <em>process Wait steps by recording the resume_at timestamp</em> and a background worker must advance enrollments whose wait has expired (checked every 60 seconds).
+  </div>
+  <div class="story">
+    <span class="story-id">US-11.4</span>
+    As a system, I must <em>evaluate Branch conditions by checking the user's state</em> (opened email X? clicked? visited page? attribute value? score?) and route to the correct path.
+  </div>
+  <div class="story">
+    <span class="story-id">US-11.5</span>
+    As a system, I must <em>check the flow's Goal condition after every step</em> and exit the user from the flow (with status "goal_completed") if the goal is met.
+  </div>
+  <div class="story">
+    <span class="story-id">US-11.6</span>
+    As a system, I must <em>check consent and suppression before every Send step</em> — if the user has unsubscribed or been suppressed since enrollment, skip the send and log it.
+  </div>
+  <div class="story">
+    <span class="story-id">US-11.7</span>
+    As a system, I must <em>respect the global frequency cap</em> — if a user has already received N messages this week (across ALL flows + campaigns), delay or skip the send step and log it.
+  </div>
+  <div class="story">
+    <span class="story-id">US-11.8</span>
+    As a system, I must <em>handle flow chaining</em> — when a user exits a flow with a specific tag/status, check if any other flows have a "flow exit" trigger matching that tag and enroll them.
+  </div>
+
+  <div class="condition"><strong style="color:#f7768e;">ENROLLMENT UNIQUENESS (F21):</strong> UNIQUE constraint on (flow_id, user_id) WHERE status='active'. Check-and-insert in a single transaction (INSERT ... ON CONFLICT DO NOTHING or SELECT FOR UPDATE + INSERT). This prevents duplicate enrollments when the same trigger fires twice in quick succession (e.g., webhook retry, double-click). If re_entry_policy allows re-entry, the existing enrollment must be in a terminal state (completed/timed_out/exited) before a new one is created.</div>
+  <div class="condition">Send step + user unsubscribed → skip, log "skipped_consent", advance to next step</div>
+  <div class="condition">Send step + frequency cap exceeded → delay to next window OR skip (configurable per flow)</div>
+  <div class="condition">Send step + quiet hours active for SMS/WhatsApp → delay to next allowed window</div>
+  <div class="condition">Wait step completed → worker picks up within 60 seconds (not instant)</div>
+  <div class="condition">Branch step + condition not evaluable (missing data) → take ELSE path</div>
+  <div class="condition">Flow timeout reached → exit user with status "timed_out"</div>
+  <div class="condition">User manually removed by admin → exit with status "admin_removed"</div>
+
+  <div class="data-note">NEW tables: marketing.flow_enrollments (id, flow_id, user_id, current_step_id, status [active/completed/goal_completed/timed_out/exited/admin_removed], <strong>chain_depth INT DEFAULT 0, chain_origin_flow_id UUID</strong>, enrolled_at, completed_at, exit_reason). UNIQUE partial index: (flow_id, user_id) WHERE status='active'. marketing.flow_step_executions (id, enrollment_id, step_id, status [pending/waiting/executed/skipped], executed_at, resume_at, result JSON, skip_reason). Background worker: SELECT enrollments WHERE status='active' AND current step is Wait AND resume_at &lt;= NOW().</div>
+</div>
+
+<!-- ==================== STAGE 12 ==================== -->
+
+<h2 id="stage12">Stage 12: Flow Analytics</h2>
+<div class="section section-purple">
+  <span class="where-badge where-app">YOUR APP</span>
+  <span class="phase-label">ADMIN VIEW</span>
+  <p>Analytics for automation flows &mdash; the equivalent of Klaviyo's flow analytics. 100% <strong>your app</strong>. Brevo has zero flow analytics API. Every metric is computed from your flow_enrollments + flow_step_executions + campaign_recipients tables.</p>
+
+  <h3>User Stories <span class="count">(6)</span></h3>
+
+  <div class="story">
+    <span class="story-id">US-12.1</span>
+    As an admin, I want to <em>see a per-flow conversion funnel</em> (Enrolled → Step 1 executed → Step 2 executed → ... → Goal Completed) with counts and drop-off percentages at each step so that I can identify where users fall off.
+  </div>
+  <div class="story">
+    <span class="story-id">US-12.2</span>
+    As an admin, I want to <em>see per-step metrics for Send steps</em> (delivered, opened, clicked, converted) identical to campaign analytics so that I can optimize individual messages within a flow.
+  </div>
+  <div class="story">
+    <span class="story-id">US-12.3</span>
+    As an admin, I want to <em>see branch split ratios</em> (what % of users took the YES path vs NO path at each Branch step) so that I can understand which conditions are driving behavior.
+  </div>
+  <div class="story">
+    <span class="story-id">US-12.4</span>
+    As an admin, I want to <em>see time-to-goal distribution</em> (how long does it take users to reach the goal after enrollment?) so that I can optimize wait step durations.
+  </div>
+  <div class="story">
+    <span class="story-id">US-12.5</span>
+    As an admin, I want to <em>see revenue attributed to this flow</em> (total conversions, total revenue, revenue per enrollment) so that I can measure the flow's ROI.
+  </div>
+  <div class="story">
+    <span class="story-id">US-12.6</span>
+    As an admin, I want to <em>compare flow performance against one-off campaigns</em> ("Is the welcome flow driving more revenue than the welcome blast?") so that I can decide where to invest effort.
+  </div>
+
+  <div class="condition">flow has A/B split → show winner per path with statistical significance</div>
+  <div class="condition">flow is active → stats are "live" (still enrolling), show current enrollment count</div>
+  <div class="condition">flow is paused/archived → stats are "final"</div>
+
+  <div class="data-note">Funnel query: COUNT enrollments grouped by furthest step reached. Revenue: JOIN flow_enrollments → campaign_recipients (via flow_id on the campaign) → ecommerce.orders within attribution window. Time-to-goal: completed_at - enrolled_at distribution.</div>
+</div>
+
+<!-- ==================== STAGE 13 ==================== -->
+
+<h2 id="stage13">Stage 13: Messaging Guardrails &amp; List Hygiene</h2>
+<div class="section section-pink">
+  <span class="where-badge where-app">YOUR APP</span>
+  <span class="phase-label">SYSTEM + ADMIN CONFIG</span>
+  <p>Safety rails that prevent over-messaging, protect deliverability, and keep audiences healthy. These apply globally across ALL campaigns and flows. 100% <strong>your app</strong>. These are the features that separate a professional marketing platform from a spam cannon.</p>
+
+  <h3>User Stories <span class="count">(10)</span></h3>
+
+  <div class="story">
+    <span class="story-id">US-13.1</span>
+    As an admin, I want to <em>set a global frequency cap</em> (e.g., "no user receives more than 3 marketing emails per week" or "max 1 SMS per day") that applies across ALL campaigns and flows, so that I don't burn out my audience.
+  </div>
+  <div class="story">
+    <span class="story-id">US-13.2</span>
+    As an admin, I want to <em>set quiet hours per channel</em> (e.g., "no SMS or WhatsApp between 9pm and 8am in the user's timezone") so that I respect users' time and comply with regulations.
+  </div>
+  <div class="story">
+    <span class="story-id">US-13.3</span>
+    As an admin, I want to <em>set a sunset policy</em> (e.g., "auto-suppress users who haven't opened any email in 90 days") so that my list stays healthy and deliverability stays high.
+  </div>
+  <div class="story">
+    <span class="story-id">US-13.4</span>
+    As a system, I must <em>detect engagement fatigue</em> (declining open/click rates across consecutive campaigns to the same user) and alert the admin before deliverability degrades.
+  </div>
+  <div class="story">
+    <span class="story-id">US-13.5</span>
+    As an admin, I want to <em>set per-flow priority levels</em> (e.g., cart abandonment = high, newsletter = low) so that when the frequency cap is hit, lower-priority messages are deferred first.
+  </div>
+  <div class="story">
+    <span class="story-id">US-13.6</span>
+    As a system, I must <em>use send time optimization</em> &mdash; either Brevo's <code>sendAtBestTime</code> for campaigns, or our own model based on historical open-time data &mdash; so that messages arrive when users are most likely to engage.
+  </div>
+  <div class="story">
+    <span class="story-id">US-13.7</span>
+    As an admin, I want to <em>see a "message pressure" dashboard</em> showing how many messages each user segment is receiving per week and which users are approaching the frequency cap, so that I can spot over-messaging before it becomes a problem.
+  </div>
+  <div class="story">
+    <span class="story-id">US-13.8</span>
+    As an admin, I want to <em>configure dynamic content blocks within email templates</em> (e.g., show different product recommendations based on user's browsing history, or different copy based on engagement score tier) so that one template can personalize for different users.
+  </div>
+  <div class="story">
+    <span class="story-id">US-13.9</span>
+    As an admin, I want to <em>see a deliverability health dashboard</em> (bounce rate trend, spam complaint rate, domain reputation indicators) so that I can catch problems before ISPs start blocking my emails.
+  </div>
+  <div class="story">
+    <span class="story-id">US-13.10</span>
+    As a system, I must <em>automatically exclude users who already converted</em> (purchased the promoted product, completed the goal action) from follow-up campaigns and flow Send steps targeting the same goal, so that we don't send "buy now" messages to people who already bought.
+  </div>
+
+  <div class="condition">frequency cap exceeded → message queued for next available window, not dropped</div>
+  <div class="condition">quiet hours active + message is SMS/WhatsApp → delay to next allowed hour</div>
+  <div class="condition">quiet hours active + message is email → send anyway (email is not intrusive)</div>
+  <div class="condition">sunset policy triggered → user moved to "sunset_suppressed" status, reversible by admin</div>
+  <div class="condition">bounce rate exceeds 5% on a campaign → alert admin, suggest list cleaning</div>
+  <div class="condition">spam complaint rate exceeds 0.1% → alert admin, pause campaign sends</div>
+
+  <div class="data-note">NEW table: marketing.messaging_config (key, value JSON) — stores frequency cap, quiet hours, sunset policy, priority rules. NEW table: marketing.message_pressure_log (user_id, channel, message_count_7d, last_sent_at) — materialized or computed. Modify campaign_recipients + flow_step_executions: add skip_reason enum (consent, frequency_cap, quiet_hours, sunset, suppressed).</div>
+</div>
+
+<!-- ==================== COMMON FLOW TEMPLATES ==================== -->
+
+<h2>Common Automation Flow Templates</h2>
+<div class="section section-teal">
+  <p style="font-size:0.85rem;color:#565f89;margin-bottom:0.8rem;">These are the "starter flows" that ship with the template — an admin enables and customizes them per deployment. Every major platform ships equivalents.</p>
+  <table>
+    <tr><th>Flow</th><th>Trigger</th><th>Steps</th><th>Goal</th><th>Typical Medium</th></tr>
+    <tr>
+      <td><strong>Welcome Sequence</strong></td>
+      <td><code>user.registered</code></td>
+      <td>Email 1 (immediate) → Wait 2d → Branch: opened? → YES: Email 2 (getting started) → Wait 3d → Email 3 (first offer) / NO: Re-send Email 1 with new subject → Wait 3d → Try SMS</td>
+      <td>First purchase OR profile completed</td>
+      <td><span class="badge badge-email">Email</span> <span class="badge badge-sms">SMS</span></td>
+    </tr>
+    <tr>
+      <td><strong>Cart Abandonment</strong></td>
+      <td><code>cart.abandoned</code> (1hr after last cart activity, no purchase)</td>
+      <td>Email 1 (reminder, 1hr) → Wait 24hr → Branch: purchased? → NO: Email 2 (urgency/discount) → Wait 48hr → Branch: purchased? → NO: SMS (last chance)</td>
+      <td>Purchase completed</td>
+      <td><span class="badge badge-email">Email</span> <span class="badge badge-sms">SMS</span></td>
+    </tr>
+    <tr>
+      <td><strong>Post-Purchase</strong></td>
+      <td><code>order.completed</code></td>
+      <td>Email 1 (thank you, immediate) → Wait 7d → Email 2 (review request) → Wait 21d → Email 3 (re-order / cross-sell)</td>
+      <td>Second purchase</td>
+      <td><span class="badge badge-email">Email</span></td>
+    </tr>
+    <tr>
+      <td><strong>Win-Back</strong></td>
+      <td>Segment exit: leaves "Active Customers" (no activity 30d)</td>
+      <td>Email 1 (we miss you) → Wait 7d → Branch: re-engaged? → NO: Email 2 (special offer) → Wait 14d → SMS (personal touch) → Wait 30d → Sunset suppress</td>
+      <td>Any site visit or purchase</td>
+      <td><span class="badge badge-email">Email</span> <span class="badge badge-sms">SMS</span></td>
+    </tr>
+    <tr>
+      <td><strong>Browse Abandonment</strong></td>
+      <td><code>product_viewed</code> (3+ products in session, no cart add)</td>
+      <td>Wait 2hr → Email (products you viewed) → Wait 24hr → Branch: added to cart? → NO: Email 2 (similar products)</td>
+      <td>Add to cart or purchase</td>
+      <td><span class="badge badge-email">Email</span></td>
+    </tr>
+    <tr>
+      <td><strong>Momentum Surge</strong></td>
+      <td>Engagement score velocity_7d &gt; 30</td>
+      <td>Tag as "hot_lead" → Wait 1hr → Email (personalized offer based on browsing) → Wait 24hr → Branch: converted? → NO: SMS (time-limited offer)</td>
+      <td>Purchase</td>
+      <td><span class="badge badge-email">Email</span> <span class="badge badge-sms">SMS</span></td>
+    </tr>
+    <tr>
+      <td><strong>Review / NPS Request</strong></td>
+      <td><code>order.delivered</code> (or 7 days post-purchase)</td>
+      <td>Email (review request + NPS survey link) → Wait 5d → Branch: reviewed? → NO: SMS (short prompt)</td>
+      <td>Review submitted</td>
+      <td><span class="badge badge-email">Email</span> <span class="badge badge-sms">SMS</span></td>
+    </tr>
+  </table>
+
+  <h3>Flow Chaining Example</h3>
+  <div style="background:#24283b;border-radius:6px;padding:1rem;margin:0.5rem 0;font-size:0.82rem;font-family:monospace;white-space:pre;overflow-x:auto;color:#9ece6a;">
+Flow A: Welcome Sequence
+  trigger: user.registered
+  steps: Email → Wait → Branch → Email/SMS
+  goal: first_purchase
+  exit_tag: "onboarded"
+      ↓ (on exit with tag "onboarded" + no purchase)
+Flow B: Browse Nurture
+  trigger: flow_exit("welcome", tag="onboarded") + no purchase within 14d
+  steps: Email (trending products) → Wait → Branch → Email (personalized)
+  goal: first_purchase
+  exit_tag: "nurtured"
+      ↓ (on exit with tag "nurtured" + still no purchase)
+Flow C: Win-Back / Last Chance
+  trigger: flow_exit("browse_nurture", tag="nurtured") + no purchase
+  steps: Email (discount) → Wait → SMS → Wait → Sunset
+  goal: first_purchase
+  exit: sunset_suppress if no goal</div>
+</div>
+
+<!-- ==================== DATA MODEL SUMMARY ==================== -->
+
+<h2>Data Model Summary</h2>
+<div class="section section-blue">
+  <h3>New Tables Required</h3>
+  <table>
+    <tr><th>Table</th><th>Purpose</th><th>Key Columns</th></tr>
+    <tr>
+      <td><code>marketing.campaign_recipients</code></td>
+      <td>Who received which campaign (insert-before-send pattern)</td>
+      <td>campaign_id, variant_label, user_id, email, phone, medium, provider_message_id, status [sending/sent/delivered/bounced/failed], sent_at, delivered_at, opened_at, clicked_at, converted_at, revenue</td>
+    </tr>
+    <tr>
+      <td><code>marketing.campaign_link_clicks</code></td>
+      <td>LAYER 1: Email link click tracking (from Brevo webhooks)</td>
+      <td>campaign_id, variant_label, user_id, link_url, link_position_id, link_category, clicked_at, is_bot, user_agent, device</td>
+    </tr>
+    <tr>
+      <td><code>analytics.page_click_interactions</code></td>
+      <td>LAYER 2+3: Landing page click coordinate tracking (our JS tracker)</td>
+      <td>id, session_id, user_id, campaign_id, page_path, click_x, click_y, viewport_width, viewport_height, element_tag, element_id, element_class, scroll_y, clicked_at</td>
+    </tr>
+    <tr>
+      <td><code>marketing.campaign_attributions</code></td>
+      <td>Session-to-campaign linking</td>
+      <td>user_id, session_id, campaign_id, variant_label, medium, touchpoint_type, touchpoint_at, attribution_window_end</td>
+    </tr>
+    <tr>
+      <td><code>analytics.engagement_scores</code></td>
+      <td>User engagement scoring</td>
+      <td>user_id, score, velocity_7d, last_computed_at, breakdown_json: <code>{"email_open": 3, "email_click": 6, "page_view": 2, "product_view": 10, "add_to_cart": 12, "purchase": 25, "decay_applied": -8}</code></td>
+    </tr>
+    <tr>
+      <td><code>marketing.campaign_stats_summary</code></td>
+      <td><strong>(F24)</strong> Pre-aggregated campaign metrics — refreshed every 30min + on-demand</td>
+      <td>campaign_id, variant_label, sent, delivered, opened, unique_opened, clicked, unique_clicked, visited, engaged, carted, converted, revenue, bounce_rate, open_rate, click_rate, last_refreshed_at</td>
+    </tr>
+    <tr>
+      <td><code>marketing.automation_flows</code></td>
+      <td>Flow definitions (the "what")</td>
+      <td>id, name, trigger_type, trigger_config (JSON), goal_config (JSON), re_entry_policy, timeout_days, chain_depth_limit (INT DEFAULT 5), priority, status [draft/active/paused/archived], created_at</td>
+    </tr>
+    <tr>
+      <td><code>marketing.automation_flow_steps</code></td>
+      <td>Steps within a flow</td>
+      <td>id, flow_id, step_order, step_type [send/wait/branch/split/update/webhook], config (JSON), parent_step_id, branch_label</td>
+    </tr>
+    <tr>
+      <td><code>marketing.automation_flow_connections</code></td>
+      <td>Non-linear step connections (branches, merges)</td>
+      <td>id, from_step_id, to_step_id, branch_label, flow_id</td>
+    </tr>
+    <tr>
+      <td><code>marketing.flow_enrollments</code></td>
+      <td>Users currently in flows (the "runtime state")</td>
+      <td>id, flow_id, user_id, current_step_id, status [active/completed/goal_completed/timed_out/exited/admin_removed], chain_depth (INT DEFAULT 0), chain_origin_flow_id (UUID), enrolled_at, completed_at, exit_reason. <strong>UNIQUE partial index: (flow_id, user_id) WHERE status='active'</strong></td>
+    </tr>
+    <tr>
+      <td><code>marketing.flow_step_executions</code></td>
+      <td>Log of every step executed per enrollment</td>
+      <td>id, enrollment_id, step_id, status [pending/waiting/executed/skipped], executed_at, resume_at, result (JSON), skip_reason</td>
+    </tr>
+    <tr>
+      <td><code>marketing.messaging_config</code></td>
+      <td>Global guardrail settings</td>
+      <td>key (frequency_cap, quiet_hours, sunset_policy, etc.), value (JSON), updated_at</td>
+    </tr>
+    <tr>
+      <td><code>marketing.message_pressure_log</code></td>
+      <td>Per-user message count tracking for frequency capping</td>
+      <td>user_id, channel [email/sms/whatsapp], message_count_7d, message_count_24h, last_sent_at, last_computed_at. Updated on every send; used by guardrails to enforce frequency caps without re-scanning campaign_recipients.</td>
+    </tr>
+  </table>
+
+  <h3>Modified Tables</h3>
+  <table>
+    <tr><th>Table</th><th>Change</th></tr>
+    <tr><td><code>marketing.campaigns</code></td><td>Add: attribution_window_days, enable_heatmap, goal_conversion_rate, goal_revenue, medium (email/sms/whatsapp), last_reconciled_at, reconciliation_delta (JSON)</td></tr>
+    <tr><td><code>analytics.utm_tracking</code></td><td>Add: campaign_id FK to marketing.campaigns</td></tr>
+    <tr><td><code>analytics.events</code></td><td>Add: campaign_id (nullable) for attributed events</td></tr>
+    <tr><td><code>gdpr.email_webhook_events</code></td><td>Ensure payload is populated; add is_bot, is_proxy flags</td></tr>
+    <tr><td><code>marketing.campaign_recipients</code></td><td>Add: flow_id, flow_step_id (nullable) — links flow sends to the same recipient tracking</td></tr>
+  </table>
+
+  <h3>Background Jobs</h3>
+  <table>
+    <tr><th>Job</th><th>Interval</th><th>Purpose</th></tr>
+    <tr><td>Flow Worker</td><td>Every 60 seconds</td><td>Advance flow enrollments past expired Wait steps</td></tr>
+    <tr><td>Stats Refresh</td><td>Every 30 minutes + on-demand</td><td>Refresh marketing.campaign_stats_summary for all active campaigns</td></tr>
+    <tr><td>Webhook Reconciliation</td><td>Every 6 hours</td><td>Pull Brevo campaign stats, backfill missed webhooks</td></tr>
+    <tr><td>Engagement Score Refresh</td><td>Every 30 minutes</td><td>Recompute analytics.engagement_scores with weighted decay</td></tr>
+    <tr><td>Segment Membership Check</td><td>Every 15 minutes (configurable)</td><td>Check segment-triggered flows for new/exited members</td></tr>
+    <tr><td>Sunset Policy Check</td><td>Daily</td><td>Auto-suppress users matching sunset criteria</td></tr>
+  </table>
+
+  <h3>New Events to Fire</h3>
+  <table>
+    <tr><th>Event</th><th>Trigger Point</th><th>Event Data</th></tr>
+    <tr><td><code>product_viewed</code></td><td>Product page render</td><td>product_id, category, price</td></tr>
+    <tr><td><code>add_to_cart</code></td><td>Cart add action</td><td>product_id, quantity, cart_total</td></tr>
+    <tr><td><code>checkout_abandoned</code></td><td>Checkout started but not completed within timeout</td><td>cart_total, items_count</td></tr>
+    <tr><td><code>purchase_completed</code></td><td>Order finalized</td><td>order_id, total, items_count</td></tr>
+  </table>
+</div>
+
+<!-- ==================== COMPLETE USER STORY INDEX ==================== -->
+
+<h2>Complete User Story Index</h2>
+<div class="section section-purple">
+  <table>
+    <tr><th>ID</th><th>Stage</th><th>Story Summary</th><th>Medium</th></tr>
+    <tr><td>US-1.1</td><td>Audience</td><td>Write custom SQL returning user_ids</td><td>All</td></tr>
+    <tr><td>US-1.2</td><td>Audience</td><td>Toggle metric as audience-eligible</td><td>All</td></tr>
+    <tr><td>US-1.3</td><td>Audience</td><td>Use preset segments</td><td>All</td></tr>
+    <tr><td>US-1.4</td><td>Audience</td><td>Combine multiple audiences (AND/OR)</td><td>All</td></tr>
+    <tr><td>US-1.5</td><td>Audience</td><td>Preview audience size</td><td>All</td></tr>
+    <tr><td>US-1.6</td><td>Audience</td><td>Exclude users in active campaigns</td><td>All</td></tr>
+    <tr><td>US-1.7</td><td>Audience</td><td>Save audience for reuse</td><td>All</td></tr>
+    <tr><td>US-1.8</td><td>Audience</td><td>Create audience from campaign engagement results</td><td>All</td></tr>
+    <tr><td>US-1.9</td><td>Audience</td><td>Target multi-campaign overlap (received A AND B, converted on neither)</td><td>All</td></tr>
+    <tr><td>US-2.1</td><td>Create</td><td>Choose medium (Email/SMS/WhatsApp)</td><td>All</td></tr>
+    <tr><td>US-2.2</td><td>Create</td><td>Visual template editor</td><td><span class="badge badge-email">Email</span></td></tr>
+    <tr><td>US-2.3</td><td>Create</td><td>A/B variant testing</td><td><span class="badge badge-email">Email</span></td></tr>
+    <tr><td>US-2.4</td><td>Create</td><td>Custom attribution window</td><td>All</td></tr>
+    <tr><td>US-2.5</td><td>Create</td><td>Enable click heatmap</td><td><span class="badge badge-email">Email</span></td></tr>
+    <tr><td>US-2.6</td><td>Create</td><td>Auto-generate UTM params</td><td>All</td></tr>
+    <tr><td>US-2.7</td><td>Create</td><td>Schedule future send</td><td>All</td></tr>
+    <tr><td>US-2.8</td><td>Create</td><td>Send test to self</td><td>All</td></tr>
+    <tr><td>US-2.9</td><td>Create</td><td>Set campaign goals</td><td>All</td></tr>
+    <tr><td>US-3.1</td><td>Deliver</td><td>Resolve audience → contact list</td><td>All</td></tr>
+    <tr><td>US-3.2</td><td>Deliver</td><td>Sync contacts to Brevo</td><td>All</td></tr>
+    <tr><td>US-3.3</td><td>Deliver</td><td>Record every recipient</td><td>All</td></tr>
+    <tr><td>US-3.4</td><td>Deliver</td><td>Rewrite links with tracking</td><td><span class="badge badge-email">Email</span></td></tr>
+    <tr><td>US-3.5</td><td>Deliver</td><td>Real-time delivery progress</td><td>All</td></tr>
+    <tr><td>US-4.1</td><td>Interaction</td><td>Track email opens</td><td><span class="badge badge-email">Email</span></td></tr>
+    <tr><td>US-4.2</td><td>Interaction</td><td>Track link clicks with URL</td><td>All</td></tr>
+    <tr><td>US-4.3a</td><td>Interaction</td><td>Layer 1: Invisible Link Grid — email zone click tracking via Brevo webhooks</td><td><span class="badge badge-email">Email</span></td></tr>
+    <tr><td>US-4.3b</td><td>Interaction</td><td>Layer 2: Mirror Page — "View in browser" with full JS + Clarity heatmap</td><td><span class="badge badge-web">Web</span></td></tr>
+    <tr><td>US-4.3c</td><td>Interaction</td><td>Layer 3: Campaign Landing Page — full JS + Clarity heatmap on destination page</td><td><span class="badge badge-web">Web</span></td></tr>
+    <tr><td>US-4.3d</td><td>Interaction</td><td>Cross-campaign heatmap aggregation across all three layers</td><td>All</td></tr>
+    <tr><td>US-4.4</td><td>Interaction</td><td>Time-to-open tracking</td><td><span class="badge badge-email">Email</span></td></tr>
+    <tr><td>US-4.5</td><td>Interaction</td><td>Bot click detection</td><td>All</td></tr>
+    <tr><td>US-4.6</td><td>Interaction</td><td>Apple MPP proxy open detection</td><td><span class="badge badge-email">Email</span></td></tr>
+    <tr><td>US-4.7</td><td>Interaction</td><td>Per-link stats for SMS/WhatsApp</td><td><span class="badge badge-sms">SMS</span> <span class="badge badge-whatsapp">WA</span></td></tr>
+    <tr><td>US-5.1</td><td>Attribution</td><td>Detect UTM → resolve campaign_id</td><td>All</td></tr>
+    <tr><td>US-5.2</td><td>Attribution</td><td>Store campaign_id in cookie</td><td>All</td></tr>
+    <tr><td>US-5.3</td><td>Attribution</td><td>Link session to campaign</td><td>All</td></tr>
+    <tr><td>US-5.4</td><td>Attribution</td><td>Track for X days (configurable)</td><td>All</td></tr>
+    <tr><td>US-5.5</td><td>Attribution</td><td>Handle multi-campaign attribution</td><td>All</td></tr>
+    <tr><td>US-6.1</td><td>On-Site</td><td>Track page views + duration + scroll</td><td><span class="badge badge-web">Web</span></td></tr>
+    <tr><td>US-6.2</td><td>On-Site</td><td>Fire product_viewed events</td><td><span class="badge badge-web">Web</span></td></tr>
+    <tr><td>US-6.3</td><td>On-Site</td><td>Fire add_to_cart events</td><td><span class="badge badge-web">Web</span></td></tr>
+    <tr><td>US-6.4</td><td>On-Site</td><td>Fire checkout_abandoned events</td><td><span class="badge badge-web">Web</span></td></tr>
+    <tr><td>US-6.5</td><td>On-Site</td><td>On-site click heatmap</td><td><span class="badge badge-web">Web</span></td></tr>
+    <tr><td>US-6.6</td><td>On-Site</td><td>Adjust attribution window per user</td><td>All</td></tr>
+    <tr><td>US-7.1</td><td>Analytics</td><td>Full conversion funnel view</td><td>All</td></tr>
+    <tr><td>US-7.2</td><td>Analytics</td><td>Email click heatmap view</td><td><span class="badge badge-email">Email</span></td></tr>
+    <tr><td>US-7.3</td><td>Analytics</td><td>A/B variant comparison</td><td><span class="badge badge-email">Email</span></td></tr>
+    <tr><td>US-7.4</td><td>Analytics</td><td>Segment performance breakdown</td><td>All</td></tr>
+    <tr><td>US-7.5</td><td>Analytics</td><td>Device/browser breakdown</td><td><span class="badge badge-email">Email</span></td></tr>
+    <tr><td>US-7.6</td><td>Analytics</td><td>Time distribution of opens/clicks</td><td>All</td></tr>
+    <tr><td>US-7.7</td><td>Analytics</td><td>Revenue attribution per campaign</td><td>All</td></tr>
+    <tr><td>US-7.8</td><td>Analytics</td><td>Compare against campaign goals</td><td>All</td></tr>
+    <tr><td>US-8.1</td><td>Timeline</td><td>Full chronological user timeline</td><td>All</td></tr>
+    <tr><td>US-8.2</td><td>Timeline</td><td>Campaign touchpoints highlighted</td><td>All</td></tr>
+    <tr><td>US-8.3</td><td>Timeline</td><td>Engagement score over time graph</td><td>All</td></tr>
+    <tr><td>US-8.4</td><td>Timeline</td><td>User's active/completed campaigns</td><td>All</td></tr>
+    <tr><td>US-8.5</td><td>Timeline</td><td>Conversion history with attribution</td><td>All</td></tr>
+    <tr><td colspan="4" style="background:#2d3250;color:#73daca;font-weight:600;">Stage 9: Effectiveness Evaluation</td></tr>
+    <tr><td>US-9.1</td><td>Evaluate</td><td>Cross-campaign comparison</td><td>All</td></tr>
+    <tr><td>US-9.2</td><td>Evaluate</td><td>Multi-touch attribution</td><td>All</td></tr>
+    <tr><td>US-9.3</td><td>Evaluate</td><td>Time-based trend lines</td><td>All</td></tr>
+    <tr><td>US-9.4</td><td>Evaluate</td><td>Switch attribution models</td><td>All</td></tr>
+    <tr><td colspan="4" style="background:#2d3250;color:#7aa2f7;font-weight:600;">Stage 10: Automation Flow Builder</td></tr>
+    <tr><td>US-10.1</td><td>Automate</td><td>Create flow with trigger + step sequence</td><td>All</td></tr>
+    <tr><td>US-10.2</td><td>Automate</td><td>Add Send step (email/SMS/WhatsApp)</td><td>All</td></tr>
+    <tr><td>US-10.3</td><td>Automate</td><td>Add Wait step (hours/days/until)</td><td>All</td></tr>
+    <tr><td>US-10.4</td><td>Automate</td><td>Add Branch (IF/ELSE) step</td><td>All</td></tr>
+    <tr><td>US-10.5</td><td>Automate</td><td>Add A/B Split step</td><td>All</td></tr>
+    <tr><td>US-10.6</td><td>Automate</td><td>Add Update step (tag/attribute/score)</td><td>All</td></tr>
+    <tr><td>US-10.7</td><td>Automate</td><td>Define flow Goal (exit on conversion)</td><td>All</td></tr>
+    <tr><td>US-10.8</td><td>Automate</td><td>Set re-entry rules</td><td>All</td></tr>
+    <tr><td>US-10.9</td><td>Automate</td><td>Set flow timeout</td><td>All</td></tr>
+    <tr><td>US-10.10</td><td>Automate</td><td>Chain flows (exit → trigger next)</td><td>All</td></tr>
+    <tr><td>US-10.11</td><td>Automate</td><td>Preview flow with estimated audience</td><td>All</td></tr>
+    <tr><td>US-10.12</td><td>Automate</td><td>Clone existing flow</td><td>All</td></tr>
+    <tr><td colspan="4" style="background:#2d3250;color:#ff9e64;font-weight:600;">Stage 11: Flow Execution Engine</td></tr>
+    <tr><td>US-11.1</td><td>Execute</td><td>Enroll user on trigger</td><td>All</td></tr>
+    <tr><td>US-11.2</td><td>Execute</td><td>Send step routes through Stage 3 pipeline</td><td>All</td></tr>
+    <tr><td>US-11.3</td><td>Execute</td><td>Wait step + background worker resolution</td><td>All</td></tr>
+    <tr><td>US-11.4</td><td>Execute</td><td>Branch condition evaluation</td><td>All</td></tr>
+    <tr><td>US-11.5</td><td>Execute</td><td>Goal check after every step</td><td>All</td></tr>
+    <tr><td>US-11.6</td><td>Execute</td><td>Consent check before every Send</td><td>All</td></tr>
+    <tr><td>US-11.7</td><td>Execute</td><td>Frequency cap enforcement</td><td>All</td></tr>
+    <tr><td>US-11.8</td><td>Execute</td><td>Flow chaining (exit → enroll next)</td><td>All</td></tr>
+    <tr><td colspan="4" style="background:#2d3250;color:#c0caf5;font-weight:600;">Stage 12: Flow Analytics</td></tr>
+    <tr><td>US-12.1</td><td>Flow Stats</td><td>Per-flow conversion funnel</td><td>All</td></tr>
+    <tr><td>US-12.2</td><td>Flow Stats</td><td>Per-step Send metrics (open/click/convert)</td><td>All</td></tr>
+    <tr><td>US-12.3</td><td>Flow Stats</td><td>Branch split ratio analysis</td><td>All</td></tr>
+    <tr><td>US-12.4</td><td>Flow Stats</td><td>Time-to-goal distribution</td><td>All</td></tr>
+    <tr><td>US-12.5</td><td>Flow Stats</td><td>Revenue attributed to flow</td><td>All</td></tr>
+    <tr><td>US-12.6</td><td>Flow Stats</td><td>Flow vs campaign comparison</td><td>All</td></tr>
+    <tr><td colspan="4" style="background:#2d3250;color:#f7768e;font-weight:600;">Stage 13: Guardrails &amp; List Hygiene</td></tr>
+    <tr><td>US-13.1</td><td>Guardrails</td><td>Global frequency cap</td><td>All</td></tr>
+    <tr><td>US-13.2</td><td>Guardrails</td><td>Quiet hours per channel</td><td><span class="badge badge-sms">SMS</span> <span class="badge badge-whatsapp">WA</span></td></tr>
+    <tr><td>US-13.3</td><td>Guardrails</td><td>Sunset policy (auto-suppress unengaged)</td><td><span class="badge badge-email">Email</span></td></tr>
+    <tr><td>US-13.4</td><td>Guardrails</td><td>Engagement fatigue detection + alerts</td><td>All</td></tr>
+    <tr><td>US-13.5</td><td>Guardrails</td><td>Per-flow priority levels</td><td>All</td></tr>
+    <tr><td>US-13.6</td><td>Guardrails</td><td>Send time optimization</td><td>All</td></tr>
+    <tr><td>US-13.7</td><td>Guardrails</td><td>Message pressure dashboard</td><td>All</td></tr>
+    <tr><td>US-13.8</td><td>Guardrails</td><td>Dynamic content blocks in templates</td><td><span class="badge badge-email">Email</span></td></tr>
+    <tr><td>US-13.9</td><td>Guardrails</td><td>Deliverability health dashboard</td><td><span class="badge badge-email">Email</span></td></tr>
+    <tr><td>US-13.10</td><td>Guardrails</td><td>Auto-exclude converted users from follow-ups</td><td>All</td></tr>
+  </table>
+</div>
+
+<p style="text-align: center; color: #565f89; font-size: 0.75rem; margin-top: 2rem;">
+  Generated 2026-04-25 &mdash; Campaign Pipeline User Journey Map v3.1 (Architecture audit fixes: insert-before-send, enrollment uniqueness, chain depth limit, pre-aggregation, webhook reconciliation)
+</p>
+
+<script type="module">
+  import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+  mermaid.initialize({ startOnLoad: true, theme: 'dark' });
+</script>
+
+</body>
+</html>

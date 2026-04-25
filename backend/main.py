@@ -106,6 +106,12 @@ def create_app() -> FastAPI:
 
         app.add_middleware(TrackingMiddleware)
 
+    # Campaign attribution middleware (captures _cid/_rid from inbound links)
+    if settings.enable_marketing:
+        from modules.marketing.services.attribution_service import AttributionMiddleware
+
+        app.add_middleware(AttributionMiddleware)
+
     # Rate limiting
     from backend.core.middleware import RateLimitMiddleware
 
@@ -163,6 +169,8 @@ def create_app() -> FastAPI:
             "site_description": settings.site_description,
             "enable_marketing": settings.enable_marketing,
             "enable_marketing_emails": settings.enable_marketing_emails,
+            "enable_sms": settings.enable_sms,
+            "enable_whatsapp": settings.enable_whatsapp,
         }
 
     # SEO root-level routes (sitemap.xml, robots.txt)
