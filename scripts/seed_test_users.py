@@ -6,11 +6,16 @@ Creates users with Gmail + aliasing (adrian+test001@estmgroup.com .. adrian+test
 so all emails route to one inbox. Each user gets a profile (champion, loyal, new, etc.)
 that determines their order history, engagement score, cart status, and RFM segment.
 
+Also seeds comprehensive analytics (sessions, page views, events, user agents, referral
+sources, UTM tracking), payment records, product reviews, cookie preferences, all 6
+GDPR consent types, and communication preferences — so every audience preset and
+segment filter returns non-zero matches, and the analytics UI shows rich data per user.
+
 Usage:
     python scripts/seed_test_users.py              # Seed 100 users
     python scripts/seed_test_users.py --reset       # Delete seed users and re-seed
 
-Idempotent by default (ON CONFLICT DO NOTHING).
+Idempotent by default (ON CONFLICT DO NOTHING / deterministic UUIDs).
 Does NOT call Stripe API — inserts fake cus_test_seed_XXX IDs directly.
 """
 
@@ -37,6 +42,117 @@ EMAIL_PREFIX = "adrian"
 # Deterministic UUIDs for idempotency: cc000000-0000-0000-0000-000000000{001..100}
 def _user_uuid(i: int) -> str:
     return f"cc000000-0000-0000-0000-{i:012d}"
+
+
+def _det_uuid(*parts) -> str:
+    """Deterministic UUID from parts — for idempotent inserts."""
+    return str(uuid.uuid5(uuid.NAMESPACE_DNS, "-".join(str(p) for p in parts)))
+
+
+# ── 100 Real Names ───────────────────────────────────────────────────────────
+
+NAMES = [
+    ("Olivia", "Chen"),
+    ("Marcus", "Johnson"),
+    ("Sofia", "Ramirez"),
+    ("Ethan", "Nakamura"),
+    ("Amara", "Okonkwo"),
+    ("Liam", "O'Sullivan"),
+    ("Priya", "Patel"),
+    ("Noah", "Williams"),
+    ("Mei", "Zhang"),
+    ("Carlos", "Gutierrez"),
+    ("Fatima", "Al-Rashid"),
+    ("James", "Anderson"),
+    ("Yuki", "Tanaka"),
+    ("Isabella", "Moretti"),
+    ("David", "Kim"),
+    ("Aisha", "Mohammed"),
+    ("Ryan", "Thompson"),
+    ("Zara", "Singh"),
+    ("Lucas", "Fernandez"),
+    ("Chloe", "Dubois"),
+    ("Ahmad", "Hassan"),
+    ("Emma", "Larsson"),
+    ("Daniel", "Cruz"),
+    ("Nalini", "Sharma"),
+    ("Tyler", "Brooks"),
+    ("Sakura", "Watanabe"),
+    ("Grace", "Mwangi"),
+    ("Alexander", "Petrov"),
+    ("Luna", "Reyes"),
+    ("Benjamin", "Clarke"),
+    ("Anya", "Volkov"),
+    ("Michael", "Nguyen"),
+    ("Iris", "Papadopoulos"),
+    ("Omar", "Diallo"),
+    ("Hannah", "Meyer"),
+    ("Raj", "Krishnamurthy"),
+    ("Elena", "Popescu"),
+    ("Nathan", "Fischer"),
+    ("Camila", "Santos"),
+    ("Takeshi", "Yamamoto"),
+    ("Leah", "Goldstein"),
+    ("Victor", "Johansson"),
+    ("Maya", "Reddy"),
+    ("Sven", "Lindqvist"),
+    ("Nadia", "Kozlov"),
+    ("Patrick", "O'Brien"),
+    ("Yara", "Mansouri"),
+    ("Kenji", "Saito"),
+    ("Aaliyah", "Jackson"),
+    ("Erik", "Andersen"),
+    ("Lucia", "Bianchi"),
+    ("Samuel", "Otieno"),
+    ("Freya", "Eriksen"),
+    ("Hassan", "Yilmaz"),
+    ("Mia", "Hoffmann"),
+    ("Adrian", "Vasquez"),
+    ("Ingrid", "Nilsson"),
+    ("Kofi", "Asante"),
+    ("Sophie", "Martin"),
+    ("Arjun", "Mehta"),
+    ("Clara", "Schmidt"),
+    ("Diego", "Herrera"),
+    ("Linnea", "Bergstrom"),
+    ("Felix", "Wagner"),
+    ("Aiko", "Suzuki"),
+    ("Rachel", "Barnes"),
+    ("Tariq", "Aziz"),
+    ("Valentina", "Rossi"),
+    ("Caleb", "Stewart"),
+    ("Hana", "Park"),
+    ("Leo", "Mueller"),
+    ("Naomi", "Taylor"),
+    ("Jin", "Liu"),
+    ("Esther", "Osei"),
+    ("Magnus", "Dahl"),
+    ("Gabriella", "Torres"),
+    ("Nikolai", "Sokolov"),
+    ("Sienna", "Cooper"),
+    ("Yousef", "Khoury"),
+    ("Astrid", "Henriksen"),
+    ("Dante", "Marchetti"),
+    ("Mina", "Sato"),
+    ("Christopher", "Evans"),
+    ("Zuri", "Ndegwa"),
+    ("Henrik", "Olsen"),
+    ("Alina", "Ionescu"),
+    ("Sebastian", "Rivera"),
+    ("Ting", "Wu"),
+    ("Nora", "Bakken"),
+    ("Ivan", "Horvat"),
+    ("Julia", "Kowalski"),
+    ("Rafael", "Almeida"),
+    ("Suki", "Acharya"),
+    ("Dylan", "Murphy"),
+    ("Lena", "Bauer"),
+    ("Oscar", "Jimenez"),
+    ("Kira", "Morozova"),
+    ("Maxwell", "Reed"),
+    ("Ananya", "Iyer"),
+    ("Philip", "Lindberg"),
+]
 
 
 # ── Product catalog (from seeds/ecommerce.sql) ──────────────────────────────
@@ -297,7 +413,7 @@ PROFILES = [
         (2, 5),
         "active",
     ),
-    ("new", 15, (1, 2), (1, 7), (2000, 10000), (20, 50), (0, 3), "active"),
+    ("new", 15, (0, 1), (1, 7), (2000, 10000), (20, 50), (0, 3), "active"),
     (
         "at_risk",
         15,
@@ -319,6 +435,123 @@ PROFILES = [
         "abandoned",
     ),
     ("lost", 15, (0, 1), (200, 365), (0, 5000), (0, 10), (-5, -1), "expired"),
+]
+
+# Analytics config per profile
+PROFILE_ANALYTICS = {
+    "champion": {"sessions": (6, 10), "session_recency": (1, 30), "signup_days": (90, 365)},
+    "loyal": {"sessions": (5, 8), "session_recency": (1, 60), "signup_days": (60, 300)},
+    "potential_loyalist": {"sessions": (3, 5), "session_recency": (1, 14), "signup_days": (14, 60)},
+    "new": {"sessions": (1, 3), "session_recency": (1, 7), "signup_days": (1, 14)},
+    "at_risk": {"sessions": (2, 4), "session_recency": (100, 160), "signup_days": (90, 365)},
+    "hibernating": {"sessions": (1, 2), "session_recency": (100, 170), "signup_days": (120, 365)},
+    "lost": {"sessions": (1, 1), "session_recency": (200, 365), "signup_days": (200, 400)},
+}
+
+# ── Analytics seed constants ─────────────────────────────────────────────────
+
+PAGES = [
+    "/",
+    "/products",
+    "/products/wireless-headphones",
+    "/products/usb-c-hub",
+    "/products/classic-t-shirt",
+    "/products/running-shoes",
+    "/products/smart-watch",
+    "/about",
+    "/contact",
+    "/cart",
+    "/checkout",
+    "/dashboard",
+    "/auth/login",
+    "/categories/electronics",
+    "/categories/clothing",
+]
+
+BROWSERS = ["Chrome", "Safari", "Edge", "Firefox"]
+BROWSER_VERSIONS = {
+    "Chrome": ["120.0", "121.0", "122.0"],
+    "Safari": ["17.2", "17.3", "17.4"],
+    "Edge": ["120.0", "121.0"],
+    "Firefox": ["121.0", "122.0"],
+}
+DEVICES = ["desktop", "mobile", "tablet"]
+DEVICE_WEIGHTS = [60, 30, 10]
+OS_MAP = {
+    "desktop": ["Windows 10", "Windows 11", "macOS 14", "Linux"],
+    "mobile": ["iOS 17", "Android 14", "Android 13"],
+    "tablet": ["iPadOS 17", "Android 14"],
+}
+REFERRAL_SOURCES = [
+    ("google", "organic"),
+    ("direct", "none"),
+    ("facebook", "social"),
+    ("instagram", "social"),
+    ("email", "email"),
+    ("twitter", "social"),
+]
+EVENT_TYPES = [
+    "product_viewed",
+    "add_to_cart",
+    "remove_from_cart",
+    "checkout_started",
+    "checkout_abandoned",
+    "search_performed",
+    "wishlist_added",
+    "coupon_applied",
+]
+EVENT_WEIGHTS = [40, 20, 5, 10, 5, 10, 5, 5]
+
+UTM_SOURCES = [
+    ("google", "cpc"),
+    ("facebook", "social"),
+    ("instagram", "social"),
+    ("newsletter", "email"),
+    ("twitter", "social"),
+]
+UTM_CAMPAIGNS = [
+    "spring_sale",
+    "new_arrivals",
+    "loyalty_program",
+    "retargeting",
+    "summer_clearance",
+    "welcome_series",
+]
+
+PAYMENT_METHODS = ["card", "apple_pay", "google_pay"]
+
+REVIEW_TITLES_POSITIVE = [
+    "Great product!",
+    "Exceeded expectations",
+    "Amazing purchase",
+    "Works perfectly",
+    "Solid build quality",
+    "Love it!",
+    "Highly recommend",
+    "Fantastic!",
+    "Would buy again",
+    "Best purchase this year",
+]
+REVIEW_TITLES_NEGATIVE = [
+    "Could be better",
+    "Not what I expected",
+    "Just okay",
+    "Disappointing quality",
+    "Wouldn't recommend",
+]
+REVIEW_BODIES_POSITIVE = [
+    "Really happy with this purchase. Exactly what I was looking for.",
+    "The quality is outstanding. Would definitely recommend to friends.",
+    "Works as described. No complaints so far.",
+    "Absolutely love it! Great value for money.",
+    "Solid product. Good build quality and fast delivery.",
+    "Exceeded my expectations in every way.",
+]
+REVIEW_BODIES_NEGATIVE = [
+    "Not the best I've seen but does the job.",
+    "It's okay for the price. Nothing spectacular.",
+    "Disappointed with the quality. Expected better for the price.",
+    "Had some issues initially but customer support helped.",
 ]
 
 
@@ -375,6 +608,31 @@ def _pick_product_variant() -> tuple[dict, dict]:
     product = random.choice(PRODUCTS)
     variant = random.choice(product["variants"])
     return product, variant
+
+
+def _event_data_for(event_type: str) -> dict:
+    """Generate realistic event_data JSONB for an event type."""
+    if event_type == "product_viewed":
+        p = random.choice(PRODUCTS)
+        return {"product": f"/products/{p['slug']}", "product_id": p["id"]}
+    elif event_type == "add_to_cart":
+        p, v = _pick_product_variant()
+        return {"product": f"/products/{p['slug']}", "product_id": p["id"], "quantity": 1}
+    elif event_type == "remove_from_cart":
+        p = random.choice(PRODUCTS)
+        return {"product_id": p["id"]}
+    elif event_type == "checkout_started":
+        return {"cart_total": random.randint(2000, 50000)}
+    elif event_type == "checkout_abandoned":
+        return {"cart_total": random.randint(2000, 50000), "item_count": random.randint(1, 5)}
+    elif event_type == "search_performed":
+        return {"query": random.choice(["shoes", "headphones", "shirt", "watch", "gift", "laptop", "phone"])}
+    elif event_type == "wishlist_added":
+        p = random.choice(PRODUCTS)
+        return {"product_id": p["id"], "product_name": p["name"]}
+    elif event_type == "coupon_applied":
+        return {"code": random.choice(["SAVE10", "WELCOME20", "SUMMER15", "VIP25"])}
+    return {}
 
 
 # ── DB helpers ───────────────────────────────────────────────────────────────
@@ -436,6 +694,19 @@ def seed_test_users(conn) -> dict:
     orders_created = 0
     carts_created = 0
     wishlists_created = 0
+    payments_created = 0
+    sessions_created = 0
+    pageviews_created = 0
+    events_created = 0
+    reviews_created = 0
+
+    # Get communication type IDs for comm preferences
+    comm_types = {}
+    try:
+        cur.execute("SELECT id, name FROM marketing.communication_types WHERE enabled = TRUE")
+        comm_types = {name: str(ct_id) for ct_id, name in cur.fetchall()}
+    except Exception:
+        conn.rollback()
 
     user_idx = 0  # Running index across all profiles
 
@@ -449,13 +720,13 @@ def seed_test_users(conn) -> dict:
         velocity_range,
         cart_status,
     ) in PROFILES:
+        analytics_cfg = PROFILE_ANALYTICS[profile_name]
 
         for _ in range(count):
             user_idx += 1
             user_id = _user_uuid(user_idx)
             email = f"{EMAIL_PREFIX}+test{user_idx:03d}@{EMAIL_DOMAIN}"
-            first_name = "Test"
-            last_name = f"User {user_idx:03d}"
+            first_name, last_name = NAMES[user_idx - 1]
             phone = f"+1555001{user_idx:04d}"
             whatsapp = f"+1555002{user_idx:04d}"
             stripe_cus = f"cus_test_seed_{user_idx:03d}"
@@ -466,17 +737,22 @@ def seed_test_users(conn) -> dict:
             # Email verified: users 91-100 are unverified (for testing verification flow)
             is_verified = user_idx <= 90
 
+            # Signup date varies by profile
+            signup_date = _random_past(*analytics_cfg["signup_days"])
+
             # ── 1. core.users ────────────────────────────────────────────
             cur.execute(
                 """
                 INSERT INTO core.users
                     (id, email, password_hash, first_name, last_name,
-                     role_id, phone, whatsapp_number, is_verified, is_active)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, TRUE)
+                     role_id, phone, whatsapp_number, is_verified, is_active, created_at)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, TRUE, %s)
                 ON CONFLICT (email) DO UPDATE SET
                     phone = EXCLUDED.phone,
                     whatsapp_number = EXCLUDED.whatsapp_number,
-                    is_verified = EXCLUDED.is_verified
+                    is_verified = EXCLUDED.is_verified,
+                    first_name = EXCLUDED.first_name,
+                    last_name = EXCLUDED.last_name
                 """,
                 (
                     user_id,
@@ -488,6 +764,7 @@ def seed_test_users(conn) -> dict:
                     phone,
                     whatsapp,
                     is_verified,
+                    signup_date,
                 ),
             )
             users_created += cur.rowcount
@@ -498,22 +775,32 @@ def seed_test_users(conn) -> dict:
                 INSERT INTO gdpr.email_preferences
                     (user_id, marketing_email, transactional_email)
                 VALUES (%s, %s, TRUE)
-                ON CONFLICT (user_id) DO NOTHING
+                ON CONFLICT (user_id) DO UPDATE SET
+                    marketing_email = EXCLUDED.marketing_email
                 """,
                 (user_id, marketing_opted_in),
             )
 
-            # ── 3. gdpr.consent_records ──────────────────────────────────
-            if marketing_opted_in:
-                for consent_type in ("marketing_email", "analytics"):
-                    cur.execute(
-                        """
-                        INSERT INTO gdpr.consent_records
-                            (user_id, consent_type, granted, version, ip_address)
-                        VALUES (%s, %s, TRUE, '1.0', '127.0.0.1')
-                        """,
-                        (user_id, consent_type),
-                    )
+            # ── 3. gdpr.consent_records (all 6 types) ───────────────────
+            consent_map = [
+                ("marketing_email", user_idx <= 80),
+                ("transactional_email", user_idx <= 95),
+                ("analytics", user_idx <= 70),
+                ("third_party_sharing", user_idx <= 50),
+                ("cookies_analytics", user_idx <= 70),
+                ("cookies_marketing", user_idx <= 60),
+            ]
+            for consent_type, granted in consent_map:
+                consent_id = _det_uuid("seed-consent", user_idx, consent_type)
+                cur.execute(
+                    """
+                    INSERT INTO gdpr.consent_records
+                        (id, user_id, consent_type, granted, version, ip_address)
+                    VALUES (%s, %s, %s, %s, '1.0', '127.0.0.1')
+                    ON CONFLICT (id) DO NOTHING
+                    """,
+                    (consent_id, user_id, consent_type, granted),
+                )
 
             # ── 4. ecommerce.stripe_customers ────────────────────────────
             cur.execute(
@@ -526,10 +813,11 @@ def seed_test_users(conn) -> dict:
                 (user_id, stripe_cus),
             )
 
-            # ── 5. Orders ────────────────────────────────────────────────
+            # ── 5. Orders + Payment Records ──────────────────────────────
             num_orders = random.randint(*order_range)
             total_spent = 0
             last_purchase_at = None
+            ordered_products = []  # Track for reviews
 
             for order_idx in range(num_orders):
                 order_id = str(
@@ -539,7 +827,6 @@ def seed_test_users(conn) -> dict:
 
                 # Spread orders across the recency window
                 if num_orders > 1:
-                    # Most recent order within recency range, older ones further back
                     order_recency = recency_range[0] + (
                         (recency_range[1] - recency_range[0])
                         * order_idx
@@ -551,13 +838,11 @@ def seed_test_users(conn) -> dict:
 
                 # Pick 1-3 items per order
                 num_items = random.randint(1, 3)
-                # Track (product_id, variant_id) to avoid PK conflicts within one order
                 seen_pv = set()
                 items = []
                 order_subtotal = 0
 
                 for _ in range(num_items):
-                    # Keep trying until we get a unique product+variant combo
                     for _attempt in range(20):
                         product, variant = _pick_product_variant()
                         pv_key = (product["id"], variant["id"])
@@ -623,6 +908,34 @@ def seed_test_users(conn) -> dict:
                             _product_snapshot(product, variant),
                         ),
                     )
+                    ordered_products.append(product)
+
+                # Payment record for this order
+                payment_status_map = {
+                    "completed": "succeeded",
+                    "pending": "pending",
+                    "refunded": "refunded",
+                }
+                payment_id = _det_uuid("seed-pay", user_idx, order_idx)
+                cur.execute(
+                    """
+                    INSERT INTO ecommerce.payment_records
+                        (id, order_id, provider, provider_payment_id, status,
+                         amount, currency, method, created_at)
+                    VALUES (%s, %s, 'stripe', %s, %s, %s, 'USD', %s, %s)
+                    ON CONFLICT (id) DO NOTHING
+                    """,
+                    (
+                        payment_id,
+                        order_id,
+                        f"pi_test_seed_{user_idx:03d}_{order_idx:02d}",
+                        payment_status_map.get(status, "pending"),
+                        order_subtotal,
+                        random.choice(PAYMENT_METHODS),
+                        order_date,
+                    ),
+                )
+                payments_created += 1
 
                 # Track totals for customer_metrics (only count completed orders)
                 if status == "completed":
@@ -633,31 +946,35 @@ def seed_test_users(conn) -> dict:
                 orders_created += 1
 
             # ── 6. ecommerce.customer_metrics ────────────────────────────
+            # Always create a row — even for 0-order users.
+            # _compute_rfm skips order_count=0 rows, so the profile segment persists
+            # for "new" and "lost" users who have no orders.
             if num_orders > 0:
-                completed_count = (
-                    num_orders  # approximate; some may be pending/refunded
-                )
+                completed_count = num_orders
                 days_since = (now - last_purchase_at).days if last_purchase_at else 999
                 r = _score(days_since, RECENCY_THRESHOLDS, ascending=True)
                 f = _score(completed_count, FREQUENCY_THRESHOLDS, ascending=False)
                 m = _score(total_spent, MONETARY_THRESHOLDS, ascending=False)
                 rfm = _assign_segment(r, f, m)
+            else:
+                completed_count = 0
+                rfm = profile_name
 
-                cur.execute(
-                    """
-                    INSERT INTO ecommerce.customer_metrics
-                        (user_id, order_count, total_spent, default_currency,
-                         last_purchase_at, rfm_segment, last_calculated_at)
-                    VALUES (%s, %s, %s, 'USD', %s, %s, NOW())
-                    ON CONFLICT (user_id) DO UPDATE SET
-                        order_count = EXCLUDED.order_count,
-                        total_spent = EXCLUDED.total_spent,
-                        last_purchase_at = EXCLUDED.last_purchase_at,
-                        rfm_segment = EXCLUDED.rfm_segment,
-                        last_calculated_at = NOW()
-                    """,
-                    (user_id, completed_count, total_spent, last_purchase_at, rfm),
-                )
+            cur.execute(
+                """
+                INSERT INTO ecommerce.customer_metrics
+                    (user_id, order_count, total_spent, default_currency,
+                     last_purchase_at, rfm_segment, last_calculated_at)
+                VALUES (%s, %s, %s, 'USD', %s, %s, NOW())
+                ON CONFLICT (user_id) DO UPDATE SET
+                    order_count = EXCLUDED.order_count,
+                    total_spent = EXCLUDED.total_spent,
+                    last_purchase_at = EXCLUDED.last_purchase_at,
+                    rfm_segment = EXCLUDED.rfm_segment,
+                    last_calculated_at = NOW()
+                """,
+                (user_id, completed_count, total_spent, last_purchase_at, rfm),
+            )
 
             # ── 7. Cart ──────────────────────────────────────────────────
             if cart_status != "expired" or random.random() < 0.3:
@@ -678,7 +995,6 @@ def seed_test_users(conn) -> dict:
                     (cart_id, user_id, cart_status, cart_date, cart_date),
                 )
 
-                # Add 1-3 items to cart
                 num_cart_items = random.randint(1, 3)
                 seen_cart_pv = set()
                 for _ in range(num_cart_items):
@@ -721,7 +1037,6 @@ def seed_test_users(conn) -> dict:
                     (wl_id, user_id),
                 )
 
-                # 1-4 items
                 num_wl_items = random.randint(1, 4)
                 seen_wl = set()
                 for _ in range(num_wl_items):
@@ -743,7 +1058,6 @@ def seed_test_users(conn) -> dict:
             eng_score = round(random.uniform(*eng_score_range), 2)
             velocity = round(random.uniform(*velocity_range), 2)
 
-            # Engagement timestamps based on profile
             last_site = _random_past(*recency_range) if num_orders > 0 else None
             last_purchase_ts = last_purchase_at
             last_email_open = (
@@ -783,13 +1097,294 @@ def seed_test_users(conn) -> dict:
                 ),
             )
 
+            # ── 10. Analytics: sessions, page views, user agents, referrals, events ──
+            num_sessions = random.randint(*analytics_cfg["sessions"])
+
+            for sess_idx in range(num_sessions):
+                session_id = f"seed-sess-{user_idx:03d}-{sess_idx:02d}"
+                sess_recency = analytics_cfg["session_recency"]
+                # Spread sessions across the recency window
+                if num_sessions > 1:
+                    day_offset = sess_recency[0] + (
+                        (sess_recency[1] - sess_recency[0])
+                        * sess_idx / max(num_sessions - 1, 1)
+                    )
+                else:
+                    day_offset = random.uniform(*sess_recency)
+                session_start = now - timedelta(days=day_offset)
+                duration_minutes = random.randint(1, 20)
+                session_end = session_start + timedelta(minutes=duration_minutes)
+                num_pages = random.randint(2, 8)
+                pages_viewed = random.choices(PAGES, k=num_pages)
+
+                # Session
+                sess_db_id = _det_uuid("seed-session", user_idx, sess_idx)
+                cur.execute(
+                    """
+                    INSERT INTO analytics.analytics_sessions
+                        (id, user_id, session_id, started_at, ended_at, page_count)
+                    VALUES (%s, %s, %s, %s, %s, %s)
+                    ON CONFLICT (session_id) DO NOTHING
+                    """,
+                    (sess_db_id, user_id, session_id, session_start, session_end, num_pages),
+                )
+                sessions_created += 1
+
+                # User agent
+                device = random.choices(DEVICES, weights=DEVICE_WEIGHTS, k=1)[0]
+                browser = random.choice(BROWSERS)
+                browser_version = random.choice(BROWSER_VERSIONS[browser])
+                os_name = random.choice(OS_MAP[device])
+                raw_ua = f"Mozilla/5.0 ({os_name}) {browser}/{browser_version}"
+                ua_id = _det_uuid("seed-ua", user_idx, sess_idx)
+                cur.execute(
+                    """
+                    INSERT INTO analytics.user_agents
+                        (id, session_id, raw, browser, browser_version, os, device_type)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s)
+                    ON CONFLICT (id) DO NOTHING
+                    """,
+                    (ua_id, session_id, raw_ua, browser, browser_version, os_name, device),
+                )
+
+                # Referral source (50% of sessions)
+                if random.random() < 0.5:
+                    source, medium = random.choice(REFERRAL_SOURCES)
+                    ref_id = _det_uuid("seed-ref", user_idx, sess_idx)
+                    cur.execute(
+                        """
+                        INSERT INTO analytics.referral_sources
+                            (id, session_id, source, medium)
+                        VALUES (%s, %s, %s, %s)
+                        ON CONFLICT (id) DO NOTHING
+                        """,
+                        (ref_id, session_id, source, medium),
+                    )
+
+                # UTM tracking (30% of sessions)
+                if random.random() < 0.3:
+                    utm_source, utm_medium = random.choice(UTM_SOURCES)
+                    utm_campaign = random.choice(UTM_CAMPAIGNS)
+                    utm_id = _det_uuid("seed-utm", user_idx, sess_idx)
+                    cur.execute(
+                        """
+                        INSERT INTO analytics.utm_tracking
+                            (id, session_id, utm_source, utm_medium, utm_campaign)
+                        VALUES (%s, %s, %s, %s, %s)
+                        ON CONFLICT (id) DO NOTHING
+                        """,
+                        (utm_id, session_id, utm_source, utm_medium, utm_campaign),
+                    )
+
+                # Page views
+                for pv_idx, page_path in enumerate(pages_viewed):
+                    pv_time = session_start + timedelta(
+                        seconds=pv_idx * (duration_minutes * 60 / max(num_pages, 1))
+                    )
+                    duration_ms = random.randint(2000, 60000)
+                    trigger = (
+                        "navigation"
+                        if pv_idx == 0
+                        else random.choice(["navigation", "click", "popstate"])
+                    )
+                    pv_id = _det_uuid("seed-pv", user_idx, sess_idx, pv_idx)
+                    cur.execute(
+                        """
+                        INSERT INTO analytics.page_views
+                            (id, user_id, session_id, path, duration_ms, "trigger", created_at)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s)
+                        ON CONFLICT (id) DO NOTHING
+                        """,
+                        (pv_id, user_id, session_id, page_path, duration_ms, trigger, pv_time),
+                    )
+                    pageviews_created += 1
+
+                # Events (1-4 random events per session)
+                num_events = random.randint(1, 4)
+                event_types = random.choices(EVENT_TYPES, weights=EVENT_WEIGHTS, k=num_events)
+                for ev_idx, event_type in enumerate(event_types):
+                    ev_time = session_start + timedelta(
+                        seconds=random.randint(10, max(duration_minutes * 60, 11))
+                    )
+                    event_data = _event_data_for(event_type)
+                    ev_id = _det_uuid("seed-ev", user_idx, sess_idx, ev_idx)
+                    cur.execute(
+                        """
+                        INSERT INTO analytics.events
+                            (id, user_id, session_id, event_type, event_data, created_at)
+                        VALUES (%s, %s, %s, %s, %s::jsonb, %s)
+                        ON CONFLICT (id) DO NOTHING
+                        """,
+                        (ev_id, user_id, session_id, event_type, json.dumps(event_data), ev_time),
+                    )
+                    events_created += 1
+
+            # ── 11. Targeted events for preset coverage ──────────────────
+            # Use the user's most recent session for targeted events
+            first_session_id = f"seed-sess-{user_idx:03d}-00"
+
+            if profile_name == "new":
+                # Ensure add_to_cart events exist (for `added_to_cart` preset)
+                for tev_idx in range(2):
+                    tev_id = _det_uuid("seed-target-ev", user_idx, "add_to_cart", tev_idx)
+                    ev_time = _random_past(1, 7)
+                    cur.execute(
+                        """
+                        INSERT INTO analytics.events
+                            (id, user_id, session_id, event_type, event_data, created_at)
+                        VALUES (%s, %s, %s, 'add_to_cart', %s::jsonb, %s)
+                        ON CONFLICT (id) DO NOTHING
+                        """,
+                        (tev_id, user_id, first_session_id,
+                         json.dumps(_event_data_for("add_to_cart")), ev_time),
+                    )
+                    events_created += 1
+
+            elif profile_name == "at_risk":
+                # Ensure checkout_abandoned events (for `checkout_dropoff` preset)
+                for tev_idx in range(2):
+                    tev_id = _det_uuid("seed-target-ev", user_idx, "checkout_abandoned", tev_idx)
+                    ev_time = _random_past(1, 90)
+                    cur.execute(
+                        """
+                        INSERT INTO analytics.events
+                            (id, user_id, session_id, event_type, event_data, created_at)
+                        VALUES (%s, %s, %s, 'checkout_abandoned', %s::jsonb, %s)
+                        ON CONFLICT (id) DO NOTHING
+                        """,
+                        (tev_id, user_id, first_session_id,
+                         json.dumps(_event_data_for("checkout_abandoned")), ev_time),
+                    )
+                    events_created += 1
+
+            elif profile_name == "potential_loyalist":
+                # 6 product_viewed events in last 5 days (for `high_intent` preset: >=5 in 7d)
+                for tev_idx in range(6):
+                    tev_id = _det_uuid("seed-target-ev", user_idx, "product_viewed", tev_idx)
+                    ev_time = _random_past(0.1, 5)
+                    cur.execute(
+                        """
+                        INSERT INTO analytics.events
+                            (id, user_id, session_id, event_type, event_data, created_at)
+                        VALUES (%s, %s, %s, 'product_viewed', %s::jsonb, %s)
+                        ON CONFLICT (id) DO NOTHING
+                        """,
+                        (tev_id, user_id, first_session_id,
+                         json.dumps(_event_data_for("product_viewed")), ev_time),
+                    )
+                    events_created += 1
+
+            elif profile_name == "loyal":
+                # 4 search_performed events in last 20 days (for `repeat_searchers` preset: >=3 in 30d)
+                for tev_idx in range(4):
+                    tev_id = _det_uuid("seed-target-ev", user_idx, "search_performed", tev_idx)
+                    ev_time = _random_past(1, 20)
+                    cur.execute(
+                        """
+                        INSERT INTO analytics.events
+                            (id, user_id, session_id, event_type, event_data, created_at)
+                        VALUES (%s, %s, %s, 'search_performed', %s::jsonb, %s)
+                        ON CONFLICT (id) DO NOTHING
+                        """,
+                        (tev_id, user_id, first_session_id,
+                         json.dumps(_event_data_for("search_performed")), ev_time),
+                    )
+                    events_created += 1
+
+            # ── 12. Product reviews ──────────────────────────────────────
+            if ordered_products and profile_name in ("champion", "loyal", "at_risk"):
+                if profile_name == "champion":
+                    num_reviews = random.randint(2, 4)
+                    rating_range = (4, 5)
+                elif profile_name == "loyal":
+                    num_reviews = random.randint(1, 2)
+                    rating_range = (3, 5)
+                else:  # at_risk
+                    num_reviews = 1
+                    rating_range = (1, 3)
+
+                # Pick unique products to review
+                reviewed = set()
+                for rev_idx in range(min(num_reviews, len(ordered_products))):
+                    product = ordered_products[rev_idx % len(ordered_products)]
+                    if product["id"] in reviewed:
+                        continue
+                    reviewed.add(product["id"])
+
+                    rating = random.randint(*rating_range)
+                    if rating >= 4:
+                        title = random.choice(REVIEW_TITLES_POSITIVE)
+                        body = random.choice(REVIEW_BODIES_POSITIVE)
+                    else:
+                        title = random.choice(REVIEW_TITLES_NEGATIVE)
+                        body = random.choice(REVIEW_BODIES_NEGATIVE)
+
+                    review_id = _det_uuid("seed-review", user_idx, product["id"])
+                    review_date = _random_past(*recency_range)
+                    cur.execute(
+                        """
+                        INSERT INTO ecommerce.product_reviews
+                            (id, product_id, user_id, rating, title, body, status, created_at)
+                        VALUES (%s, %s, %s, %s, %s, %s, 'approved', %s)
+                        ON CONFLICT (id) DO NOTHING
+                        """,
+                        (review_id, product["id"], user_id, rating, title, body, review_date),
+                    )
+                    reviews_created += 1
+
+            # ── 13. gdpr.cookie_preferences ──────────────────────────────
+            cookie_id = _det_uuid("seed-cookie", user_idx)
+            cur.execute(
+                """
+                INSERT INTO gdpr.cookie_preferences
+                    (id, user_id, necessary, analytics, marketing, preferences)
+                VALUES (%s, %s, TRUE, %s, %s, %s)
+                ON CONFLICT (id) DO NOTHING
+                """,
+                (
+                    cookie_id,
+                    user_id,
+                    user_idx <= 70,   # analytics: 70%
+                    user_idx <= 60,   # marketing: 60%
+                    user_idx <= 80,   # preferences: 80%
+                ),
+            )
+
+            # ── 14. marketing.user_communication_preferences ─────────────
+            if comm_types and marketing_opted_in:
+                for ct_name, ct_id in comm_types.items():
+                    if ct_name == "newsletters":
+                        allowed = True
+                    elif ct_name == "promotions":
+                        allowed = user_idx <= 60
+                    elif ct_name == "product_updates":
+                        allowed = user_idx <= 70
+                    else:
+                        allowed = True
+
+                    cur.execute(
+                        """
+                        INSERT INTO marketing.user_communication_preferences
+                            (user_id, communication_type_id, allowed)
+                        VALUES (%s, %s, %s)
+                        ON CONFLICT (user_id, communication_type_id) DO UPDATE SET
+                            allowed = EXCLUDED.allowed
+                        """,
+                        (user_id, ct_id, allowed),
+                    )
+
     conn.commit()
 
     summary = {
         "users": users_created,
         "orders": orders_created,
+        "payments": payments_created,
         "carts": carts_created,
         "wishlists": wishlists_created,
+        "sessions": sessions_created,
+        "pageviews": pageviews_created,
+        "events": events_created,
+        "reviews": reviews_created,
     }
     return summary
 
@@ -800,16 +1395,67 @@ def reset_seed_users(conn):
     user_pattern = f"{EMAIL_PREFIX}+test%@{EMAIL_DOMAIN}"
     print("  Deleting seed test users...")
 
-    # Use a subquery pattern for all deletions (avoids UUID cast issues)
     uid_sub = "(SELECT id FROM core.users WHERE email LIKE %s)"
 
+    # ── New table deletions (analytics, payments, reviews, etc.) ─────
+    # UTM tracking, referral sources, user agents (by session_id pattern)
+    cur.execute(
+        "DELETE FROM analytics.utm_tracking WHERE session_id LIKE 'seed-sess-%'"
+    )
+    cur.execute(
+        "DELETE FROM analytics.referral_sources WHERE session_id LIKE 'seed-sess-%'"
+    )
+    cur.execute(
+        "DELETE FROM analytics.user_agents WHERE session_id LIKE 'seed-sess-%'"
+    )
+
+    # Page views and events (by user_id)
+    cur.execute(
+        f"DELETE FROM analytics.page_views WHERE user_id IN {uid_sub}",
+        (user_pattern,),
+    )
+    cur.execute(
+        f"DELETE FROM analytics.events WHERE user_id IN {uid_sub}",
+        (user_pattern,),
+    )
+
+    # Analytics sessions (by session_id pattern)
+    cur.execute(
+        "DELETE FROM analytics.analytics_sessions WHERE session_id LIKE 'seed-sess-%'"
+    )
+
+    # Payment records (by order pattern)
+    cur.execute(
+        "DELETE FROM ecommerce.payment_records WHERE order_id IN "
+        "(SELECT id FROM ecommerce.orders WHERE order_number LIKE 'ORD-SEED-%')"
+    )
+
+    # Product reviews
+    cur.execute(
+        f"DELETE FROM ecommerce.product_reviews WHERE user_id IN {uid_sub}",
+        (user_pattern,),
+    )
+
+    # Cookie preferences
+    cur.execute(
+        f"DELETE FROM gdpr.cookie_preferences WHERE user_id IN {uid_sub}",
+        (user_pattern,),
+    )
+
+    # Communication preferences
+    cur.execute(
+        f"DELETE FROM marketing.user_communication_preferences WHERE user_id IN {uid_sub}",
+        (user_pattern,),
+    )
+
+    # ── Existing deletions ───────────────────────────────────────────
     # Delete engagement scores
     cur.execute(
         f"DELETE FROM analytics.engagement_scores WHERE user_id IN {uid_sub}",
         (user_pattern,),
     )
 
-    # Delete cart items then carts (ON DELETE SET NULL on user_id, so no cascade)
+    # Delete cart items then carts
     cur.execute(
         f"DELETE FROM ecommerce.cart_items WHERE cart_id IN "
         f"(SELECT id FROM ecommerce.cart WHERE user_id IN {uid_sub})",
@@ -887,10 +1533,15 @@ def main():
         print("\nSeeding 100 test users...")
         summary = seed_test_users(conn)
         print(f"\n  Done! Created:")
-        print(f"    Users:     {summary['users']}")
-        print(f"    Orders:    {summary['orders']}")
-        print(f"    Carts:     {summary['carts']}")
-        print(f"    Wishlists: {summary['wishlists']}")
+        print(f"    Users:      {summary['users']}")
+        print(f"    Orders:     {summary['orders']}")
+        print(f"    Payments:   {summary['payments']}")
+        print(f"    Carts:      {summary['carts']}")
+        print(f"    Wishlists:  {summary['wishlists']}")
+        print(f"    Sessions:   {summary['sessions']}")
+        print(f"    Page Views: {summary['pageviews']}")
+        print(f"    Events:     {summary['events']}")
+        print(f"    Reviews:    {summary['reviews']}")
         print(
             f"\n  All users: {EMAIL_PREFIX}+test001@{EMAIL_DOMAIN} .. {EMAIL_PREFIX}+test100@{EMAIL_DOMAIN}"
         )
