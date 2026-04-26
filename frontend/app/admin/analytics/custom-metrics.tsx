@@ -423,8 +423,9 @@ export default function CustomMetricsTab() {
 
   // Audience dashboard view state
   const [dashboardOpen, setDashboardOpen] = useState(false);
-  const [dashboardData, setDashboardData] =
-    useState<AudienceDashboard | null>(null);
+  const [dashboardData, setDashboardData] = useState<AudienceDashboard | null>(
+    null,
+  );
   const [dashboardLoading, setDashboardLoading] = useState(false);
   const [dashboardMetricId, setDashboardMetricId] = useState<string | null>(
     null,
@@ -894,7 +895,11 @@ export default function CustomMetricsTab() {
                   Avg Order Value
                 </p>
                 <p className="text-2xl font-bold text-text-primary tabular-nums mt-1">
-                  ${dashboardData.kpis.avg_order_value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  $
+                  {dashboardData.kpis.avg_order_value.toLocaleString(
+                    undefined,
+                    { minimumFractionDigits: 2, maximumFractionDigits: 2 },
+                  )}
                 </p>
               </div>
               <div className="glass rounded-xl p-4">
@@ -902,7 +907,11 @@ export default function CustomMetricsTab() {
                   Total Revenue
                 </p>
                 <p className="text-2xl font-bold text-text-primary tabular-nums mt-1">
-                  ${(dashboardData.kpis.total_revenue / 100).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  $
+                  {(dashboardData.kpis.total_revenue / 100).toLocaleString(
+                    undefined,
+                    { minimumFractionDigits: 2, maximumFractionDigits: 2 },
+                  )}
                 </p>
               </div>
               <div className="glass rounded-xl p-4">
