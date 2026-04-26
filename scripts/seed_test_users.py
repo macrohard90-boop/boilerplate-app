@@ -463,13 +463,16 @@ def seed_test_users(conn) -> dict:
             # Marketing opt-in: 80% opted in, 20% opted out (users 81-100)
             marketing_opted_in = user_idx <= 80
 
+            # Email verified: users 91-100 are unverified (for testing verification flow)
+            is_verified = user_idx <= 90
+
             # ── 1. core.users ────────────────────────────────────────────
             cur.execute(
                 """
                 INSERT INTO core.users
                     (id, email, password_hash, first_name, last_name,
                      role_id, phone, whatsapp_number, is_verified, is_active)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, TRUE, TRUE)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, TRUE)
                 ON CONFLICT (email) DO NOTHING
                 """,
                 (
@@ -481,6 +484,7 @@ def seed_test_users(conn) -> dict:
                     CUSTOMER_ROLE_ID,
                     phone,
                     whatsapp,
+                    is_verified,
                 ),
             )
             users_created += cur.rowcount

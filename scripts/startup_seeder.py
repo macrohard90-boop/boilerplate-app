@@ -178,10 +178,12 @@ async def run_startup_seed(db: AsyncSession) -> None:
 async def _activate_users(db: AsyncSession) -> None:
     """Verify emails, opt into marketing for all active users."""
 
-    # 1. Verify unverified users
+    # 1. Verify unverified users (skip seed test users — their is_verified is set by the seed script)
     r = await db.execute(
         text(
-            "UPDATE core.users SET is_verified = TRUE WHERE is_verified = FALSE AND is_active = TRUE"
+            "UPDATE core.users SET is_verified = TRUE "
+            "WHERE is_verified = FALSE AND is_active = TRUE "
+            "AND email NOT LIKE 'adrian+test%@estmgroup.com'"
         )
     )
     logger.info("Verified %d users", r.rowcount)
