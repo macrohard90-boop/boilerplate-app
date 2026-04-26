@@ -10,12 +10,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.core.config import settings
 from backend.core.database import get_db
-from backend.core.dependencies import require_role
+from backend.core.dependencies import get_current_user, require_role
+from backend.core.redis import get_redis
 from redis.asyncio import Redis
 
-from backend.core.redis import get_redis
-
-logger = logging.getLogger(__name__)
 from modules.ecommerce.models.schemas import (
     DigitalAssetCreate,
     DigitalAssetResponse,
@@ -35,7 +33,6 @@ from modules.ecommerce.models.schemas import (
     ReviewModerate,
     ReviewResponse,
 )
-from backend.core.dependencies import get_current_user
 from modules.ecommerce.services import (
     digital_asset_service,
     fee_tier_service,
@@ -44,6 +41,8 @@ from modules.ecommerce.services import (
     review_service,
     subscription_service,
 )
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
