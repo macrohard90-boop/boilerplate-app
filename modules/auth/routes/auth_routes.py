@@ -21,6 +21,7 @@ from modules.auth.models.schemas import (
     RegisterRequest,
     ResetPasswordRequest,
     TokenResponse,
+    UpdateProfileRequest,
     UserContextResponse,
     UserResponse,
     SessionResponse,
@@ -473,6 +474,72 @@ async def verify_email_endpoint(
         )
 
     return MessageResponse(message="Email verified successfully")
+
+
+# -----------------------------------------------------------------------
+# PUT /profile  — update current user's profile fields
+# -----------------------------------------------------------------------
+@router.put("/profile", response_model=UserResponse)
+async def update_profile(
+    body: UpdateProfileRequest,
+    request: Request,
+    user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> Any:
+    user_id = user["user_id"]
+
+    # Build SET clause from non-None fields
+    updates = {}
+    if body.first_name is not None:
+        updates["first_name"] = body.first_name
+    if body.last_name is not None:
+        updates["last_name"] = body.last_name
+    if body.phone is not None:
+        updates["phone"] = body.phone
+    if body.whatsapp_number is not None:
+        updates["whatsapp_number"] = body.whatsapp_number
+
+    if not updates:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "error": "bad_request",
+                "message": "No fields to update",
+                "details": None,
+            },
+        )
+
+    set_parts = [f"{k} = :{k}" for k in updates]
+    updates["uid"] = user_id
+    await db.execute(
+        text(f"UPDATE core.users SET {', '.join(set_parts)} WHERE id = :uid"),
+        updates,
+    )
+    await db.commit()
+
+    full_user = await auth_service.get_user_by_id(db, user_id)
+
+    ip = _client_ip(request)
+    await audit_service.log_audit(
+        db,
+        user_id=user_id,
+        action="user.profile_update",
+        resource="user",
+        resource_id=user_id,
+        ip_address=ip,
+        details={"fields": list(updates.keys() - {"uid"})},
+    )
+
+    return UserResponse(
+        id=full_user["id"],
+        email=full_user["email"],
+        first_name=full_user.get("first_name"),
+        last_name=full_user.get("last_name"),
+        role=full_user["role"],
+        is_verified=full_user["is_verified"],
+        permissions=user["permissions"],
+        created_at=full_user["created_at"],
+    )
 
 
 # -----------------------------------------------------------------------

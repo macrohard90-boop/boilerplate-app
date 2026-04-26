@@ -900,6 +900,429 @@ async def _session_events(
     )
 
 
+# -----------------------------------------------------------------------
+# Edge case journeys — auth/profile stress tests
+# -----------------------------------------------------------------------
+
+EDGE_CASES = [
+    "re_register",  # Log out → try register same email → expect error → log back in
+    "wrong_password",  # Log out → 3 wrong password logins → correct login
+    "forgot_password",  # Request password reset → verify 200
+    "profile_update",  # Update first/last name + phone → verify changes via /me
+    "consent_toggle",  # Toggle marketing consent off → back on
+]
+
+# How many users per edge case
+EDGE_CASE_COUNTS = {
+    "re_register": 2,
+    "wrong_password": 2,
+    "forgot_password": 2,
+    "profile_update": 3,
+    "consent_toggle": 2,
+}
+
+
+def _assign_edge_cases(users: list["SimUser"]) -> dict[str, list["SimUser"]]:
+    """Randomly assign edge case journeys to users. Returns mapping of case → users."""
+    available = [u for u in users if u.user_id]  # Only registered users
+    if len(available) < sum(EDGE_CASE_COUNTS.values()):
+        logger.warning("Not enough users for all edge cases, assigning what we can")
+
+    random.shuffle(available)
+    assignments: dict[str, list[SimUser]] = {}
+    idx = 0
+    for case in EDGE_CASES:
+        count = EDGE_CASE_COUNTS[case]
+        assignments[case] = available[idx : idx + count]
+        idx += count
+    return assignments
+
+
+async def _edge_re_register(
+    client: httpx.AsyncClient, api_url: str, user: SimUser
+) -> None:
+    """Log out → try to register with same email (expect 409) → log back in."""
+    # Logout
+    try:
+        resp = await client.post(f"{api_url}/auth/logout", headers=user.auth_headers())
+        user.actions.append(
+            UserAction(
+                action="edge:logout",
+                endpoint="/auth/logout",
+                method="POST",
+                status_code=resp.status_code,
+                passed=resp.status_code == 200,
+            )
+        )
+    except Exception as e:
+        user.actions.append(
+            UserAction(action="edge:logout", passed=False, detail=str(e))
+        )
+        return
+
+    # Try to re-register with same email — should fail with 409
+    try:
+        resp = await client.post(
+            f"{api_url}/auth/register",
+            json={
+                "email": user.email,
+                "password": user.password,
+                "first_name": "Duplicate",
+                "last_name": "User",
+            },
+            headers={"User-Agent": user.agent.raw},
+        )
+        user.actions.append(
+            UserAction(
+                action="edge:re_register_attempt",
+                endpoint="/auth/register",
+                method="POST",
+                status_code=resp.status_code,
+                passed=resp.status_code == 409,  # We EXPECT 409
+                detail=f"Expected 409, got {resp.status_code}",
+            )
+        )
+    except Exception as e:
+        user.actions.append(
+            UserAction(action="edge:re_register_attempt", passed=False, detail=str(e))
+        )
+
+    # Log back in
+    await _edge_relogin(client, api_url, user)
+
+
+async def _edge_wrong_password(
+    client: httpx.AsyncClient, api_url: str, user: SimUser
+) -> None:
+    """Log out → 3 wrong password attempts → correct login."""
+    # Logout
+    try:
+        resp = await client.post(f"{api_url}/auth/logout", headers=user.auth_headers())
+        user.actions.append(
+            UserAction(
+                action="edge:logout",
+                endpoint="/auth/logout",
+                method="POST",
+                status_code=resp.status_code,
+                passed=resp.status_code == 200,
+            )
+        )
+    except Exception as e:
+        user.actions.append(
+            UserAction(action="edge:logout", passed=False, detail=str(e))
+        )
+        return
+
+    # 3 wrong password attempts
+    for attempt in range(1, 4):
+        try:
+            resp = await client.post(
+                f"{api_url}/auth/login",
+                json={"email": user.email, "password": f"WrongPass{attempt}!"},
+                headers={"User-Agent": user.agent.raw},
+            )
+            user.actions.append(
+                UserAction(
+                    action=f"edge:wrong_password_{attempt}",
+                    endpoint="/auth/login",
+                    method="POST",
+                    status_code=resp.status_code,
+                    passed=resp.status_code == 401,  # We EXPECT 401
+                    detail=f"Expected 401, got {resp.status_code}",
+                )
+            )
+        except Exception as e:
+            user.actions.append(
+                UserAction(
+                    action=f"edge:wrong_password_{attempt}",
+                    passed=False,
+                    detail=str(e),
+                )
+            )
+
+    # Correct login
+    await _edge_relogin(client, api_url, user)
+
+
+async def _edge_forgot_password(
+    client: httpx.AsyncClient, api_url: str, user: SimUser
+) -> None:
+    """Request password reset — verify the endpoint returns 200."""
+    try:
+        resp = await client.post(
+            f"{api_url}/auth/forgot-password",
+            json={"email": user.email},
+            headers={"User-Agent": user.agent.raw},
+        )
+        user.actions.append(
+            UserAction(
+                action="edge:forgot_password",
+                endpoint="/auth/forgot-password",
+                method="POST",
+                status_code=resp.status_code,
+                passed=resp.status_code == 200,
+            )
+        )
+    except Exception as e:
+        user.actions.append(
+            UserAction(action="edge:forgot_password", passed=False, detail=str(e))
+        )
+
+    # Verify user is still logged in (forgot-password doesn't invalidate session)
+    try:
+        resp = await client.get(f"{api_url}/auth/me", headers=user.auth_headers())
+        user.actions.append(
+            UserAction(
+                action="edge:verify_still_authed",
+                endpoint="/auth/me",
+                method="GET",
+                status_code=resp.status_code,
+                passed=resp.status_code == 200,
+            )
+        )
+    except Exception as e:
+        user.actions.append(
+            UserAction(action="edge:verify_still_authed", passed=False, detail=str(e))
+        )
+
+
+async def _edge_profile_update(
+    client: httpx.AsyncClient, api_url: str, user: SimUser
+) -> None:
+    """Update profile fields and verify changes via /me."""
+    new_first = f"Updated{user.index:03d}"
+    new_last = "Tester"
+    new_phone = f"+1555{user.index:04d}{random.randint(100,999)}"
+
+    # Update profile
+    try:
+        resp = await client.put(
+            f"{api_url}/auth/profile",
+            json={
+                "first_name": new_first,
+                "last_name": new_last,
+                "phone": new_phone,
+            },
+            headers=user.auth_headers(),
+        )
+        user.actions.append(
+            UserAction(
+                action="edge:profile_update",
+                endpoint="/auth/profile",
+                method="PUT",
+                status_code=resp.status_code,
+                passed=resp.status_code == 200,
+                detail=f"first={new_first}, last={new_last}, phone={new_phone}",
+            )
+        )
+    except Exception as e:
+        user.actions.append(
+            UserAction(action="edge:profile_update", passed=False, detail=str(e))
+        )
+        return
+
+    # Verify changes via /me
+    try:
+        resp = await client.get(f"{api_url}/auth/me", headers=user.auth_headers())
+        if resp.status_code == 200:
+            me = resp.json().get("user", {})
+            name_ok = (
+                me.get("first_name") == new_first and me.get("last_name") == new_last
+            )
+            user.actions.append(
+                UserAction(
+                    action="edge:profile_verify",
+                    endpoint="/auth/me",
+                    method="GET",
+                    status_code=200,
+                    passed=name_ok,
+                    detail=f"name_match={name_ok}",
+                )
+            )
+        else:
+            user.actions.append(
+                UserAction(
+                    action="edge:profile_verify",
+                    endpoint="/auth/me",
+                    method="GET",
+                    status_code=resp.status_code,
+                    passed=False,
+                )
+            )
+    except Exception as e:
+        user.actions.append(
+            UserAction(action="edge:profile_verify", passed=False, detail=str(e))
+        )
+
+
+async def _edge_consent_toggle(
+    client: httpx.AsyncClient, api_url: str, user: SimUser
+) -> None:
+    """Toggle marketing consent off, then back on."""
+    # Turn marketing off
+    try:
+        resp = await client.post(
+            f"{api_url}/gdpr/consent",
+            json={
+                "consent_type": "marketing_email",
+                "granted": False,
+                "version": "1.0",
+            },
+            headers=user.auth_headers(),
+        )
+        user.actions.append(
+            UserAction(
+                action="edge:consent_marketing_off",
+                endpoint="/gdpr/consent",
+                method="POST",
+                status_code=resp.status_code,
+                passed=resp.status_code == 200,
+            )
+        )
+    except Exception as e:
+        user.actions.append(
+            UserAction(action="edge:consent_marketing_off", passed=False, detail=str(e))
+        )
+
+    # Turn marketing back on
+    try:
+        resp = await client.post(
+            f"{api_url}/gdpr/consent",
+            json={"consent_type": "marketing_email", "granted": True, "version": "1.0"},
+            headers=user.auth_headers(),
+        )
+        user.actions.append(
+            UserAction(
+                action="edge:consent_marketing_on",
+                endpoint="/gdpr/consent",
+                method="POST",
+                status_code=resp.status_code,
+                passed=resp.status_code == 200,
+            )
+        )
+    except Exception as e:
+        user.actions.append(
+            UserAction(action="edge:consent_marketing_on", passed=False, detail=str(e))
+        )
+
+    # Verify consent state
+    try:
+        resp = await client.get(f"{api_url}/gdpr/consent", headers=user.auth_headers())
+        if resp.status_code == 200:
+            consents = resp.json().get("consents", [])
+            marketing = next(
+                (c for c in consents if c.get("consent_type") == "marketing_email"),
+                None,
+            )
+            user.actions.append(
+                UserAction(
+                    action="edge:consent_verify",
+                    endpoint="/gdpr/consent",
+                    method="GET",
+                    status_code=200,
+                    passed=marketing is not None and marketing.get("granted") is True,
+                    detail=f"marketing_granted={marketing.get('granted') if marketing else 'missing'}",
+                )
+            )
+    except Exception as e:
+        user.actions.append(
+            UserAction(action="edge:consent_verify", passed=False, detail=str(e))
+        )
+
+
+async def _edge_relogin(client: httpx.AsyncClient, api_url: str, user: SimUser) -> None:
+    """Re-login a user and update their token/csrf."""
+    try:
+        resp = await client.post(
+            f"{api_url}/auth/login",
+            json={"email": user.email, "password": user.password},
+            headers={"User-Agent": user.agent.raw},
+        )
+        if resp.status_code == 200:
+            data = resp.json()
+            user.token = data["access_token"]
+            user.csrf = data.get("csrf_token", "")
+            user.actions.append(
+                UserAction(
+                    action="edge:relogin",
+                    endpoint="/auth/login",
+                    method="POST",
+                    status_code=200,
+                    passed=True,
+                )
+            )
+        else:
+            user.actions.append(
+                UserAction(
+                    action="edge:relogin",
+                    endpoint="/auth/login",
+                    method="POST",
+                    status_code=resp.status_code,
+                    passed=False,
+                    detail=resp.text[:200],
+                )
+            )
+    except Exception as e:
+        user.actions.append(
+            UserAction(action="edge:relogin", passed=False, detail=str(e))
+        )
+
+
+async def _run_edge_cases(
+    client: httpx.AsyncClient,
+    api_url: str,
+    users: list["SimUser"],
+) -> None:
+    """Run edge case journeys on a subset of users."""
+    assignments = _assign_edge_cases(users)
+
+    edge_funcs = {
+        "re_register": _edge_re_register,
+        "wrong_password": _edge_wrong_password,
+        "forgot_password": _edge_forgot_password,
+        "profile_update": _edge_profile_update,
+        "consent_toggle": _edge_consent_toggle,
+    }
+
+    tasks = []
+    for case_name, case_users in assignments.items():
+        func = edge_funcs[case_name]
+        for u in case_users:
+            logger.info(
+                "Edge case %s → user %03d (%s)",
+                case_name,
+                u.index,
+                u.email,
+            )
+            tasks.append(func(client, api_url, u))
+
+    if tasks:
+        await asyncio.gather(*tasks, return_exceptions=True)
+
+    # Verify all edge-case users end up authenticated (back on dashboard)
+    for case_users in assignments.values():
+        for u in case_users:
+            try:
+                resp = await client.get(f"{api_url}/auth/me", headers=u.auth_headers())
+                u.actions.append(
+                    UserAction(
+                        action="edge:final_auth_check",
+                        endpoint="/auth/me",
+                        method="GET",
+                        status_code=resp.status_code,
+                        passed=resp.status_code == 200,
+                    )
+                )
+            except Exception as e:
+                u.actions.append(
+                    UserAction(
+                        action="edge:final_auth_check",
+                        passed=False,
+                        detail=str(e),
+                    )
+                )
+
+
 async def _run_user_journey(
     client: httpx.AsyncClient,
     api_url: str,
@@ -1008,5 +1431,10 @@ async def run(
                     )
                 else:
                     logger.error("User journey exception: %s", result)
+
+        # Run edge case journeys on ~11 random users
+        logger.info("Running edge case journeys on subset of users...")
+        await _run_edge_cases(client, api_url, completed_users)
+        logger.info("Edge case journeys complete")
 
     return completed_users

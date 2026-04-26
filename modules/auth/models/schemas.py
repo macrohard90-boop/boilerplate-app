@@ -68,6 +68,13 @@ class VerifyEmailRequest(BaseModel):
     token: str
 
 
+class UpdateProfileRequest(BaseModel):
+    first_name: str | None = Field(default=None, min_length=1, max_length=100)
+    last_name: str | None = Field(default=None, min_length=1, max_length=100)
+    phone: str | None = Field(default=None, max_length=20)
+    whatsapp_number: str | None = Field(default=None, max_length=20)
+
+
 class CreateApiKeyRequest(BaseModel):
     name: str = Field(..., min_length=1, max_length=100)
     scopes: list[str] = Field(default_factory=list)
