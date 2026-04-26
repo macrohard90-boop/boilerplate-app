@@ -273,7 +273,7 @@ async def _handle_payment_failed(
 
 
 async def _handle_charge_succeeded(db: AsyncSession, charge: dict[str, Any]) -> None:
-    """charge.succeeded -> store charge_id on payment record for audit trail."""
+    """charge.succeeded -> store charge_id and payment method on payment record."""
     charge_id = charge["id"]
     pi_id = charge.get("payment_intent")
 
@@ -282,12 +282,22 @@ async def _handle_charge_succeeded(db: AsyncSession, charge: dict[str, Any]) -> 
     if not pi_id:
         return
 
+    # Extract payment method type (e.g. "card") and brand (e.g. "visa")
+    pmd = charge.get("payment_method_details", {})
+    method_type = pmd.get("type")  # "card", "bank_transfer", etc.
+    method_str = method_type
+    if method_type == "card":
+        brand = pmd.get("card", {}).get("brand")
+        if brand:
+            method_str = f"{method_type} ({brand})"
+
     await db.execute(
         text(
-            "UPDATE ecommerce.payment_records SET charge_id = :cid "
+            "UPDATE ecommerce.payment_records "
+            "SET charge_id = :cid, method = :method "
             "WHERE provider_payment_id = :pid"
         ),
-        {"cid": charge_id, "pid": pi_id},
+        {"cid": charge_id, "pid": pi_id, "method": method_str},
     )
     await db.commit()
 

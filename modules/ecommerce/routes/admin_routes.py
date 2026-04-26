@@ -1,15 +1,21 @@
 """Admin endpoints: orders, inventory, reviews, digital assets, fee tiers."""
 
+import json as _json
+import logging
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from backend.core.config import settings
 from backend.core.database import get_db
 from backend.core.dependencies import require_role
 from redis.asyncio import Redis
 
 from backend.core.redis import get_redis
+
+logger = logging.getLogger(__name__)
 from modules.ecommerce.models.schemas import (
     DigitalAssetCreate,
     DigitalAssetResponse,
@@ -74,6 +80,310 @@ async def admin_get_order(
             },
         )
     return order
+
+
+@router.get("/orders/{order_id}/full-detail")
+async def admin_get_order_full_detail(
+    order_id: str,
+    user: dict = Depends(require_role("admin")),
+    db: AsyncSession = Depends(get_db),
+) -> Any:
+    """Aggregated order detail with payment, customer, and attribution data."""
+
+    def _ts(v: Any) -> str | None:
+        return v.isoformat() if v else None
+
+    # 1. Order basics
+    o = (
+        (
+            await db.execute(
+                text(
+                    "SELECT id, user_id, order_number, status, currency, "
+                    "subtotal, discount_amount, tax_amount, total, "
+                    "shipping_address, billing_address, created_at, updated_at "
+                    "FROM ecommerce.orders WHERE id = :oid"
+                ),
+                {"oid": order_id},
+            )
+        )
+        .mappings()
+        .first()
+    )
+    if not o:
+        raise HTTPException(
+            status_code=404,
+            detail={
+                "error": "not_found",
+                "message": "Order not found",
+                "details": None,
+            },
+        )
+
+    user_id = str(o["user_id"])
+    order_time = o["created_at"]
+    # Pre-compute time window for attribution/UTM lookups
+    from datetime import timedelta
+
+    ot_before = order_time - timedelta(minutes=5)
+    ot_after = order_time + timedelta(minutes=5)
+    ot_hour_before = order_time - timedelta(hours=1)
+    ot_hour_after = order_time + timedelta(hours=1)
+
+    # 2. Order items
+    items_rows = (
+        (
+            await db.execute(
+                text(
+                    "SELECT product_id, variant_id, quantity, unit_price, "
+                    "total_price, product_snapshot "
+                    "FROM ecommerce.order_items WHERE order_id = :oid"
+                ),
+                {"oid": order_id},
+            )
+        )
+        .mappings()
+        .all()
+    )
+
+    # 3. Customer info
+    cu = (
+        (
+            await db.execute(
+                text(
+                    "SELECT u.id, u.email, u.first_name, u.last_name, "
+                    "cm.rfm_segment, cm.order_count, cm.total_spent, "
+                    "cm.default_currency "
+                    "FROM core.users u "
+                    "LEFT JOIN ecommerce.customer_metrics cm ON cm.user_id = u.id "
+                    "WHERE u.id = :uid"
+                ),
+                {"uid": user_id},
+            )
+        )
+        .mappings()
+        .first()
+    )
+
+    # 4. Payment record (most recent for this order)
+    pr = (
+        (
+            await db.execute(
+                text(
+                    "SELECT provider, method, status, amount, currency, "
+                    "provider_payment_id, charge_id, created_at "
+                    "FROM ecommerce.payment_records "
+                    "WHERE order_id = :oid ORDER BY created_at DESC LIMIT 1"
+                ),
+                {"oid": order_id},
+            )
+        )
+        .mappings()
+        .first()
+    )
+
+    # 5. Campaign attribution (only if marketing enabled)
+    attr = None
+    if settings.enable_marketing:
+        attr_row = (
+            (
+                await db.execute(
+                    text(
+                        "SELECT ca.campaign_id, c.name AS campaign_name, "
+                        "ca.channel, ca.conversion_event, ca.conversion_value, "
+                        "ca.converted_at, ca.touch_sequence "
+                        "FROM marketing.campaign_attributions ca "
+                        "JOIN marketing.campaigns c ON c.id = ca.campaign_id "
+                        "WHERE ca.user_id = :uid "
+                        "AND ca.converted_at >= :ot_before "
+                        "AND ca.converted_at <= :ot_after "
+                        "ORDER BY ca.converted_at DESC LIMIT 1"
+                    ),
+                    {"uid": user_id, "ot_before": ot_before, "ot_after": ot_after},
+                )
+            )
+            .mappings()
+            .first()
+        )
+
+        # UTM params from user's session around order time
+        utm = None
+        utm_row = (
+            (
+                await db.execute(
+                    text(
+                        "SELECT ut.utm_source, ut.utm_medium, ut.utm_campaign, "
+                        "ut.utm_content, ut.utm_term "
+                        "FROM analytics.utm_tracking ut "
+                        "JOIN analytics.analytics_sessions s "
+                        "  ON s.session_id = ut.session_id "
+                        "WHERE s.user_id = :uid "
+                        "AND s.started_at <= :ot "
+                        "AND (s.ended_at IS NULL "
+                        "  OR s.ended_at >= :ot_hour_before) "
+                        "ORDER BY s.started_at DESC LIMIT 1"
+                    ),
+                    {
+                        "uid": user_id,
+                        "ot": order_time,
+                        "ot_hour_before": ot_hour_before,
+                    },
+                )
+            )
+            .mappings()
+            .first()
+        )
+        if utm_row:
+            utm = {
+                "source": utm_row["utm_source"],
+                "medium": utm_row["utm_medium"],
+                "campaign": utm_row["utm_campaign"],
+                "content": utm_row["utm_content"],
+                "term": utm_row["utm_term"],
+            }
+
+        if attr_row:
+            touch_seq = attr_row["touch_sequence"]
+            if isinstance(touch_seq, str):
+                touch_seq = _json.loads(touch_seq)
+
+            # Enrich touch_sequence with campaign names
+            enriched_touches = []
+            campaign_name_cache: dict[str, str] = {
+                str(attr_row["campaign_id"]): attr_row["campaign_name"]
+            }
+            for touch in touch_seq or []:
+                t = dict(touch)
+                cid = t.get("campaign_id")
+                if cid and cid not in campaign_name_cache:
+                    cname = (
+                        await db.execute(
+                            text(
+                                "SELECT name FROM marketing.campaigns WHERE id = :cid"
+                            ),
+                            {"cid": cid},
+                        )
+                    ).scalar()
+                    campaign_name_cache[cid] = cname or "Unknown"
+                t["campaign_name"] = campaign_name_cache.get(cid, "Unknown")
+                enriched_touches.append(t)
+
+            attr = {
+                "campaign_id": str(attr_row["campaign_id"]),
+                "campaign_name": attr_row["campaign_name"],
+                "channel": attr_row["channel"],
+                "conversion_event": attr_row["conversion_event"],
+                "conversion_value": (
+                    float(attr_row["conversion_value"])
+                    if attr_row["conversion_value"]
+                    else 0
+                ),
+                "converted_at": _ts(attr_row["converted_at"]),
+                "touch_sequence": enriched_touches,
+                "utm": utm,
+            }
+        elif utm:
+            # No attribution record but UTM params exist
+            attr = {
+                "campaign_id": None,
+                "campaign_name": None,
+                "channel": None,
+                "conversion_event": None,
+                "conversion_value": 0,
+                "converted_at": None,
+                "touch_sequence": [],
+                "utm": utm,
+            }
+
+    # 6. Automation flow (only if marketing enabled)
+    automation = None
+    if settings.enable_marketing:
+        flow_row = (
+            (
+                await db.execute(
+                    text(
+                        "SELECT af.id AS flow_id, af.name AS flow_name, "
+                        "af.trigger_event, fe.status "
+                        "FROM marketing.flow_enrollments fe "
+                        "JOIN marketing.automation_flows af ON af.id = fe.flow_id "
+                        "WHERE fe.user_id = :uid "
+                        "AND fe.enrolled_at <= :ot_hour_after "
+                        "ORDER BY fe.enrolled_at DESC LIMIT 1"
+                    ),
+                    {"uid": user_id, "ot_hour_after": ot_hour_after},
+                )
+            )
+            .mappings()
+            .first()
+        )
+        if flow_row:
+            automation = {
+                "flow_id": str(flow_row["flow_id"]),
+                "flow_name": flow_row["flow_name"],
+                "trigger_event": flow_row["trigger_event"],
+                "status": flow_row["status"],
+            }
+
+    return {
+        "order": {
+            "id": str(o["id"]),
+            "order_number": o["order_number"],
+            "status": o["status"],
+            "currency": o["currency"],
+            "subtotal": o["subtotal"],
+            "discount_amount": o["discount_amount"],
+            "tax_amount": o["tax_amount"],
+            "total": o["total"],
+            "shipping_address": o["shipping_address"],
+            "billing_address": o["billing_address"],
+            "created_at": _ts(o["created_at"]),
+            "updated_at": _ts(o["updated_at"]),
+        },
+        "items": [
+            {
+                "product_id": str(i["product_id"]),
+                "variant_id": str(i["variant_id"]),
+                "quantity": i["quantity"],
+                "unit_price": i["unit_price"],
+                "total_price": i["total_price"],
+                "product_snapshot": (
+                    i["product_snapshot"]
+                    if isinstance(i["product_snapshot"], dict)
+                    else {}
+                ),
+            }
+            for i in items_rows
+        ],
+        "customer": (
+            {
+                "id": str(cu["id"]),
+                "email": cu["email"],
+                "first_name": cu["first_name"],
+                "last_name": cu["last_name"],
+                "rfm_segment": cu["rfm_segment"],
+                "order_count": cu["order_count"] or 0,
+                "total_spent": cu["total_spent"] or 0,
+                "currency": cu["default_currency"] or "USD",
+            }
+            if cu
+            else None
+        ),
+        "payment": (
+            {
+                "provider": pr["provider"],
+                "method": pr["method"],
+                "status": pr["status"],
+                "amount": pr["amount"],
+                "currency": pr["currency"],
+                "provider_payment_id": pr["provider_payment_id"],
+                "charge_id": pr["charge_id"],
+                "created_at": _ts(pr["created_at"]),
+            }
+            if pr
+            else None
+        ),
+        "attribution": attr,
+        "automation": automation,
+    }
 
 
 @router.put("/orders/{order_id}/status", response_model=OrderResponse)

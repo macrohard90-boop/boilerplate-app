@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { apiFetch } from "../../../lib/api";
 import { formatPrice, formatDate } from "../../../lib/format";
 import Pagination from "../../../components/Pagination";
@@ -8,6 +9,7 @@ import LoadingSpinner from "../../../components/LoadingSpinner";
 
 interface Order {
   id: string;
+  order_number: string;
   user_id: string;
   status: string;
   total: number;
@@ -65,7 +67,7 @@ export default function AdminOrdersPage() {
               <thead>
                 <tr className="border-b border-glass-border">
                   <th className="text-left p-4 text-text-muted font-medium">
-                    Order ID
+                    Order
                   </th>
                   <th className="text-left p-4 text-text-muted font-medium">
                     Total
@@ -76,6 +78,9 @@ export default function AdminOrdersPage() {
                   <th className="text-left p-4 text-text-muted font-medium">
                     Date
                   </th>
+                  <th className="text-left p-4 text-text-muted font-medium">
+                    Actions
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -85,7 +90,7 @@ export default function AdminOrdersPage() {
                     className="border-b border-glass-border/50 hover:bg-glass-hover transition-colors"
                   >
                     <td className="p-4 text-text-primary font-mono text-xs">
-                      {o.id.slice(0, 8)}
+                      {o.order_number || o.id.slice(0, 8)}
                     </td>
                     <td className="p-4 text-text-primary font-medium">
                       {formatPrice(o.total, o.currency)}
@@ -105,6 +110,14 @@ export default function AdminOrdersPage() {
                     </td>
                     <td className="p-4 text-text-muted">
                       {formatDate(o.created_at)}
+                    </td>
+                    <td className="p-4">
+                      <Link
+                        href={`/admin/orders/${o.id}`}
+                        className="text-xs text-accent hover:text-accent/80"
+                      >
+                        Details
+                      </Link>
                     </td>
                   </tr>
                 ))}
