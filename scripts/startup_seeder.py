@@ -115,25 +115,61 @@ def _random_ts(days_back: int = 30) -> datetime:
     return datetime.now(timezone.utc) - timedelta(seconds=offset)
 
 
+# ── Test user seeder (sync, runs in thread) ─────────────────────────────────
+
+
+async def _seed_test_users_sync() -> None:
+    """Run the sync test-user seeder in a thread to avoid blocking the loop."""
+    import asyncio
+
+    import psycopg2
+
+    from scripts.seed_test_users import get_db_url, seed_test_users
+
+    def _run():
+        try:
+            conn = psycopg2.connect(get_db_url())
+            try:
+                summary = seed_test_users(conn)
+                logger.info(
+                    "Test user seed: %d users, %d orders, %d carts, %d wishlists",
+                    summary["users"],
+                    summary["orders"],
+                    summary["carts"],
+                    summary["wishlists"],
+                )
+            finally:
+                conn.close()
+        except Exception:
+            logger.exception("Test user seed failed (non-fatal)")
+
+    await asyncio.to_thread(_run)
+
+
 # ── Main entry point ────────────────────────────────────────────────────────
 
 
 async def run_startup_seed(db: AsyncSession) -> None:
     """Run all seed steps. Idempotent — safe on every restart."""
 
-    # Check if seeding was already done (marker row)
+    logger.info("SEED_TEST_DATA=true — running startup seeder...")
+
+    # 1. Always seed test users (idempotent via ON CONFLICT DO NOTHING)
+    await _seed_test_users_sync()
+
+    # 2. Always activate + opt-in users and compute RFM (idempotent)
+    await _activate_users(db)
+    await _compute_rfm(db)
+
+    # 3. Only generate fake analytics if none exist yet (expensive, one-time)
     result = await db.execute(
         text("SELECT 1 FROM analytics.analytics_sessions LIMIT 1")
     )
     if result.scalar() is not None:
-        logger.info("Seed data already present — skipping startup seeder")
-        return
+        logger.info("Analytics data already present — skipping analytics seed")
+    else:
+        await _seed_analytics(db)
 
-    logger.info("SEED_TEST_DATA=true — running startup seeder...")
-
-    await _activate_users(db)
-    await _compute_rfm(db)
-    await _seed_analytics(db)
     await db.commit()
 
     logger.info("Startup seeder complete")
