@@ -449,6 +449,21 @@ STATEMENTS = [
     "ALTER TABLE marketing.campaigns ADD COLUMN IF NOT EXISTS reconciliation_delta JSONB",
     "ALTER TABLE analytics.utm_tracking ADD COLUMN IF NOT EXISTS campaign_id UUID",
     "ALTER TABLE analytics.events ADD COLUMN IF NOT EXISTS campaign_id UUID",
+    # 034: Event Definitions Registry
+    """CREATE TABLE IF NOT EXISTS analytics.event_definitions (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        name VARCHAR(100) NOT NULL UNIQUE,
+        description TEXT,
+        category VARCHAR(50) NOT NULL,
+        payload_schema JSONB NOT NULL DEFAULT '[]'::jsonb,
+        source_locations JSONB NOT NULL DEFAULT '[]'::jsonb,
+        is_system BOOLEAN NOT NULL DEFAULT false,
+        is_enabled BOOLEAN NOT NULL DEFAULT true,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )""",
+    "CREATE INDEX IF NOT EXISTS idx_event_defs_name ON analytics.event_definitions(name)",
+    "CREATE INDEX IF NOT EXISTS idx_event_defs_category ON analytics.event_definitions(category)",
+    "CREATE INDEX IF NOT EXISTS idx_event_defs_enabled ON analytics.event_definitions(is_enabled)",
 ]
 
 

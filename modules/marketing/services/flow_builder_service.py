@@ -428,6 +428,34 @@ async def activate_flow(db: AsyncSession, flow_id: str) -> dict:
     if max_depth > chain_limit:
         raise ValueError(f"Flow depth ({max_depth}) exceeds limit ({chain_limit})")
 
+    # Validate trigger_event exists and is enabled in event_definitions
+    trigger_event = flow.get("trigger_event", "")
+    if trigger_event:
+        trigger_check = (
+            (
+                await db.execute(
+                    text(
+                        "SELECT name, is_enabled FROM analytics.event_definitions "
+                        "WHERE name = :trigger"
+                    ),
+                    {"trigger": trigger_event},
+                )
+            )
+            .mappings()
+            .first()
+        )
+
+        if not trigger_check:
+            raise ValueError(
+                f"Unknown trigger event '{trigger_event}' — "
+                "register it in event_definitions before activating"
+            )
+        if not trigger_check["is_enabled"]:
+            raise ValueError(
+                f"Trigger event '{trigger_event}' is disabled — "
+                "enable it before activating this flow"
+            )
+
     # Activate
     await db.execute(
         text(

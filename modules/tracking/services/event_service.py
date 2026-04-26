@@ -1,10 +1,62 @@
 """Custom event capture and aggregation."""
 
 import json
+import logging
+import time
 from typing import Any
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
+
+logger = logging.getLogger(__name__)
+
+# ---------------------------------------------------------------------------
+# In-memory cache for event definitions (refreshed every 60s)
+# ---------------------------------------------------------------------------
+
+_event_defs_cache: dict[str, bool] = {}
+_cache_loaded_at: float = 0.0
+_CACHE_TTL = 60  # seconds
+
+
+async def _load_event_defs(db: AsyncSession) -> None:
+    """Refresh the in-memory event definitions cache from DB."""
+    global _event_defs_cache, _cache_loaded_at
+    rows = (
+        (
+            await db.execute(
+                text("SELECT name, is_enabled FROM analytics.event_definitions")
+            )
+        )
+        .mappings()
+        .all()
+    )
+    _event_defs_cache = {r["name"]: r["is_enabled"] for r in rows}
+    _cache_loaded_at = time.monotonic()
+
+
+async def _is_event_allowed(db: AsyncSession, event_type: str) -> bool:
+    """Check if an event type exists and is enabled."""
+    if time.monotonic() - _cache_loaded_at > _CACHE_TTL:
+        await _load_event_defs(db)
+    if event_type not in _event_defs_cache:
+        logger.warning("Unknown event_type '%s' — skipping recording", event_type)
+        return False
+    if not _event_defs_cache[event_type]:
+        logger.debug("Disabled event_type '%s' — skipping recording", event_type)
+        return False
+    return True
+
+
+def invalidate_event_cache() -> None:
+    """Force cache refresh on next event recording."""
+    global _cache_loaded_at
+    _cache_loaded_at = 0.0
+
+
+# ---------------------------------------------------------------------------
+# Event recording
+# ---------------------------------------------------------------------------
 
 
 async def record_event(
@@ -16,6 +68,8 @@ async def record_event(
     campaign_id: str | None = None,
 ) -> None:
     """Insert a single event record."""
+    if not await _is_event_allowed(db, event_type):
+        return
     await db.execute(
         text(
             "INSERT INTO analytics.events "
@@ -42,6 +96,8 @@ async def record_events_batch(
     """Insert multiple events. Returns count inserted."""
     count = 0
     for item in items:
+        if not await _is_event_allowed(db, item["event_type"]):
+            continue
         await db.execute(
             text(
                 "INSERT INTO analytics.events "

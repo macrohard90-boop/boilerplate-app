@@ -27,6 +27,41 @@ interface EventDetailList {
   page_size: number;
 }
 
+interface PayloadField {
+  field: string;
+  type: string;
+  description: string;
+}
+
+interface SourceLocation {
+  file: string;
+  line: number;
+  snippet: string;
+}
+
+interface AutomationRef {
+  id: string;
+  name: string;
+  status: string;
+}
+
+interface EventDefinition {
+  id: string;
+  name: string;
+  description: string | null;
+  category: string;
+  payload_schema: PayloadField[];
+  source_locations: SourceLocation[];
+  is_system: boolean;
+  is_enabled: boolean;
+  created_at: string;
+  fire_count_total: number;
+  fire_count_30d: number;
+  unique_users_30d: number;
+  automation_count: number;
+  automations: AutomationRef[];
+}
+
 // ── Helpers ─────────────────────────────────────────────
 
 type DatePresetId = "24h" | "7d" | "30d" | "90d" | "custom";
@@ -38,6 +73,24 @@ const DATE_PRESETS: { id: DatePresetId; label: string }[] = [
   { id: "90d", label: "90 Days" },
   { id: "custom", label: "Custom" },
 ];
+
+const CATEGORY_COLORS: Record<string, string> = {
+  auth: "bg-purple-500/20 text-purple-300 border-purple-500/30",
+  browse: "bg-blue-500/20 text-blue-300 border-blue-500/30",
+  cart: "bg-green-500/20 text-green-300 border-green-500/30",
+  checkout: "bg-amber-500/20 text-amber-300 border-amber-500/30",
+  engagement: "bg-cyan-500/20 text-cyan-300 border-cyan-500/30",
+  wishlist: "bg-pink-500/20 text-pink-300 border-pink-500/30",
+  discount: "bg-orange-500/20 text-orange-300 border-orange-500/30",
+  navigation: "bg-gray-500/20 text-gray-300 border-gray-500/30",
+  lifecycle: "bg-red-500/20 text-red-300 border-red-500/30",
+};
+
+const FLOW_STATUS_COLORS: Record<string, string> = {
+  active: "bg-green-500/20 text-green-300 border-green-500/30",
+  paused: "bg-yellow-500/20 text-yellow-300 border-yellow-500/30",
+  draft: "bg-gray-500/20 text-gray-300 border-gray-500/30",
+};
 
 function presetLabel(id: DatePresetId): string {
   switch (id) {
@@ -154,6 +207,12 @@ export default function EventDetailPage() {
   const eventType = decodeURIComponent(params.type as string);
   const { enable_tracking } = useConfig();
 
+  // Registry data
+  const [definition, setDefinition] = useState<EventDefinition | null>(null);
+  const [defLoading, setDefLoading] = useState(true);
+  const [toggling, setToggling] = useState(false);
+
+  // Fire history data
   const [dateFrom, setDateFrom] = useState(thirtyDaysAgoLocal);
   const [dateTo, setDateTo] = useState(nowLocal);
   const [excludeBots, setExcludeBots] = useState(true);
@@ -165,6 +224,18 @@ export default function EventDetailPage() {
   const [fetchKey, setFetchKey] = useState(0);
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
 
+  // Fetch event definition
+  useEffect(() => {
+    setDefLoading(true);
+    apiFetch<EventDefinition>(
+      `/tracking/admin/events/by-name/${encodeURIComponent(eventType)}`,
+    )
+      .then(setDefinition)
+      .catch(() => setDefinition(null))
+      .finally(() => setDefLoading(false));
+  }, [eventType]);
+
+  // Fetch fire history
   const fetchEvents = useCallback(() => {
     setLoading(true);
     const qs = new URLSearchParams();
@@ -208,6 +279,25 @@ export default function EventDetailPage() {
     setFetchKey((k) => k + 1);
   };
 
+  const handleToggle = async () => {
+    if (!definition) return;
+    setToggling(true);
+    try {
+      await apiFetch(`/tracking/admin/events/${definition.id}/toggle`, {
+        method: "PATCH",
+      });
+      // Refetch definition
+      const updated = await apiFetch<EventDefinition>(
+        `/tracking/admin/events/by-name/${encodeURIComponent(eventType)}`,
+      );
+      setDefinition(updated);
+    } catch {
+      // silent
+    } finally {
+      setToggling(false);
+    }
+  };
+
   if (!enable_tracking) {
     return (
       <div className="glass rounded-xl p-8 text-center">
@@ -222,10 +312,13 @@ export default function EventDetailPage() {
 
   const maxDate = nowLocal();
   const totalPages = data ? Math.ceil(data.total / PAGE_SIZE) : 0;
+  const catCls =
+    CATEGORY_COLORS[definition?.category || ""] ||
+    "bg-gray-500/20 text-gray-300 border-gray-500/30";
 
   return (
     <div>
-      {/* Header with back link */}
+      {/* Header */}
       <div className="flex items-center gap-3 mb-6">
         <Link
           href="/admin/analytics"
@@ -246,18 +339,195 @@ export default function EventDetailPage() {
             />
           </svg>
         </Link>
-        <h1 className="font-serif text-2xl font-bold">
-          <span className="gradient-text">Events:</span>{" "}
-          <span className="text-text-primary">{eventType}</span>
-          {data && (
-            <span className="text-sm font-normal text-text-muted ml-3">
-              {data.total.toLocaleString()} total
-            </span>
+        <div className="flex-1">
+          <div className="flex items-center gap-3 flex-wrap">
+            <h1 className="font-serif text-2xl font-bold">
+              <span className="gradient-text">Event:</span>{" "}
+              <span className="text-text-primary font-mono">{eventType}</span>
+            </h1>
+            {definition && (
+              <>
+                <span
+                  className={`px-2 py-0.5 rounded-full text-xs font-medium border ${catCls}`}
+                >
+                  {definition.category}
+                </span>
+                {definition.is_system && (
+                  <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-red-500/15 text-red-300 border border-red-500/20">
+                    system
+                  </span>
+                )}
+                <button
+                  onClick={handleToggle}
+                  disabled={toggling}
+                  className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
+                    definition.is_enabled ? "bg-green-500/60" : "bg-gray-600/60"
+                  } ${toggling ? "opacity-50" : ""}`}
+                  title={
+                    definition.is_enabled
+                      ? "Enabled (click to disable)"
+                      : "Disabled (click to enable)"
+                  }
+                >
+                  <span
+                    className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${
+                      definition.is_enabled
+                        ? "translate-x-4.5"
+                        : "translate-x-1"
+                    }`}
+                  />
+                </button>
+              </>
+            )}
+          </div>
+          {definition?.description && (
+            <p className="text-sm text-text-muted mt-1">
+              {definition.description}
+            </p>
           )}
-        </h1>
+        </div>
       </div>
 
-      {/* Filter bar */}
+      {/* KPI Cards */}
+      {defLoading ? (
+        <div className="flex justify-center py-8">
+          <LoadingSpinner />
+        </div>
+      ) : definition ? (
+        <>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            {[
+              {
+                label: "Total Fires",
+                value: definition.fire_count_total.toLocaleString(),
+              },
+              {
+                label: "Fires (30d)",
+                value: definition.fire_count_30d.toLocaleString(),
+              },
+              {
+                label: "Unique Users (30d)",
+                value: definition.unique_users_30d.toLocaleString(),
+              },
+              {
+                label: "Automations",
+                value: String(definition.automation_count),
+              },
+            ].map((kpi) => (
+              <div key={kpi.label} className="glass rounded-xl p-4">
+                <p className="text-xs text-text-muted mb-1">{kpi.label}</p>
+                <p className="text-xl font-bold text-text-primary">
+                  {kpi.value}
+                </p>
+              </div>
+            ))}
+          </div>
+
+          {/* Source Code + Payload Schema */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+            {/* Source Code */}
+            <div className="glass rounded-xl p-5">
+              <h3 className="text-sm font-semibold text-text-primary mb-3">
+                Source Code
+              </h3>
+              {definition.source_locations.length > 0 ? (
+                <div className="space-y-3">
+                  {definition.source_locations.map((loc, i) => (
+                    <div
+                      key={i}
+                      className="rounded-lg bg-base-100/50 border border-glass-border/30 p-3"
+                    >
+                      <p className="text-xs text-text-muted mb-1.5 font-mono">
+                        {loc.file}:{loc.line}
+                      </p>
+                      <pre className="font-mono text-xs text-text-secondary whitespace-pre-wrap leading-relaxed">
+                        {loc.snippet}
+                      </pre>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-text-muted">
+                  No source locations recorded.
+                </p>
+              )}
+            </div>
+
+            {/* Payload Schema */}
+            <div className="glass rounded-xl p-5">
+              <h3 className="text-sm font-semibold text-text-primary mb-3">
+                Payload Schema
+              </h3>
+              {definition.payload_schema.length > 0 ? (
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="text-text-muted text-left border-b border-glass-border/30">
+                      <th className="pb-2 pr-3 font-medium">Field</th>
+                      <th className="pb-2 pr-3 font-medium">Type</th>
+                      <th className="pb-2 font-medium">Description</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {definition.payload_schema.map((field) => (
+                      <tr
+                        key={field.field}
+                        className="border-t border-glass-border/20"
+                      >
+                        <td className="py-2 pr-3 font-mono text-accent">
+                          {field.field}
+                        </td>
+                        <td className="py-2 pr-3 text-text-muted">
+                          {field.type}
+                        </td>
+                        <td className="py-2 text-text-secondary">
+                          {field.description}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              ) : (
+                <p className="text-sm text-text-muted">
+                  No payload (event carries no data).
+                </p>
+              )}
+            </div>
+          </div>
+
+          {/* Automations */}
+          {definition.automations.length > 0 && (
+            <div className="glass rounded-xl p-5 mb-6">
+              <h3 className="text-sm font-semibold text-text-primary mb-3">
+                Linked Automations
+              </h3>
+              <div className="space-y-2">
+                {definition.automations.map((flow) => {
+                  const flowCls =
+                    FLOW_STATUS_COLORS[flow.status] ||
+                    "bg-gray-500/20 text-gray-300 border-gray-500/30";
+                  return (
+                    <div
+                      key={flow.id}
+                      className="flex items-center justify-between py-2 px-3 rounded-lg bg-base-100/30"
+                    >
+                      <span className="text-sm text-text-secondary">
+                        {flow.name}
+                      </span>
+                      <span
+                        className={`px-2 py-0.5 rounded-full text-xs font-medium border ${flowCls}`}
+                      >
+                        {flow.status}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </>
+      ) : null}
+
+      {/* Fire History */}
       <div className="glass rounded-xl p-4 mb-6 space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3">
