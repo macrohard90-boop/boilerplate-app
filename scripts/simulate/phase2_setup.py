@@ -15,60 +15,95 @@ logger = logging.getLogger(__name__)
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 
 # ---------------------------------------------------------------------------
-# Categories
+# Categories — top-level + subcategories
 # ---------------------------------------------------------------------------
-CATEGORIES = [
-    {"name": "Electronics", "description": "Gadgets, devices, and tech accessories"},
-    {"name": "Clothing", "description": "Apparel, shoes, and fashion"},
-    {"name": "Accessories", "description": "Bags, watches, wallets, and more"},
+# Structure: {"name", "description", "children": [{"name", "description"}, ...]}
+CATEGORY_TREE = [
     {
-        "name": "Home & Kitchen",
-        "description": "Home essentials, decor, and kitchenware",
-    },
-    {"name": "Sports & Outdoors", "description": "Fitness gear and outdoor equipment"},
-    {"name": "Books", "description": "Physical and digital books"},
-    {"name": "Digital", "description": "Digital downloads and templates"},
-]
-
-# ---------------------------------------------------------------------------
-# Products — 28 one-time + 4 subscriptions = 32 total
-# ---------------------------------------------------------------------------
-PRODUCTS = [
-    # ── Electronics (6 products) ──
-    {
-        "name": "USB-C Hub",
-        "description": "7-in-1 USB-C Hub with HDMI, USB 3.0, SD card reader",
-        "base_price": 4999,
-        "status": "active",
-        "category": "Electronics",
-        "has_image": True,
-        "variants": [
-            {"name": "Silver", "stock_quantity": 50, "attributes": {"color": "silver"}},
+        "name": "Electronics",
+        "description": "Gadgets, devices, and tech accessories",
+        "children": [
+            {"name": "Audio", "description": "Speakers, headphones, and earbuds"},
             {
-                "name": "Space Gray",
-                "stock_quantity": 30,
-                "attributes": {"color": "gray"},
+                "name": "Cables & Chargers",
+                "description": "Charging and connectivity accessories",
+            },
+            {
+                "name": "Wearables",
+                "description": "Smartwatch accessories and wearable tech",
             },
         ],
     },
     {
-        "name": "Wireless Mouse",
-        "description": "Ergonomic wireless mouse with Bluetooth 5.0 and silent clicks",
-        "base_price": 2999,
-        "status": "active",
-        "category": "Electronics",
-        "has_image": True,
-        "variants": [
-            {"name": "Black", "stock_quantity": 100, "attributes": {"color": "black"}},
-            {"name": "White", "stock_quantity": 80, "attributes": {"color": "white"}},
+        "name": "Clothing",
+        "description": "Apparel, shoes, and fashion",
+        "children": [
+            {"name": "Tops", "description": "T-shirts, shirts, and blouses"},
+            {"name": "Outerwear", "description": "Jackets, coats, and hoodies"},
+            {"name": "Shoes", "description": "Sneakers, boots, and casual footwear"},
+            {"name": "Bottoms", "description": "Pants, shorts, and skirts"},
         ],
     },
+    {
+        "name": "Accessories",
+        "description": "Bags, watches, wallets, and more",
+        "children": [
+            {"name": "Bags", "description": "Backpacks, totes, and messenger bags"},
+            {"name": "Eyewear", "description": "Sunglasses and reading glasses"},
+            {"name": "Watches & Jewelry", "description": "Timepieces and jewelry"},
+            {
+                "name": "Wallets",
+                "description": "Wallets, cardholders, and money clips",
+            },
+        ],
+    },
+    {
+        "name": "Home & Kitchen",
+        "description": "Home essentials, decor, and kitchenware",
+        "children": [
+            {"name": "Kitchen", "description": "Cookware, utensils, and gadgets"},
+            {"name": "Decor", "description": "Candles, art, and decorative items"},
+        ],
+    },
+    {
+        "name": "Sports & Outdoors",
+        "description": "Fitness gear and outdoor equipment",
+        "children": [
+            {"name": "Fitness", "description": "Yoga, workout, and gym equipment"},
+            {
+                "name": "Hydration",
+                "description": "Water bottles and hydration packs",
+            },
+        ],
+    },
+    {
+        "name": "Books & Media",
+        "description": "Physical books and digital content",
+        "children": [
+            {
+                "name": "Technical Books",
+                "description": "Programming, engineering, and science",
+            },
+            {
+                "name": "Digital Downloads",
+                "description": "Templates, icons, and digital assets",
+            },
+        ],
+    },
+]
+
+# ---------------------------------------------------------------------------
+# Products — 28 one-time + 2 draft + 4 subscriptions = 34 total
+# Each product's "category" points to a SUBCATEGORY name from CATEGORY_TREE.
+# ---------------------------------------------------------------------------
+PRODUCTS = [
+    # ── Audio (2 products) ──
     {
         "name": "Bluetooth Speaker",
         "description": "Waterproof portable speaker with 12-hour battery life",
         "base_price": 7999,
         "status": "active",
-        "category": "Electronics",
+        "category": "Audio",
         "has_image": True,
         "variants": [
             {"name": "Black", "stock_quantity": 20, "attributes": {"color": "black"}},
@@ -81,11 +116,36 @@ PRODUCTS = [
         "description": "Over-ear ANC headphones with 30-hour battery and Hi-Res audio",
         "base_price": 24999,
         "status": "active",
-        "category": "Electronics",
+        "category": "Audio",
         "has_image": True,
         "variants": [
             {"name": "Black", "stock_quantity": 12, "attributes": {"color": "black"}},
-            {"name": "Silver", "stock_quantity": 8, "attributes": {"color": "silver"}},
+            {
+                "name": "Silver",
+                "stock_quantity": 8,
+                "attributes": {"color": "silver"},
+            },
+        ],
+    },
+    # ── Cables & Chargers (2 products) ──
+    {
+        "name": "USB-C Hub",
+        "description": "7-in-1 USB-C Hub with HDMI, USB 3.0, SD card reader",
+        "base_price": 4999,
+        "status": "active",
+        "category": "Cables & Chargers",
+        "has_image": True,
+        "variants": [
+            {
+                "name": "Silver",
+                "stock_quantity": 50,
+                "attributes": {"color": "silver"},
+            },
+            {
+                "name": "Space Gray",
+                "stock_quantity": 30,
+                "attributes": {"color": "gray"},
+            },
         ],
     },
     {
@@ -93,18 +153,23 @@ PRODUCTS = [
         "description": "20000mAh power bank with USB-C PD and dual output",
         "base_price": 3999,
         "status": "active",
-        "category": "Electronics",
+        "category": "Cables & Chargers",
         "has_image": True,
         "variants": [
-            {"name": "Default", "stock_quantity": 60, "attributes": {"color": "black"}},
+            {
+                "name": "Default",
+                "stock_quantity": 60,
+                "attributes": {"color": "black"},
+            },
         ],
     },
+    # ── Wearables (2 products) ──
     {
         "name": "Smart Watch Band",
         "description": "Silicone replacement band compatible with most smartwatches",
         "base_price": 1999,
         "status": "active",
-        "category": "Electronics",
+        "category": "Wearables",
         "has_image": True,
         "variants": [
             {
@@ -129,13 +194,33 @@ PRODUCTS = [
             },
         ],
     },
-    # ── Clothing (5 products) ──
+    {
+        "name": "Wireless Mouse",
+        "description": "Ergonomic wireless mouse with Bluetooth 5.0 and silent clicks",
+        "base_price": 2999,
+        "status": "active",
+        "category": "Wearables",
+        "has_image": True,
+        "variants": [
+            {
+                "name": "Black",
+                "stock_quantity": 100,
+                "attributes": {"color": "black"},
+            },
+            {
+                "name": "White",
+                "stock_quantity": 80,
+                "attributes": {"color": "white"},
+            },
+        ],
+    },
+    # ── Tops (2 products) ──
     {
         "name": "Classic T-Shirt",
         "description": "Premium 100% organic cotton crew neck tee, pre-shrunk",
         "base_price": 2499,
         "status": "active",
-        "category": "Clothing",
+        "category": "Tops",
         "has_image": True,
         "variants": [
             {
@@ -171,11 +256,67 @@ PRODUCTS = [
         ],
     },
     {
+        "name": "Henley Shirt",
+        "description": "Slim-fit long-sleeve henley in soft waffle knit cotton",
+        "base_price": 3499,
+        "status": "active",
+        "category": "Tops",
+        "has_image": True,
+        "variants": [
+            {
+                "name": "M / Charcoal",
+                "stock_quantity": 20,
+                "attributes": {"size": "M", "color": "charcoal"},
+            },
+            {
+                "name": "L / Charcoal",
+                "stock_quantity": 18,
+                "attributes": {"size": "L", "color": "charcoal"},
+            },
+            {
+                "name": "M / Olive",
+                "stock_quantity": 15,
+                "attributes": {"size": "M", "color": "olive"},
+            },
+        ],
+    },
+    # ── Outerwear (2 products) ──
+    {
+        "name": "Denim Jacket",
+        "description": "Classic fit denim jacket with brass button hardware",
+        "base_price": 8999,
+        "status": "active",
+        "category": "Outerwear",
+        "has_image": True,
+        "variants": [
+            {"name": "Small", "stock_quantity": 10, "attributes": {"size": "S"}},
+            {"name": "Medium", "stock_quantity": 15, "attributes": {"size": "M"}},
+            {"name": "Large", "stock_quantity": 8, "attributes": {"size": "L"}},
+        ],
+    },
+    {
+        "name": "Wool Beanie",
+        "description": "Merino wool knit beanie, double-layered for extra warmth",
+        "base_price": 1499,
+        "status": "active",
+        "category": "Outerwear",
+        "has_image": True,
+        "variants": [
+            {"name": "Gray", "stock_quantity": 50, "attributes": {"color": "gray"}},
+            {
+                "name": "Black",
+                "stock_quantity": 45,
+                "attributes": {"color": "black"},
+            },
+        ],
+    },
+    # ── Shoes (1 product + 1 draft) ──
+    {
         "name": "Running Shoes",
         "description": "Lightweight running shoes with cushioned sole and breathable mesh",
         "base_price": 12999,
         "status": "active",
-        "category": "Clothing",
+        "category": "Shoes",
         "has_image": True,
         "variants": [
             {
@@ -195,37 +336,13 @@ PRODUCTS = [
             },
         ],
     },
-    {
-        "name": "Denim Jacket",
-        "description": "Classic fit denim jacket with brass button hardware",
-        "base_price": 8999,
-        "status": "active",
-        "category": "Clothing",
-        "has_image": True,
-        "variants": [
-            {"name": "Small", "stock_quantity": 10, "attributes": {"size": "S"}},
-            {"name": "Medium", "stock_quantity": 15, "attributes": {"size": "M"}},
-            {"name": "Large", "stock_quantity": 8, "attributes": {"size": "L"}},
-        ],
-    },
-    {
-        "name": "Wool Beanie",
-        "description": "Merino wool knit beanie, double-layered for extra warmth",
-        "base_price": 1499,
-        "status": "active",
-        "category": "Clothing",
-        "has_image": True,
-        "variants": [
-            {"name": "Gray", "stock_quantity": 50, "attributes": {"color": "gray"}},
-            {"name": "Black", "stock_quantity": 45, "attributes": {"color": "black"}},
-        ],
-    },
+    # ── Bottoms (1 product) ──
     {
         "name": "Linen Shorts",
         "description": "Relaxed fit linen blend shorts with elastic waistband",
         "base_price": 3499,
         "status": "active",
-        "category": "Clothing",
+        "category": "Bottoms",
         "has_image": True,
         "variants": [
             {
@@ -245,39 +362,37 @@ PRODUCTS = [
             },
         ],
     },
-    # ── Accessories (4 products) ──
+    # ── Bags (1 product + 1 draft) ──
     {
-        "name": "Leather Wallet",
-        "description": "Genuine leather bifold wallet with RFID blocking technology",
-        "base_price": 5999,
+        "name": "Canvas Backpack",
+        "description": "Water-resistant waxed canvas backpack with laptop compartment",
+        "base_price": 6999,
         "status": "active",
-        "category": "Accessories",
+        "category": "Bags",
         "has_image": True,
         "variants": [
-            {"name": "Brown", "stock_quantity": 20, "attributes": {"color": "brown"}},
-            {"name": "Black", "stock_quantity": 15, "attributes": {"color": "black"}},
+            {"name": "Olive", "stock_quantity": 18, "attributes": {"color": "olive"}},
+            {
+                "name": "Black",
+                "stock_quantity": 22,
+                "attributes": {"color": "black"},
+            },
         ],
     },
-    {
-        "name": "Limited Edition Watch",
-        "description": "Collector's edition automatic watch with sapphire crystal — SOLD OUT",
-        "base_price": 19999,
-        "status": "active",
-        "category": "Accessories",
-        "has_image": False,  # No image — tests fallback
-        "variants": [
-            {"name": "Gold", "stock_quantity": 0, "attributes": {"color": "gold"}},
-        ],
-    },
+    # ── Eyewear (1 product) ──
     {
         "name": "Aviator Sunglasses",
         "description": "Polarized UV400 aviator sunglasses with metal frame",
         "base_price": 4499,
         "status": "active",
-        "category": "Accessories",
+        "category": "Eyewear",
         "has_image": True,
         "variants": [
-            {"name": "Black", "stock_quantity": 30, "attributes": {"color": "black"}},
+            {
+                "name": "Black",
+                "stock_quantity": 30,
+                "attributes": {"color": "black"},
+            },
             {
                 "name": "Tortoise",
                 "stock_quantity": 25,
@@ -287,28 +402,49 @@ PRODUCTS = [
                 "name": "Clear",
                 "stock_quantity": 0,
                 "attributes": {"color": "clear"},
-            },  # OOS
+            },  # OOS variant
         ],
     },
+    # ── Watches & Jewelry (1 product — sold out) ──
     {
-        "name": "Canvas Backpack",
-        "description": "Water-resistant waxed canvas backpack with laptop compartment",
-        "base_price": 6999,
+        "name": "Limited Edition Watch",
+        "description": "Collector's edition automatic watch with sapphire crystal — SOLD OUT",
+        "base_price": 19999,
         "status": "active",
-        "category": "Accessories",
+        "category": "Watches & Jewelry",
+        "has_image": False,  # No image — tests fallback
+        "variants": [
+            {"name": "Gold", "stock_quantity": 0, "attributes": {"color": "gold"}},
+        ],
+    },
+    # ── Wallets (1 product) ──
+    {
+        "name": "Leather Wallet",
+        "description": "Genuine leather bifold wallet with RFID blocking technology",
+        "base_price": 5999,
+        "status": "active",
+        "category": "Wallets",
         "has_image": True,
         "variants": [
-            {"name": "Olive", "stock_quantity": 18, "attributes": {"color": "olive"}},
-            {"name": "Black", "stock_quantity": 22, "attributes": {"color": "black"}},
+            {
+                "name": "Brown",
+                "stock_quantity": 20,
+                "attributes": {"color": "brown"},
+            },
+            {
+                "name": "Black",
+                "stock_quantity": 15,
+                "attributes": {"color": "black"},
+            },
         ],
     },
-    # ── Home & Kitchen (4 products) ──
+    # ── Kitchen (3 products) ──
     {
         "name": "Ceramic Mug Set",
         "description": "Set of 4 handcrafted ceramic mugs, microwave and dishwasher safe",
         "base_price": 3499,
         "status": "active",
-        "category": "Home & Kitchen",
+        "category": "Kitchen",
         "has_image": True,
         "variants": [
             {
@@ -328,16 +464,26 @@ PRODUCTS = [
         "description": "Extra-thick bamboo cutting board with juice groove, 18x12 inches",
         "base_price": 2999,
         "status": "active",
-        "category": "Home & Kitchen",
+        "category": "Kitchen",
         "has_image": True,
         "variants": [],  # Single SKU — no variants
     },
+    {
+        "name": "Kitchen Timer",
+        "description": "Magnetic digital kitchen timer with loud alarm and large display",
+        "base_price": 1299,
+        "status": "active",
+        "category": "Kitchen",
+        "has_image": False,  # No image — tests fallback
+        "variants": [],  # Single SKU
+    },
+    # ── Decor (1 product) ──
     {
         "name": "Scented Candle Set",
         "description": "Hand-poured soy wax candles, 40-hour burn time each",
         "base_price": 2499,
         "status": "active",
-        "category": "Home & Kitchen",
+        "category": "Decor",
         "has_image": True,
         "variants": [
             {
@@ -350,42 +496,28 @@ PRODUCTS = [
                 "stock_quantity": 45,
                 "attributes": {"scent": "vanilla"},
             },
-            {"name": "Cedar", "stock_quantity": 40, "attributes": {"scent": "cedar"}},
+            {
+                "name": "Cedar",
+                "stock_quantity": 40,
+                "attributes": {"scent": "cedar"},
+            },
         ],
     },
-    {
-        "name": "Kitchen Timer",
-        "description": "Magnetic digital kitchen timer with loud alarm and large display",
-        "base_price": 1299,
-        "status": "active",
-        "category": "Home & Kitchen",
-        "has_image": False,  # No image — tests fallback
-        "variants": [],  # Single SKU
-    },
-    # ── Sports & Outdoors (3 products) ──
+    # ── Fitness (2 products) ──
     {
         "name": "Yoga Mat",
         "description": "Non-slip TPE yoga mat, 6mm thick with carrying strap",
         "base_price": 4499,
         "status": "active",
-        "category": "Sports & Outdoors",
+        "category": "Fitness",
         "has_image": True,
         "variants": [
-            {"name": "Purple", "stock_quantity": 25, "attributes": {"color": "purple"}},
+            {
+                "name": "Purple",
+                "stock_quantity": 25,
+                "attributes": {"color": "purple"},
+            },
             {"name": "Blue", "stock_quantity": 30, "attributes": {"color": "blue"}},
-        ],
-    },
-    {
-        "name": "Insulated Water Bottle",
-        "description": "Double-wall vacuum insulated, keeps cold 24h / hot 12h",
-        "base_price": 1999,
-        "status": "active",
-        "category": "Sports & Outdoors",
-        "has_image": True,
-        "variants": [
-            {"name": "500ml", "stock_quantity": 80, "attributes": {"size": "500ml"}},
-            {"name": "750ml", "stock_quantity": 60, "attributes": {"size": "750ml"}},
-            {"name": "1L", "stock_quantity": 40, "attributes": {"size": "1L"}},
         ],
     },
     {
@@ -393,17 +525,39 @@ PRODUCTS = [
         "description": "5-piece resistance band set with door anchor and carry bag",
         "base_price": 2999,
         "status": "active",
-        "category": "Sports & Outdoors",
+        "category": "Fitness",
         "has_image": True,
         "variants": [],  # Single SKU
     },
-    # ── Books (2 products) ──
+    # ── Hydration (1 product) ──
+    {
+        "name": "Insulated Water Bottle",
+        "description": "Double-wall vacuum insulated, keeps cold 24h / hot 12h",
+        "base_price": 1999,
+        "status": "active",
+        "category": "Hydration",
+        "has_image": True,
+        "variants": [
+            {
+                "name": "500ml",
+                "stock_quantity": 80,
+                "attributes": {"size": "500ml"},
+            },
+            {
+                "name": "750ml",
+                "stock_quantity": 60,
+                "attributes": {"size": "750ml"},
+            },
+            {"name": "1L", "stock_quantity": 40, "attributes": {"size": "1L"}},
+        ],
+    },
+    # ── Technical Books (2 products) ──
     {
         "name": "Python Cookbook",
         "description": "Recipes for mastering Python 3, 500+ pages of practical examples",
         "base_price": 4999,
         "status": "active",
-        "category": "Books",
+        "category": "Technical Books",
         "has_image": True,
         "variants": [],  # Single SKU
     },
@@ -412,18 +566,18 @@ PRODUCTS = [
         "description": "Gang of Four patterns explained with modern language examples",
         "base_price": 3999,
         "status": "active",
-        "category": "Books",
+        "category": "Technical Books",
         "has_image": False,  # No image — tests fallback
         "variants": [],  # Single SKU, low stock
         "_stock_override": 2,  # Will be set via SQL after creation
     },
-    # ── Digital (2 products) ──
+    # ── Digital Downloads (2 products) ──
     {
         "name": "Premium Icon Pack",
         "description": "2000+ vector icons in SVG and PNG, lifetime updates",
         "base_price": 999,
         "status": "active",
-        "category": "Digital",
+        "category": "Digital Downloads",
         "has_image": True,
         "variants": [],  # Single SKU
     },
@@ -432,7 +586,7 @@ PRODUCTS = [
         "description": "50 responsive website templates with source code",
         "base_price": 2499,
         "status": "active",
-        "category": "Digital",
+        "category": "Digital Downloads",
         "has_image": True,
         "variants": [],  # Single SKU
     },
@@ -442,7 +596,7 @@ PRODUCTS = [
         "description": "Surprise assortment of products — coming soon!",
         "base_price": 9999,
         "status": "draft",
-        "category": "Accessories",
+        "category": "Bags",
         "has_image": False,  # No image for drafts
         "variants": [
             {
@@ -457,7 +611,7 @@ PRODUCTS = [
         "description": "Upcoming limited edition collaboration sneakers",
         "base_price": 14999,
         "status": "draft",
-        "category": "Clothing",
+        "category": "Shoes",
         "has_image": True,
         "variants": [
             {"name": "Size 10", "stock_quantity": 0, "attributes": {"size": "10"}},
@@ -467,10 +621,13 @@ PRODUCTS = [
     # ── Subscriptions (4 plans) ──
     {
         "name": "Free Tier",
-        "description": "Basic access with limited features.\n\n- 5 projects\n- Community support\n- 1GB storage",
+        "description": (
+            "Basic access with limited features.\n\n"
+            "- 5 projects\n- Community support\n- 1GB storage"
+        ),
         "base_price": 0,
         "status": "active",
-        "category": "Digital",
+        "category": "Digital Downloads",
         "pricing_type": "recurring",
         "recurring_interval": "month",
         "recurring_interval_count": 1,
@@ -479,10 +636,13 @@ PRODUCTS = [
     },
     {
         "name": "Starter Plan",
-        "description": "For individuals and small teams getting started.\n\n- 25 projects\n- Email support\n- 10GB storage\n- API access",
+        "description": (
+            "For individuals and small teams getting started.\n\n"
+            "- 25 projects\n- Email support\n- 10GB storage\n- API access"
+        ),
         "base_price": 999,
         "status": "active",
-        "category": "Digital",
+        "category": "Digital Downloads",
         "pricing_type": "recurring",
         "recurring_interval": "month",
         "recurring_interval_count": 1,
@@ -491,10 +651,14 @@ PRODUCTS = [
     },
     {
         "name": "Pro Plan",
-        "description": "For growing teams that need more power.\n\n- Unlimited projects\n- Priority support\n- 100GB storage\n- API access\n- Custom integrations\n- Team collaboration",
+        "description": (
+            "For growing teams that need more power.\n\n"
+            "- Unlimited projects\n- Priority support\n- 100GB storage\n"
+            "- API access\n- Custom integrations\n- Team collaboration"
+        ),
         "base_price": 2999,
         "status": "active",
-        "category": "Digital",
+        "category": "Digital Downloads",
         "pricing_type": "recurring",
         "recurring_interval": "month",
         "recurring_interval_count": 1,
@@ -503,10 +667,14 @@ PRODUCTS = [
     },
     {
         "name": "Enterprise Annual",
-        "description": "Best value for large organizations. Billed annually.\n\n- Everything in Pro\n- Dedicated account manager\n- 99.9% SLA\n- SSO & SAML\n- Unlimited storage\n- Custom contracts",
+        "description": (
+            "Best value for large organizations. Billed annually.\n\n"
+            "- Everything in Pro\n- Dedicated account manager\n- 99.9% SLA\n"
+            "- SSO & SAML\n- Unlimited storage\n- Custom contracts"
+        ),
         "base_price": 29999,
         "status": "active",
-        "category": "Digital",
+        "category": "Digital Downloads",
         "pricing_type": "recurring",
         "recurring_interval": "year",
         "recurring_interval_count": 1,
@@ -585,17 +753,24 @@ COUPONS = [
 ]
 
 # ---------------------------------------------------------------------------
-# Image generation — color schemes per category
+# Image generation — color schemes per parent category, inherited by children
 # ---------------------------------------------------------------------------
-CATEGORY_COLORS = {
+_PARENT_COLORS = {
     "Electronics": ("1a1a2e", "e94560"),
     "Clothing": ("533483", "e0aaff"),
     "Accessories": ("2d2d2d", "d4a574"),
     "Home & Kitchen": ("1b4332", "95d5b2"),
     "Sports & Outdoors": ("6b0f1a", "ef233c"),
-    "Books": ("3d2b1f", "c9a96e"),
-    "Digital": ("0d1b2a", "00b4d8"),
+    "Books & Media": ("3d2b1f", "c9a96e"),
 }
+
+# Build category → color map including subcategories (inherit parent color)
+CATEGORY_COLORS: dict[str, tuple[str, str]] = {}
+for _parent in CATEGORY_TREE:
+    _color = _PARENT_COLORS.get(_parent["name"], ("333333", "ffffff"))
+    CATEGORY_COLORS[_parent["name"]] = _color
+    for _child in _parent.get("children", []):
+        CATEGORY_COLORS[_child["name"]] = _color
 
 
 def _placeholder_url(product_name: str, category: str, index: int = 0) -> str:
@@ -730,25 +905,73 @@ def run(api_url: str, admin_email: str, admin_password: str) -> dict:
         except Exception:
             pass
 
-    # ── 4. Create categories ──
+    # ── 4. Create categories (parent + subcategories with parent_id) ──
     _flush_rate_keys()
-    category_map = {}  # name → id
-    for cat_data in CATEGORIES:
+    category_map = {}  # name → id (includes both parents and children)
+
+    for parent_data in CATEGORY_TREE:
         try:
             resp = client.post(
-                f"{api_url}/ecommerce/categories", json=cat_data, headers=auth
+                f"{api_url}/ecommerce/categories",
+                json={
+                    "name": parent_data["name"],
+                    "description": parent_data["description"],
+                },
+                headers=auth,
             )
             if resp.status_code in (200, 201):
                 cat = resp.json()
-                category_map[cat_data["name"]] = cat["id"]
-                result["categories"].append({"name": cat_data["name"], "id": cat["id"]})
-                logger.info("Created category: %s", cat_data["name"])
+                parent_id = cat["id"]
+                category_map[parent_data["name"]] = parent_id
+                result["categories"].append(
+                    {"name": parent_data["name"], "id": parent_id, "parent": None}
+                )
+                logger.info("Created category: %s", parent_data["name"])
+
+                # Create child categories under this parent
+                for child_data in parent_data.get("children", []):
+                    child_resp = client.post(
+                        f"{api_url}/ecommerce/categories",
+                        json={
+                            "name": child_data["name"],
+                            "description": child_data["description"],
+                            "parent_id": parent_id,
+                        },
+                        headers=auth,
+                    )
+                    if child_resp.status_code in (200, 201):
+                        child_cat = child_resp.json()
+                        category_map[child_data["name"]] = child_cat["id"]
+                        result["categories"].append(
+                            {
+                                "name": child_data["name"],
+                                "id": child_cat["id"],
+                                "parent": parent_data["name"],
+                            }
+                        )
+                        logger.info(
+                            "  Created subcategory: %s -> %s",
+                            parent_data["name"],
+                            child_data["name"],
+                        )
+                    else:
+                        result["errors"].append(
+                            f"Subcategory {child_data['name']}: "
+                            f"{child_resp.status_code} {child_resp.text}"
+                        )
             else:
                 result["errors"].append(
-                    f"Category {cat_data['name']}: {resp.status_code} {resp.text}"
+                    f"Category {parent_data['name']}: "
+                    f"{resp.status_code} {resp.text}"
                 )
         except Exception as e:
-            result["errors"].append(f"Category {cat_data['name']}: {e}")
+            result["errors"].append(f"Category {parent_data['name']}: {e}")
+
+    parent_count = len([c for c in result["categories"] if c["parent"] is None])
+    child_count = len([c for c in result["categories"] if c["parent"] is not None])
+    logger.info(
+        "Categories done: %d parents, %d subcategories", parent_count, child_count
+    )
 
     # ── 5. Create products with variants and images ──
     _flush_rate_keys()
@@ -776,13 +999,15 @@ def run(api_url: str, admin_email: str, admin_password: str) -> dict:
                     "recurring_interval_count", 1
                 )
 
-            # Assign category
+            # Assign category (subcategory name → resolved ID)
             cat_name = prod_data.get("category", "")
             if cat_name and cat_name in category_map:
                 product_payload["category_ids"] = [category_map[cat_name]]
 
             resp = client.post(
-                f"{api_url}/ecommerce/products", json=product_payload, headers=auth
+                f"{api_url}/ecommerce/products",
+                json=product_payload,
+                headers=auth,
             )
             if resp.status_code not in (200, 201):
                 result["errors"].append(
@@ -801,6 +1026,7 @@ def run(api_url: str, admin_email: str, admin_password: str) -> dict:
                 "pricing_type": prod_data.get("pricing_type", "one_time"),
                 "base_price": prod_data["base_price"],
                 "status": prod_data["status"],
+                "category": cat_name,
             }
 
             # Create variants
@@ -837,11 +1063,12 @@ def run(api_url: str, admin_email: str, admin_password: str) -> dict:
 
             result["products"].append(product_info)
             logger.info(
-                "Created product: %s (%d variants, %s, $%.2f)",
+                "Created product: %s (%d variants, %s, $%.2f, cat=%s)",
                 prod_data["name"],
                 len(product_info["variants"]),
                 prod_data["status"],
                 prod_data["base_price"] / 100,
+                cat_name,
             )
 
         except Exception as e:
@@ -995,12 +1222,14 @@ def run(api_url: str, admin_email: str, admin_password: str) -> dict:
     sub_count = len([p for p in result["products"] if p["pricing_type"] == "recurring"])
     logger.info(
         "Phase 2 complete: %d products (%d active, %d draft, %d subs), "
-        "%d categories, %d coupons",
+        "%d categories (%d parents + %d subcategories), %d coupons",
         len(result["products"]),
         active_count,
         draft_count,
         sub_count,
         len(result["categories"]),
+        parent_count,
+        child_count,
         len(result["coupons"]),
     )
 
