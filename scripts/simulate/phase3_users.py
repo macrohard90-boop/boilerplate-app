@@ -72,7 +72,13 @@ class SimUser:
     @property
     def events_expected(self) -> int:
         # Approximate based on actions taken
-        return len([a for a in self.actions if "track" in a.action.lower() or "event" in a.action.lower()])
+        return len(
+            [
+                a
+                for a in self.actions
+                if "track" in a.action.lower() or "event" in a.action.lower()
+            ]
+        )
 
     def auth_headers(self) -> dict[str, str]:
         return {
@@ -83,7 +89,9 @@ class SimUser:
         }
 
 
-async def _register_user(client: httpx.AsyncClient, api_url: str, user: SimUser) -> bool:
+async def _register_user(
+    client: httpx.AsyncClient, api_url: str, user: SimUser
+) -> bool:
     """Register and login a user."""
     try:
         resp = await client.post(
@@ -108,27 +116,44 @@ async def _register_user(client: httpx.AsyncClient, api_url: str, user: SimUser)
             )
             if me_resp.status_code == 200:
                 user.user_id = me_resp.json().get("user", {}).get("id", "")
-            user.actions.append(UserAction(
-                action="register", endpoint="/auth/register", method="POST",
-                status_code=resp.status_code, passed=True,
-            ))
+            user.actions.append(
+                UserAction(
+                    action="register",
+                    endpoint="/auth/register",
+                    method="POST",
+                    status_code=resp.status_code,
+                    passed=True,
+                )
+            )
             return True
         else:
-            user.actions.append(UserAction(
-                action="register", endpoint="/auth/register", method="POST",
-                status_code=resp.status_code, passed=False,
-                detail=resp.text[:200],
-            ))
+            user.actions.append(
+                UserAction(
+                    action="register",
+                    endpoint="/auth/register",
+                    method="POST",
+                    status_code=resp.status_code,
+                    passed=False,
+                    detail=resp.text[:200],
+                )
+            )
             return False
     except Exception as e:
-        user.actions.append(UserAction(
-            action="register", endpoint="/auth/register", method="POST",
-            passed=False, detail=str(e),
-        ))
+        user.actions.append(
+            UserAction(
+                action="register",
+                endpoint="/auth/register",
+                method="POST",
+                passed=False,
+                detail=str(e),
+            )
+        )
         return False
 
 
-async def _grant_consent(client: httpx.AsyncClient, api_url: str, user: SimUser, db_url: str) -> None:
+async def _grant_consent(
+    client: httpx.AsyncClient, api_url: str, user: SimUser, db_url: str
+) -> None:
     """Grant GDPR analytics consent via direct DB insert."""
     import psycopg2
 
@@ -158,13 +183,20 @@ async def _grant_consent(client: httpx.AsyncClient, api_url: str, user: SimUser,
         cur.close()
         conn.close()
 
-        user.actions.append(UserAction(
-            action="grant_consent", passed=True,
-        ))
+        user.actions.append(
+            UserAction(
+                action="grant_consent",
+                passed=True,
+            )
+        )
     except Exception as e:
-        user.actions.append(UserAction(
-            action="grant_consent", passed=False, detail=str(e),
-        ))
+        user.actions.append(
+            UserAction(
+                action="grant_consent",
+                passed=False,
+                detail=str(e),
+            )
+        )
 
 
 async def _track_pageview(
@@ -191,14 +223,23 @@ async def _track_pageview(
             },
             headers=headers,
         )
-        user.actions.append(UserAction(
-            action=f"pageview:{path}", endpoint="/tracking/pageview", method="POST",
-            status_code=resp.status_code, passed=resp.status_code in (200, 201),
-        ))
+        user.actions.append(
+            UserAction(
+                action=f"pageview:{path}",
+                endpoint="/tracking/pageview",
+                method="POST",
+                status_code=resp.status_code,
+                passed=resp.status_code in (200, 201),
+            )
+        )
     except Exception as e:
-        user.actions.append(UserAction(
-            action=f"pageview:{path}", passed=False, detail=str(e),
-        ))
+        user.actions.append(
+            UserAction(
+                action=f"pageview:{path}",
+                passed=False,
+                detail=str(e),
+            )
+        )
 
 
 async def _track_event(
@@ -215,14 +256,23 @@ async def _track_event(
             json={"event_type": event_type, "event_data": event_data or {}},
             headers=user.auth_headers(),
         )
-        user.actions.append(UserAction(
-            action=f"event:{event_type}", endpoint="/tracking/events", method="POST",
-            status_code=resp.status_code, passed=resp.status_code in (200, 201),
-        ))
+        user.actions.append(
+            UserAction(
+                action=f"event:{event_type}",
+                endpoint="/tracking/events",
+                method="POST",
+                status_code=resp.status_code,
+                passed=resp.status_code in (200, 201),
+            )
+        )
     except Exception as e:
-        user.actions.append(UserAction(
-            action=f"event:{event_type}", passed=False, detail=str(e),
-        ))
+        user.actions.append(
+            UserAction(
+                action=f"event:{event_type}",
+                passed=False,
+                detail=str(e),
+            )
+        )
 
 
 async def _browse_products(
@@ -238,67 +288,109 @@ async def _browse_products(
     await _track_pageview(client, api_url, user, "/", random.randint(3000, 12000))
 
     # Products page
-    await _track_pageview(client, api_url, user, "/products", random.randint(5000, 15000))
+    await _track_pageview(
+        client, api_url, user, "/products", random.randint(5000, 15000)
+    )
 
     # Search (if persona searches)
     for _ in range(user.persona.searches):
-        query = random.choice(["shoes", "electronics", "leather", "wireless", "ceramic", "shirt"])
+        query = random.choice(
+            ["shoes", "electronics", "leather", "wireless", "ceramic", "shirt"]
+        )
         try:
             resp = await client.get(
-                f"{api_url}/products",
+                f"{api_url}/ecommerce/products",
                 params={"search": query},
                 headers=user.auth_headers(),
             )
             if resp.status_code == 200:
                 items = resp.json().get("items", [])
-                await _track_event(client, api_url, user, "search_performed", {"query": query})
+                await _track_event(
+                    client, api_url, user, "search_performed", {"query": query}
+                )
                 if not items:
-                    await _track_event(client, api_url, user, "search_no_results", {"query": query})
+                    await _track_event(
+                        client, api_url, user, "search_no_results", {"query": query}
+                    )
         except Exception:
             pass
 
     # Sort/filter
     if user.persona.uses_filter:
-        await _track_event(client, api_url, user, "sort_changed", {"sort_value": "price_asc"})
+        await _track_event(
+            client, api_url, user, "sort_changed", {"sort_value": "price_asc"}
+        )
         if catalog:
             cat = random.choice(catalog)
-            await _track_event(client, api_url, user, "filter_used", {
-                "filter_type": "category",
-                "filter_value": cat.get("name", ""),
-            })
+            await _track_event(
+                client,
+                api_url,
+                user,
+                "filter_used",
+                {
+                    "filter_type": "category",
+                    "filter_value": cat.get("name", ""),
+                },
+            )
 
     # View individual products
     available_products = [p for p in catalog if p.get("variants")]
-    products_to_view = random.sample(
-        available_products,
-        min(num_to_view, len(available_products)),
-    ) if available_products else []
+    products_to_view = (
+        random.sample(
+            available_products,
+            min(num_to_view, len(available_products)),
+        )
+        if available_products
+        else []
+    )
 
     for product in products_to_view:
         slug = product["name"].lower().replace(" ", "-")
-        await _track_pageview(client, api_url, user, f"/products/{slug}", random.randint(8000, 45000))
+        await _track_pageview(
+            client, api_url, user, f"/products/{slug}", random.randint(8000, 45000)
+        )
 
-        await _track_event(client, api_url, user, "product_viewed", {
-            "product_id": product["id"],
-            "product_name": product["name"],
-        })
+        await _track_event(
+            client,
+            api_url,
+            user,
+            "product_viewed",
+            {
+                "product_id": product["id"],
+                "product_name": product["name"],
+            },
+        )
 
         # Check if out of stock
-        oos_variants = [v for v in product.get("variants", []) if v.get("stock", 0) == 0]
+        oos_variants = [
+            v for v in product.get("variants", []) if v.get("stock", 0) == 0
+        ]
         if oos_variants:
-            await _track_event(client, api_url, user, "out_of_stock_viewed", {
-                "product_id": product["id"],
-                "variant_id": oos_variants[0]["id"],
-            })
+            await _track_event(
+                client,
+                api_url,
+                user,
+                "out_of_stock_viewed",
+                {
+                    "product_id": product["id"],
+                    "variant_id": oos_variants[0]["id"],
+                },
+            )
 
         # Variant selection
         if len(product.get("variants", [])) > 1:
             variant = random.choice(product["variants"])
-            await _track_event(client, api_url, user, "variant_selected", {
-                "product_id": product["id"],
-                "variant_id": variant["id"],
-                "variant_name": variant["name"],
-            })
+            await _track_event(
+                client,
+                api_url,
+                user,
+                "variant_selected",
+                {
+                    "product_id": product["id"],
+                    "variant_id": variant["id"],
+                    "variant_name": variant["name"],
+                },
+            )
 
         user.products_seen.append(product)
 
@@ -307,14 +399,22 @@ async def _browse_products(
         if catalog:
             cat = random.choice(catalog)
             await _track_pageview(
-                client, api_url, user,
+                client,
+                api_url,
+                user,
                 f"/categories/{cat['name'].lower()}",
                 random.randint(5000, 20000),
             )
-            await _track_event(client, api_url, user, "category_browsed", {
-                "category_id": cat.get("id", ""),
-                "category_name": cat.get("name", ""),
-            })
+            await _track_event(
+                client,
+                api_url,
+                user,
+                "category_browsed",
+                {
+                    "category_id": cat.get("id", ""),
+                    "category_name": cat.get("name", ""),
+                },
+            )
 
 
 async def _cart_operations(
@@ -331,7 +431,8 @@ async def _cart_operations(
 
     # Select items to add
     buyable = [
-        p for p in catalog
+        p
+        for p in catalog
         if p.get("variants")
         and any(v.get("stock", 0) > 0 for v in p["variants"])
         and p.get("pricing_type", "one_time") == "one_time"
@@ -361,55 +462,84 @@ async def _cart_operations(
                 payload["variant_id"] = variant_id
 
             resp = await client.post(
-                f"{api_url}/cart",
+                f"{api_url}/ecommerce/cart",
                 json=payload,
                 headers=user.auth_headers(),
             )
             if resp.status_code in (200, 201):
-                user.cart_items.append({
-                    "product_id": product["id"],
-                    "variant_id": variant_id,
-                    "quantity": quantity,
-                    "name": product["name"],
-                })
-                await _track_event(client, api_url, user, "add_to_cart", {
-                    "product_id": product["id"],
-                    "variant_id": variant_id,
-                    "quantity": quantity,
-                    "price": product.get("base_price", 0),
-                })
+                user.cart_items.append(
+                    {
+                        "product_id": product["id"],
+                        "variant_id": variant_id,
+                        "quantity": quantity,
+                        "name": product["name"],
+                    }
+                )
+                await _track_event(
+                    client,
+                    api_url,
+                    user,
+                    "add_to_cart",
+                    {
+                        "product_id": product["id"],
+                        "variant_id": variant_id,
+                        "quantity": quantity,
+                        "price": product.get("base_price", 0),
+                    },
+                )
             else:
-                user.actions.append(UserAction(
-                    action=f"add_to_cart:{product['name']}",
-                    endpoint="/cart", method="POST",
-                    status_code=resp.status_code, passed=False,
-                    detail=resp.text[:200],
-                ))
+                user.actions.append(
+                    UserAction(
+                        action=f"add_to_cart:{product['name']}",
+                        endpoint="/cart",
+                        method="POST",
+                        status_code=resp.status_code,
+                        passed=False,
+                        detail=resp.text[:200],
+                    )
+                )
         except Exception as e:
-            user.actions.append(UserAction(
-                action=f"add_to_cart:{product['name']}",
-                passed=False, detail=str(e),
-            ))
+            user.actions.append(
+                UserAction(
+                    action=f"add_to_cart:{product['name']}",
+                    passed=False,
+                    detail=str(e),
+                )
+            )
 
     if not user.cart_items:
         return
 
     # View cart
     try:
-        resp = await client.get(f"{api_url}/cart", headers=user.auth_headers())
+        resp = await client.get(
+            f"{api_url}/ecommerce/cart", headers=user.auth_headers()
+        )
         if resp.status_code == 200:
             cart_data = resp.json()
-            await _track_event(client, api_url, user, "cart_viewed", {
-                "item_count": cart_data.get("item_count", len(user.cart_items)),
-                "cart_total": cart_data.get("total", 0),
-            })
+            await _track_event(
+                client,
+                api_url,
+                user,
+                "cart_viewed",
+                {
+                    "item_count": cart_data.get("item_count", len(user.cart_items)),
+                    "cart_total": cart_data.get("total", 0),
+                },
+            )
 
             # High value cart check
             if cart_data.get("total", 0) > 10000:
-                await _track_event(client, api_url, user, "high_value_cart", {
-                    "cart_total": cart_data.get("total", 0),
-                    "item_count": cart_data.get("item_count", 0),
-                })
+                await _track_event(
+                    client,
+                    api_url,
+                    user,
+                    "high_value_cart",
+                    {
+                        "cart_total": cart_data.get("total", 0),
+                        "item_count": cart_data.get("item_count", 0),
+                    },
+                )
     except Exception:
         pass
 
@@ -418,23 +548,35 @@ async def _cart_operations(
         item = random.choice(user.cart_items)
         old_qty = item["quantity"]
         new_qty = old_qty + 1
-        await _track_event(client, api_url, user, "cart_quantity_changed", {
-            "product_id": item["product_id"],
-            "old_qty": old_qty,
-            "new_qty": new_qty,
-        })
+        await _track_event(
+            client,
+            api_url,
+            user,
+            "cart_quantity_changed",
+            {
+                "product_id": item["product_id"],
+                "old_qty": old_qty,
+                "new_qty": new_qty,
+            },
+        )
 
     # Remove item
     if user.persona.removes_item and len(user.cart_items) > 1:
         removed = user.cart_items.pop()
         try:
             await client.delete(
-                f"{api_url}/cart/items/{removed['product_id']}",
+                f"{api_url}/ecommerce/cart/items/{removed['product_id']}",
                 headers=user.auth_headers(),
             )
-            await _track_event(client, api_url, user, "remove_from_cart", {
-                "product_id": removed["product_id"],
-            })
+            await _track_event(
+                client,
+                api_url,
+                user,
+                "remove_from_cart",
+                {
+                    "product_id": removed["product_id"],
+                },
+            )
         except Exception:
             pass
 
@@ -448,30 +590,46 @@ async def _checkout_flow(
     if not user.persona.starts_checkout or not user.cart_items:
         return
 
-    await _track_pageview(client, api_url, user, "/checkout", random.randint(10000, 30000))
+    await _track_pageview(
+        client, api_url, user, "/checkout", random.randint(10000, 30000)
+    )
 
     # Checkout step events
     for step in range(1, 4):
-        await _track_event(client, api_url, user, "checkout_step_viewed", {
-            "step": step,
-        })
+        await _track_event(
+            client,
+            api_url,
+            user,
+            "checkout_step_viewed",
+            {
+                "step": step,
+            },
+        )
 
     # Abandon checkout?
     if not user.persona.completes_payment and not user.persona.intentional_decline:
-        await _track_event(client, api_url, user, "checkout_abandoned", {
-            "step": random.randint(1, 3),
-            "items_abandoned": len(user.cart_items),
-        })
+        await _track_event(
+            client,
+            api_url,
+            user,
+            "checkout_abandoned",
+            {
+                "step": random.randint(1, 3),
+                "items_abandoned": len(user.cart_items),
+            },
+        )
         return
 
     # Create checkout
     try:
         resp = await client.post(
-            f"{api_url}/checkout",
+            f"{api_url}/payments/checkout",
             json={
                 "shipping_address": {
                     "line1": f"{random.randint(100,999)} Simulation St",
-                    "city": random.choice(["New York", "Los Angeles", "Chicago", "Houston", "Phoenix"]),
+                    "city": random.choice(
+                        ["New York", "Los Angeles", "Chicago", "Houston", "Phoenix"]
+                    ),
                     "state": random.choice(["NY", "CA", "IL", "TX", "AZ"]),
                     "postal_code": f"{random.randint(10000, 99999)}",
                     "country": "US",
@@ -481,32 +639,51 @@ async def _checkout_flow(
         )
 
         if resp.status_code not in (200, 201):
-            user.actions.append(UserAction(
-                action="checkout", endpoint="/checkout", method="POST",
-                status_code=resp.status_code, passed=False,
-                detail=resp.text[:300],
-            ))
+            user.actions.append(
+                UserAction(
+                    action="checkout",
+                    endpoint="/checkout",
+                    method="POST",
+                    status_code=resp.status_code,
+                    passed=False,
+                    detail=resp.text[:300],
+                )
+            )
             return
 
         checkout_data = resp.json()
         order_id = checkout_data.get("order_id", "")
         client_secret = checkout_data.get("client_secret", "")
 
-        user.actions.append(UserAction(
-            action="checkout", endpoint="/checkout", method="POST",
-            status_code=resp.status_code, passed=True,
-            detail=f"order_id={order_id}",
-        ))
+        user.actions.append(
+            UserAction(
+                action="checkout",
+                endpoint="/checkout",
+                method="POST",
+                status_code=resp.status_code,
+                passed=True,
+                detail=f"order_id={order_id}",
+            )
+        )
 
-        await _track_event(client, api_url, user, "payment_submitted", {
-            "order_id": order_id,
-        })
+        await _track_event(
+            client,
+            api_url,
+            user,
+            "payment_submitted",
+            {
+                "order_id": order_id,
+            },
+        )
 
         if not client_secret:
-            user.actions.append(UserAction(
-                action="stripe_confirm", passed=False,
-                detail="No client_secret returned",
-            ))
+            user.actions.append(
+                UserAction(
+                    action="stripe_confirm",
+                    passed=False,
+                    detail="No client_secret returned",
+                )
+            )
             return
 
         # Confirm Stripe payment
@@ -514,21 +691,35 @@ async def _checkout_flow(
         stripe_result = confirm_payment_intent(client_secret, decline=decline)
 
         if decline:
-            await _track_event(client, api_url, user, "payment_failed", {
-                "order_id": order_id,
-                "error_code": "card_declined",
-            })
-            user.actions.append(UserAction(
-                action="stripe_decline", passed=True,
-                detail=f"Intentional decline: {stripe_result.get('status')}",
-            ))
-            user.orders.append({"order_id": order_id, "status": "declined", "stripe": stripe_result})
+            await _track_event(
+                client,
+                api_url,
+                user,
+                "payment_failed",
+                {
+                    "order_id": order_id,
+                    "error_code": "card_declined",
+                },
+            )
+            user.actions.append(
+                UserAction(
+                    action="stripe_decline",
+                    passed=True,
+                    detail=f"Intentional decline: {stripe_result.get('status')}",
+                )
+            )
+            user.orders.append(
+                {"order_id": order_id, "status": "declined", "stripe": stripe_result}
+            )
             return
 
-        user.actions.append(UserAction(
-            action="stripe_confirm", passed=stripe_result.get("status") == "succeeded",
-            detail=f"status={stripe_result.get('status')}",
-        ))
+        user.actions.append(
+            UserAction(
+                action="stripe_confirm",
+                passed=stripe_result.get("status") == "succeeded",
+                detail=f"status={stripe_result.get('status')}",
+            )
+        )
 
         # Poll for webhook to update order status
         payment_confirmed = False
@@ -536,7 +727,7 @@ async def _checkout_flow(
             await asyncio.sleep(1)
             try:
                 pay_resp = await client.get(
-                    f"{api_url}/orders/{order_id}/payment",
+                    f"{api_url}/payments/orders/{order_id}/payment",
                     headers=user.auth_headers(),
                 )
                 if pay_resp.status_code == 200:
@@ -548,22 +739,39 @@ async def _checkout_flow(
                 pass
 
         if payment_confirmed:
-            await _track_event(client, api_url, user, "purchase_completed", {
-                "order_id": order_id,
-                "order_total": checkout_data.get("total", 0),
-            })
-            user.orders.append({"order_id": order_id, "status": "completed", "stripe": stripe_result})
+            await _track_event(
+                client,
+                api_url,
+                user,
+                "purchase_completed",
+                {
+                    "order_id": order_id,
+                    "order_total": checkout_data.get("total", 0),
+                },
+            )
+            user.orders.append(
+                {"order_id": order_id, "status": "completed", "stripe": stripe_result}
+            )
         else:
-            user.actions.append(UserAction(
-                action="webhook_poll", passed=False,
-                detail=f"Payment not confirmed after 30s for order {order_id}",
-            ))
-            user.orders.append({"order_id": order_id, "status": "pending", "stripe": stripe_result})
+            user.actions.append(
+                UserAction(
+                    action="webhook_poll",
+                    passed=False,
+                    detail=f"Payment not confirmed after 30s for order {order_id}",
+                )
+            )
+            user.orders.append(
+                {"order_id": order_id, "status": "pending", "stripe": stripe_result}
+            )
 
     except Exception as e:
-        user.actions.append(UserAction(
-            action="checkout", passed=False, detail=str(e),
-        ))
+        user.actions.append(
+            UserAction(
+                action="checkout",
+                passed=False,
+                detail=str(e),
+            )
+        )
 
 
 async def _wishlist_operations(
@@ -579,7 +787,7 @@ async def _wishlist_operations(
     product = random.choice(user.products_seen)
     try:
         resp = await client.post(
-            f"{api_url}/wishlists",
+            f"{api_url}/ecommerce/wishlists",
             json={"product_id": product["id"]},
             headers=user.auth_headers(),
         )
@@ -587,21 +795,35 @@ async def _wishlist_operations(
             return
 
         # View wishlist
-        await _track_pageview(client, api_url, user, "/dashboard/wishlists", random.randint(5000, 15000))
+        await _track_pageview(
+            client, api_url, user, "/dashboard/wishlists", random.randint(5000, 15000)
+        )
 
         if user.persona.moves_wishlist_to_cart:
             # Move to cart
             in_stock = [v for v in product.get("variants", []) if v.get("stock", 0) > 0]
             if in_stock:
-                await _track_event(client, api_url, user, "wishlist_moved_to_cart", {
-                    "product_id": product["id"],
-                    "quantity": 1,
-                })
+                await _track_event(
+                    client,
+                    api_url,
+                    user,
+                    "wishlist_moved_to_cart",
+                    {
+                        "product_id": product["id"],
+                        "quantity": 1,
+                    },
+                )
         else:
             # Remove from wishlist
-            await _track_event(client, api_url, user, "wishlist_removed", {
-                "product_id": product["id"],
-            })
+            await _track_event(
+                client,
+                api_url,
+                user,
+                "wishlist_removed",
+                {
+                    "product_id": product["id"],
+                },
+            )
     except Exception:
         pass
 
@@ -617,15 +839,27 @@ async def _session_events(
     # Return visit (for power buyers)
     if user.persona.return_visits > 0:
         days_since = random.randint(1, 7)
-        await _track_event(client, api_url, user, "return_visit", {
-            "days_since_last": days_since,
-        })
+        await _track_event(
+            client,
+            api_url,
+            user,
+            "return_visit",
+            {
+                "days_since_last": days_since,
+            },
+        )
 
     # Long session
     if duration_min >= 10:
-        await _track_event(client, api_url, user, "long_session", {
-            "duration_sec": 600,
-        })
+        await _track_event(
+            client,
+            api_url,
+            user,
+            "long_session",
+            {
+                "duration_sec": 600,
+            },
+        )
 
     # Heartbeat
     try:
@@ -638,18 +872,32 @@ async def _session_events(
         pass
 
     # Cookie consent event
-    await _track_event(client, api_url, user, "cookie_consent_given", {
-        "analytics": True,
-        "marketing": True,
-    })
+    await _track_event(
+        client,
+        api_url,
+        user,
+        "cookie_consent_given",
+        {
+            "analytics": True,
+            "marketing": True,
+        },
+    )
 
     # Login completed event (the backend may auto-fire this, but we fire it to be safe)
-    await _track_event(client, api_url, user, "login_completed", {
-        "method": "email",
-    })
+    await _track_event(
+        client,
+        api_url,
+        user,
+        "login_completed",
+        {
+            "method": "email",
+        },
+    )
 
     # Final pageview with trigger="closed"
-    await _track_pageview(client, api_url, user, "/", random.randint(1000, 3000), trigger="closed")
+    await _track_pageview(
+        client, api_url, user, "/", random.randint(1000, 3000), trigger="closed"
+    )
 
 
 async def _run_user_journey(
@@ -723,14 +971,16 @@ async def run(
         else:
             agent = random.choice(TABLET_AGENTS)
 
-        users.append(SimUser(
-            index=i + 1,
-            email=email_pattern.format(num=i + 1),
-            password=user_password,
-            persona=persona,
-            agent=agent,
-            referrer=random.choice(REFERRERS),
-        ))
+        users.append(
+            SimUser(
+                index=i + 1,
+                email=email_pattern.format(num=i + 1),
+                password=user_password,
+                persona=persona,
+                agent=agent,
+                referrer=random.choice(REFERRERS),
+            )
+        )
 
     # Run journeys concurrently in batches of 20 to avoid overwhelming the server
     batch_size = 20
@@ -751,7 +1001,10 @@ async def run(
                     status = "PASS" if result.result == "PASS" else "FAIL"
                     logger.info(
                         "User %03d (%s): %s — %d actions",
-                        result.index, result.persona.name, status, len(result.actions),
+                        result.index,
+                        result.persona.name,
+                        status,
+                        len(result.actions),
                     )
                 else:
                     logger.error("User journey exception: %s", result)

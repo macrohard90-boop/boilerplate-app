@@ -382,7 +382,7 @@ def main() -> int:
             try:
                 import httpx
 
-                resp = httpx.get(f"{config.api_url}/products", timeout=10)
+                resp = httpx.get(f"{config.api_url}/ecommerce/products", timeout=10)
                 if resp.status_code == 200:
                     data = resp.json()
                     items = data.get("items", data) if isinstance(data, dict) else data

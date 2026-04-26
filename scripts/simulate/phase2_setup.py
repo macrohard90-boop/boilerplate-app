@@ -30,7 +30,11 @@ PRODUCTS = [
         "category": "Electronics",
         "variants": [
             {"name": "Silver", "stock_quantity": 50, "attributes": {"color": "silver"}},
-            {"name": "Space Gray", "stock_quantity": 30, "attributes": {"color": "gray"}},
+            {
+                "name": "Space Gray",
+                "stock_quantity": 30,
+                "attributes": {"color": "gray"},
+            },
         ],
     },
     {
@@ -51,9 +55,21 @@ PRODUCTS = [
         "status": "active",
         "category": "Clothing",
         "variants": [
-            {"name": "S / Black", "stock_quantity": 25, "attributes": {"size": "S", "color": "black"}},
-            {"name": "M / Black", "stock_quantity": 40, "attributes": {"size": "M", "color": "black"}},
-            {"name": "L / Navy", "stock_quantity": 35, "attributes": {"size": "L", "color": "navy"}},
+            {
+                "name": "S / Black",
+                "stock_quantity": 25,
+                "attributes": {"size": "S", "color": "black"},
+            },
+            {
+                "name": "M / Black",
+                "stock_quantity": 40,
+                "attributes": {"size": "M", "color": "black"},
+            },
+            {
+                "name": "L / Navy",
+                "stock_quantity": 35,
+                "attributes": {"size": "L", "color": "navy"},
+            },
         ],
     },
     {
@@ -74,8 +90,16 @@ PRODUCTS = [
         "status": "active",
         "category": "Home",
         "variants": [
-            {"name": "Earth Tones", "stock_quantity": 40, "attributes": {"style": "earth"}},
-            {"name": "Pastels", "stock_quantity": 30, "attributes": {"style": "pastel"}},
+            {
+                "name": "Earth Tones",
+                "stock_quantity": 40,
+                "attributes": {"style": "earth"},
+            },
+            {
+                "name": "Pastels",
+                "stock_quantity": 30,
+                "attributes": {"style": "pastel"},
+            },
         ],
     },
     {
@@ -85,9 +109,21 @@ PRODUCTS = [
         "status": "active",
         "category": "Clothing",
         "variants": [
-            {"name": "Size 9 / Black", "stock_quantity": 15, "attributes": {"size": "9", "color": "black"}},
-            {"name": "Size 10 / Blue", "stock_quantity": 12, "attributes": {"size": "10", "color": "blue"}},
-            {"name": "Size 11 / White", "stock_quantity": 10, "attributes": {"size": "11", "color": "white"}},
+            {
+                "name": "Size 9 / Black",
+                "stock_quantity": 15,
+                "attributes": {"size": "9", "color": "black"},
+            },
+            {
+                "name": "Size 10 / Blue",
+                "stock_quantity": 12,
+                "attributes": {"size": "10", "color": "blue"},
+            },
+            {
+                "name": "Size 11 / White",
+                "stock_quantity": 10,
+                "attributes": {"size": "11", "color": "white"},
+            },
         ],
     },
     # Out-of-stock product (for out_of_stock_viewed event)
@@ -221,14 +257,18 @@ def run(api_url: str, admin_email: str, admin_password: str) -> dict:
     category_map = {}  # name → id
     for cat_data in CATEGORIES:
         try:
-            resp = client.post(f"{api_url}/categories", json=cat_data, headers=auth)
+            resp = client.post(
+                f"{api_url}/ecommerce/categories", json=cat_data, headers=auth
+            )
             if resp.status_code in (200, 201):
                 cat = resp.json()
                 category_map[cat_data["name"]] = cat["id"]
                 result["categories"].append({"name": cat_data["name"], "id": cat["id"]})
                 logger.info("Created category: %s", cat_data["name"])
             else:
-                result["errors"].append(f"Category {cat_data['name']}: {resp.status_code} {resp.text}")
+                result["errors"].append(
+                    f"Category {cat_data['name']}: {resp.status_code} {resp.text}"
+                )
         except Exception as e:
             result["errors"].append(f"Category {cat_data['name']}: {e}")
 
@@ -243,17 +283,25 @@ def run(api_url: str, admin_email: str, admin_password: str) -> dict:
             }
             if prod_data.get("pricing_type"):
                 product_payload["pricing_type"] = prod_data["pricing_type"]
-                product_payload["recurring_interval"] = prod_data.get("recurring_interval")
-                product_payload["recurring_interval_count"] = prod_data.get("recurring_interval_count", 1)
+                product_payload["recurring_interval"] = prod_data.get(
+                    "recurring_interval"
+                )
+                product_payload["recurring_interval_count"] = prod_data.get(
+                    "recurring_interval_count", 1
+                )
 
             # Assign category
             cat_name = prod_data.get("category", "")
             if cat_name and cat_name in category_map:
                 product_payload["category_ids"] = [category_map[cat_name]]
 
-            resp = client.post(f"{api_url}/products", json=product_payload, headers=auth)
+            resp = client.post(
+                f"{api_url}/ecommerce/products", json=product_payload, headers=auth
+            )
             if resp.status_code not in (200, 201):
-                result["errors"].append(f"Product {prod_data['name']}: {resp.status_code} {resp.text}")
+                result["errors"].append(
+                    f"Product {prod_data['name']}: {resp.status_code} {resp.text}"
+                )
                 continue
 
             product = resp.json()
@@ -268,28 +316,40 @@ def run(api_url: str, admin_email: str, admin_password: str) -> dict:
             # Create variants
             for var_data in prod_data.get("variants", []):
                 var_resp = client.post(
-                    f"{api_url}/products/{product_id}/variants",
+                    f"{api_url}/ecommerce/products/{product_id}/variants",
                     json=var_data,
                     headers=auth,
                 )
                 if var_resp.status_code in (200, 201):
                     var = var_resp.json()
-                    product_info["variants"].append({
-                        "name": var_data["name"],
-                        "id": var["id"],
-                        "stock": var_data["stock_quantity"],
-                    })
+                    product_info["variants"].append(
+                        {
+                            "name": var_data["name"],
+                            "id": var["id"],
+                            "stock": var_data["stock_quantity"],
+                        }
+                    )
 
             # Add placeholder image
-            img_url = PLACEHOLDER_IMAGES[len(result["products"]) % len(PLACEHOLDER_IMAGES)]
+            img_url = PLACEHOLDER_IMAGES[
+                len(result["products"]) % len(PLACEHOLDER_IMAGES)
+            ]
             client.post(
-                f"{api_url}/products/{product_id}/images",
-                json={"url": img_url, "alt_text": prod_data["name"], "is_primary": True},
+                f"{api_url}/ecommerce/products/{product_id}/images",
+                json={
+                    "url": img_url,
+                    "alt_text": prod_data["name"],
+                    "is_primary": True,
+                },
                 headers=auth,
             )
 
             result["products"].append(product_info)
-            logger.info("Created product: %s (%d variants)", prod_data["name"], len(product_info["variants"]))
+            logger.info(
+                "Created product: %s (%d variants)",
+                prod_data["name"],
+                len(product_info["variants"]),
+            )
 
         except Exception as e:
             result["errors"].append(f"Product {prod_data['name']}: {e}")
@@ -300,7 +360,7 @@ def run(api_url: str, admin_email: str, admin_password: str) -> dict:
         for attempt in range(30):
             time.sleep(2)
             try:
-                resp = client.get(f"{api_url}/products", headers=auth)
+                resp = client.get(f"{api_url}/ecommerce/products", headers=auth)
                 products = resp.json().get("items", [])
                 synced = all(
                     p.get("stripe_product_id")
