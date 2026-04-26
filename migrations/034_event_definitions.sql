@@ -236,13 +236,6 @@ INSERT INTO analytics.event_definitions (name, description, category, payload_sc
  false)
 ON CONFLICT (name) DO NOTHING;
 
-INSERT INTO analytics.event_definitions (name, description, category, payload_schema, source_locations, is_system) VALUES
-('exit_intent', 'Fired when a user shows exit intent (mouse leaves viewport)', 'engagement',
- '[{"field":"path","type":"string","description":"Page path when exit intent detected"}]',
- '[{"file":"frontend/lib/page-duration-tracker.tsx","line":244,"snippet":"trackEvent(\"exit_intent\", { path: lastPath.current })"}]',
- false)
-ON CONFLICT (name) DO NOTHING;
-
 -- ── Wishlist (3) ──
 
 INSERT INTO analytics.event_definitions (name, description, category, payload_schema, source_locations, is_system) VALUES
@@ -283,13 +276,6 @@ INSERT INTO analytics.event_definitions (name, description, category, payload_sc
 ON CONFLICT (name) DO NOTHING;
 
 -- ── Navigation (2) ──
-
-INSERT INTO analytics.event_definitions (name, description, category, payload_schema, source_locations, is_system) VALUES
-('nav_cart_clicked', 'Fired when a user clicks the cart icon in the navigation bar', 'navigation',
- '[{"field":"item_count","type":"number","description":"Number of items in cart"},{"field":"page","type":"string","description":"Current page path"}]',
- '[{"file":"frontend/components/Header.tsx","line":74,"snippet":"trackEvent(\"nav_cart_clicked\", { item_count: cart.item_count, page: pathname })"}]',
- false)
-ON CONFLICT (name) DO NOTHING;
 
 INSERT INTO analytics.event_definitions (name, description, category, payload_schema, source_locations, is_system) VALUES
 ('cookie_consent_given', 'Fired when a user accepts cookie consent', 'navigation',

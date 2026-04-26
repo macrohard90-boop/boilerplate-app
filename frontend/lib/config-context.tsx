@@ -17,6 +17,7 @@ interface AppConfig {
   enable_marketing_emails: boolean;
   enable_sms: boolean;
   enable_whatsapp: boolean;
+  enable_simulation: boolean;
   site_name: string;
   site_description: string;
 }
@@ -36,6 +37,7 @@ const DEFAULT_CONFIG: AppConfig = {
   enable_marketing_emails: true,
   enable_sms: false,
   enable_whatsapp: false,
+  enable_simulation: false,
   site_name: "Boilerplate App",
   site_description: "",
 };

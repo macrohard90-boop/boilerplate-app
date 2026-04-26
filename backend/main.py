@@ -171,6 +171,7 @@ def create_app() -> FastAPI:
             "enable_marketing_emails": settings.enable_marketing_emails,
             "enable_sms": settings.enable_sms,
             "enable_whatsapp": settings.enable_whatsapp,
+            "enable_simulation": settings.enable_simulation,
         }
 
     # SEO root-level routes (sitemap.xml, robots.txt)

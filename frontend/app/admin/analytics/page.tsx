@@ -8,6 +8,7 @@ import LoadingSpinner from "../../../components/LoadingSpinner";
 import Link from "next/link";
 import CustomMetricsTab from "./custom-metrics";
 import EventsRegistryTab from "./events-registry";
+import SimulationTab from "./simulation-tab";
 
 const AreaSparkChart = dynamic(
   () => import("../../../components/charts/AreaSparkChart"),
@@ -1411,9 +1412,9 @@ function UserActivityTab() {
 // ── Main Page ───────────────────────────────────────────
 
 export default function AdminAnalyticsPage() {
-  const { enable_tracking } = useConfig();
+  const { enable_tracking, enable_simulation } = useConfig();
   const [activeTab, setActiveTab] = useState<
-    "overview" | "users" | "events" | "metrics"
+    "overview" | "users" | "events" | "metrics" | "simulation"
   >("overview");
 
   if (!enable_tracking) {
@@ -1433,6 +1434,9 @@ export default function AdminAnalyticsPage() {
     { id: "users" as const, label: "User Activity" },
     { id: "events" as const, label: "Events" },
     { id: "metrics" as const, label: "Custom Metrics" },
+    ...(enable_simulation
+      ? [{ id: "simulation" as const, label: "Simulation" }]
+      : []),
   ];
 
   return (
@@ -1464,6 +1468,7 @@ export default function AdminAnalyticsPage() {
       {activeTab === "users" && <UserActivityTab />}
       {activeTab === "events" && <EventsRegistryTab />}
       {activeTab === "metrics" && <CustomMetricsTab />}
+      {activeTab === "simulation" && <SimulationTab />}
     </div>
   );
 }

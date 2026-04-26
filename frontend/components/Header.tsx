@@ -70,11 +70,6 @@ export default function Header() {
             {/* Cart */}
             <Link
               href="/cart"
-              onClick={() =>
-                trackEvent("nav_cart_clicked", {
-                  item_count: cart.item_count,
-                })
-              }
               className="relative text-text-secondary hover:text-text-primary transition-colors"
             >
               <svg

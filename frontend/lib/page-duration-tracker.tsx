@@ -239,14 +239,7 @@ export default function PageDurationTracker() {
       trackEvent("long_session", { duration_sec: 600 });
     }, 600000);
 
-    // Exit intent (beforeunload)
-    const handleExitIntent = () => {
-      trackEvent("exit_intent", { path: lastPath.current });
-    };
-    window.addEventListener("beforeunload", handleExitIntent);
-
     return () => {
-      window.removeEventListener("beforeunload", handleExitIntent);
       clearTimeout(longSessionTimer);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
       for (const evt of INTERACTION_EVENTS) {

@@ -87,6 +87,7 @@ class Settings(BaseSettings):
     sitemap_cache_ttl: int = 3600
     enable_seo_scoring: bool = True
     enable_seo_crawler: bool = False
+    enable_simulation: bool = False
     seo_rescore_interval: int = 86400
     enable_seo_keywords: bool = True
     enable_geo_scoring: bool = True
