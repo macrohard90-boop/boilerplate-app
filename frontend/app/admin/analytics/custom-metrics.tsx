@@ -138,6 +138,29 @@ interface AudienceMetric {
   preset_key: string | null;
 }
 
+// ── Audience dashboard type ───────────────────────────────
+
+interface AudienceDashboard {
+  metric_name: string;
+  metric_description: string;
+  kpis: {
+    total_users: number;
+    avg_order_value: number;
+    total_revenue: number;
+    avg_sessions: number;
+  };
+  rfm_distribution: { segment: string; count: number }[];
+  device_breakdown: Record<string, number>;
+  browser_breakdown: Record<string, number>;
+  os_breakdown: Record<string, number>;
+  top_pages: { path: string; views: number }[];
+  top_products: { name: string; purchase_count: number }[];
+  activity_timeline: { day: string; views: number }[];
+  avg_sessions_per_user: number;
+  avg_page_views_per_user: number;
+  pct_of_total: number;
+}
+
 // ── Starter templates ────────────────────────────────────
 
 const STARTER_QUERIES = [
@@ -397,6 +420,15 @@ export default function CustomMetricsTab() {
   );
   const [dragItem, setDragItem] = useState<string | null>(null);
   const [dragOverItem, setDragOverItem] = useState<string | null>(null);
+
+  // Audience dashboard view state
+  const [dashboardOpen, setDashboardOpen] = useState(false);
+  const [dashboardData, setDashboardData] =
+    useState<AudienceDashboard | null>(null);
+  const [dashboardLoading, setDashboardLoading] = useState(false);
+  const [dashboardMetricId, setDashboardMetricId] = useState<string | null>(
+    null,
+  );
 
   // ── Fetch saved metrics ──────────────────────────────
 
@@ -737,10 +769,288 @@ export default function CustomMetricsTab() {
     setEditorOpen(true);
   };
 
+  // ── Audience dashboard ─────────────────────────────────
+
+  const openDashboard = async (metricId: string) => {
+    setDashboardOpen(true);
+    setDashboardLoading(true);
+    setDashboardData(null);
+    setDashboardMetricId(metricId);
+    try {
+      const data = await apiFetch<AudienceDashboard>(
+        `/tracking/admin/metrics/${metricId}/audience-dashboard`,
+      );
+      setDashboardData(data);
+    } catch {
+      setDashboardData(null);
+    } finally {
+      setDashboardLoading(false);
+    }
+  };
+
+  const closeDashboard = () => {
+    setDashboardOpen(false);
+    setDashboardData(null);
+    setDashboardMetricId(null);
+  };
+
   // ── Highlight function for PrismJS ───────────────────
 
   const highlight = (code: string) =>
     Prism.highlight(code, Prism.languages.sql, "sql");
+
+  // ── Render: Audience Dashboard View ─────────────────
+
+  if (dashboardOpen) {
+    return (
+      <div className="space-y-6">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={closeDashboard}
+              className="text-text-muted hover:text-text-secondary text-sm flex items-center gap-1"
+            >
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+              >
+                <polyline points="15 18 9 12 15 6" />
+              </svg>
+              Back
+            </button>
+            <div>
+              <h2 className="text-lg font-semibold text-text-primary">
+                {dashboardData?.metric_name ?? "Loading..."}
+              </h2>
+              {dashboardData?.metric_description && (
+                <p className="text-xs text-text-muted mt-0.5">
+                  {dashboardData.metric_description}
+                </p>
+              )}
+            </div>
+          </div>
+          {dashboardMetricId && (
+            <button
+              onClick={() => {
+                const metric = metrics.find(
+                  (mm) => mm.id === dashboardMetricId,
+                );
+                if (metric) {
+                  closeDashboard();
+                  openEdit(metric);
+                }
+              }}
+              className="btn-secondary text-xs"
+            >
+              Edit SQL
+            </button>
+          )}
+        </div>
+
+        {dashboardLoading && (
+          <div className="flex items-center justify-center py-16">
+            <LoadingSpinner />
+          </div>
+        )}
+
+        {!dashboardLoading && !dashboardData && (
+          <div className="glass rounded-xl p-8 text-center">
+            <p className="text-text-muted text-sm">
+              Failed to load dashboard data.
+            </p>
+          </div>
+        )}
+
+        {dashboardData && dashboardData.kpis.total_users === 0 && (
+          <div className="glass rounded-xl p-8 text-center">
+            <p className="text-text-muted text-sm">
+              No users match this audience segment.
+            </p>
+          </div>
+        )}
+
+        {dashboardData && dashboardData.kpis.total_users > 0 && (
+          <>
+            {/* KPI Cards */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="glass rounded-xl p-4">
+                <p className="text-xs text-text-muted font-medium uppercase tracking-wider">
+                  Total Users
+                </p>
+                <p className="text-2xl font-bold text-text-primary tabular-nums mt-1">
+                  {dashboardData.kpis.total_users.toLocaleString()}
+                </p>
+                <p className="text-xs text-accent-purple mt-1">
+                  {dashboardData.pct_of_total}% of total
+                </p>
+              </div>
+              <div className="glass rounded-xl p-4">
+                <p className="text-xs text-text-muted font-medium uppercase tracking-wider">
+                  Avg Order Value
+                </p>
+                <p className="text-2xl font-bold text-text-primary tabular-nums mt-1">
+                  ${dashboardData.kpis.avg_order_value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </p>
+              </div>
+              <div className="glass rounded-xl p-4">
+                <p className="text-xs text-text-muted font-medium uppercase tracking-wider">
+                  Total Revenue
+                </p>
+                <p className="text-2xl font-bold text-text-primary tabular-nums mt-1">
+                  ${(dashboardData.kpis.total_revenue / 100).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </p>
+              </div>
+              <div className="glass rounded-xl p-4">
+                <p className="text-xs text-text-muted font-medium uppercase tracking-wider">
+                  Avg Sessions
+                </p>
+                <p className="text-2xl font-bold text-text-primary tabular-nums mt-1">
+                  {dashboardData.kpis.avg_sessions}
+                </p>
+                <p className="text-xs text-text-muted mt-1">
+                  {dashboardData.avg_page_views_per_user} avg page views
+                </p>
+              </div>
+            </div>
+
+            {/* RFM Distribution + Device Breakdown */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <div className="glass rounded-xl p-4">
+                <h3 className="text-sm font-semibold text-text-primary mb-3">
+                  RFM Distribution
+                </h3>
+                {dashboardData.rfm_distribution.length > 0 ? (
+                  <HorizontalBarChart
+                    data={dashboardData.rfm_distribution.map((r) => ({
+                      label: r.segment,
+                      value: r.count,
+                    }))}
+                    color="#a855f7"
+                    formatValue={(v) => v.toLocaleString()}
+                  />
+                ) : (
+                  <p className="text-sm text-text-muted py-4">No data</p>
+                )}
+              </div>
+              <div className="glass rounded-xl p-4">
+                <h3 className="text-sm font-semibold text-text-primary mb-3">
+                  Device Breakdown
+                </h3>
+                {Object.keys(dashboardData.device_breakdown).length > 0 ? (
+                  <HorizontalBarChart
+                    data={Object.entries(dashboardData.device_breakdown).map(
+                      ([label, value]) => ({ label, value }),
+                    )}
+                    color="#ec4899"
+                    formatValue={(v) => v.toLocaleString()}
+                  />
+                ) : (
+                  <p className="text-sm text-text-muted py-4">No data</p>
+                )}
+              </div>
+            </div>
+
+            {/* Top Pages + Top Products */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <div className="glass rounded-xl p-4">
+                <h3 className="text-sm font-semibold text-text-primary mb-3">
+                  Top Pages
+                </h3>
+                {dashboardData.top_pages.length > 0 ? (
+                  <HorizontalBarChart
+                    data={dashboardData.top_pages.map((p) => ({
+                      label: p.path,
+                      value: p.views,
+                    }))}
+                    color="#3b82f6"
+                    formatValue={(v) => v.toLocaleString() + " views"}
+                  />
+                ) : (
+                  <p className="text-sm text-text-muted py-4">No data</p>
+                )}
+              </div>
+              <div className="glass rounded-xl p-4">
+                <h3 className="text-sm font-semibold text-text-primary mb-3">
+                  Top Products
+                </h3>
+                {dashboardData.top_products.length > 0 ? (
+                  <HorizontalBarChart
+                    data={dashboardData.top_products.map((p) => ({
+                      label: p.name,
+                      value: p.purchase_count,
+                    }))}
+                    color="#10b981"
+                    formatValue={(v) => v.toLocaleString() + " purchases"}
+                  />
+                ) : (
+                  <p className="text-sm text-text-muted py-4">No data</p>
+                )}
+              </div>
+            </div>
+
+            {/* Activity Timeline */}
+            {dashboardData.activity_timeline.length > 0 && (
+              <div className="glass rounded-xl p-4">
+                <h3 className="text-sm font-semibold text-text-primary mb-3">
+                  Activity Timeline (30 days)
+                </h3>
+                <AreaSparkChart
+                  data={dashboardData.activity_timeline.map((t) => ({
+                    label: t.day,
+                    value: t.views,
+                  }))}
+                  color="#ec4899"
+                  height={200}
+                  valueLabel="Page Views"
+                />
+              </div>
+            )}
+
+            {/* Browser + OS Breakdown */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <div className="glass rounded-xl p-4">
+                <h3 className="text-sm font-semibold text-text-primary mb-3">
+                  Browser Breakdown
+                </h3>
+                {Object.keys(dashboardData.browser_breakdown).length > 0 ? (
+                  <HorizontalBarChart
+                    data={Object.entries(dashboardData.browser_breakdown).map(
+                      ([label, value]) => ({ label, value }),
+                    )}
+                    color="#f59e0b"
+                    formatValue={(v) => v.toLocaleString()}
+                  />
+                ) : (
+                  <p className="text-sm text-text-muted py-4">No data</p>
+                )}
+              </div>
+              <div className="glass rounded-xl p-4">
+                <h3 className="text-sm font-semibold text-text-primary mb-3">
+                  OS Breakdown
+                </h3>
+                {Object.keys(dashboardData.os_breakdown).length > 0 ? (
+                  <HorizontalBarChart
+                    data={Object.entries(dashboardData.os_breakdown).map(
+                      ([label, value]) => ({ label, value }),
+                    )}
+                    color="#8b5cf6"
+                    formatValue={(v) => v.toLocaleString()}
+                  />
+                ) : (
+                  <p className="text-sm text-text-muted py-4">No data</p>
+                )}
+              </div>
+            </div>
+          </>
+        )}
+      </div>
+    );
+  }
 
   // ── Render: Editor View ──────────────────────────────
 
@@ -1032,7 +1342,8 @@ export default function CustomMetricsTab() {
                   {group.items.map((m) => (
                     <div
                       key={m.id}
-                      className="flex items-center gap-3 py-2 px-2 rounded-lg hover:bg-glass-bg/30 transition-colors group"
+                      onClick={() => openDashboard(m.id)}
+                      className="flex items-center gap-3 py-2 px-2 rounded-lg hover:bg-glass-bg/30 transition-colors group cursor-pointer"
                     >
                       {/* Count badge */}
                       <span
@@ -1068,7 +1379,8 @@ export default function CustomMetricsTab() {
 
                       {/* Actions */}
                       <button
-                        onClick={() => {
+                        onClick={(e) => {
+                          e.stopPropagation();
                           const metric = metrics.find((mm) => mm.id === m.id);
                           if (metric) openEdit(metric);
                         }}

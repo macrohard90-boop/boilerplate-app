@@ -30,6 +30,11 @@ from modules.tracking.services.sql_safety_service import (
     SQLValidationError,
     validate_query,
 )
+from modules.marketing.services.insights_service import (
+    get_segment_dashboard,
+    get_segment_insights,
+    get_segment_behavior_insights,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -320,6 +325,56 @@ async def list_audience_metrics(db: AsyncSession = Depends(get_db)):
         for r in rows
     ]
     return {"metrics": metrics, "total": len(metrics)}
+
+
+@router.get("/{metric_id}/audience-dashboard")
+async def get_audience_dashboard(
+    metric_id: str,
+    db: AsyncSession = Depends(get_db),
+):
+    """Return aggregate dashboard data for an audience metric.
+
+    Calls the existing insights service functions with the metric's
+    stored audience_filters to produce KPIs, RFM distribution, device/
+    browser/OS breakdown, top pages, top products, and activity timeline.
+    """
+    result = await db.execute(
+        text(
+            "SELECT name, description, audience_filters, is_audience "
+            "FROM analytics.saved_metrics WHERE id = :id"
+        ),
+        {"id": metric_id},
+    )
+    row = result.fetchone()
+    if not row:
+        raise HTTPException(status_code=404, detail="Metric not found")
+    if not row.is_audience:
+        raise HTTPException(status_code=400, detail="Metric is not an audience query")
+
+    filters: dict[str, Any] = {}
+    if row.audience_filters:
+        af = row.audience_filters
+        filters = json.loads(af) if isinstance(af, str) else dict(af)
+
+    dashboard = await get_segment_dashboard(db, filters)
+    insights = await get_segment_insights(db, filters)
+    behavior = await get_segment_behavior_insights(db, filters)
+
+    return {
+        "metric_name": row.name,
+        "metric_description": row.description or "",
+        "kpis": dashboard["kpis"],
+        "rfm_distribution": dashboard["rfm_distribution"],
+        "device_breakdown": dashboard["device_breakdown"],
+        "browser_breakdown": behavior["browser_breakdown"],
+        "os_breakdown": behavior["os_breakdown"],
+        "top_pages": dashboard["top_pages"],
+        "top_products": insights["top_products"],
+        "activity_timeline": dashboard["activity_timeline"],
+        "avg_sessions_per_user": behavior["avg_sessions_per_user"],
+        "avg_page_views_per_user": behavior["avg_page_views_per_user"],
+        "pct_of_total": insights["pct_of_total"],
+    }
 
 
 @router.get("/{metric_id}", response_model=SavedMetricResponse)
