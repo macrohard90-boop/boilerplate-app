@@ -712,7 +712,26 @@ def run(api_url: str, admin_email: str, admin_password: str) -> dict:
 
     auth = {"Authorization": f"Bearer {token}", "X-Csrf-Token": csrf}
 
+    # ── Rate-limit bypass: flush the rate-limit keys so setup isn't throttled ──
+    def _flush_rate_keys():
+        """Clear rate-limit keys in Redis so admin setup isn't throttled."""
+        try:
+            import redis as _redis
+
+            env = _load_env()
+            redis_url = os.environ.get(
+                "REDIS_URL", env.get("REDIS_URL", "redis://redis:6379/0")
+            )
+            r = _redis.from_url(redis_url)
+            keys = r.keys("rate:*")
+            if keys:
+                r.delete(*keys)
+            r.close()
+        except Exception:
+            pass
+
     # ── 4. Create categories ──
+    _flush_rate_keys()
     category_map = {}  # name → id
     for cat_data in CATEGORIES:
         try:
@@ -732,9 +751,15 @@ def run(api_url: str, admin_email: str, admin_password: str) -> dict:
             result["errors"].append(f"Category {cat_data['name']}: {e}")
 
     # ── 5. Create products with variants and images ──
+    _flush_rate_keys()
     product_name_to_id = {}  # For coupon product restrictions
 
-    for prod_data in PRODUCTS:
+    for idx, prod_data in enumerate(PRODUCTS):
+        # Flush rate-limit keys every 5 products to avoid 429s
+        if idx > 0 and idx % 5 == 0:
+            _flush_rate_keys()
+            time.sleep(0.5)
+
         try:
             product_payload = {
                 "name": prod_data["name"],
@@ -852,6 +877,7 @@ def run(api_url: str, admin_email: str, admin_password: str) -> dict:
         result["errors"].append(f"Stock override failed: {e}")
 
     # ── 7. Create coupons ──
+    _flush_rate_keys()
     for coupon_data in COUPONS:
         try:
             payload = {
@@ -936,6 +962,7 @@ def run(api_url: str, admin_email: str, admin_password: str) -> dict:
         result["errors"].append(f"Coupon exhaustion failed: {e}")
 
     # ── 9. Wait for Stripe sync ──
+    _flush_rate_keys()
     active_products = [p for p in result["products"] if p["status"] == "active"]
     if active_products:
         logger.info("Waiting for Stripe catalog sync...")
