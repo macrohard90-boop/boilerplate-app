@@ -210,7 +210,22 @@ async def get_user_full_profile(
         .first()
     )
 
-    # 9. Wishlist summary
+    # 9. Stripe customer ID
+    sc = (
+        (
+            await db.execute(
+                text(
+                    "SELECT stripe_customer_id FROM ecommerce.stripe_customers "
+                    "WHERE user_id = :uid"
+                ),
+                {"uid": user_id},
+            )
+        )
+        .mappings()
+        .first()
+    )
+
+    # 10. Wishlist summary
     wl = (
         (
             await db.execute(
@@ -302,6 +317,7 @@ async def get_user_full_profile(
             "wishlists": wl["wishlists"] if wl else 0,
             "total_items": int(wl["total_items"]) if wl else 0,
         },
+        "stripe_customer_id": sc["stripe_customer_id"] if sc else None,
     }
 
 

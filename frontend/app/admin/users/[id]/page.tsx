@@ -79,6 +79,7 @@ interface FullProfile {
   email_preferences: EmailPreferences | null;
   cart_summary: { active_carts: number; total_items: number };
   wishlist_summary: { wishlists: number; total_items: number };
+  stripe_customer_id: string | null;
 }
 
 // --- Helpers ---
@@ -768,6 +769,14 @@ export default function UserProfilePage() {
                 {u.id.slice(0, 8)}...
               </span>
             </p>
+            {data.stripe_customer_id && (
+              <p className="text-xs mt-1">
+                <span className="text-text-muted">Stripe:</span>{" "}
+                <span className="text-text-secondary font-mono">
+                  {data.stripe_customer_id}
+                </span>
+              </p>
+            )}
             {u.deleted_at && (
               <p className="text-xs text-red-400 mt-1">
                 Deleted: {formatDate(u.deleted_at)}
