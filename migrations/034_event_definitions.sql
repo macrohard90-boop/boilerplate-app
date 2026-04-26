@@ -2,6 +2,8 @@
 -- Central catalog of all analytics events with descriptions, payload schemas,
 -- source code locations, and per-event enable/disable toggles.
 
+-- UP
+
 CREATE TABLE IF NOT EXISTS analytics.event_definitions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name VARCHAR(100) NOT NULL UNIQUE,
@@ -325,3 +327,6 @@ INSERT INTO analytics.event_definitions (name, description, category, payload_sc
  '[{"file":"modules/marketing/workers/segment_check_worker.py","line":83,"snippet":"await fire_event_for_flows(db, \"segment.entered\", user_id, {\"segment_id\": str(segment_id)})"}]',
  true)
 ON CONFLICT (name) DO NOTHING;
+
+-- DOWN
+DROP TABLE IF EXISTS analytics.event_definitions CASCADE;
