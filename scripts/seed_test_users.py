@@ -438,14 +438,18 @@ PROFILES = [
 ]
 
 # Analytics config per profile
+# NOTE: All session_recency values kept within 30 days so every user
+# appears on the default User Activity page (which uses a 30-day window).
+# RFM segments are based on purchase dates, not session dates, so this
+# doesn't affect audience preset coverage.
 PROFILE_ANALYTICS = {
-    "champion": {"sessions": (6, 10), "session_recency": (1, 30), "signup_days": (90, 365)},
-    "loyal": {"sessions": (5, 8), "session_recency": (1, 60), "signup_days": (60, 300)},
-    "potential_loyalist": {"sessions": (3, 5), "session_recency": (1, 14), "signup_days": (14, 60)},
-    "new": {"sessions": (1, 3), "session_recency": (1, 7), "signup_days": (1, 14)},
-    "at_risk": {"sessions": (2, 4), "session_recency": (100, 160), "signup_days": (90, 365)},
-    "hibernating": {"sessions": (1, 2), "session_recency": (100, 170), "signup_days": (120, 365)},
-    "lost": {"sessions": (1, 1), "session_recency": (200, 365), "signup_days": (200, 400)},
+    "champion": {"sessions": (8, 12), "session_recency": (0.5, 7), "signup_days": (90, 365)},
+    "loyal": {"sessions": (6, 10), "session_recency": (1, 14), "signup_days": (60, 300)},
+    "potential_loyalist": {"sessions": (4, 7), "session_recency": (1, 10), "signup_days": (14, 60)},
+    "new": {"sessions": (2, 4), "session_recency": (0.5, 5), "signup_days": (1, 14)},
+    "at_risk": {"sessions": (3, 6), "session_recency": (5, 25), "signup_days": (90, 365)},
+    "hibernating": {"sessions": (2, 4), "session_recency": (10, 28), "signup_days": (120, 365)},
+    "lost": {"sessions": (1, 3), "session_recency": (15, 29), "signup_days": (200, 400)},
 }
 
 # ── Analytics seed constants ─────────────────────────────────────────────────
