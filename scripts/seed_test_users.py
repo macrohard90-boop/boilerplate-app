@@ -473,7 +473,10 @@ def seed_test_users(conn) -> dict:
                     (id, email, password_hash, first_name, last_name,
                      role_id, phone, whatsapp_number, is_verified, is_active)
                 VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, TRUE)
-                ON CONFLICT (email) DO NOTHING
+                ON CONFLICT (email) DO UPDATE SET
+                    phone = EXCLUDED.phone,
+                    whatsapp_number = EXCLUDED.whatsapp_number,
+                    is_verified = EXCLUDED.is_verified
                 """,
                 (
                     user_id,
