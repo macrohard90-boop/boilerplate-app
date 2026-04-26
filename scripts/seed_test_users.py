@@ -418,7 +418,8 @@ def get_db_url() -> str:
     url = re.sub(r"\$\{(\w+)\}", _resolve, url)
     url = url.replace("postgresql+asyncpg://", "postgresql://")
     # When running outside Docker, swap internal hostname for localhost
-    url = url.replace("@postgres:", "@localhost:")
+    if not os.path.exists("/.dockerenv"):
+        url = url.replace("@postgres:", "@localhost:")
     return url
 
 
