@@ -5,7 +5,6 @@ import { ConfigProvider } from "../lib/config-context";
 import { ToastProvider } from "../components/Toast";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
-import CookieBanner from "../components/CookieBanner";
 import ConditionalDurationTracker from "../components/ConditionalDurationTracker";
 import "./globals.css";
 
@@ -47,7 +46,6 @@ export default function RootLayout({
                 <Header />
                 <main className="flex-1 pt-16">{children}</main>
                 <Footer />
-                <CookieBanner />
                 <ConditionalDurationTracker />
               </ToastProvider>
             </CartProvider>

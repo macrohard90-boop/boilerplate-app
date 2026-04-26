@@ -14,7 +14,7 @@ export default function ConditionalDurationTracker() {
   const [hasConsent, setHasConsent] = useState(false);
   const serverChecked = useRef(false);
 
-  // Check localStorage for consent
+  // Check localStorage for consent (fast path)
   const checkLocalConsent = useCallback((): boolean => {
     try {
       const raw = localStorage.getItem(COOKIE_KEY);
@@ -46,7 +46,7 @@ export default function ConditionalDurationTracker() {
         .then((prefs) => {
           if (prefs?.analytics) {
             setHasConsent(true);
-            // Sync to localStorage so CookieBanner hides + future loads are instant
+            // Sync to localStorage for instant future loads
             try {
               const existing = localStorage.getItem(COOKIE_KEY);
               const consent = existing
@@ -65,7 +65,6 @@ export default function ConditionalDurationTracker() {
           }
         })
         .catch((err) => {
-          // Log but don't crash — will retry on next auth state change
           console.warn(
             "[ConditionalDurationTracker] Failed to check server consent:",
             err,
@@ -75,9 +74,9 @@ export default function ConditionalDurationTracker() {
     }
   }, [isAuthenticated, isLoading, enable_tracking, checkLocalConsent]);
 
-  // Also listen for localStorage changes (CookieBanner acceptance in same/other tab)
+  // Listen for consent changes (e.g. ConsentModal saved in same session)
   useEffect(() => {
-    if (hasConsent) return; // already consented, no need to poll
+    if (hasConsent) return;
 
     const onStorage = (e: StorageEvent) => {
       if (e.key === COOKIE_KEY) checkLocalConsent();

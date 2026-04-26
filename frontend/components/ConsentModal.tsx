@@ -16,6 +16,41 @@ interface ConsentModalProps {
   onClose: () => void;
 }
 
+/**
+ * Save consent preferences to backend + localStorage.
+ * Used by both "Save Preferences" and "Accept All & Close".
+ */
+async function persistConsent(toggles: Record<string, boolean>) {
+  // Save each consent type to backend
+  await Promise.all(
+    CONSENT_TYPES.map((ct) =>
+      apiFetch("/gdpr/consent", {
+        method: "POST",
+        body: JSON.stringify({
+          consent_type: ct.key,
+          granted: toggles[ct.key],
+        }),
+      }),
+    ),
+  );
+
+  // Sync cookie preferences with backend
+  const cookiePrefs: Record<string, boolean> = { necessary: true };
+  for (const [consentKey, cookieKey] of Object.entries(CONSENT_TO_COOKIE_MAP)) {
+    cookiePrefs[cookieKey] = toggles[consentKey] ?? false;
+  }
+  await apiFetch("/gdpr/cookies", {
+    method: "POST",
+    body: JSON.stringify(cookiePrefs),
+  }).catch(() => {});
+
+  // Store in localStorage
+  localStorage.setItem("cookie_consent", JSON.stringify(cookiePrefs));
+  localStorage.setItem("consent_modal_completed", "true");
+
+  return cookiePrefs;
+}
+
 export default function ConsentModal({ isOpen, onClose }: ConsentModalProps) {
   const { showToast } = useToast();
   const [saving, setSaving] = useState(false);
@@ -36,38 +71,11 @@ export default function ConsentModal({ isOpen, onClose }: ConsentModalProps) {
   async function handleSave() {
     setSaving(true);
     try {
-      // Save each consent type
-      await Promise.all(
-        CONSENT_TYPES.map((ct) =>
-          apiFetch("/gdpr/consent", {
-            method: "POST",
-            body: JSON.stringify({
-              consent_type: ct.key,
-              granted: toggles[ct.key],
-            }),
-          }),
-        ),
-      );
-
-      // Sync cookie preferences with backend
-      const cookiePrefs: Record<string, boolean> = { necessary: true };
-      for (const [consentKey, cookieKey] of Object.entries(
-        CONSENT_TO_COOKIE_MAP,
-      )) {
-        cookiePrefs[cookieKey] = toggles[consentKey] ?? false;
-      }
-      await apiFetch("/gdpr/cookies", {
-        method: "POST",
-        body: JSON.stringify(cookiePrefs),
-      }).catch(() => {});
-
-      // Set localStorage to suppress cookie banner and modal
-      localStorage.setItem("cookie_consent", JSON.stringify(cookiePrefs));
-      localStorage.setItem("consent_modal_completed", "true");
-
+      const cookiePrefs = await persistConsent(toggles);
       trackEvent("cookie_consent_given", {
-        analytics: toggles["analytics_cookies"] ?? false,
-        marketing: toggles["marketing_cookies"] ?? false,
+        analytics: cookiePrefs.analytics ?? false,
+        marketing: cookiePrefs.marketing ?? false,
+        method: "customized",
       });
       showToast("Consent preferences saved", "success");
       onClose();
@@ -77,9 +85,25 @@ export default function ConsentModal({ isOpen, onClose }: ConsentModalProps) {
     setSaving(false);
   }
 
-  function handleDismiss() {
-    localStorage.setItem("consent_modal_dismissed", "true");
-    onClose();
+  async function handleAcceptAll() {
+    setSaving(true);
+    try {
+      // Accept everything
+      const allAccepted: Record<string, boolean> = {};
+      for (const ct of CONSENT_TYPES) {
+        allAccepted[ct.key] = true;
+      }
+      const cookiePrefs = await persistConsent(allAccepted);
+      trackEvent("cookie_consent_given", {
+        analytics: cookiePrefs.analytics ?? false,
+        marketing: cookiePrefs.marketing ?? false,
+        method: "accept_all",
+      });
+      onClose();
+    } catch {
+      showToast("Failed to save preferences", "error");
+    }
+    setSaving(false);
   }
 
   // Group consent types by category
@@ -90,7 +114,7 @@ export default function ConsentModal({ isOpen, onClose }: ConsentModalProps) {
   return (
     <Modal
       isOpen={isOpen}
-      onClose={handleDismiss}
+      onClose={handleAcceptAll}
       title="Your Privacy Preferences"
       size="lg"
     >
@@ -156,8 +180,12 @@ export default function ConsentModal({ isOpen, onClose }: ConsentModalProps) {
         >
           {saving ? "Saving..." : "Save Preferences"}
         </button>
-        <button onClick={handleDismiss} className="btn-secondary text-sm">
-          Skip for now
+        <button
+          onClick={handleAcceptAll}
+          disabled={saving}
+          className="btn-secondary text-sm disabled:opacity-50"
+        >
+          {saving ? "..." : "Accept All & Close"}
         </button>
       </div>
     </Modal>

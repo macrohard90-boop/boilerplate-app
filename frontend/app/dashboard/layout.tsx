@@ -49,8 +49,7 @@ export default function DashboardLayout({
   useEffect(() => {
     if (!isAuthenticated || isLoading) return;
     const completed = localStorage.getItem("consent_modal_completed");
-    const dismissed = localStorage.getItem("consent_modal_dismissed");
-    if (!completed && !dismissed) {
+    if (!completed) {
       setShowConsentModal(true);
     }
   }, [isAuthenticated, isLoading]);
