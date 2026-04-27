@@ -170,7 +170,8 @@ async def create_order_from_cart(
             await db.execute(
                 text(
                     "INSERT INTO ecommerce.orders "
-                    "(user_id, order_number, status, currency, subtotal, discount_amount, tax_amount, total, discount_code_id) "
+                    "(user_id, order_number, status, currency, subtotal, "
+                    "discount_amount, tax_amount, total, discount_code_id) "
                     "VALUES (:uid, :num, 'pending', 'USD', :sub, :disc, 0, :total, :dcid) "
                     "RETURNING *"
                 ),
