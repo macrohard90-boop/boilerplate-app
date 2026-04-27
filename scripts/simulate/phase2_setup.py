@@ -1,5 +1,6 @@
 """Phase 2: Admin Setup — bootstrap the app via API calls."""
 
+import json
 import logging
 import os
 import random
@@ -787,6 +788,41 @@ def _placeholder_url(product_name: str, category: str, index: int = 0) -> str:
 # ---------------------------------------------------------------------------
 
 
+def _snapshot_db(db_url: str) -> dict[str, int]:
+    """Get row counts for all tables across all app schemas."""
+    try:
+        conn = psycopg2.connect(db_url)
+        cur = conn.cursor()
+        cur.execute(
+            """
+            SELECT table_schema || '.' || table_name,
+                   (xpath('/row/cnt/text()', xml_count))[1]::text::int AS row_count
+            FROM (
+                SELECT table_schema, table_name,
+                       query_to_xml(
+                           format('SELECT count(*) AS cnt FROM %I.%I',
+                                  table_schema, table_name),
+                           false, true, ''
+                       ) AS xml_count
+                FROM information_schema.tables
+                WHERE table_schema IN (
+                    'core', 'ecommerce', 'analytics',
+                    'marketing', 'gdpr', 'payments'
+                )
+                  AND table_type = 'BASE TABLE'
+                ORDER BY table_schema, table_name
+            ) t
+        """
+        )
+        result = {row[0]: row[1] for row in cur.fetchall()}
+        cur.close()
+        conn.close()
+        return result
+    except Exception as e:
+        logger.warning("DB snapshot failed: %s", e)
+        return {}
+
+
 def _load_env() -> dict[str, str]:
     env = {}
     env_file = PROJECT_ROOT / ".env"
@@ -826,7 +862,56 @@ def run(api_url: str, admin_email: str, admin_password: str) -> dict:
         "stripe_synced": False,
     }
 
-    client = httpx.Client(timeout=30.0)
+    # ── DB snapshot: before state ──
+    db_url = _get_db_url()
+    result["db_before"] = _snapshot_db(db_url)
+
+    # ── API call logging via httpx event hooks ──
+    api_log: list[dict] = []
+
+    def _on_request(request: httpx.Request):
+        request.extensions["start_time"] = time.time()
+
+    def _on_response(response: httpx.Response):
+        # Must read body before accessing .json() / .text in event hooks
+        response.read()
+
+        start = response.request.extensions.get("start_time", time.time())
+        elapsed = (time.time() - start) * 1000
+
+        req_body = None
+        if response.request.content:
+            try:
+                req_body = json.loads(response.request.content)
+            except Exception:
+                raw = response.request.content.decode("utf-8", errors="replace")
+                req_body = raw[:500] if len(raw) > 500 else raw
+
+        resp_body = None
+        try:
+            resp_body = response.json()
+        except Exception:
+            try:
+                txt = response.text
+                resp_body = txt[:500] if len(txt) > 500 else txt
+            except Exception:
+                resp_body = None
+
+        api_log.append(
+            {
+                "method": response.request.method,
+                "url": str(response.request.url),
+                "request_body": req_body,
+                "status": response.status_code,
+                "response_body": resp_body,
+                "duration_ms": round(elapsed, 1),
+            }
+        )
+
+    client = httpx.Client(
+        timeout=30.0,
+        event_hooks={"request": [_on_request], "response": [_on_response]},
+    )
 
     # ── 1. Register admin user ──
     try:
@@ -899,7 +984,6 @@ def run(api_url: str, admin_email: str, admin_password: str) -> dict:
         if admin_row:
             admin_uid = str(admin_row[0])
             # Get session ID from JWT claims
-            import json
             import base64
 
             # Decode JWT payload (middle segment) to get session_id
@@ -1099,6 +1183,8 @@ def run(api_url: str, admin_email: str, admin_password: str) -> dict:
                 "base_price": prod_data["base_price"],
                 "status": prod_data["status"],
                 "category": cat_name,
+                "recurring_interval": prod_data.get("recurring_interval"),
+                "recurring_interval_count": prod_data.get("recurring_interval_count"),
             }
 
             # Create variants
@@ -1169,6 +1255,24 @@ def run(api_url: str, admin_email: str, admin_password: str) -> dict:
                     prod_data["name"],
                     prod_data["_stock_override"],
                 )
+
+        # Random stock for single-SKU one_time products (default variant has 0)
+        for prod_data in PRODUCTS:
+            if (
+                prod_data.get("variants") == []
+                and prod_data.get("pricing_type") != "recurring"
+                and "_stock_override" not in prod_data
+                and prod_data.get("status") == "active"
+                and prod_data["name"] in product_name_to_id
+            ):
+                pid = product_name_to_id[prod_data["name"]]
+                stock = random.randint(15, 100)
+                cur.execute(
+                    "UPDATE ecommerce.product_variants SET stock_quantity = %s "
+                    "WHERE product_id = %s::uuid",
+                    (stock, pid),
+                )
+                logger.info("Set random stock for %s: %d", prod_data["name"], stock)
 
         cur.close()
         conn.close()
@@ -1275,9 +1379,10 @@ def run(api_url: str, admin_email: str, admin_password: str) -> dict:
     # ── 9. Archive a few products (generates admin.product_deleted events) ──
     _flush_rate_keys()
     PRODUCTS_TO_ARCHIVE = [
-        "Mystery Box",       # Draft → archive (admin decided against launching)
+        "Mystery Box",  # Draft → archive (admin decided against launching)
         "Limited Sneakers",  # Draft → archive (collaboration fell through)
-        "Kitchen Timer",      # Active → archive (discontinued)
+        "Kitchen Timer",  # Active one-time → archive (discontinued)
+        "Free Tier",  # Active subscription → archive (removed free plan)
     ]
     result["archived_products"] = []
     for pname in PRODUCTS_TO_ARCHIVE:
@@ -1346,11 +1451,13 @@ def run(api_url: str, admin_email: str, admin_password: str) -> dict:
         len(result["coupons"]),
     )
 
-    # ── Analytics summary ──
+    # ── Analytics summary + detailed capture ──
     try:
         db_url = _get_db_url()
         conn = psycopg2.connect(db_url)
         cur = conn.cursor()
+
+        # Aggregated counts (existing)
         cur.execute(
             "SELECT event_type, count(*) FROM analytics.events "
             "WHERE event_type LIKE 'admin.%%' GROUP BY event_type ORDER BY event_type"
@@ -1364,8 +1471,6 @@ def run(api_url: str, admin_email: str, admin_password: str) -> dict:
             "SELECT count(*) FROM marketing.email_templates WHERE is_builtin = true"
         )
         template_count = cur.fetchone()[0]
-        cur.close()
-        conn.close()
 
         result["analytics_summary"] = {
             "admin_events": admin_events,
@@ -1382,8 +1487,471 @@ def run(api_url: str, admin_email: str, admin_password: str) -> dict:
             session_count,
             template_count,
         )
+
+        # ── Detailed analytics data for report ──
+        # Full event list
+        cur.execute(
+            "SELECT event_type, event_data, created_at "
+            "FROM analytics.events ORDER BY created_at"
+        )
+        events_detail = [
+            {
+                "event_type": r[0],
+                "event_data": r[1] if isinstance(r[1], dict) else {},
+                "created_at": r[2].isoformat() if r[2] else None,
+            }
+            for r in cur.fetchall()
+        ]
+
+        # Page views
+        cur.execute(
+            "SELECT path, referrer, duration_ms, created_at "
+            "FROM analytics.page_views ORDER BY created_at"
+        )
+        pageviews_detail = [
+            {
+                "path": r[0],
+                "referrer": r[1],
+                "duration_ms": r[2],
+                "created_at": r[3].isoformat() if r[3] else None,
+            }
+            for r in cur.fetchall()
+        ]
+
+        # Sessions
+        cur.execute(
+            "SELECT session_id, started_at, ended_at, page_count "
+            "FROM analytics.analytics_sessions ORDER BY started_at"
+        )
+        sessions_detail = [
+            {
+                "session_id": r[0],
+                "started_at": r[1].isoformat() if r[1] else None,
+                "ended_at": r[2].isoformat() if r[2] else None,
+                "page_count": r[3],
+            }
+            for r in cur.fetchall()
+        ]
+
+        # Email templates
+        cur.execute(
+            "SELECT name, display_name, category, subject, is_builtin "
+            "FROM marketing.email_templates ORDER BY is_builtin DESC, name"
+        )
+        templates_detail = [
+            {
+                "name": r[0],
+                "display_name": r[1],
+                "category": r[2],
+                "subject": r[3],
+                "is_builtin": r[4],
+            }
+            for r in cur.fetchall()
+        ]
+
+        # GDPR consent records
+        cur.execute(
+            "SELECT u.email, cr.consent_type, cr.granted "
+            "FROM gdpr.consent_records cr "
+            "JOIN core.users u ON u.id = cr.user_id "
+            "ORDER BY u.email, cr.consent_type"
+        )
+        consent_detail = [
+            {"email": r[0], "consent_type": r[1], "granted": r[2]}
+            for r in cur.fetchall()
+        ]
+
+        # Cookie preferences
+        cur.execute(
+            "SELECT u.email, cp.necessary, cp.analytics, cp.marketing, cp.preferences "
+            "FROM gdpr.cookie_preferences cp "
+            "JOIN core.users u ON u.id = cp.user_id "
+            "ORDER BY u.email"
+        )
+        cookie_detail = [
+            {
+                "email": r[0],
+                "necessary": r[1],
+                "analytics": r[2],
+                "marketing": r[3],
+                "preferences": r[4],
+            }
+            for r in cur.fetchall()
+        ]
+
+        result["analytics_detail"] = {
+            "events": events_detail,
+            "page_views": pageviews_detail,
+            "sessions": sessions_detail,
+            "email_templates": templates_detail,
+            "consent_records": consent_detail,
+            "cookie_preferences": cookie_detail,
+        }
+
+        # ── Stripe sync state queries ──
+        # Admin Stripe customer
+        cur.execute(
+            "SELECT sc.stripe_customer_id FROM ecommerce.stripe_customers sc "
+            "JOIN core.users u ON u.id = sc.user_id WHERE u.email = %s",
+            (admin_email,),
+        )
+        admin_cust_row = cur.fetchone()
+        admin_stripe_cid = admin_cust_row[0] if admin_cust_row else None
+
+        # Products with Stripe state
+        cur.execute(
+            "SELECT id, name, pricing_type, status, base_price, currency, "
+            "stripe_product_id, stripe_sync_status, stripe_sync_error, "
+            "recurring_interval, deleted_at "
+            "FROM ecommerce.products ORDER BY created_at"
+        )
+        db_products = [
+            {
+                "id": str(r[0]),
+                "name": r[1],
+                "pricing_type": r[2],
+                "status": r[3],
+                "base_price": r[4],
+                "currency": r[5],
+                "stripe_product_id": r[6],
+                "stripe_sync_status": r[7],
+                "stripe_sync_error": r[8],
+                "recurring_interval": r[9],
+                "deleted_at": r[10].isoformat() if r[10] else None,
+            }
+            for r in cur.fetchall()
+        ]
+
+        # Variants with Stripe state
+        cur.execute(
+            "SELECT v.id, v.name, v.product_id, p.name as product_name, "
+            "v.stripe_price_id, v.stripe_sync_status, v.stripe_sync_error, "
+            "v.price_override, p.base_price, p.currency, p.pricing_type, "
+            "p.recurring_interval, p.status as product_status, p.deleted_at "
+            "FROM ecommerce.product_variants v "
+            "JOIN ecommerce.products p ON p.id = v.product_id "
+            "ORDER BY p.created_at, v.created_at"
+        )
+        db_variants = [
+            {
+                "id": str(r[0]),
+                "name": r[1],
+                "product_id": str(r[2]),
+                "product_name": r[3],
+                "stripe_price_id": r[4],
+                "stripe_sync_status": r[5],
+                "stripe_sync_error": r[6],
+                "price_override": r[7],
+                "base_price": r[8],
+                "currency": r[9],
+                "pricing_type": r[10],
+                "recurring_interval": r[11],
+                "product_status": r[12],
+                "deleted_at": r[13].isoformat() if r[13] else None,
+            }
+            for r in cur.fetchall()
+        ]
+
+        # Coupons with Stripe state
+        cur.execute(
+            "SELECT id, code, type, value, currency, applies_to, "
+            "stripe_coupon_id, stripe_promotion_code_id, "
+            "stripe_sync_status, stripe_sync_error, stripe_duration, "
+            "stripe_duration_in_months "
+            "FROM ecommerce.discount_codes ORDER BY created_at"
+        )
+        db_coupons = [
+            {
+                "id": str(r[0]),
+                "code": r[1],
+                "type": r[2],
+                "value": r[3],
+                "currency": r[4],
+                "applies_to": r[5],
+                "stripe_coupon_id": r[6],
+                "stripe_promotion_code_id": r[7],
+                "stripe_sync_status": r[8],
+                "stripe_sync_error": r[9],
+                "stripe_duration": r[10],
+                "stripe_duration_in_months": r[11],
+            }
+            for r in cur.fetchall()
+        ]
+
+        # ── Stripe validation logic ──
+        archived_names = set(result.get("archived_products", []))
+        # Build lookup: which products were active before archival
+        product_was_active = {}
+        for pd in PRODUCTS:
+            product_was_active[pd["name"]] = pd["status"] == "active"
+
+        stripe_checks = []
+
+        # Admin customer check
+        cust_pass = admin_stripe_cid is not None
+        stripe_checks.append(
+            {
+                "resource": "admin_customer",
+                "name": admin_email,
+                "pass": cust_pass,
+                "expected": "stripe_customer_id not null",
+                "actual": admin_stripe_cid or "NULL",
+                "reason": "" if cust_pass else "Customer not created on registration",
+            }
+        )
+
+        # Product checks
+        product_checks = []
+        for p in db_products:
+            is_archived = p["deleted_at"] is not None
+            was_active = product_was_active.get(p["name"], False)
+
+            if is_archived and was_active:
+                exp_id = "not null (synced pre-archive)"
+                exp_status = "synced"
+            elif is_archived and not was_active:
+                exp_id = "null (draft, never synced)"
+                exp_status = "unsynced"
+            elif p["status"] == "active":
+                exp_id = "not null"
+                exp_status = "synced"
+            else:  # draft
+                exp_id = "null"
+                exp_status = "unsynced"
+
+            if exp_status == "synced":
+                ok = (
+                    p["stripe_product_id"] is not None
+                    and p["stripe_sync_status"] == "synced"
+                )
+            else:
+                ok = (
+                    p["stripe_product_id"] is None
+                    or p["stripe_sync_status"] != "synced"
+                )
+                # Draft products: accept null stripe_product_id
+                if p["status"] == "draft" and p["stripe_product_id"] is None:
+                    ok = True
+
+            actual_id = p["stripe_product_id"] or "NULL"
+            actual_status = p["stripe_sync_status"] or "none"
+
+            product_checks.append(
+                {
+                    "name": p["name"],
+                    "pricing_type": p["pricing_type"],
+                    "status": p["status"],
+                    "base_price": p["base_price"],
+                    "currency": p["currency"],
+                    "stripe_product_id": p["stripe_product_id"],
+                    "stripe_sync_status": p["stripe_sync_status"],
+                    "stripe_sync_error": p["stripe_sync_error"],
+                    "recurring_interval": p["recurring_interval"],
+                    "deleted_at": p["deleted_at"],
+                    "pass": ok,
+                    "expected": f"id={exp_id}, status={exp_status}",
+                    "actual": f"id={actual_id}, status={actual_status}",
+                    "reason": (
+                        "" if ok else f"Expected {exp_status} but got {actual_status}"
+                    ),
+                }
+            )
+            stripe_checks.append(
+                {
+                    "resource": "product",
+                    "name": p["name"],
+                    "pass": ok,
+                    "expected": exp_status,
+                    "actual": actual_status,
+                    "reason": (
+                        "" if ok else f"Expected {exp_status} but got {actual_status}"
+                    ),
+                }
+            )
+
+        # Variant checks
+        variant_checks = []
+        for v in db_variants:
+            is_archived = v["deleted_at"] is not None
+            parent_was_active = product_was_active.get(v["product_name"], False)
+
+            if is_archived and parent_was_active:
+                exp_id = "not null (synced pre-archive)"
+                exp_status = "synced"
+            elif is_archived and not parent_was_active:
+                exp_id = "null (draft parent)"
+                exp_status = "unsynced"
+            elif v["product_status"] == "active":
+                exp_id = "not null"
+                exp_status = "synced"
+            else:  # draft parent
+                exp_id = "null"
+                exp_status = "unsynced"
+
+            if exp_status == "synced":
+                ok = (
+                    v["stripe_price_id"] is not None
+                    and v["stripe_sync_status"] == "synced"
+                )
+            else:
+                ok = v["stripe_price_id"] is None or v["stripe_sync_status"] != "synced"
+                if v["product_status"] == "draft" and v["stripe_price_id"] is None:
+                    ok = True
+
+            actual_id = v["stripe_price_id"] or "NULL"
+            actual_status = v["stripe_sync_status"] or "none"
+
+            price = (
+                v["price_override"]
+                if v["price_override"] is not None
+                else v["base_price"]
+            )
+
+            variant_checks.append(
+                {
+                    "product_name": v["product_name"],
+                    "name": v["name"],
+                    "price": price,
+                    "currency": v["currency"],
+                    "pricing_type": v["pricing_type"],
+                    "recurring_interval": v["recurring_interval"],
+                    "product_status": v["product_status"],
+                    "stripe_price_id": v["stripe_price_id"],
+                    "stripe_sync_status": v["stripe_sync_status"],
+                    "stripe_sync_error": v["stripe_sync_error"],
+                    "deleted_at": v["deleted_at"],
+                    "pass": ok,
+                    "expected": f"id={exp_id}, status={exp_status}",
+                    "actual": f"id={actual_id}, status={actual_status}",
+                    "reason": (
+                        "" if ok else f"Expected {exp_status} but got {actual_status}"
+                    ),
+                }
+            )
+            stripe_checks.append(
+                {
+                    "resource": "variant",
+                    "name": f"{v['product_name']} / {v['name']}",
+                    "pass": ok,
+                    "expected": exp_status,
+                    "actual": actual_status,
+                    "reason": (
+                        "" if ok else f"Expected {exp_status} but got {actual_status}"
+                    ),
+                }
+            )
+
+        # Coupon checks
+        coupon_checks = []
+        for c in db_coupons:
+            if c["type"] == "free_shipping":
+                exp_coupon = "null (N/A)"
+                exp_promo = "null (N/A)"
+                exp_status = "N/A"
+                ok = True  # free_shipping is never synced by design
+            else:
+                exp_coupon = "not null"
+                exp_promo = "not null"
+                exp_status = "synced"
+                ok = (
+                    c["stripe_coupon_id"] is not None
+                    and c["stripe_promotion_code_id"] is not None
+                    and c["stripe_sync_status"] == "synced"
+                )
+
+            actual_coupon = c["stripe_coupon_id"] or "NULL"
+            actual_promo = c["stripe_promotion_code_id"] or "NULL"
+            actual_status = c["stripe_sync_status"] or "none"
+
+            # Duration display
+            dur = c.get("stripe_duration") or "once"
+            dur_months = c.get("stripe_duration_in_months")
+            if dur == "repeating" and dur_months:
+                dur_display = f"repeating {dur_months}mo"
+            else:
+                dur_display = dur
+
+            coupon_checks.append(
+                {
+                    "code": c["code"],
+                    "type": c["type"],
+                    "value": c["value"],
+                    "currency": c["currency"],
+                    "applies_to": c["applies_to"],
+                    "stripe_duration": dur_display,
+                    "stripe_coupon_id": c["stripe_coupon_id"],
+                    "stripe_promotion_code_id": c["stripe_promotion_code_id"],
+                    "stripe_sync_status": c["stripe_sync_status"],
+                    "stripe_sync_error": c["stripe_sync_error"],
+                    "pass": ok,
+                    "expected": f"coupon={exp_coupon}, promo={exp_promo}, status={exp_status}",
+                    "actual": f"coupon={actual_coupon}, promo={actual_promo}, status={actual_status}",
+                    "reason": (
+                        "" if ok else f"Expected {exp_status} but got {actual_status}"
+                    ),
+                }
+            )
+            stripe_checks.append(
+                {
+                    "resource": "coupon",
+                    "name": c["code"],
+                    "pass": ok,
+                    "expected": exp_status,
+                    "actual": actual_status,
+                    "reason": (
+                        "" if ok else f"Expected {exp_status} but got {actual_status}"
+                    ),
+                }
+            )
+
+        total_checks = len(stripe_checks)
+        passed_checks = sum(1 for s in stripe_checks if s["pass"])
+        failed_checks = total_checks - passed_checks
+
+        result["stripe_detail"] = {
+            "admin_customer": {
+                "email": admin_email,
+                "stripe_customer_id": admin_stripe_cid,
+                "pass": cust_pass,
+                "expected": "stripe_customer_id not null",
+                "actual": admin_stripe_cid or "NULL",
+            },
+            "products": product_checks,
+            "variants": variant_checks,
+            "coupons": coupon_checks,
+            "summary": {
+                "total": total_checks,
+                "passed": passed_checks,
+                "failed": failed_checks,
+            },
+        }
+        logger.info(
+            "Stripe validation: %d/%d passed (%d products, %d variants, %d coupons)",
+            passed_checks,
+            total_checks,
+            len(product_checks),
+            len(variant_checks),
+            len(coupon_checks),
+        )
+
+        cur.close()
+        conn.close()
     except Exception as e:
         logger.warning("Analytics summary failed: %s", e)
+
+    # ── Admin user detail ──
+    result["admin_detail"] = {
+        "email": admin_email,
+        "user_id": locals().get("admin_uid", ""),
+        "session_id": locals().get("admin_sid", ""),
+        "role": "admin",
+    }
+
+    # ── DB snapshot: after state ──
+    result["db_after"] = _snapshot_db(_get_db_url())
+
+    # ── API call log ──
+    result["api_log"] = api_log
 
     client.close()
     return result
