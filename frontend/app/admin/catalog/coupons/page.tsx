@@ -8,7 +8,6 @@ import Pagination from "../../../../components/Pagination";
 import LoadingSpinner from "../../../../components/LoadingSpinner";
 import Modal from "../../../../components/Modal";
 import { useToast } from "../../../../components/Toast";
-import SyncStatusBadge from "../../../../components/admin/SyncStatusBadge";
 
 interface Discount {
   id: string;
@@ -51,7 +50,7 @@ const STATUS_FILTERS = [
   { value: "archived", label: "Archived" },
 ];
 
-function formatValue(d: Discount): string {
+function formatDiscount(d: Discount): string {
   if (d.type === "percentage") return `${d.value}%`;
   if (d.type === "fixed") return formatPrice(d.value, d.currency);
   return "Free Shipping";
@@ -64,6 +63,28 @@ function getStatusInfo(d: Discount): { label: string; className: string } {
   if (d.max_uses !== null && d.uses_count >= d.max_uses)
     return { label: "Maxed", className: "badge-purple" };
   return { label: "Active", className: "badge-green" };
+}
+
+function StripeDot({ d }: { d: Discount }) {
+  if (d.type === "free_shipping") return null;
+  const color =
+    d.stripe_sync_status === "synced"
+      ? "bg-green-400"
+      : d.stripe_sync_status === "error"
+        ? "bg-red-400"
+        : "bg-white/30";
+  const tooltip =
+    d.stripe_sync_status === "synced"
+      ? `Synced: ${d.stripe_coupon_id || ""}`
+      : d.stripe_sync_status === "error"
+        ? `Error: ${d.stripe_sync_error || "Unknown"}`
+        : "Not synced";
+  return (
+    <span
+      className={`inline-block w-1.5 h-1.5 rounded-full ${color} ml-1.5`}
+      title={tooltip}
+    />
+  );
 }
 
 export default function AdminCouponsPage() {
@@ -169,31 +190,19 @@ export default function AdminCouponsPage() {
                     Code
                   </th>
                   <th className="text-left p-4 text-text-muted font-medium">
-                    Type
+                    Discount
                   </th>
                   <th className="text-left p-4 text-text-muted font-medium">
-                    Value
-                  </th>
-                  <th className="text-left p-4 text-text-muted font-medium">
-                    Min Order
-                  </th>
-                  <th className="text-left p-4 text-text-muted font-medium">
-                    Applies To
-                  </th>
-                  <th className="text-left p-4 text-text-muted font-medium">
-                    Restrictions
+                    Details
                   </th>
                   <th className="text-left p-4 text-text-muted font-medium">
                     Usage
                   </th>
                   <th className="text-left p-4 text-text-muted font-medium">
-                    Valid Until
+                    Expires
                   </th>
                   <th className="text-left p-4 text-text-muted font-medium">
                     Status
-                  </th>
-                  <th className="text-left p-4 text-text-muted font-medium">
-                    Stripe
                   </th>
                   <th className="text-right p-4 text-text-muted font-medium">
                     Actions
@@ -206,91 +215,76 @@ export default function AdminCouponsPage() {
                   return (
                     <tr
                       key={d.id}
-                      className="border-b border-glass-border/50 hover:bg-glass-hover transition-colors"
+                      onClick={() =>
+                        router.push(`/admin/catalog/coupons/${d.id}`)
+                      }
+                      className="border-b border-glass-border/50 hover:bg-glass-hover transition-colors cursor-pointer"
                     >
                       <td className="p-4 text-text-primary font-mono font-medium">
                         {d.code}
                       </td>
-                      <td className="p-4 text-text-secondary capitalize">
-                        {d.type.replace("_", " ")}
-                      </td>
                       <td className="p-4 text-text-primary">
-                        {formatValue(d)}
-                      </td>
-                      <td className="p-4 text-text-muted">
-                        {d.min_order_amount > 0
-                          ? formatPrice(d.min_order_amount, d.currency)
-                          : "\u2014"}
-                      </td>
-                      <td className="p-4 text-text-secondary capitalize">
-                        {d.applies_to === "one_time"
-                          ? "One-time"
-                          : d.applies_to === "recurring"
-                            ? "Recurring"
-                            : "All"}
+                        {formatDiscount(d)}
                       </td>
                       <td className="p-4">
-                        <div className="flex flex-col gap-1">
-                          {d.product_names?.length > 0 && (
-                            <div className="flex flex-wrap gap-1">
-                              {d.product_names.map((p) => (
-                                <span
-                                  key={p.id}
-                                  className="text-[10px] px-1.5 py-0.5 rounded bg-accent-blue/10 text-accent-blue"
-                                  title={p.id}
-                                >
-                                  {p.name}
-                                </span>
-                              ))}
-                            </div>
+                        <div className="flex flex-wrap gap-1">
+                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-white/5 text-text-muted">
+                            {d.applies_to === "one_time"
+                              ? "One-time"
+                              : d.applies_to === "recurring"
+                                ? "Recurring"
+                                : "All"}
+                          </span>
+                          {d.min_order_amount > 0 && (
+                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-white/5 text-text-muted">
+                              Min {formatPrice(d.min_order_amount, d.currency)}
+                            </span>
                           )}
-                          <div className="flex flex-wrap gap-1">
-                            {d.restricted_to_customer_id && (
-                              <span className="text-[10px] px-1.5 py-0.5 rounded bg-accent-purple/10 text-accent-purple">
-                                Customer
+                          {d.product_names?.length > 0 &&
+                            d.product_names.slice(0, 2).map((p) => (
+                              <span
+                                key={p.id}
+                                className="text-[10px] px-1.5 py-0.5 rounded bg-accent-blue/10 text-accent-blue"
+                              >
+                                {p.name}
                               </span>
-                            )}
-                            {d.first_time_transaction_only && (
-                              <span className="text-[10px] px-1.5 py-0.5 rounded bg-accent-green/10 text-accent-green">
-                                First-time
-                              </span>
-                            )}
-                            {d.max_uses_per_customer != null && (
-                              <span className="text-[10px] px-1.5 py-0.5 rounded bg-yellow-500/10 text-yellow-400">
-                                {d.max_uses_per_customer}/customer
-                              </span>
-                            )}
-                          </div>
-                          {!d.product_ids?.length &&
-                            !d.restricted_to_customer_id &&
-                            !d.first_time_transaction_only &&
-                            d.max_uses_per_customer == null && (
-                              <span className="text-text-muted text-xs">
-                                Global
-                              </span>
-                            )}
+                            ))}
+                          {(d.product_names?.length ?? 0) > 2 && (
+                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-accent-blue/10 text-accent-blue">
+                              +{d.product_names.length - 2}
+                            </span>
+                          )}
+                          {d.restricted_to_customer_id && (
+                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-accent-purple/10 text-accent-purple">
+                              Customer
+                            </span>
+                          )}
+                          {d.first_time_transaction_only && (
+                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-accent-green/10 text-accent-green">
+                              First-time
+                            </span>
+                          )}
+                          {d.max_uses_per_customer != null && (
+                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-yellow-500/10 text-yellow-400">
+                              {d.max_uses_per_customer}/customer
+                            </span>
+                          )}
                         </div>
                       </td>
                       <td className="p-4 text-text-secondary">
-                        {d.uses_count} / {d.max_uses ?? "unlimited"}
+                        {d.uses_count} / {d.max_uses ?? "\u221E"}
                       </td>
                       <td className="p-4 text-text-muted">
                         {d.valid_until ? formatDate(d.valid_until) : "\u2014"}
                       </td>
                       <td className="p-4">
                         <span className={status.className}>{status.label}</span>
+                        <StripeDot d={d} />
                       </td>
-                      <td className="p-4">
-                        {d.type === "free_shipping" ? (
-                          <span className="text-xs text-text-muted">N/A</span>
-                        ) : (
-                          <SyncStatusBadge
-                            status={d.stripe_sync_status}
-                            error={d.stripe_sync_error}
-                          />
-                        )}
-                      </td>
-                      <td className="p-4 text-right whitespace-nowrap">
+                      <td
+                        className="p-4 text-right whitespace-nowrap"
+                        onClick={(e) => e.stopPropagation()}
+                      >
                         <button
                           onClick={() =>
                             router.push(`/admin/catalog/coupons/${d.id}`)

@@ -19,10 +19,13 @@ import requests
 
 def login(base: str) -> str:
     """Login as admin and return access token."""
-    r = requests.post(f"{base}/api/auth/login", json={
-        "email": "admin@example.com",
-        "password": "Test1234!",
-    })
+    r = requests.post(
+        f"{base}/api/auth/login",
+        json={
+            "email": "admin@example.com",
+            "password": "Test1234!",
+        },
+    )
     r.raise_for_status()
     return r.json()["access_token"]
 
@@ -37,7 +40,9 @@ def api(base: str, token: str, method: str, path: str, **kwargs):
     return r.json()
 
 
-def upload_placeholder_image(base: str, token: str, product_id: str, color: str = "blue"):
+def upload_placeholder_image(
+    base: str, token: str, product_id: str, color: str = "blue"
+):
     """Upload a small placeholder PNG image for a product."""
     # Generate a tiny 1x1 PNG (valid PNG format)
     import struct
@@ -63,7 +68,11 @@ def upload_placeholder_image(base: str, token: str, product_id: str, color: str 
 
     def png_chunk(chunk_type: bytes, data: bytes) -> bytes:
         chunk = chunk_type + data
-        return struct.pack(">I", len(data)) + chunk + struct.pack(">I", zlib.crc32(chunk) & 0xFFFFFFFF)
+        return (
+            struct.pack(">I", len(data))
+            + chunk
+            + struct.pack(">I", zlib.crc32(chunk) & 0xFFFFFFFF)
+        )
 
     ihdr = struct.pack(">IIBBBBB", width, height, 8, 2, 0, 0, 0)
     png = b"\x89PNG\r\n\x1a\n"
@@ -106,8 +115,18 @@ PRODUCTS = [
         "type": "physical",
         "image_color": "red",
         "variants": [
-            {"name": "Black", "sku": "HOD-PREM-BLK", "stock_quantity": 30, "price_override": 7999},
-            {"name": "White", "sku": "HOD-PREM-WHT", "stock_quantity": 25, "price_override": 8499},
+            {
+                "name": "Black",
+                "sku": "HOD-PREM-BLK",
+                "stock_quantity": 30,
+                "price_override": 7999,
+            },
+            {
+                "name": "White",
+                "sku": "HOD-PREM-WHT",
+                "stock_quantity": 25,
+                "price_override": 8499,
+            },
         ],
     },
     {
@@ -129,10 +148,30 @@ PRODUCTS = [
         "type": "digital",
         "image_color": "yellow",
         "variants": [
-            {"name": "$25 Gift Card", "sku": "GFT-025", "stock_quantity": 999, "price_override": 2500},
-            {"name": "$50 Gift Card", "sku": "GFT-050", "stock_quantity": 999, "price_override": 5000},
-            {"name": "$75 Gift Card", "sku": "GFT-075", "stock_quantity": 999, "price_override": 7500},
-            {"name": "$100 Gift Card", "sku": "GFT-100", "stock_quantity": 999, "price_override": 10000},
+            {
+                "name": "$25 Gift Card",
+                "sku": "GFT-025",
+                "stock_quantity": 999,
+                "price_override": 2500,
+            },
+            {
+                "name": "$50 Gift Card",
+                "sku": "GFT-050",
+                "stock_quantity": 999,
+                "price_override": 5000,
+            },
+            {
+                "name": "$75 Gift Card",
+                "sku": "GFT-075",
+                "stock_quantity": 999,
+                "price_override": 7500,
+            },
+            {
+                "name": "$100 Gift Card",
+                "sku": "GFT-100",
+                "stock_quantity": 999,
+                "price_override": 10000,
+            },
         ],
     },
     {
@@ -152,8 +191,12 @@ PRODUCTS = [
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Create 5 test products with Stripe sync")
-    parser.add_argument("--base-url", default="http://localhost:80", help="Base URL of the app")
+    parser = argparse.ArgumentParser(
+        description="Create 5 test products with Stripe sync"
+    )
+    parser.add_argument(
+        "--base-url", default="http://localhost:80", help="Base URL of the app"
+    )
     args = parser.parse_args()
     base = args.base_url.rstrip("/")
 
@@ -167,15 +210,21 @@ def main():
         print(f"\n--- Product {i}/5: {spec['name']} ---")
 
         # 1. Create as draft
-        product = api(base, token, "POST", "/ecommerce/products", json={
-            "name": spec["name"],
-            "description": spec["description"],
-            "sku": spec["sku"],
-            "base_price": spec["base_price"],
-            "currency": spec["currency"],
-            "type": spec["type"],
-            "status": "draft",
-        })
+        product = api(
+            base,
+            token,
+            "POST",
+            "/ecommerce/products",
+            json={
+                "name": spec["name"],
+                "description": spec["description"],
+                "sku": spec["sku"],
+                "base_price": spec["base_price"],
+                "currency": spec["currency"],
+                "type": spec["type"],
+                "status": "draft",
+            },
+        )
         pid = product["id"]
         print(f"  Created (draft): {pid}")
 
@@ -185,13 +234,21 @@ def main():
 
         # 3. Create variants
         for v_spec in spec["variants"]:
-            v = api(base, token, "POST", f"/ecommerce/products/{pid}/variants", json=v_spec)
+            v = api(
+                base, token, "POST", f"/ecommerce/products/{pid}/variants", json=v_spec
+            )
             print(f"  Variant: {v['name']} (id={v['id']})")
 
         # 4. Activate (triggers Stripe sync)
-        product = api(base, token, "PUT", f"/ecommerce/products/{pid}", json={
-            "status": "active",
-        })
+        product = api(
+            base,
+            token,
+            "PUT",
+            f"/ecommerce/products/{pid}",
+            json={
+                "status": "active",
+            },
+        )
         print(f"  Status: {product['status']}")
         print(f"  Sync: {product['stripe_sync_status']}")
 
@@ -201,14 +258,16 @@ def main():
         all_data = api(base, token, "GET", f"/ecommerce/products?page=1&page_size=100")
         fresh = next((p for p in all_data["items"] if p["id"] == pid), product)
 
-        results.append({
-            "name": spec["name"],
-            "id": pid,
-            "stripe_product_id": fresh.get("stripe_product_id"),
-            "stripe_price_id": fresh.get("stripe_price_id"),
-            "stripe_sync_status": fresh.get("stripe_sync_status"),
-            "synced_provider": fresh.get("synced_provider"),
-        })
+        results.append(
+            {
+                "name": spec["name"],
+                "id": pid,
+                "stripe_product_id": fresh.get("stripe_product_id"),
+                "stripe_price_id": fresh.get("stripe_price_id"),
+                "stripe_sync_status": fresh.get("stripe_sync_status"),
+                "synced_provider": fresh.get("synced_provider"),
+            }
+        )
 
         status_emoji = "OK" if fresh.get("stripe_sync_status") == "synced" else "FAIL"
         print(f"  [{status_emoji}] stripe_product_id: {fresh.get('stripe_product_id')}")

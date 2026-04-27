@@ -694,6 +694,60 @@ async def update_discount(
     return discount
 
 
+async def get_coupon_stats(db: AsyncSession, discount_id: str) -> dict[str, Any]:
+    """Aggregate KPIs for a single coupon."""
+    row = (
+        (
+            await db.execute(
+                text(
+                    "SELECT "
+                    "  COALESCE(os.cnt, 0) + COALESCE(ss.cnt, 0) "
+                    "    AS total_redemptions, "
+                    "  COALESCE(os.total_disc, 0) AS total_discount_given, "
+                    "  COALESCE(os.uniq, 0) + COALESCE(ss.uniq, 0) "
+                    "    - COALESCE(ov.shared, 0) AS unique_customers, "
+                    "  COALESCE(os.avg_val, 0) AS avg_order_value, "
+                    "  COALESCE(os.total_rev, 0) AS total_revenue "
+                    "FROM "
+                    "  (SELECT COUNT(*) cnt, SUM(discount_amount) total_disc, "
+                    "   COUNT(DISTINCT user_id) uniq, "
+                    "   AVG(total) avg_val, SUM(total) total_rev "
+                    "   FROM ecommerce.orders "
+                    "   WHERE discount_code_id = :did) os, "
+                    "  (SELECT COUNT(*) cnt, "
+                    "   COUNT(DISTINCT user_id) uniq "
+                    "   FROM ecommerce.subscriptions "
+                    "   WHERE discount_code_id = :did) ss, "
+                    "  (SELECT COUNT(DISTINCT o.user_id) shared "
+                    "   FROM ecommerce.orders o "
+                    "   JOIN ecommerce.subscriptions s "
+                    "     ON o.user_id = s.user_id "
+                    "   WHERE o.discount_code_id = :did "
+                    "     AND s.discount_code_id = :did) ov"
+                ),
+                {"did": discount_id},
+            )
+        )
+        .mappings()
+        .first()
+    )
+    if row:
+        return {
+            "total_redemptions": row["total_redemptions"] or 0,
+            "total_discount_given": row["total_discount_given"] or 0,
+            "unique_customers": row["unique_customers"] or 0,
+            "avg_order_value": int(row["avg_order_value"] or 0),
+            "total_revenue": row["total_revenue"] or 0,
+        }
+    return {
+        "total_redemptions": 0,
+        "total_discount_given": 0,
+        "unique_customers": 0,
+        "avg_order_value": 0,
+        "total_revenue": 0,
+    }
+
+
 async def get_coupon_usage(
     db: AsyncSession,
     discount_id: str,
@@ -701,31 +755,106 @@ async def get_coupon_usage(
     page: int = 1,
     page_size: int = 10,
 ) -> dict[str, Any]:
-    """Return paginated list of redemptions (orders + subscriptions) for a coupon."""
+    """Return paginated list of redemptions with product + device info."""
+    from backend.core.config import settings
+
+    # Build device join clause conditionally
+    if settings.enable_tracking:
+        device_cols = ", device_sub.device_type, device_sub.browser"
+        device_join_order = (
+            "LEFT JOIN LATERAL ("
+            "  SELECT ua.device_type, ua.browser"
+            "  FROM analytics.analytics_sessions sess"
+            "  JOIN analytics.user_agents ua"
+            "    ON ua.session_id = sess.session_id"
+            "  WHERE sess.user_id = o.user_id"
+            "    AND sess.started_at BETWEEN "
+            "      o.created_at - INTERVAL '1 hour' "
+            "      AND o.created_at + INTERVAL '1 hour'"
+            "  ORDER BY ABS(EXTRACT(EPOCH FROM "
+            "    (sess.started_at - o.created_at)))"
+            "  LIMIT 1"
+            ") device_sub ON TRUE "
+        )
+        device_join_sub = (
+            "LEFT JOIN LATERAL ("
+            "  SELECT ua.device_type, ua.browser"
+            "  FROM analytics.analytics_sessions sess"
+            "  JOIN analytics.user_agents ua"
+            "    ON ua.session_id = sess.session_id"
+            "  WHERE sess.user_id = s.user_id"
+            "    AND sess.started_at BETWEEN "
+            "      s.created_at - INTERVAL '1 hour' "
+            "      AND s.created_at + INTERVAL '1 hour'"
+            "  ORDER BY ABS(EXTRACT(EPOCH FROM "
+            "    (sess.started_at - s.created_at)))"
+            "  LIMIT 1"
+            ") device_sub ON TRUE "
+        )
+    else:
+        device_cols = ", NULL::text AS device_type, NULL::text AS browser"
+        device_join_order = ""
+        device_join_sub = ""
+
     union_sql = (
         "SELECT 'order' AS usage_type, o.id AS reference_id, "
-        "  o.order_number AS reference_label, o.user_id, u.email AS user_email, "
-        "  o.discount_amount, o.status, o.created_at "
+        "  o.order_number AS reference_label, "
+        "  o.user_id, u.email AS user_email, "
+        "  o.discount_amount, o.status, o.created_at, "
+        "  oi_agg.products"
+        f"  {device_cols} "
         "FROM ecommerce.orders o "
         "JOIN core.users u ON u.id = o.user_id "
+        "LEFT JOIN LATERAL ("
+        "  SELECT jsonb_agg(jsonb_build_object("
+        "    'name', COALESCE("
+        "      oi.product_snapshot->>'product_name', 'Unknown'),"
+        "    'image_url', "
+        "      oi.product_snapshot->>'image_url',"
+        "    'quantity', oi.quantity,"
+        "    'unit_price', oi.unit_price"
+        "  )) AS products"
+        "  FROM ecommerce.order_items oi"
+        "  WHERE oi.order_id = o.id"
+        ") oi_agg ON TRUE "
+        f"{device_join_order}"
         "WHERE o.discount_code_id = :did "
         "UNION ALL "
-        "SELECT 'subscription' AS usage_type, s.id AS reference_id, "
-        "  COALESCE(s.stripe_subscription_id, s.id::text) AS reference_label, "
+        "SELECT 'subscription' AS usage_type, "
+        "  s.id AS reference_id, "
+        "  COALESCE(s.stripe_subscription_id, "
+        "    s.id::text) AS reference_label, "
         "  s.user_id, u.email AS user_email, "
-        "  0 AS discount_amount, s.status, s.created_at "
+        "  0 AS discount_amount, s.status, s.created_at, "
+        "  jsonb_build_array(jsonb_build_object("
+        "    'name', p.name,"
+        "    'image_url', ("
+        "      SELECT pi.url FROM ecommerce.product_images pi"
+        "      WHERE pi.product_id = p.id"
+        "      ORDER BY pi.is_primary DESC, pi.sort_order"
+        "      LIMIT 1),"
+        "    'quantity', 1,"
+        "    'unit_price', 0"
+        "  )) AS products"
+        f"  {device_cols} "
         "FROM ecommerce.subscriptions s "
         "JOIN core.users u ON u.id = s.user_id "
+        "JOIN ecommerce.products p ON p.id = s.product_id "
+        f"{device_join_sub}"
         "WHERE s.discount_code_id = :did"
     )
 
-    # Total count
-    total = (
-        await db.execute(
-            text(f"SELECT COUNT(*) FROM ({union_sql}) AS combined"),
-            {"did": discount_id},
-        )
-    ).scalar() or 0
+    # Total count (simpler query without joins)
+    count_sql = (
+        "SELECT COUNT(*) FROM ("
+        "  SELECT o.id FROM ecommerce.orders o"
+        "  WHERE o.discount_code_id = :did"
+        "  UNION ALL"
+        "  SELECT s.id FROM ecommerce.subscriptions s"
+        "  WHERE s.discount_code_id = :did"
+        ") combined"
+    )
+    total = (await db.execute(text(count_sql), {"did": discount_id})).scalar() or 0
 
     # Paginated results
     offset = (page - 1) * page_size
@@ -734,17 +863,30 @@ async def get_coupon_usage(
             await db.execute(
                 text(
                     f"SELECT * FROM ({union_sql}) AS combined "
-                    f"ORDER BY created_at DESC LIMIT :limit OFFSET :offset"
+                    f"ORDER BY created_at DESC "
+                    f"LIMIT :limit OFFSET :offset"
                 ),
-                {"did": discount_id, "limit": page_size, "offset": offset},
+                {
+                    "did": discount_id,
+                    "limit": page_size,
+                    "offset": offset,
+                },
             )
         )
         .mappings()
         .all()
     )
 
+    items = []
+    for r in rows:
+        item = dict(r)
+        # Ensure products is a list (jsonb comes back as list already)
+        if item.get("products") and not isinstance(item["products"], list):
+            item["products"] = []
+        items.append(item)
+
     return {
-        "items": [dict(r) for r in rows],
+        "items": items,
         "total": total,
         "page": page,
         "page_size": page_size,

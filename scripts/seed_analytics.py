@@ -22,10 +22,21 @@ import psycopg2
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
 PAGES = [
-    "/", "/products", "/products/wireless-headphones", "/products/usb-c-hub",
-    "/products/classic-t-shirt", "/products/running-shoes", "/products/smart-watch",
-    "/about", "/contact", "/cart", "/checkout", "/dashboard", "/auth/login",
-    "/categories/electronics", "/categories/clothing",
+    "/",
+    "/products",
+    "/products/wireless-headphones",
+    "/products/usb-c-hub",
+    "/products/classic-t-shirt",
+    "/products/running-shoes",
+    "/products/smart-watch",
+    "/about",
+    "/contact",
+    "/cart",
+    "/checkout",
+    "/dashboard",
+    "/auth/login",
+    "/categories/electronics",
+    "/categories/clothing",
 ]
 
 BROWSERS = ["Chrome", "Safari", "Edge", "Firefox"]
@@ -44,14 +55,23 @@ OS_MAP = {
 }
 
 REFERRAL_SOURCES = [
-    ("google", "organic"), ("direct", "none"), ("facebook", "social"),
-    ("instagram", "social"), ("email", "email"), ("twitter", "social"),
+    ("google", "organic"),
+    ("direct", "none"),
+    ("facebook", "social"),
+    ("instagram", "social"),
+    ("email", "email"),
+    ("twitter", "social"),
 ]
 
 EVENT_TYPES = [
-    "product_viewed", "add_to_cart", "remove_from_cart",
-    "checkout_started", "checkout_abandoned", "search_performed",
-    "wishlist_added", "coupon_applied",
+    "product_viewed",
+    "add_to_cart",
+    "remove_from_cart",
+    "checkout_started",
+    "checkout_abandoned",
+    "search_performed",
+    "wishlist_added",
+    "coupon_applied",
 ]
 EVENT_WEIGHTS = [40, 20, 5, 10, 5, 10, 5, 5]
 
@@ -163,12 +183,23 @@ def main():
                     seconds=i * (duration_minutes * 60 / max(num_pages, 1))
                 )
                 duration_ms = random.randint(2000, 60000)
-                trigger = "navigation" if i == 0 else random.choice(["navigation", "click", "popstate"])
+                trigger = (
+                    "navigation"
+                    if i == 0
+                    else random.choice(["navigation", "click", "popstate"])
+                )
                 cur.execute(
                     "INSERT INTO analytics.page_views "
-                    "(user_id, session_id, path, duration_ms, \"trigger\", created_at) "
+                    '(user_id, session_id, path, duration_ms, "trigger", created_at) '
                     "VALUES (%s, %s, %s, %s, %s, %s)",
-                    (str(user_id), session_id, page_path, duration_ms, trigger, pv_time),
+                    (
+                        str(user_id),
+                        session_id,
+                        page_path,
+                        duration_ms,
+                        trigger,
+                        pv_time,
+                    ),
                 )
                 total_pageviews += 1
 
@@ -185,7 +216,11 @@ def main():
                 if event_type == "product_viewed":
                     event_data = {"product": random.choice(PAGES[2:7])}
                 elif event_type == "search_performed":
-                    event_data = {"query": random.choice(["shoes", "headphones", "shirt", "watch", "gift"])}
+                    event_data = {
+                        "query": random.choice(
+                            ["shoes", "headphones", "shirt", "watch", "gift"]
+                        )
+                    }
                 elif event_type == "add_to_cart":
                     event_data = {"product": random.choice(PAGES[2:7]), "quantity": 1}
 
@@ -193,14 +228,22 @@ def main():
                     "INSERT INTO analytics.events "
                     "(user_id, session_id, event_type, event_data, created_at) "
                     "VALUES (%s, %s, %s, %s, %s)",
-                    (str(user_id), session_id, event_type, str(event_data).replace("'", '"'), ev_time),
+                    (
+                        str(user_id),
+                        session_id,
+                        event_type,
+                        str(event_data).replace("'", '"'),
+                        ev_time,
+                    ),
                 )
                 total_events += 1
 
         print(f"  {email}: {num_sessions} sessions")
 
     conn.commit()
-    print(f"\nSeeded: {total_sessions} sessions, {total_pageviews} page views, {total_events} events")
+    print(
+        f"\nSeeded: {total_sessions} sessions, {total_pageviews} page views, {total_events} events"
+    )
 
     conn.close()
 

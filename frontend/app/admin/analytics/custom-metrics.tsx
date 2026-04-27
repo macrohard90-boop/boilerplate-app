@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Editor from "react-simple-code-editor";
 import Prism from "prismjs";
 import "prismjs/components/prism-sql";
@@ -483,6 +483,22 @@ export default function CustomMetricsTab() {
       setSeeding(false);
     }
   };
+
+  // Auto-seed audience presets on first load if none exist
+  const autoSeeded = useRef(false);
+  useEffect(() => {
+    if (
+      enable_marketing &&
+      audienceMetrics.length === 0 &&
+      !autoSeeded.current &&
+      !seeding &&
+      !loading
+    ) {
+      autoSeeded.current = true;
+      seedPresets();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [enable_marketing, audienceMetrics.length, seeding, loading]);
 
   // Group audience metrics by group_name
   const audienceGroups = useMemo(() => {
@@ -1331,14 +1347,8 @@ export default function CustomMetricsTab() {
                 Shared with Campaigns
               </span>
             </div>
-            {audienceMetrics.length === 0 && (
-              <button
-                onClick={seedPresets}
-                disabled={seeding}
-                className="btn-secondary text-xs disabled:opacity-50"
-              >
-                {seeding ? "Seeding..." : "Seed Preset Audiences"}
-              </button>
+            {seeding && (
+              <span className="text-xs text-text-muted">Setting up...</span>
             )}
           </div>
           {audienceGroups.length > 0 ? (
@@ -1404,18 +1414,19 @@ export default function CustomMetricsTab() {
             ))
           ) : (
             <div className="glass rounded-xl p-6 text-center">
-              <p className="text-sm text-text-muted mb-3">
-                No audience segments yet. Seed the preset audiences to get
-                started, or create a new metric with the &quot;Audience
-                Query&quot; toggle enabled.
-              </p>
-              <button
-                onClick={seedPresets}
-                disabled={seeding}
-                className="btn-primary text-sm disabled:opacity-50"
-              >
-                {seeding ? "Seeding..." : "Seed Preset Audiences"}
-              </button>
+              {seeding ? (
+                <div className="flex items-center justify-center gap-2">
+                  <LoadingSpinner className="w-4 h-4" />
+                  <p className="text-sm text-text-muted">
+                    Setting up audience segments...
+                  </p>
+                </div>
+              ) : (
+                <p className="text-sm text-text-muted">
+                  No audience segments available. Create a new metric with the
+                  &quot;Audience Query&quot; toggle enabled.
+                </p>
+              )}
             </div>
           )}
         </div>
@@ -1514,133 +1525,136 @@ export default function CustomMetricsTab() {
                   </span>
                 </button>
 
-                {/* Metrics in group */}
-                {!isCollapsed &&
-                  group.metrics.map((m) => (
-                    <div
-                      key={m.id}
-                      draggable
-                      onDragStart={(e) => handleDragStart(e, m.id)}
-                      onDragOver={(e) => handleDragOver(e, m.id)}
-                      onDrop={(e) => {
-                        e.stopPropagation();
-                        handleDrop(e, m.id, group.key);
-                      }}
-                      onDragEnd={handleDragEnd}
-                      className={`glass rounded-xl overflow-hidden transition-all ${
-                        dragItem === m.id ? "opacity-40" : ""
-                      } ${
-                        dragOverItem === m.id
-                          ? "ring-2 ring-accent-blue ring-offset-1 ring-offset-transparent"
-                          : ""
-                      }`}
-                    >
-                      <div className="p-4">
-                        <div className="flex items-start justify-between gap-4">
-                          {/* Drag handle */}
-                          <div className="flex items-center shrink-0 pt-0.5 cursor-grab active:cursor-grabbing text-text-muted/40 hover:text-text-muted">
-                            <svg
-                              width="12"
-                              height="16"
-                              viewBox="0 0 12 16"
-                              fill="currentColor"
-                            >
-                              <circle cx="3" cy="2" r="1.3" />
-                              <circle cx="9" cy="2" r="1.3" />
-                              <circle cx="3" cy="8" r="1.3" />
-                              <circle cx="9" cy="8" r="1.3" />
-                              <circle cx="3" cy="14" r="1.3" />
-                              <circle cx="9" cy="14" r="1.3" />
-                            </svg>
-                          </div>
-
-                          {/* Content */}
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2">
-                              <span className="text-text-muted">
-                                <VizIcon type={m.visualization_type} />
-                              </span>
-                              <h4 className="text-sm font-medium text-text-primary truncate">
-                                {m.name}
-                              </h4>
-                              {m.is_audience && (
-                                <span className="shrink-0 text-[10px] font-medium uppercase tracking-wider px-1.5 py-0.5 rounded bg-accent-purple/15 text-accent-purple">
-                                  Audience
-                                </span>
-                              )}
-                            </div>
-                            {m.description && (
-                              <p className="text-xs text-text-muted mt-1 line-clamp-1">
-                                {m.description}
-                              </p>
-                            )}
-                            <p className="text-xs text-text-muted mt-1 font-mono line-clamp-1 opacity-60">
-                              {m.sql_query}
-                            </p>
-                          </div>
-
-                          {/* Actions */}
-                          <div className="flex items-center gap-2 shrink-0">
-                            <button
-                              onClick={() => runMetricInline(m)}
-                              disabled={runningMetricId === m.id}
-                              className="text-xs text-accent-purple hover:text-accent-pink transition-colors disabled:opacity-50"
-                            >
-                              {runningMetricId === m.id ? "Running..." : "Run"}
-                            </button>
-                            <button
-                              onClick={() => openEdit(m)}
-                              className="text-xs text-text-muted hover:text-text-secondary transition-colors"
-                            >
-                              Edit
-                            </button>
-                            <button
-                              onClick={() => deleteMetric(m.id)}
-                              className="text-xs text-text-muted hover:text-accent-pink transition-colors"
-                            >
-                              Delete
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Inline results */}
-                      {metricResults[m.id] && (
-                        <div className="px-4 pb-4 border-t border-glass-border/30 pt-3">
+                {/* Metrics in group — card grid */}
+                {!isCollapsed && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {group.metrics.map((m) => (
+                      <div
+                        key={m.id}
+                        draggable
+                        onDragStart={(e) => handleDragStart(e, m.id)}
+                        onDragOver={(e) => handleDragOver(e, m.id)}
+                        onDrop={(e) => {
+                          e.stopPropagation();
+                          handleDrop(e, m.id, group.key);
+                        }}
+                        onDragEnd={handleDragEnd}
+                        className={`glass rounded-xl overflow-hidden transition-all ${
+                          dragItem === m.id ? "opacity-40" : ""
+                        } ${
+                          dragOverItem === m.id
+                            ? "ring-2 ring-accent-blue ring-offset-1 ring-offset-transparent"
+                            : ""
+                        } ${metricResults[m.id] ? "sm:col-span-2 lg:col-span-3" : ""}`}
+                      >
+                        <div className="p-4">
+                          {/* Top row: drag handle + actions */}
                           <div className="flex items-center justify-between mb-2">
-                            <span className="text-xs text-text-muted">
-                              {metricResults[m.id].row_count} row
-                              {metricResults[m.id].row_count !== 1
-                                ? "s"
-                                : ""}{" "}
-                              in {metricResults[m.id].execution_time_ms}ms
-                              {metricResults[m.id].cached && (
-                                <span className="ml-1 text-accent-purple">
-                                  (cached)
-                                </span>
-                              )}
-                            </span>
-                            <button
-                              onClick={() =>
-                                setMetricResults((prev) => {
-                                  const next = { ...prev };
-                                  delete next[m.id];
-                                  return next;
-                                })
-                              }
-                              className="text-xs text-text-muted hover:text-text-secondary"
-                            >
-                              Close
-                            </button>
+                            <div className="cursor-grab active:cursor-grabbing text-text-muted/40 hover:text-text-muted">
+                              <svg
+                                width="12"
+                                height="12"
+                                viewBox="0 0 12 12"
+                                fill="currentColor"
+                              >
+                                <circle cx="3" cy="2" r="1.3" />
+                                <circle cx="9" cy="2" r="1.3" />
+                                <circle cx="3" cy="6" r="1.3" />
+                                <circle cx="9" cy="6" r="1.3" />
+                                <circle cx="3" cy="10" r="1.3" />
+                                <circle cx="9" cy="10" r="1.3" />
+                              </svg>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={() => runMetricInline(m)}
+                                disabled={runningMetricId === m.id}
+                                className="text-xs text-accent-purple hover:text-accent-pink transition-colors disabled:opacity-50"
+                              >
+                                {runningMetricId === m.id ? "..." : "Run"}
+                              </button>
+                              <button
+                                onClick={() => openEdit(m)}
+                                className="text-xs text-text-muted hover:text-text-secondary transition-colors"
+                              >
+                                Edit
+                              </button>
+                              <button
+                                onClick={() => deleteMetric(m.id)}
+                                className="text-xs text-text-muted hover:text-accent-pink transition-colors"
+                              >
+                                Delete
+                              </button>
+                            </div>
                           </div>
-                          <ResultsView
-                            result={metricResults[m.id]}
-                            vizType={m.visualization_type}
-                          />
+
+                          {/* Title + icon */}
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="text-text-muted shrink-0">
+                              <VizIcon type={m.visualization_type} />
+                            </span>
+                            <h4 className="text-sm font-medium text-text-primary truncate">
+                              {m.name}
+                            </h4>
+                            {m.is_audience && (
+                              <span className="shrink-0 text-[10px] font-medium uppercase tracking-wider px-1.5 py-0.5 rounded bg-accent-purple/15 text-accent-purple">
+                                Audience
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Description */}
+                          {m.description && (
+                            <p className="text-xs text-text-muted mb-1.5 line-clamp-2">
+                              {m.description}
+                            </p>
+                          )}
+
+                          {/* SQL preview */}
+                          <p className="text-[11px] text-text-muted font-mono line-clamp-1 opacity-50">
+                            {m.sql_query}
+                          </p>
                         </div>
-                      )}
-                    </div>
-                  ))}
+
+                        {/* Inline results — spans full row */}
+                        {metricResults[m.id] && (
+                          <div className="px-4 pb-4 border-t border-glass-border/30 pt-3">
+                            <div className="flex items-center justify-between mb-2">
+                              <span className="text-xs text-text-muted">
+                                {metricResults[m.id].row_count} row
+                                {metricResults[m.id].row_count !== 1
+                                  ? "s"
+                                  : ""}{" "}
+                                in {metricResults[m.id].execution_time_ms}ms
+                                {metricResults[m.id].cached && (
+                                  <span className="ml-1 text-accent-purple">
+                                    (cached)
+                                  </span>
+                                )}
+                              </span>
+                              <button
+                                onClick={() =>
+                                  setMetricResults((prev) => {
+                                    const next = { ...prev };
+                                    delete next[m.id];
+                                    return next;
+                                  })
+                                }
+                                className="text-xs text-text-muted hover:text-text-secondary"
+                              >
+                                Close
+                              </button>
+                            </div>
+                            <ResultsView
+                              result={metricResults[m.id]}
+                              vizType={m.visualization_type}
+                            />
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
 
                 {/* Empty group drop zone */}
                 {!isCollapsed && group.metrics.length === 0 && (

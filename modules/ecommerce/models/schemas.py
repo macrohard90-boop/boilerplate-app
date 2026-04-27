@@ -487,6 +487,9 @@ class CouponUsageItem(BaseModel):
     discount_amount: int  # cents (0 for subscriptions — Stripe-managed)
     status: str
     created_at: datetime
+    products: list[dict] | None = None  # [{name, image_url, quantity, unit_price}]
+    device_type: str | None = None
+    browser: str | None = None
 
 
 class CouponUsageResponse(BaseModel):
@@ -495,6 +498,14 @@ class CouponUsageResponse(BaseModel):
     page: int
     page_size: int
     total_pages: int
+
+
+class CouponStatsResponse(BaseModel):
+    total_redemptions: int
+    total_discount_given: int  # cents
+    unique_customers: int
+    avg_order_value: int  # cents
+    total_revenue: int  # cents
 
 
 # ---------------------------------------------------------------------------

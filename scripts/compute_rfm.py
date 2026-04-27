@@ -44,9 +44,14 @@ def get_db_url() -> str:
 
 # RFM scoring thresholds (days for recency, counts for frequency, cents for monetary)
 # These are generous for small datasets
-RECENCY_THRESHOLDS = [7, 30, 90, 180]     # days: <=7=5, <=30=4, <=90=3, <=180=2, >180=1
-FREQUENCY_THRESHOLDS = [1, 3, 5, 10]       # orders: >=10=5, >=5=4, >=3=3, >=1=2, 0=1
-MONETARY_THRESHOLDS = [2000, 5000, 15000, 50000]  # cents: >=500$=5, >=150$=4, >=50$=3, >=20$=2, <20$=1
+RECENCY_THRESHOLDS = [7, 30, 90, 180]  # days: <=7=5, <=30=4, <=90=3, <=180=2, >180=1
+FREQUENCY_THRESHOLDS = [1, 3, 5, 10]  # orders: >=10=5, >=5=4, >=3=3, >=1=2, 0=1
+MONETARY_THRESHOLDS = [
+    2000,
+    5000,
+    15000,
+    50000,
+]  # cents: >=500$=5, >=150$=4, >=50$=3, >=20$=2, <20$=1
 
 # Segment mapping: (R_score, F_score, M_score) ranges -> segment label
 SEGMENT_RULES = [
@@ -123,7 +128,9 @@ def main():
         m = score_monetary(total_spent)
         segment = assign_segment(r, f, m)
         updates.append((segment, user_id))
-        print(f"  {user_id}: R={r} F={f} M={m} -> {segment} (days={days_since}, orders={order_count}, spent=${total_spent/100:.2f})")
+        print(
+            f"  {user_id}: R={r} F={f} M={m} -> {segment} (days={days_since}, orders={order_count}, spent=${total_spent/100:.2f})"
+        )
 
     # Batch update
     cur.executemany(

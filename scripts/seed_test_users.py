@@ -443,13 +443,37 @@ PROFILES = [
 # RFM segments are based on purchase dates, not session dates, so this
 # doesn't affect audience preset coverage.
 PROFILE_ANALYTICS = {
-    "champion": {"sessions": (8, 12), "session_recency": (0.5, 7), "signup_days": (90, 365)},
-    "loyal": {"sessions": (6, 10), "session_recency": (1, 14), "signup_days": (60, 300)},
-    "potential_loyalist": {"sessions": (4, 7), "session_recency": (1, 10), "signup_days": (14, 60)},
+    "champion": {
+        "sessions": (8, 12),
+        "session_recency": (0.5, 7),
+        "signup_days": (90, 365),
+    },
+    "loyal": {
+        "sessions": (6, 10),
+        "session_recency": (1, 14),
+        "signup_days": (60, 300),
+    },
+    "potential_loyalist": {
+        "sessions": (4, 7),
+        "session_recency": (1, 10),
+        "signup_days": (14, 60),
+    },
     "new": {"sessions": (2, 4), "session_recency": (0.5, 5), "signup_days": (1, 14)},
-    "at_risk": {"sessions": (3, 6), "session_recency": (5, 25), "signup_days": (90, 365)},
-    "hibernating": {"sessions": (2, 4), "session_recency": (10, 28), "signup_days": (120, 365)},
-    "lost": {"sessions": (1, 3), "session_recency": (15, 29), "signup_days": (200, 400)},
+    "at_risk": {
+        "sessions": (3, 6),
+        "session_recency": (5, 25),
+        "signup_days": (90, 365),
+    },
+    "hibernating": {
+        "sessions": (2, 4),
+        "session_recency": (10, 28),
+        "signup_days": (120, 365),
+    },
+    "lost": {
+        "sessions": (1, 3),
+        "session_recency": (15, 29),
+        "signup_days": (200, 400),
+    },
 }
 
 # ── Analytics seed constants ─────────────────────────────────────────────────
@@ -621,16 +645,27 @@ def _event_data_for(event_type: str) -> dict:
         return {"product": f"/products/{p['slug']}", "product_id": p["id"]}
     elif event_type == "add_to_cart":
         p, v = _pick_product_variant()
-        return {"product": f"/products/{p['slug']}", "product_id": p["id"], "quantity": 1}
+        return {
+            "product": f"/products/{p['slug']}",
+            "product_id": p["id"],
+            "quantity": 1,
+        }
     elif event_type == "remove_from_cart":
         p = random.choice(PRODUCTS)
         return {"product_id": p["id"]}
     elif event_type == "checkout_started":
         return {"cart_total": random.randint(2000, 50000)}
     elif event_type == "checkout_abandoned":
-        return {"cart_total": random.randint(2000, 50000), "item_count": random.randint(1, 5)}
+        return {
+            "cart_total": random.randint(2000, 50000),
+            "item_count": random.randint(1, 5),
+        }
     elif event_type == "search_performed":
-        return {"query": random.choice(["shoes", "headphones", "shirt", "watch", "gift", "laptop", "phone"])}
+        return {
+            "query": random.choice(
+                ["shoes", "headphones", "shirt", "watch", "gift", "laptop", "phone"]
+            )
+        }
     elif event_type == "wishlist_added":
         p = random.choice(PRODUCTS)
         return {"product_id": p["id"], "product_name": p["name"]}
@@ -707,7 +742,9 @@ def seed_test_users(conn) -> dict:
     # Get communication type IDs for comm preferences
     comm_types = {}
     try:
-        cur.execute("SELECT id, name FROM marketing.communication_types WHERE enabled = TRUE")
+        cur.execute(
+            "SELECT id, name FROM marketing.communication_types WHERE enabled = TRUE"
+        )
         comm_types = {name: str(ct_id) for ct_id, name in cur.fetchall()}
     except Exception:
         conn.rollback()
@@ -1111,7 +1148,8 @@ def seed_test_users(conn) -> dict:
                 if num_sessions > 1:
                     day_offset = sess_recency[0] + (
                         (sess_recency[1] - sess_recency[0])
-                        * sess_idx / max(num_sessions - 1, 1)
+                        * sess_idx
+                        / max(num_sessions - 1, 1)
                     )
                 else:
                     day_offset = random.uniform(*sess_recency)
@@ -1130,7 +1168,14 @@ def seed_test_users(conn) -> dict:
                     VALUES (%s, %s, %s, %s, %s, %s)
                     ON CONFLICT (session_id) DO NOTHING
                     """,
-                    (sess_db_id, user_id, session_id, session_start, session_end, num_pages),
+                    (
+                        sess_db_id,
+                        user_id,
+                        session_id,
+                        session_start,
+                        session_end,
+                        num_pages,
+                    ),
                 )
                 sessions_created += 1
 
@@ -1148,7 +1193,15 @@ def seed_test_users(conn) -> dict:
                     VALUES (%s, %s, %s, %s, %s, %s, %s)
                     ON CONFLICT (id) DO NOTHING
                     """,
-                    (ua_id, session_id, raw_ua, browser, browser_version, os_name, device),
+                    (
+                        ua_id,
+                        session_id,
+                        raw_ua,
+                        browser,
+                        browser_version,
+                        os_name,
+                        device,
+                    ),
                 )
 
                 # Referral source (50% of sessions)
@@ -1199,13 +1252,23 @@ def seed_test_users(conn) -> dict:
                         VALUES (%s, %s, %s, %s, %s, %s, %s)
                         ON CONFLICT (id) DO NOTHING
                         """,
-                        (pv_id, user_id, session_id, page_path, duration_ms, trigger, pv_time),
+                        (
+                            pv_id,
+                            user_id,
+                            session_id,
+                            page_path,
+                            duration_ms,
+                            trigger,
+                            pv_time,
+                        ),
                     )
                     pageviews_created += 1
 
                 # Events (1-4 random events per session)
                 num_events = random.randint(1, 4)
-                event_types = random.choices(EVENT_TYPES, weights=EVENT_WEIGHTS, k=num_events)
+                event_types = random.choices(
+                    EVENT_TYPES, weights=EVENT_WEIGHTS, k=num_events
+                )
                 for ev_idx, event_type in enumerate(event_types):
                     ev_time = session_start + timedelta(
                         seconds=random.randint(10, max(duration_minutes * 60, 11))
@@ -1219,7 +1282,14 @@ def seed_test_users(conn) -> dict:
                         VALUES (%s, %s, %s, %s, %s::jsonb, %s)
                         ON CONFLICT (id) DO NOTHING
                         """,
-                        (ev_id, user_id, session_id, event_type, json.dumps(event_data), ev_time),
+                        (
+                            ev_id,
+                            user_id,
+                            session_id,
+                            event_type,
+                            json.dumps(event_data),
+                            ev_time,
+                        ),
                     )
                     events_created += 1
 
@@ -1230,7 +1300,9 @@ def seed_test_users(conn) -> dict:
             if profile_name == "new":
                 # Ensure add_to_cart events exist (for `added_to_cart` preset)
                 for tev_idx in range(2):
-                    tev_id = _det_uuid("seed-target-ev", user_idx, "add_to_cart", tev_idx)
+                    tev_id = _det_uuid(
+                        "seed-target-ev", user_idx, "add_to_cart", tev_idx
+                    )
                     ev_time = _random_past(1, 7)
                     cur.execute(
                         """
@@ -1239,15 +1311,22 @@ def seed_test_users(conn) -> dict:
                         VALUES (%s, %s, %s, 'add_to_cart', %s::jsonb, %s)
                         ON CONFLICT (id) DO NOTHING
                         """,
-                        (tev_id, user_id, first_session_id,
-                         json.dumps(_event_data_for("add_to_cart")), ev_time),
+                        (
+                            tev_id,
+                            user_id,
+                            first_session_id,
+                            json.dumps(_event_data_for("add_to_cart")),
+                            ev_time,
+                        ),
                     )
                     events_created += 1
 
             elif profile_name == "at_risk":
                 # Ensure checkout_abandoned events (for `checkout_dropoff` preset)
                 for tev_idx in range(2):
-                    tev_id = _det_uuid("seed-target-ev", user_idx, "checkout_abandoned", tev_idx)
+                    tev_id = _det_uuid(
+                        "seed-target-ev", user_idx, "checkout_abandoned", tev_idx
+                    )
                     ev_time = _random_past(1, 90)
                     cur.execute(
                         """
@@ -1256,15 +1335,22 @@ def seed_test_users(conn) -> dict:
                         VALUES (%s, %s, %s, 'checkout_abandoned', %s::jsonb, %s)
                         ON CONFLICT (id) DO NOTHING
                         """,
-                        (tev_id, user_id, first_session_id,
-                         json.dumps(_event_data_for("checkout_abandoned")), ev_time),
+                        (
+                            tev_id,
+                            user_id,
+                            first_session_id,
+                            json.dumps(_event_data_for("checkout_abandoned")),
+                            ev_time,
+                        ),
                     )
                     events_created += 1
 
             elif profile_name == "potential_loyalist":
                 # 6 product_viewed events in last 5 days (for `high_intent` preset: >=5 in 7d)
                 for tev_idx in range(6):
-                    tev_id = _det_uuid("seed-target-ev", user_idx, "product_viewed", tev_idx)
+                    tev_id = _det_uuid(
+                        "seed-target-ev", user_idx, "product_viewed", tev_idx
+                    )
                     ev_time = _random_past(0.1, 5)
                     cur.execute(
                         """
@@ -1273,15 +1359,22 @@ def seed_test_users(conn) -> dict:
                         VALUES (%s, %s, %s, 'product_viewed', %s::jsonb, %s)
                         ON CONFLICT (id) DO NOTHING
                         """,
-                        (tev_id, user_id, first_session_id,
-                         json.dumps(_event_data_for("product_viewed")), ev_time),
+                        (
+                            tev_id,
+                            user_id,
+                            first_session_id,
+                            json.dumps(_event_data_for("product_viewed")),
+                            ev_time,
+                        ),
                     )
                     events_created += 1
 
             elif profile_name == "loyal":
                 # 4 search_performed events in last 20 days (for `repeat_searchers` preset: >=3 in 30d)
                 for tev_idx in range(4):
-                    tev_id = _det_uuid("seed-target-ev", user_idx, "search_performed", tev_idx)
+                    tev_id = _det_uuid(
+                        "seed-target-ev", user_idx, "search_performed", tev_idx
+                    )
                     ev_time = _random_past(1, 20)
                     cur.execute(
                         """
@@ -1290,8 +1383,13 @@ def seed_test_users(conn) -> dict:
                         VALUES (%s, %s, %s, 'search_performed', %s::jsonb, %s)
                         ON CONFLICT (id) DO NOTHING
                         """,
-                        (tev_id, user_id, first_session_id,
-                         json.dumps(_event_data_for("search_performed")), ev_time),
+                        (
+                            tev_id,
+                            user_id,
+                            first_session_id,
+                            json.dumps(_event_data_for("search_performed")),
+                            ev_time,
+                        ),
                     )
                     events_created += 1
 
@@ -1332,7 +1430,15 @@ def seed_test_users(conn) -> dict:
                         VALUES (%s, %s, %s, %s, %s, %s, 'approved', %s)
                         ON CONFLICT (id) DO NOTHING
                         """,
-                        (review_id, product["id"], user_id, rating, title, body, review_date),
+                        (
+                            review_id,
+                            product["id"],
+                            user_id,
+                            rating,
+                            title,
+                            body,
+                            review_date,
+                        ),
                     )
                     reviews_created += 1
 
@@ -1348,9 +1454,9 @@ def seed_test_users(conn) -> dict:
                 (
                     cookie_id,
                     user_id,
-                    user_idx <= 70,   # analytics: 70%
-                    user_idx <= 60,   # marketing: 60%
-                    user_idx <= 80,   # preferences: 80%
+                    user_idx <= 70,  # analytics: 70%
+                    user_idx <= 60,  # marketing: 60%
+                    user_idx <= 80,  # preferences: 80%
                 ),
             )
 
@@ -1409,9 +1515,7 @@ def reset_seed_users(conn):
     cur.execute(
         "DELETE FROM analytics.referral_sources WHERE session_id LIKE 'seed-sess-%'"
     )
-    cur.execute(
-        "DELETE FROM analytics.user_agents WHERE session_id LIKE 'seed-sess-%'"
-    )
+    cur.execute("DELETE FROM analytics.user_agents WHERE session_id LIKE 'seed-sess-%'")
 
     # Page views and events (by user_id)
     cur.execute(
