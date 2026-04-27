@@ -1,44 +1,44 @@
 /**
  * Reusable page actions — composable building blocks for persona journeys.
- * Each function drives real UI interactions on the app.
+ * Selectors match the actual frontend components in this app.
  */
 
-import { Page, expect } from "@playwright/test";
+import { Page } from "@playwright/test";
 
 // ── Product Browsing ──
 
-/** Navigate to /products and wait for the page to load. Returns product count visible. */
+/** Navigate to /products and wait for the page to load. */
 export async function browseProducts(page: Page): Promise<number> {
   await page.goto("/products");
   await page.waitForLoadState("networkidle");
-  // Wait for either product cards or empty state
-  const cards = page.locator('[class*="group relative"]').or(page.locator('[class*="ProductCard"]')).or(page.locator('a[href^="/products/"]'));
+  const cards = page.locator('a[href*="/products/"]');
   const count = await cards.count();
   return count;
 }
 
-/** Type a search query into the product search field. */
+/** Type a search query into the product search input. */
 export async function searchProducts(page: Page, query: string): Promise<void> {
-  const searchInput = page.locator('input[placeholder*="Search"]').or(page.locator('input[type="search"]')).first();
+  const searchInput = page.locator('input[placeholder*="Search"]').first();
   await searchInput.fill(query);
-  // Trigger search — usually debounced, wait for network
-  await page.waitForTimeout(500);
+  await page.waitForTimeout(600);
   await page.waitForLoadState("networkidle");
 }
 
-/** Change the sort option on the products page. */
+/** Change sort via the select dropdown on the products page. */
 export async function changeSort(page: Page, sortValue: string): Promise<void> {
-  const sortSelect = page.locator("select").filter({ hasText: /newest|price|name/i }).first();
-  if (await sortSelect.isVisible()) {
+  const sortSelect = page.locator("select.input-glass").first();
+  if (await sortSelect.isVisible().catch(() => false)) {
     await sortSelect.selectOption(sortValue);
     await page.waitForLoadState("networkidle");
   }
 }
 
-/** Click a category filter pill on the products page. Returns the category name clicked. */
+/** Click a category filter pill on the products page. */
 export async function filterByCategory(page: Page): Promise<string | null> {
-  // Category pills are typically buttons or links in a filter bar
-  const pills = page.locator('button').filter({ hasNotText: /All|Products|Subscriptions|Grid|List/i });
+  // Category pills are buttons — skip "All", "Products", "Subscriptions"
+  const pills = page
+    .locator("button")
+    .filter({ hasNotText: /^(All|Products|Subscriptions)$/i });
   const count = await pills.count();
   if (count > 0) {
     const idx = Math.floor(Math.random() * Math.min(count, 5));
@@ -51,9 +51,9 @@ export async function filterByCategory(page: Page): Promise<string | null> {
   return null;
 }
 
-/** Click into a product detail page. Clicks a random product from the listing. */
+/** Click into a random product detail page from the listing. */
 export async function viewRandomProduct(page: Page): Promise<string | null> {
-  const links = page.locator('a[href^="/products/"]');
+  const links = page.locator('a[href*="/products/"]');
   const count = await links.count();
   if (count === 0) return null;
   const idx = Math.floor(Math.random() * Math.min(count, 12));
@@ -72,14 +72,22 @@ export async function viewProduct(page: Page, slug: string): Promise<void> {
 
 /** Select a variant on the product detail page if variants exist. */
 export async function selectVariant(page: Page): Promise<boolean> {
-  // Variant buttons are typically in a group
-  const variantBtns = page.locator('button').filter({ hasText: /^(?!Add to Cart|Buy|Get Access|Remove|Back).{1,30}$/ });
-  // Look for variant-like buttons (color, size names)
-  const productVariants = page.locator('[class*="variant"]').or(page.locator('[data-variant]'));
-  const btns = (await productVariants.count()) > 0 ? productVariants : variantBtns;
+  // Look for variant-like elements
+  const productVariants = page
+    .locator('[class*="variant"]')
+    .or(page.locator("[data-variant]"));
+  const variantCount = await productVariants.count();
+  if (variantCount > 1) {
+    await productVariants.nth(1).click();
+    await page.waitForTimeout(300);
+    return true;
+  }
+  // Fallback: look for short-text buttons that aren't action buttons
+  const btns = page.locator("button").filter({
+    hasText: /^(?!Add to Cart|Subscribe|Buy|Get Access|Remove|Back|Out of Stock|\+|-).{1,20}$/,
+  });
   const count = await btns.count();
   if (count > 1) {
-    // Click the second variant (first is often already selected)
     await btns.nth(1).click();
     await page.waitForTimeout(300);
     return true;
@@ -89,21 +97,27 @@ export async function selectVariant(page: Page): Promise<boolean> {
 
 /** Click the Subscriptions tab on /products page. */
 export async function clickSubscriptionsTab(page: Page): Promise<void> {
-  const tab = page.locator("button").filter({ hasText: "Subscriptions" }).first();
-  if (await tab.isVisible()) {
+  const tab = page
+    .locator("button")
+    .filter({ hasText: "Subscriptions" })
+    .first();
+  if (await tab.isVisible().catch(() => false)) {
     await tab.click();
+    await page.waitForTimeout(500);
     await page.waitForLoadState("networkidle");
   }
 }
 
 // ── Cart ──
 
-/** Click "Add to Cart" on the current product page. */
+/** Click "Add to Cart" or "Subscribe" on the current product page. */
 export async function addToCart(page: Page): Promise<void> {
-  const btn = page.locator("button").filter({ hasText: /Add to Cart|Get Access/i }).first();
+  const btn = page
+    .locator("button")
+    .filter({ hasText: /Add to Cart|Subscribe|Get Access/i })
+    .first();
   await btn.waitFor({ state: "visible", timeout: 5000 });
   await btn.click();
-  // Wait for cart update toast or cart count change
   await page.waitForTimeout(1000);
 }
 
@@ -113,10 +127,10 @@ export async function viewCart(page: Page): Promise<void> {
   await page.waitForLoadState("networkidle");
 }
 
-/** Increase quantity of the first item in cart by clicking the + button. */
+/** Increase quantity of the first item in cart. */
 export async function increaseQuantity(page: Page): Promise<void> {
   const plusBtn = page.locator("button").filter({ hasText: "+" }).first();
-  if (await plusBtn.isVisible()) {
+  if (await plusBtn.isVisible().catch(() => false)) {
     await plusBtn.click();
     await page.waitForTimeout(500);
   }
@@ -124,28 +138,44 @@ export async function increaseQuantity(page: Page): Promise<void> {
 
 /** Decrease quantity of the first item in cart. */
 export async function decreaseQuantity(page: Page): Promise<void> {
-  const minusBtn = page.locator("button").filter({ hasText: "−" }).or(page.locator("button").filter({ hasText: "-" })).first();
-  if (await minusBtn.isVisible()) {
+  const minusBtn = page.locator("button").filter({ hasText: "-" }).first();
+  if (await minusBtn.isVisible().catch(() => false)) {
     await minusBtn.click();
     await page.waitForTimeout(500);
   }
 }
 
-/** Remove an item from cart. */
+/** Remove an item from cart (clicks the X / trash icon button). */
 export async function removeFromCart(page: Page): Promise<void> {
-  const removeBtn = page.locator("button").filter({ hasText: /Remove|×/i }).first();
-  if (await removeBtn.isVisible()) {
+  // The remove button contains an SVG icon, look for small icon buttons in cart
+  const removeBtn = page
+    .locator("button")
+    .filter({ hasText: /Remove|×/i })
+    .first();
+  if (await removeBtn.isVisible().catch(() => false)) {
     await removeBtn.click();
+    await page.waitForTimeout(500);
+    return;
+  }
+  // Fallback: look for icon-only buttons with trash/X SVGs
+  const iconBtn = page
+    .locator('button:has(svg[viewBox="0 0 24 24"])')
+    .first();
+  if (await iconBtn.isVisible().catch(() => false)) {
+    await iconBtn.click();
     await page.waitForTimeout(500);
   }
 }
 
-/** Apply a coupon code in the cart. */
+/** Apply a coupon/discount code in the cart. */
 export async function applyCoupon(page: Page, code: string): Promise<void> {
-  const input = page.locator('input[placeholder*="oupon"]').or(page.locator('input[placeholder*="iscount"]')).or(page.locator('input[name*="coupon"]')).first();
-  if (await input.isVisible()) {
+  const input = page.locator('input[placeholder="Discount code"]').first();
+  if (await input.isVisible().catch(() => false)) {
     await input.fill(code);
-    const applyBtn = page.locator("button").filter({ hasText: /Apply/i }).first();
+    const applyBtn = page
+      .locator("button")
+      .filter({ hasText: /Apply/i })
+      .first();
     await applyBtn.click();
     await page.waitForTimeout(1000);
   }
@@ -155,51 +185,54 @@ export async function applyCoupon(page: Page, code: string): Promise<void> {
 
 /** Click "Proceed to Checkout" from the cart page. */
 export async function startCheckout(page: Page): Promise<void> {
-  const checkoutBtn = page.locator("a, button").filter({ hasText: /Checkout|Proceed/i }).first();
+  const checkoutBtn = page
+    .locator("a, button")
+    .filter({ hasText: /Proceed to Checkout/i })
+    .first();
   await checkoutBtn.click();
   await page.waitForURL("**/checkout**", { timeout: 10000 });
   await page.waitForLoadState("networkidle");
 }
 
-/** Fill the shipping address form (Step 1). */
+/** Fill the shipping address form (Step 1). Uses label-based targeting. */
 export async function fillShipping(page: Page): Promise<void> {
-  // The checkout form fields
-  const fields: Record<string, string> = {
-    firstName: "Test",
-    lastName: "User",
-    address1: "123 Test Street",
-    city: "New York",
-    state: "NY",
-    zip: "10001",
-  };
+  await page.waitForTimeout(500);
 
-  // Try various field name patterns
-  for (const [key, value] of Object.entries(fields)) {
-    const input = page.locator(`input[name*="${key}" i]`).or(page.locator(`input[placeholder*="${key}" i]`)).first();
-    if (await input.isVisible().catch(() => false)) {
-      await input.fill(value);
+  // The checkout address form has these fields in order:
+  // First name, Last name (grid row), Address line 1, Address line 2, City, State, ZIP (grid row)
+  const inputs = page.locator("input.input-glass");
+  const count = await inputs.count();
+
+  if (count >= 6) {
+    // First name
+    await inputs.nth(0).fill("Test");
+    // Last name
+    await inputs.nth(1).fill("User");
+    // Address line 1
+    await inputs.nth(2).fill("123 Test Street");
+    // Address line 2 (optional, skip)
+    // City
+    await inputs.nth(4).fill("New York");
+    // State
+    await inputs.nth(5).fill("NY");
+    // ZIP
+    await inputs.nth(6).fill("10001");
+  } else {
+    // Fallback: try placeholder-based
+    const streetInput = page.locator('input[placeholder="Street address"]');
+    if (await streetInput.isVisible().catch(() => false)) {
+      await streetInput.fill("123 Test Street");
     }
-  }
-
-  // Also try common shipping form patterns
-  const line1 = page.locator('input[name*="line1"]').or(page.locator('input[name*="address"]')).first();
-  if (await line1.isVisible().catch(() => false)) {
-    await line1.fill("123 Test Street");
-  }
-  const cityInput = page.locator('input[name*="city"]').first();
-  if (await cityInput.isVisible().catch(() => false)) {
-    await cityInput.fill("New York");
-  }
-  const zipInput = page.locator('input[name*="zip"]').or(page.locator('input[name*="postal"]')).first();
-  if (await zipInput.isVisible().catch(() => false)) {
-    await zipInput.fill("10001");
   }
 }
 
-/** Click "Continue" to advance to the next checkout step. */
+/** Click "Continue to Review" or "Proceed to Payment" to advance checkout. */
 export async function advanceCheckoutStep(page: Page): Promise<void> {
-  const btn = page.locator("button").filter({ hasText: /Continue|Review|Next|Proceed/i }).first();
-  if (await btn.isVisible()) {
+  const btn = page
+    .locator("button")
+    .filter({ hasText: /Continue to Review|Proceed to Payment|Next|Continue/i })
+    .first();
+  if (await btn.isVisible().catch(() => false)) {
     await btn.click();
     await page.waitForLoadState("networkidle");
     await page.waitForTimeout(1000);
@@ -208,44 +241,72 @@ export async function advanceCheckoutStep(page: Page): Promise<void> {
 
 /** Fill Stripe PaymentElement iframe with test card and submit. */
 export async function fillStripeAndPay(page: Page): Promise<void> {
-  // Wait for Stripe iframe to load
-  await page.waitForTimeout(2000);
+  await page.waitForTimeout(3000);
 
-  // Stripe Elements uses iframes — find the card number frame
-  const stripeFrame = page.frameLocator('iframe[name*="__privateStripeFrame"]').first();
+  // Stripe Elements uses iframes
+  const stripeFrame = page
+    .frameLocator('iframe[name*="__privateStripeFrame"]')
+    .first();
 
   // Fill card number
-  const cardInput = stripeFrame.locator('[name="number"]').or(stripeFrame.locator('[name="cardnumber"]')).or(stripeFrame.locator('[placeholder*="1234"]'));
+  const cardInput = stripeFrame
+    .locator('[name="number"]')
+    .or(stripeFrame.locator('[name="cardnumber"]'))
+    .or(stripeFrame.locator('[placeholder*="1234"]'));
   await cardInput.fill("4242424242424242");
 
   // Fill expiry
-  const expInput = stripeFrame.locator('[name="expiry"]').or(stripeFrame.locator('[name="exp-date"]')).or(stripeFrame.locator('[placeholder*="MM"]'));
+  const expInput = stripeFrame
+    .locator('[name="expiry"]')
+    .or(stripeFrame.locator('[name="exp-date"]'))
+    .or(stripeFrame.locator('[placeholder*="MM"]'));
   await expInput.fill("1230");
 
   // Fill CVC
-  const cvcInput = stripeFrame.locator('[name="cvc"]').or(stripeFrame.locator('[placeholder*="CVC"]'));
+  const cvcInput = stripeFrame
+    .locator('[name="cvc"]')
+    .or(stripeFrame.locator('[placeholder*="CVC"]'));
   await cvcInput.fill("123");
 
-  // Submit payment
-  const payBtn = page.locator("button").filter({ hasText: /Pay|Complete|Submit|Place Order/i }).first();
+  // Submit payment — "Pay Now" button
+  const payBtn = page
+    .locator("button")
+    .filter({ hasText: /Pay Now|Complete|Place Order/i })
+    .first();
   await payBtn.click();
 }
 
 /** Fill Stripe with a specific decline test card. */
-export async function fillStripeDeclineCard(page: Page, cardNumber: string): Promise<void> {
-  await page.waitForTimeout(2000);
-  const stripeFrame = page.frameLocator('iframe[name*="__privateStripeFrame"]').first();
+export async function fillStripeDeclineCard(
+  page: Page,
+  cardNumber: string,
+): Promise<void> {
+  await page.waitForTimeout(3000);
+  const stripeFrame = page
+    .frameLocator('iframe[name*="__privateStripeFrame"]')
+    .first();
 
-  const cardInput = stripeFrame.locator('[name="number"]').or(stripeFrame.locator('[name="cardnumber"]')).or(stripeFrame.locator('[placeholder*="1234"]'));
+  const cardInput = stripeFrame
+    .locator('[name="number"]')
+    .or(stripeFrame.locator('[name="cardnumber"]'))
+    .or(stripeFrame.locator('[placeholder*="1234"]'));
   await cardInput.fill(cardNumber);
 
-  const expInput = stripeFrame.locator('[name="expiry"]').or(stripeFrame.locator('[name="exp-date"]')).or(stripeFrame.locator('[placeholder*="MM"]'));
+  const expInput = stripeFrame
+    .locator('[name="expiry"]')
+    .or(stripeFrame.locator('[name="exp-date"]'))
+    .or(stripeFrame.locator('[placeholder*="MM"]'));
   await expInput.fill("1230");
 
-  const cvcInput = stripeFrame.locator('[name="cvc"]').or(stripeFrame.locator('[placeholder*="CVC"]'));
+  const cvcInput = stripeFrame
+    .locator('[name="cvc"]')
+    .or(stripeFrame.locator('[placeholder*="CVC"]'));
   await cvcInput.fill("123");
 
-  const payBtn = page.locator("button").filter({ hasText: /Pay|Complete|Submit|Place Order/i }).first();
+  const payBtn = page
+    .locator("button")
+    .filter({ hasText: /Pay Now|Complete|Place Order/i })
+    .first();
   await payBtn.click();
 }
 
@@ -259,7 +320,9 @@ export async function waitForConfirmation(page: Page): Promise<void> {
 
 /** Click the wishlist/heart button on a product page. */
 export async function addToWishlist(page: Page): Promise<void> {
-  const wishBtn = page.locator("button").filter({ hasText: /Wishlist|♡|Save/i })
+  const wishBtn = page
+    .locator("button")
+    .filter({ hasText: /Wishlist|♡|Save/i })
     .or(page.locator('[aria-label*="wishlist" i]'))
     .or(page.locator('[class*="wishlist"]'))
     .first();
@@ -277,16 +340,31 @@ export async function viewWishlist(page: Page): Promise<void> {
 
 /** Remove first item from wishlist. */
 export async function removeFromWishlist(page: Page): Promise<void> {
-  const removeBtn = page.locator("button").filter({ hasText: /Remove/i }).first();
+  const removeBtn = page
+    .locator("button")
+    .filter({ hasText: /Remove/i })
+    .first();
   if (await removeBtn.isVisible().catch(() => false)) {
     await removeBtn.click();
+    await page.waitForTimeout(500);
+    return;
+  }
+  // Fallback: icon button with SVG
+  const iconBtn = page
+    .locator('button:has(svg[viewBox="0 0 24 24"])')
+    .first();
+  if (await iconBtn.isVisible().catch(() => false)) {
+    await iconBtn.click();
     await page.waitForTimeout(500);
   }
 }
 
 /** Move first wishlist item to cart. */
 export async function moveWishlistToCart(page: Page): Promise<void> {
-  const moveBtn = page.locator("button").filter({ hasText: /Move to Cart|Add to Cart/i }).first();
+  const moveBtn = page
+    .locator("button")
+    .filter({ hasText: /Add to Cart|Move to Cart/i })
+    .first();
   if (await moveBtn.isVisible().catch(() => false)) {
     await moveBtn.click();
     await page.waitForTimeout(500);
@@ -295,23 +373,28 @@ export async function moveWishlistToCart(page: Page): Promise<void> {
 
 // ── Auth ──
 
-/** Click logout (usually in header dropdown or navigation). */
+/** Click "Sign out" from the user dropdown menu. */
 export async function logout(page: Page): Promise<void> {
-  // Try clicking a user menu first
-  const userMenu = page.locator('[class*="avatar"]').or(page.locator("button").filter({ hasText: /Account|Profile/i })).first();
+  // Click the user avatar/menu button in header (circular div)
+  const userMenu = page.locator("div.w-8.h-8.rounded-full").first();
   if (await userMenu.isVisible().catch(() => false)) {
     await userMenu.click();
     await page.waitForTimeout(300);
   }
 
-  const logoutBtn = page.locator("button, a").filter({ hasText: /Log\s?out|Sign\s?out/i }).first();
-  await logoutBtn.click();
-  await page.waitForLoadState("networkidle");
+  const logoutBtn = page
+    .locator("button")
+    .filter({ hasText: /Sign out/i })
+    .first();
+  if (await logoutBtn.isVisible().catch(() => false)) {
+    await logoutBtn.click();
+    await page.waitForLoadState("networkidle");
+  }
 }
 
 // ── Categories ──
 
-/** Navigate to a category page. Picks a random category from the products page. */
+/** Navigate to a category page from the products listing. */
 export async function browseCategory(page: Page): Promise<void> {
   const categoryLinks = page.locator('a[href^="/categories/"]');
   const count = await categoryLinks.count();

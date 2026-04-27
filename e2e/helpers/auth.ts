@@ -16,11 +16,11 @@ export async function registerUser(
     await page.waitForLoadState("networkidle");
   }
 
-  // Fill registration form
-  await page.locator('input[name="firstName"]').fill(user.firstName);
-  await page.locator('input[name="lastName"]').fill(user.lastName);
-  await page.locator('input[name="email"]').fill(user.email);
-  await page.locator('input[name="password"]').fill(user.password);
+  // Fill registration form using actual placeholders
+  await page.locator('input[placeholder="John"]').fill(user.firstName);
+  await page.locator('input[placeholder="Doe"]').fill(user.lastName);
+  await page.locator('input[placeholder="you@example.com"]').fill(user.email);
+  await page.locator('input[placeholder="Min 8 characters"]').fill(user.password);
 
   // Submit
   await page.locator('button[type="submit"]').click();
@@ -38,8 +38,8 @@ export async function loginUser(
   await page.goto("/auth/login");
   await page.waitForLoadState("networkidle");
 
-  await page.locator('input[name="email"]').fill(email);
-  await page.locator('input[name="password"]').fill(password);
+  await page.locator('input[type="email"]').fill(email);
+  await page.locator('input[type="password"]').fill(password);
   await page.locator('button[type="submit"]').click();
 
   // Wait for redirect away from login page
