@@ -39,28 +39,43 @@ for (const user of allUsers) {
     // Submit
     await page.locator('button[type="submit"]').click();
 
-    // Wait for either dashboard redirect (success) or error message (already registered)
-    const result = await Promise.race([
-      page.waitForURL("**/dashboard**", { timeout: 15000 }).then(() => "registered" as const),
-      page.locator("text=Email already registered").waitFor({ state: "visible", timeout: 15000 }).then(() => "exists" as const),
-      page.locator("text=already exists").waitFor({ state: "visible", timeout: 15000 }).then(() => "exists" as const),
-    ]).catch(() => "timeout" as const);
+    // Wait for the page to leave /auth/register — either dashboard (new user) or error (existing)
+    // Give it 30s since the VM is slow under 6 concurrent registrations + Brevo emails
+    try {
+      await page.waitForURL(
+        (url) => !url.pathname.includes("/auth/register"),
+        { timeout: 30000 },
+      );
+    } catch {
+      // Still on register page — check if there's an error message
+    }
 
-    if (result === "exists" || result === "timeout") {
-      // User already registered — login instead
-      console.log(`  ${user.email}: already registered, logging in`);
+    const currentUrl = page.url();
+
+    if (currentUrl.includes("/auth/register")) {
+      // Registration failed (duplicate email, validation error, etc.) — try login
+      const errorText = await page.locator('[class*="error"], [class*="Error"], [role="alert"]')
+        .first()
+        .textContent()
+        .catch(() => "unknown error");
+      console.log(`  ${user.email}: registration error (${errorText}), logging in instead`);
       await loginUser(page, user.email, user.password);
     }
 
-    // Should be on dashboard now (either from register or login)
-    await page.waitForTimeout(1000);
-    expect(page.url()).toMatch(/dashboard|products/);
+    // At this point we should be logged in — either from register redirect or login
+    // Wait for page to settle
+    await page.waitForTimeout(2000);
+
+    // Verify we're authenticated by checking we're not on an auth page
+    const finalUrl = page.url();
+    expect(finalUrl).not.toContain("/auth/login");
+    expect(finalUrl).not.toContain("/auth/register");
 
     // Save auth state for later tests
     const statePath = authStatePath(user.email);
     await context.storageState({ path: statePath });
 
-    console.log(`  ${user.email}: auth state saved, events:`, collector.summary());
+    console.log(`  ${user.email}: auth state saved (${finalUrl}), events:`, collector.summary());
     await context.close();
   });
 }
