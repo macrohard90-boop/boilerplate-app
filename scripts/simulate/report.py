@@ -736,11 +736,16 @@ def _build_stripe_detail(phase2_result: dict) -> str:
             exp_display = "synced"
 
         ok = p.get("pass", False)
-        result_badge = (
-            '<span style="color:#22c55e;font-weight:700;font-size:0.75rem;background:#22c55e20;padding:1px 6px;border-radius:3px">PASS</span>'
-            if ok
-            else '<span style="color:#ef4444;font-weight:700;font-size:0.75rem;background:#ef444420;padding:1px 6px;border-radius:3px">FAIL</span>'
-        )
+        sync_error = p.get("stripe_sync_error") or ""
+        if ok:
+            result_badge = '<span style="color:#22c55e;font-weight:700;font-size:0.75rem;background:#22c55e20;padding:1px 6px;border-radius:3px">PASS</span>'
+        else:
+            result_badge = (
+                f'<span style="color:#ef4444;font-weight:700;font-size:0.75rem;background:#ef444420;padding:1px 6px;border-radius:3px">FAIL</span>'
+                f'<div style="color:#fca5a5;font-size:0.72rem;margin-top:2px;max-width:300px;word-break:break-word">{_esc(sync_error)}</div>'
+                if sync_error
+                else '<span style="color:#ef4444;font-weight:700;font-size:0.75rem;background:#ef444420;padding:1px 6px;border-radius:3px">FAIL</span>'
+            )
 
         row_bg = "" if ok else ' style="background:#1f0d0d"'
         prod_rows += (
@@ -795,11 +800,16 @@ def _build_stripe_detail(phase2_result: dict) -> str:
             exp_display = "synced"
 
         ok = v.get("pass", False)
-        result_badge = (
-            '<span style="color:#22c55e;font-weight:700;font-size:0.75rem;background:#22c55e20;padding:1px 6px;border-radius:3px">PASS</span>'
-            if ok
-            else '<span style="color:#ef4444;font-weight:700;font-size:0.75rem;background:#ef444420;padding:1px 6px;border-radius:3px">FAIL</span>'
-        )
+        sync_error = v.get("stripe_sync_error") or ""
+        if ok:
+            result_badge = '<span style="color:#22c55e;font-weight:700;font-size:0.75rem;background:#22c55e20;padding:1px 6px;border-radius:3px">PASS</span>'
+        else:
+            result_badge = (
+                f'<span style="color:#ef4444;font-weight:700;font-size:0.75rem;background:#ef444420;padding:1px 6px;border-radius:3px">FAIL</span>'
+                f'<div style="color:#fca5a5;font-size:0.72rem;margin-top:2px;max-width:300px;word-break:break-word">{_esc(sync_error)}</div>'
+                if sync_error
+                else '<span style="color:#ef4444;font-weight:700;font-size:0.75rem;background:#ef444420;padding:1px 6px;border-radius:3px">FAIL</span>'
+            )
 
         row_bg = "" if ok else ' style="background:#1f0d0d"'
         var_rows += (
@@ -863,11 +873,16 @@ def _build_stripe_detail(phase2_result: dict) -> str:
             exp_display = "synced"
             sync_display = f'<span style="color:{sync_color}">{sync}</span>'
 
-        result_badge = (
-            '<span style="color:#22c55e;font-weight:700;font-size:0.75rem;background:#22c55e20;padding:1px 6px;border-radius:3px">PASS</span>'
-            if ok
-            else '<span style="color:#ef4444;font-weight:700;font-size:0.75rem;background:#ef444420;padding:1px 6px;border-radius:3px">FAIL</span>'
-        )
+        sync_error = c.get("stripe_sync_error") or ""
+        if ok:
+            result_badge = '<span style="color:#22c55e;font-weight:700;font-size:0.75rem;background:#22c55e20;padding:1px 6px;border-radius:3px">PASS</span>'
+        else:
+            result_badge = (
+                f'<span style="color:#ef4444;font-weight:700;font-size:0.75rem;background:#ef444420;padding:1px 6px;border-radius:3px">FAIL</span>'
+                f'<div style="color:#fca5a5;font-size:0.72rem;margin-top:2px;max-width:300px;word-break:break-word">{_esc(sync_error)}</div>'
+                if sync_error
+                else '<span style="color:#ef4444;font-weight:700;font-size:0.75rem;background:#ef444420;padding:1px 6px;border-radius:3px">FAIL</span>'
+            )
 
         row_bg = "" if ok else ' style="background:#1f0d0d"'
         coup_rows += (
