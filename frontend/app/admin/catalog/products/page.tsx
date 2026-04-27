@@ -232,8 +232,9 @@ export default function AdminProductsPage() {
                 {data.items.map((p) => {
                   const isExpanded = !!expandedRows[p.id];
                   const variantEntry = expandedRows[p.id];
-                  const variants: Variant[] | null =
-                    Array.isArray(variantEntry) ? variantEntry : null;
+                  const variants: Variant[] | null = Array.isArray(variantEntry)
+                    ? variantEntry
+                    : null;
 
                   return (
                     <>

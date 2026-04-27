@@ -10,8 +10,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from backend.core.config import settings
 from backend.core.database import get_db
 from backend.core.dependencies import require_role
-
-logger = logging.getLogger(__name__)
 from pydantic import BaseModel, Field
 
 from modules.marketing.models.schemas import (
@@ -40,6 +38,8 @@ from modules.marketing.services.audience_service import (
     list_communication_types,
     update_communication_type,
 )
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(
     prefix="/admin",

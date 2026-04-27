@@ -9,8 +9,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from backend.core.config import settings
 from backend.core.database import get_db
 from backend.core.dependencies import require_role
-
-logger = logging.getLogger(__name__)
 from modules.ecommerce.models.schemas import (
     DiscountCreate,
     DiscountListResponse,
@@ -18,6 +16,8 @@ from modules.ecommerce.models.schemas import (
     DiscountUpdate,
 )
 from modules.ecommerce.services import discount_service
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
