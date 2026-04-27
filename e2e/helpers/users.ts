@@ -68,19 +68,45 @@ export const DEVICES: DeviceProfile[] = [
 
 const PASSWORD = "TestPass1!";
 
+// 50 real-sounding names — each user gets a unique first+last combo
+const FIRST_NAMES = [
+  "Emma", "Liam", "Olivia", "Noah", "Ava",
+  "James", "Sophia", "Lucas", "Mia", "Ethan",
+  "Isabella", "Mason", "Charlotte", "Logan", "Amelia",
+  "Alexander", "Harper", "Benjamin", "Evelyn", "Daniel",
+  "Aria", "Henry", "Ella", "Sebastian", "Scarlett",
+  "Jack", "Grace", "Owen", "Chloe", "Samuel",
+  "Lily", "Ryan", "Zoey", "Nathan", "Penelope",
+  "Leo", "Layla", "Isaac", "Riley", "Caleb",
+  "Nora", "Luke", "Hannah", "Aaron", "Stella",
+  "Dylan", "Maya", "Gabriel", "Aurora", "Julian",
+];
+
+const LAST_NAMES = [
+  "Anderson", "Martinez", "Thompson", "Garcia", "Robinson",
+  "Clark", "Rodriguez", "Lewis", "Walker", "Hall",
+  "Young", "King", "Wright", "Lopez", "Hill",
+  "Scott", "Green", "Adams", "Baker", "Nelson",
+  "Carter", "Mitchell", "Perez", "Roberts", "Turner",
+  "Phillips", "Campbell", "Parker", "Evans", "Edwards",
+  "Collins", "Stewart", "Morris", "Reed", "Morgan",
+  "Cooper", "Howard", "Ward", "Torres", "Peterson",
+  "Gray", "Watson", "Brooks", "Kelly", "Sanders",
+  "Price", "Bennett", "Wood", "Barnes", "Ross",
+];
+
 interface PersonaDef {
   tag: string;
-  firstName: string;
   count: number;
 }
 
 const PERSONA_DEFS: Record<string, PersonaDef> = {
-  window_shopper: { tag: "shopper", firstName: "Shopper", count: 15 },
-  cart_abandoner: { tag: "abandoner", firstName: "Abandoner", count: 10 },
-  single_buyer: { tag: "buyer", firstName: "Buyer", count: 12 },
-  power_buyer: { tag: "power", firstName: "Power", count: 5 },
-  subscriber: { tag: "sub", firstName: "Subscriber", count: 5 },
-  bouncer: { tag: "bounce", firstName: "Bounce", count: 3 },
+  window_shopper: { tag: "shopper", count: 15 },
+  cart_abandoner: { tag: "abandoner", count: 10 },
+  single_buyer: { tag: "buyer", count: 12 },
+  power_buyer: { tag: "power", count: 5 },
+  subscriber: { tag: "sub", count: 5 },
+  bouncer: { tag: "bounce", count: 3 },
 };
 
 /** Global counter across all personas so emails are sequential: test001, test002, ... */
@@ -97,8 +123,8 @@ function generatePersonaUsers(
     users.push({
       email: `adrian+test${padded}@estmgroup.com`,
       password: PASSWORD,
-      firstName: def.firstName,
-      lastName: `${def.tag}${String(i).padStart(2, "0")}`,
+      firstName: FIRST_NAMES[(_globalIndex - 1) % FIRST_NAMES.length],
+      lastName: LAST_NAMES[(_globalIndex - 1) % LAST_NAMES.length],
       persona,
       device: DEVICES[(i - 1) % DEVICES.length],
       index: i,
