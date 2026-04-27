@@ -66,22 +66,25 @@ export const DEVICES: DeviceProfile[] = [
   },
 ];
 
-const PASSWORD = "TestPass1";
+const PASSWORD = "TestPass1!";
 
 interface PersonaDef {
-  prefix: string;
+  tag: string;
   firstName: string;
   count: number;
 }
 
 const PERSONA_DEFS: Record<string, PersonaDef> = {
-  window_shopper: { prefix: "pw-shopper", firstName: "Shopper", count: 30 },
-  cart_abandoner: { prefix: "pw-abandoner", firstName: "Abandoner", count: 20 },
-  single_buyer: { prefix: "pw-buyer", firstName: "Buyer", count: 25 },
-  power_buyer: { prefix: "pw-power", firstName: "Power", count: 10 },
-  subscriber: { prefix: "pw-sub", firstName: "Subscriber", count: 10 },
-  bouncer: { prefix: "pw-bounce", firstName: "Bounce", count: 5 },
+  window_shopper: { tag: "shopper", firstName: "Shopper", count: 30 },
+  cart_abandoner: { tag: "abandoner", firstName: "Abandoner", count: 20 },
+  single_buyer: { tag: "buyer", firstName: "Buyer", count: 25 },
+  power_buyer: { tag: "power", firstName: "Power", count: 10 },
+  subscriber: { tag: "sub", firstName: "Subscriber", count: 10 },
+  bouncer: { tag: "bounce", firstName: "Bounce", count: 5 },
 };
+
+/** Global counter across all personas so emails are sequential: test001, test002, ... */
+let _globalIndex = 0;
 
 function generatePersonaUsers(
   persona: string,
@@ -89,12 +92,13 @@ function generatePersonaUsers(
 ): TestUser[] {
   const users: TestUser[] = [];
   for (let i = 1; i <= def.count; i++) {
-    const padded = String(i).padStart(3, "0");
+    _globalIndex++;
+    const padded = String(_globalIndex).padStart(3, "0");
     users.push({
-      email: `${def.prefix}-${padded}@test.com`,
+      email: `adrian+test${padded}@estmgroup.com`,
       password: PASSWORD,
       firstName: def.firstName,
-      lastName: `N${padded}`,
+      lastName: `${def.tag}${String(i).padStart(2, "0")}`,
       persona,
       device: DEVICES[(i - 1) % DEVICES.length],
       index: i,
