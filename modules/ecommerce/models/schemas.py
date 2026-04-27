@@ -308,6 +308,7 @@ class OrderResponse(BaseModel):
     currency: str
     subtotal: int
     discount_amount: int
+    discount_code_id: UUID | None = None
     tax_amount: int
     total: int
     shipping_address: dict | None
@@ -469,6 +470,27 @@ class DiscountResponse(BaseModel):
 
 class DiscountListResponse(BaseModel):
     items: list[DiscountResponse]
+    total: int
+    page: int
+    page_size: int
+    total_pages: int
+
+
+class CouponUsageItem(BaseModel):
+    """Single coupon redemption record (order or subscription)."""
+
+    usage_type: str  # "order" or "subscription"
+    reference_id: UUID
+    reference_label: str  # order_number or stripe_subscription_id
+    user_id: UUID
+    user_email: str
+    discount_amount: int  # cents (0 for subscriptions — Stripe-managed)
+    status: str
+    created_at: datetime
+
+
+class CouponUsageResponse(BaseModel):
+    items: list[CouponUsageItem]
     total: int
     page: int
     page_size: int

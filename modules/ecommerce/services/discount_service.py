@@ -694,6 +694,64 @@ async def update_discount(
     return discount
 
 
+async def get_coupon_usage(
+    db: AsyncSession,
+    discount_id: str,
+    *,
+    page: int = 1,
+    page_size: int = 10,
+) -> dict[str, Any]:
+    """Return paginated list of redemptions (orders + subscriptions) for a coupon."""
+    union_sql = (
+        "SELECT 'order' AS usage_type, o.id AS reference_id, "
+        "  o.order_number AS reference_label, o.user_id, u.email AS user_email, "
+        "  o.discount_amount, o.status, o.created_at "
+        "FROM ecommerce.orders o "
+        "JOIN core.users u ON u.id = o.user_id "
+        "WHERE o.discount_code_id = :did "
+        "UNION ALL "
+        "SELECT 'subscription' AS usage_type, s.id AS reference_id, "
+        "  COALESCE(s.stripe_subscription_id, s.id::text) AS reference_label, "
+        "  s.user_id, u.email AS user_email, "
+        "  0 AS discount_amount, s.status, s.created_at "
+        "FROM ecommerce.subscriptions s "
+        "JOIN core.users u ON u.id = s.user_id "
+        "WHERE s.discount_code_id = :did"
+    )
+
+    # Total count
+    total = (
+        await db.execute(
+            text(f"SELECT COUNT(*) FROM ({union_sql}) AS combined"),
+            {"did": discount_id},
+        )
+    ).scalar() or 0
+
+    # Paginated results
+    offset = (page - 1) * page_size
+    rows = (
+        (
+            await db.execute(
+                text(
+                    f"SELECT * FROM ({union_sql}) AS combined "
+                    f"ORDER BY created_at DESC LIMIT :limit OFFSET :offset"
+                ),
+                {"did": discount_id, "limit": page_size, "offset": offset},
+            )
+        )
+        .mappings()
+        .all()
+    )
+
+    return {
+        "items": [dict(r) for r in rows],
+        "total": total,
+        "page": page,
+        "page_size": page_size,
+        "total_pages": math.ceil(total / page_size) if page_size else 0,
+    }
+
+
 async def deactivate_discount(db: AsyncSession, discount_id: str) -> None:
     existing = await get_discount_by_id(db, discount_id)
     if not existing:

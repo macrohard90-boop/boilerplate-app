@@ -10,6 +10,7 @@ from backend.core.config import settings
 from backend.core.database import get_db
 from backend.core.dependencies import require_role
 from modules.ecommerce.models.schemas import (
+    CouponUsageResponse,
     DiscountCreate,
     DiscountListResponse,
     DiscountResponse,
@@ -52,6 +53,29 @@ async def admin_get_discount(
             },
         )
     return result
+
+
+@router.get("/discounts/{discount_id}/usage", response_model=CouponUsageResponse)
+async def admin_get_coupon_usage(
+    discount_id: str,
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=10, ge=1, le=100),
+    user: dict = Depends(require_role("admin")),
+    db: AsyncSession = Depends(get_db),
+) -> Any:
+    existing = await discount_service.get_discount_by_id(db, discount_id)
+    if not existing:
+        raise HTTPException(
+            status_code=404,
+            detail={
+                "error": "not_found",
+                "message": "Discount not found",
+                "details": None,
+            },
+        )
+    return await discount_service.get_coupon_usage(
+        db, discount_id, page=page, page_size=page_size
+    )
 
 
 @router.post("/discounts", response_model=DiscountResponse, status_code=201)

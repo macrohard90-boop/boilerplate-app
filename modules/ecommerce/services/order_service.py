@@ -137,9 +137,11 @@ async def create_order_from_cart(
 
     # Apply discount
     discount_amount = 0
+    discount_code_id = None
     if cart.get("discount_code_id"):
         d = await discount_service.get_discount_by_id(db, str(cart["discount_code_id"]))
         if d and d["active"]:
+            discount_code_id = str(d["id"])
             # For product-restricted coupons, only apply to qualifying items
             restricted_pids = d.get("product_ids", [])
             if restricted_pids:
@@ -168,8 +170,8 @@ async def create_order_from_cart(
             await db.execute(
                 text(
                     "INSERT INTO ecommerce.orders "
-                    "(user_id, order_number, status, currency, subtotal, discount_amount, tax_amount, total) "
-                    "VALUES (:uid, :num, 'pending', 'USD', :sub, :disc, 0, :total) "
+                    "(user_id, order_number, status, currency, subtotal, discount_amount, tax_amount, total, discount_code_id) "
+                    "VALUES (:uid, :num, 'pending', 'USD', :sub, :disc, 0, :total, :dcid) "
                     "RETURNING *"
                 ),
                 {
@@ -178,6 +180,7 @@ async def create_order_from_cart(
                     "sub": subtotal,
                     "disc": discount_amount,
                     "total": total,
+                    "dcid": discount_code_id,
                 },
             )
         )

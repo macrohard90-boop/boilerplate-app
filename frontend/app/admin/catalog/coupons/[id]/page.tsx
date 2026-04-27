@@ -36,6 +36,219 @@ interface Discount {
   max_uses_per_customer: number | null;
 }
 
+interface UsageItem {
+  usage_type: "order" | "subscription";
+  reference_id: string;
+  reference_label: string;
+  user_id: string;
+  user_email: string;
+  discount_amount: number;
+  status: string;
+  created_at: string;
+}
+
+interface UsageResponse {
+  items: UsageItem[];
+  total: number;
+  page: number;
+  page_size: number;
+  total_pages: number;
+}
+
+function UsageHistory({ couponId }: { couponId: string }) {
+  const [open, setOpen] = useState(false);
+  const [usage, setUsage] = useState<UsageResponse | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [page, setPage] = useState(1);
+
+  const fetchUsage = useCallback(
+    async (p: number) => {
+      setLoading(true);
+      try {
+        const data = await apiFetch<UsageResponse>(
+          `/ecommerce/admin/discounts/${couponId}/usage?page=${p}&page_size=10`,
+        );
+        setUsage(data);
+        setPage(p);
+      } catch {
+        /* ignore */
+      }
+      setLoading(false);
+    },
+    [couponId],
+  );
+
+  useEffect(() => {
+    if (open && !usage) {
+      fetchUsage(1);
+    }
+  }, [open, usage, fetchUsage]);
+
+  const formatDate = (iso: string) => {
+    const d = new Date(iso);
+    return d.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
+
+  const formatCents = (cents: number) => {
+    if (cents === 0) return "-";
+    return `$${(cents / 100).toFixed(2)}`;
+  };
+
+  return (
+    <div className="glass rounded-xl mt-6">
+      <button
+        onClick={() => setOpen(!open)}
+        className="w-full p-4 flex items-center justify-between text-left"
+      >
+        <h2 className="font-semibold text-text-primary">
+          Usage History
+          {usage && (
+            <span className="ml-2 text-xs text-text-muted font-normal">
+              ({usage.total} redemption{usage.total !== 1 ? "s" : ""})
+            </span>
+          )}
+        </h2>
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          className={`h-5 w-5 text-text-muted transition-transform ${open ? "rotate-180" : ""}`}
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M19 9l-7 7-7-7"
+          />
+        </svg>
+      </button>
+
+      {open && (
+        <div className="px-4 pb-4">
+          {loading && !usage ? (
+            <LoadingSpinner className="py-8" />
+          ) : !usage || usage.items.length === 0 ? (
+            <p className="text-text-muted text-sm py-6 text-center">
+              No redemptions yet
+            </p>
+          ) : (
+            <>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-white/10 text-text-muted text-xs">
+                      <th className="text-left py-2 pr-3 font-medium">
+                        Customer
+                      </th>
+                      <th className="text-left py-2 pr-3 font-medium">Type</th>
+                      <th className="text-left py-2 pr-3 font-medium">
+                        Reference
+                      </th>
+                      <th className="text-left py-2 pr-3 font-medium">Date</th>
+                      <th className="text-right py-2 pr-3 font-medium">
+                        Discount
+                      </th>
+                      <th className="text-left py-2 font-medium">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {usage.items.map((item) => (
+                      <tr
+                        key={`${item.usage_type}-${item.reference_id}`}
+                        className="border-b border-white/5"
+                      >
+                        <td className="py-2 pr-3 text-text-secondary">
+                          {item.user_email}
+                        </td>
+                        <td className="py-2 pr-3">
+                          <span
+                            className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${
+                              item.usage_type === "order"
+                                ? "bg-blue-500/20 text-blue-300"
+                                : "bg-purple-500/20 text-purple-300"
+                            }`}
+                          >
+                            {item.usage_type === "order"
+                              ? "Order"
+                              : "Subscription"}
+                          </span>
+                        </td>
+                        <td className="py-2 pr-3 text-text-secondary font-mono text-xs">
+                          {item.reference_label}
+                        </td>
+                        <td className="py-2 pr-3 text-text-muted text-xs">
+                          {formatDate(item.created_at)}
+                        </td>
+                        <td className="py-2 pr-3 text-right text-text-secondary">
+                          {formatCents(item.discount_amount)}
+                        </td>
+                        <td className="py-2">
+                          <span
+                            className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${
+                              item.status === "completed" ||
+                              item.status === "active"
+                                ? "bg-green-500/20 text-green-300"
+                                : item.status === "pending"
+                                  ? "bg-yellow-500/20 text-yellow-300"
+                                  : item.status === "cancelled" ||
+                                      item.status === "canceled"
+                                    ? "bg-red-500/20 text-red-300"
+                                    : "bg-white/10 text-text-muted"
+                            }`}
+                          >
+                            {item.status}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Pagination */}
+              {usage.total_pages > 1 && (
+                <div className="flex items-center justify-between mt-3 pt-3 border-t border-white/10">
+                  <span className="text-xs text-text-muted">
+                    Page {usage.page} of {usage.total_pages}
+                  </span>
+                  <div className="flex gap-2">
+                    <button
+                      disabled={page <= 1 || loading}
+                      onClick={() => fetchUsage(page - 1)}
+                      className="px-3 py-1 text-xs rounded bg-white/5 hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed text-text-secondary transition-colors"
+                    >
+                      Previous
+                    </button>
+                    <button
+                      disabled={page >= usage.total_pages || loading}
+                      onClick={() => fetchUsage(page + 1)}
+                      className="px-3 py-1 text-xs rounded bg-white/5 hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed text-text-secondary transition-colors"
+                    >
+                      Next
+                    </button>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+          {loading && usage && (
+            <div className="text-center py-2">
+              <span className="text-xs text-text-muted">Loading...</span>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function AdminCouponEditPage() {
   const params = useParams();
   const router = useRouter();
@@ -191,6 +404,9 @@ export default function AdminCouponEditPage() {
           submitLabel="Update Coupon"
         />
       </div>
+
+      {/* Usage History */}
+      <UsageHistory couponId={couponId} />
     </div>
   );
 }
