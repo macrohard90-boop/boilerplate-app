@@ -51,12 +51,49 @@ export async function filterByCategory(page: Page): Promise<string | null> {
   return null;
 }
 
+/** Click the Nth category filter pill (0-indexed). Deterministic. */
+export async function filterByNthCategory(page: Page, n: number): Promise<string | null> {
+  const pills = page
+    .locator("button")
+    .filter({ hasNotText: /^(All|Products|Subscriptions)$/i });
+  const count = await pills.count();
+  if (count === 0) return null;
+  const idx = n % count;
+  const pill = pills.nth(idx);
+  const name = await pill.textContent();
+  await pill.click();
+  await page.waitForLoadState("networkidle");
+  return name?.trim() || null;
+}
+
+/** Click "All" category filter to reset. */
+export async function resetCategoryFilter(page: Page): Promise<void> {
+  const allPill = page.locator("button").filter({ hasText: /^All$/i }).first();
+  if (await allPill.isVisible().catch(() => false)) {
+    await allPill.click();
+    await page.waitForLoadState("networkidle");
+  }
+}
+
 /** Click into a random product detail page from the listing. */
 export async function viewRandomProduct(page: Page): Promise<string | null> {
   const links = page.locator('a[href*="/products/"]');
   const count = await links.count();
   if (count === 0) return null;
   const idx = Math.floor(Math.random() * Math.min(count, 12));
+  const link = links.nth(idx);
+  const href = await link.getAttribute("href");
+  await link.click();
+  await page.waitForLoadState("networkidle");
+  return href;
+}
+
+/** Click the Nth product (0-indexed) from the listing. Deterministic. */
+export async function viewNthProduct(page: Page, n: number): Promise<string | null> {
+  const links = page.locator('a[href*="/products/"]');
+  const count = await links.count();
+  if (count === 0) return null;
+  const idx = n % count;
   const link = links.nth(idx);
   const href = await link.getAttribute("href");
   await link.click();
@@ -392,6 +429,55 @@ export async function logout(page: Page): Promise<void> {
   }
 }
 
+// ── Navigation ──
+
+/** Navigate to the homepage. */
+export async function visitHomepage(page: Page): Promise<void> {
+  await page.goto("/");
+  await page.waitForLoadState("networkidle");
+}
+
+/** Navigate to the dashboard overview. */
+export async function visitDashboard(page: Page): Promise<void> {
+  await page.goto("/dashboard");
+  await page.waitForLoadState("networkidle");
+}
+
+/** Navigate to the orders page. */
+export async function visitOrders(page: Page): Promise<void> {
+  await page.goto("/dashboard/orders");
+  await page.waitForLoadState("networkidle");
+}
+
+/** Navigate to the profile page. */
+export async function visitProfile(page: Page): Promise<void> {
+  await page.goto("/dashboard/profile");
+  await page.waitForLoadState("networkidle");
+}
+
+/** Navigate to the privacy settings page. */
+export async function visitPrivacy(page: Page): Promise<void> {
+  await page.goto("/dashboard/privacy");
+  await page.waitForLoadState("networkidle");
+}
+
+/** Go back to the products listing from a product detail page. */
+export async function backToProducts(page: Page): Promise<void> {
+  await page.goto("/products");
+  await page.waitForLoadState("networkidle");
+}
+
+// ── Orders ──
+
+/** Click the first order link on /dashboard/orders to view its detail page. */
+export async function visitFirstOrderDetail(page: Page): Promise<void> {
+  const orderLink = page.locator('a[href*="/dashboard/orders/"]').first();
+  if (await orderLink.isVisible().catch(() => false)) {
+    await orderLink.click();
+    await page.waitForLoadState("networkidle");
+  }
+}
+
 // ── Categories ──
 
 /** Navigate to a category page from the products listing. */
@@ -401,6 +487,15 @@ export async function browseCategory(page: Page): Promise<void> {
   if (count > 0) {
     const idx = Math.floor(Math.random() * Math.min(count, 5));
     await categoryLinks.nth(idx).click();
+    await page.waitForLoadState("networkidle");
+  }
+}
+
+/** Click the first category link on the current page (deterministic). */
+export async function visitFirstCategory(page: Page): Promise<void> {
+  const categoryLink = page.locator('a[href*="/categories/"]').first();
+  if (await categoryLink.isVisible().catch(() => false)) {
+    await categoryLink.click();
     await page.waitForLoadState("networkidle");
   }
 }
