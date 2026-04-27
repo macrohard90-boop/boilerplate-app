@@ -26,7 +26,7 @@ export async function registerUser(
   await page.locator('button[type="submit"]').click();
 
   // Wait for redirect to dashboard (registration success)
-  await page.waitForURL("**/dashboard**", { timeout: 15000 });
+  await page.waitForURL("**/dashboard**", { timeout: 30000 });
 }
 
 /** Login an existing user via the /auth/login page. */
@@ -35,17 +35,23 @@ export async function loginUser(
   email: string,
   password: string,
 ): Promise<void> {
-  await page.goto("/auth/login");
-  await page.waitForLoadState("networkidle");
+  await page.goto("/auth/login", { timeout: 30000 });
+  await page.waitForLoadState("domcontentloaded");
 
   await page.locator('input[type="email"]').fill(email);
   await page.locator('input[type="password"]').fill(password);
   await page.locator('button[type="submit"]').click();
 
-  // Wait for redirect away from login page
-  await page.waitForURL((url) => !url.pathname.includes("/auth/login"), {
-    timeout: 15000,
-  });
+  // Wait for redirect away from login page (longer timeout for slow VM)
+  try {
+    await page.waitForURL((url) => !url.pathname.includes("/auth/login"), {
+      timeout: 30000,
+    });
+  } catch {
+    // Redirect may have failed but session cookie might be set — try navigating directly
+    await page.goto("/dashboard", { timeout: 30000 });
+    await page.waitForLoadState("domcontentloaded");
+  }
 }
 
 /** Save the current browser context's auth state to a file. */

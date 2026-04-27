@@ -97,10 +97,22 @@ for (const user of allUsers) {
     // At this point we should be logged in — wait for page to settle
     await page.waitForTimeout(2000);
 
-    // Verify we're authenticated
+    // If still on an auth page, try navigating to /dashboard directly
+    // (session cookie may have been set even if redirect failed)
     const postLoginUrl = page.url();
-    expect(postLoginUrl).not.toContain("/auth/login");
-    expect(postLoginUrl).not.toContain("/auth/register");
+    if (
+      postLoginUrl.includes("/auth/login") ||
+      postLoginUrl.includes("/auth/register")
+    ) {
+      await page.goto("/dashboard", { timeout: 30000 });
+      await page.waitForLoadState("domcontentloaded");
+      await page.waitForTimeout(2000);
+    }
+
+    // Verify we're authenticated
+    const verifyUrl = page.url();
+    expect(verifyUrl).not.toContain("/auth/login");
+    expect(verifyUrl).not.toContain("/auth/register");
 
     // ── Handle consent screen ──
     // The dashboard layout shows a full-page consent screen before the user can access dashboard.

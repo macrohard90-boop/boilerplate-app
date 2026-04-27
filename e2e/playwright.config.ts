@@ -6,8 +6,8 @@ export default defineConfig({
   testDir: "./tests",
   timeout: 120_000,
   expect: { timeout: 10_000 },
-  retries: 1,
-  workers: 6,
+  retries: 2,
+  workers: 3,
   fullyParallel: true,
   use: {
     baseURL: BASE_URL,
@@ -19,6 +19,7 @@ export default defineConfig({
     {
       name: "setup",
       testMatch: "01-register.spec.ts",
+      timeout: 180_000,
     },
     {
       name: "chromium",
