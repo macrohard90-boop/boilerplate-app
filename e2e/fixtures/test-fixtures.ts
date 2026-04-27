@@ -44,13 +44,14 @@ export async function createUserContext(
   const context = await browser.newContext(contextOptions);
   const page = await context.newPage();
 
-  // Accept cookies via localStorage before any navigation
-  await page.goto("about:blank");
-  await acceptAllCookies(page);
-
-  // Attach event collector
+  // Attach event collector before navigation so we capture all events
   const collector = new EventCollector();
   collector.attach(page);
+
+  // Navigate to the site, then accept cookies via localStorage
+  await page.goto("/products");
+  await page.waitForLoadState("networkidle");
+  await acceptAllCookies(page);
 
   return { context, page, collector };
 }

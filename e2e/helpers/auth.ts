@@ -10,8 +10,11 @@ export async function registerUser(
   page: Page,
   user: TestUser,
 ): Promise<void> {
-  await page.goto("/auth/register");
-  await page.waitForLoadState("networkidle");
+  // Navigate only if not already on the register page
+  if (!page.url().includes("/auth/register")) {
+    await page.goto("/auth/register");
+    await page.waitForLoadState("networkidle");
+  }
 
   // Fill registration form
   await page.locator('input[name="firstName"]').fill(user.firstName);

@@ -25,8 +25,9 @@ for (const user of allUsers) {
     const collector = new EventCollector();
     collector.attach(page);
 
-    // Accept cookies before navigating (so tracking fires immediately)
-    await page.goto("about:blank");
+    // Navigate to register page, accept cookies, then fill form
+    await page.goto("/auth/register");
+    await page.waitForLoadState("networkidle");
     await acceptAllCookies(page);
 
     // Register
