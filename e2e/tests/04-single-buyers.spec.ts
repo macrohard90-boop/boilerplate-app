@@ -1,5 +1,5 @@
 /**
- * Test 04: Single Buyer journeys — 25 users who complete one purchase.
+ * Test 04: Single Buyer journeys — 12 users × 2 journey variants = 24 tests.
  * Full checkout flow: browse → cart → shipping → review → Stripe payment → confirmation.
  */
 
@@ -20,58 +20,96 @@ import {
 
 const buyers = getUsersByPersona("single_buyer");
 
+// Journey A: Quick buy — view 1 product, buy it
 for (const user of buyers) {
-  test(`Single Buyer #${user.index} [${user.device.name}]: ${user.email}`, async ({ browser }) => {
+  test(`Buyer #${user.index} Quick Buy [${user.device.name}]: ${user.email}`, async ({ browser }) => {
     const { context, page, collector } = await createUserContext(browser, user);
 
-    // 1. Browse and view a product
     await browseProducts(page);
     await page.waitForTimeout(500);
     await viewRandomProduct(page);
     await page.waitForTimeout(500);
 
-    // 2. Add to cart
     await addToCart(page);
     await page.waitForTimeout(500);
 
-    // 3. View cart
     await viewCart(page);
     await page.waitForTimeout(500);
 
-    // 4. Start checkout
     await startCheckout(page);
     await page.waitForTimeout(500);
 
-    // 5. Step 1: Fill shipping address
     await fillShipping(page);
     await advanceCheckoutStep(page);
     await page.waitForTimeout(1000);
 
-    // 6. Step 2: Review order
     await advanceCheckoutStep(page);
     await page.waitForTimeout(1000);
 
-    // 7. Step 3: Stripe payment
     try {
       await fillStripeAndPay(page);
-
-      // 8. Wait for confirmation
       await waitForConfirmation(page);
       await page.waitForTimeout(1500);
 
-      // Verify purchase events
       collector.assertFired("product_viewed");
       collector.assertFired("add_to_cart");
       collector.assertFired("checkout_started");
     } catch (err) {
-      // Stripe may fail in test environment — log but don't hard-fail
-      console.log(`  Buyer #${user.index} Stripe step failed:`, (err as Error).message);
-      // Still verify pre-payment events
+      console.log(`  Buyer #${user.index} Quick Stripe failed:`, (err as Error).message);
       collector.assertFired("product_viewed");
       collector.assertFired("add_to_cart");
     }
 
-    console.log(`  Buyer #${user.index} events:`, collector.summary());
+    console.log(`  Buyer #${user.index} Quick events:`, collector.summary());
+    await context.close();
+  });
+}
+
+// Journey B: Browse-first — explore 3 products, then buy
+for (const user of buyers) {
+  test(`Buyer #${user.index} Browse First [${user.device.name}]: ${user.email}`, async ({ browser }) => {
+    const { context, page, collector } = await createUserContext(browser, user);
+
+    // Browse several products first
+    await browseProducts(page);
+    for (let i = 0; i < 3; i++) {
+      await viewRandomProduct(page);
+      await page.waitForTimeout(600);
+      await browseProducts(page);
+    }
+
+    // Now pick one and buy
+    await viewRandomProduct(page);
+    await page.waitForTimeout(500);
+    await addToCart(page);
+    await page.waitForTimeout(500);
+
+    await viewCart(page);
+    await page.waitForTimeout(500);
+
+    await startCheckout(page);
+    await page.waitForTimeout(500);
+
+    await fillShipping(page);
+    await advanceCheckoutStep(page);
+    await page.waitForTimeout(1000);
+
+    await advanceCheckoutStep(page);
+    await page.waitForTimeout(1000);
+
+    try {
+      await fillStripeAndPay(page);
+      await waitForConfirmation(page);
+      await page.waitForTimeout(1500);
+
+      collector.assertFired("product_viewed", 2);
+      collector.assertFired("add_to_cart");
+    } catch (err) {
+      console.log(`  Buyer #${user.index} Browse Stripe failed:`, (err as Error).message);
+      collector.assertFired("product_viewed", 2);
+    }
+
+    console.log(`  Buyer #${user.index} Browse events:`, collector.summary());
     await context.close();
   });
 }

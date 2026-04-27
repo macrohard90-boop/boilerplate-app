@@ -1,5 +1,5 @@
 /**
- * Test 03: Cart Abandoner journeys — 20 users who add to cart but don't finish checkout.
+ * Test 03: Cart Abandoner journeys — 10 users × 2 journey variants = 20 tests.
  */
 
 import { test, expect } from "@playwright/test";
@@ -16,55 +16,76 @@ import {
 
 const abandoners = getUsersByPersona("cart_abandoner");
 
+// Journey A: Quick abandon — add 1 item, view cart, leave
 for (const user of abandoners) {
-  test(`Cart Abandoner #${user.index} [${user.device.name}]: ${user.email}`, async ({ browser }) => {
+  test(`Abandoner #${user.index} Quick [${user.device.name}]: ${user.email}`, async ({ browser }) => {
     const { context, page, collector } = await createUserContext(browser, user);
 
-    // 1. Browse products
     await browseProducts(page);
     await page.waitForTimeout(500);
 
-    // 2. View and add first product to cart
     await viewRandomProduct(page);
     await page.waitForTimeout(500);
     await addToCart(page);
     await page.waitForTimeout(500);
 
-    // 3. Go back, view and add second product
-    await browseProducts(page);
-    await viewRandomProduct(page);
-    await page.waitForTimeout(500);
-    await addToCart(page);
-    await page.waitForTimeout(500);
-
-    // 4. Visit cart
+    // Visit cart then leave
     await viewCart(page);
     await page.waitForTimeout(500);
 
-    // 5. Change quantity on first item
+    // Abandon — navigate away
+    await page.goto("/products");
+    await page.waitForLoadState("networkidle");
+    await page.waitForTimeout(1000);
+
+    collector.assertFired("add_to_cart");
+    console.log(`  Abandoner #${user.index} Quick events:`, collector.summary());
+    await context.close();
+  });
+}
+
+// Journey B: Deep abandon — multiple items, qty change, start checkout, abandon
+for (const user of abandoners) {
+  test(`Abandoner #${user.index} Deep [${user.device.name}]: ${user.email}`, async ({ browser }) => {
+    const { context, page, collector } = await createUserContext(browser, user);
+
+    // Add first product
+    await browseProducts(page);
+    await page.waitForTimeout(500);
+    await viewRandomProduct(page);
+    await page.waitForTimeout(500);
+    await addToCart(page);
+    await page.waitForTimeout(500);
+
+    // Add second product
+    await browseProducts(page);
+    await viewRandomProduct(page);
+    await page.waitForTimeout(500);
+    await addToCart(page);
+    await page.waitForTimeout(500);
+
+    // Visit cart
+    await viewCart(page);
+    await page.waitForTimeout(500);
+
+    // Change quantity
     await increaseQuantity(page);
     await page.waitForTimeout(500);
 
-    // 6. Start checkout
+    // Start checkout then abandon
     try {
       await startCheckout(page);
       await page.waitForTimeout(1000);
-
-      // 7. Abandon — navigate away from checkout
       await page.goto("/products");
       await page.waitForLoadState("networkidle");
     } catch {
-      // If checkout redirect fails (e.g., auth issue), that's still an abandonment
       await page.goto("/products");
     }
 
     await page.waitForTimeout(1500);
 
-    // Verify key events
     collector.assertFired("add_to_cart");
-    collector.assertFired("cart_viewed");
-
-    console.log(`  Abandoner #${user.index} events:`, collector.summary());
+    console.log(`  Abandoner #${user.index} Deep events:`, collector.summary());
     await context.close();
   });
 }

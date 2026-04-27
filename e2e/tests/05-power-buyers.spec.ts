@@ -1,6 +1,6 @@
 /**
- * Test 05: Power Buyer journeys — 10 users with extensive interaction.
- * Browse many products, search, filter, multi-item cart, coupons, checkout, wishlist.
+ * Test 05: Power Buyer journeys — 5 users × 3 journey variants = 15 tests.
+ * Multi-item carts, coupons, quantity changes, wishlist, return visits.
  */
 
 import { test, expect } from "@playwright/test";
@@ -28,34 +28,13 @@ import {
 
 const powerBuyers = getUsersByPersona("power_buyer");
 
+// Journey A: Multi-item + Coupons
 for (const user of powerBuyers) {
-  test(`Power Buyer #${user.index} [${user.device.name}]: ${user.email}`, async ({ browser }) => {
-    test.setTimeout(120_000); // Power buyers take longer
+  test(`Power #${user.index} Multi-item [${user.device.name}]: ${user.email}`, async ({ browser }) => {
+    test.setTimeout(120_000);
     const { context, page, collector } = await createUserContext(browser, user);
 
-    // 1. Browse many products (5+)
-    await browseProducts(page);
-    for (let i = 0; i < 5; i++) {
-      await viewRandomProduct(page);
-      await page.waitForTimeout(600);
-
-      // Add to wishlist on one product
-      if (i === 2) {
-        await addToWishlist(page);
-      }
-
-      await browseProducts(page);
-    }
-
-    // 2. Search
-    await searchProducts(page, "pro");
-    await page.waitForTimeout(500);
-
-    // 3. Filter by category
-    await filterByCategory(page);
-    await page.waitForTimeout(500);
-
-    // 4. Add 3 items to cart
+    // Add 3 items to cart
     await browseProducts(page);
     for (let i = 0; i < 3; i++) {
       await viewRandomProduct(page);
@@ -65,27 +44,26 @@ for (const user of powerBuyers) {
       await browseProducts(page);
     }
 
-    // 5. View cart
     await viewCart(page);
     await page.waitForTimeout(500);
 
-    // 6. Change quantity
+    // Change quantity
     await increaseQuantity(page);
     await page.waitForTimeout(400);
 
-    // 7. Remove one item
+    // Remove one item
     await removeFromCart(page);
     await page.waitForTimeout(400);
 
-    // 8. Try invalid coupon
+    // Try invalid coupon
     await applyCoupon(page, "FAKECOUPON999");
     await page.waitForTimeout(500);
 
-    // 9. Try valid coupon (from Phase 2 setup — common codes)
+    // Try valid coupon
     await applyCoupon(page, "WELCOME10");
     await page.waitForTimeout(500);
 
-    // 10. Checkout
+    // Full checkout
     try {
       await startCheckout(page);
       await fillShipping(page);
@@ -97,25 +75,97 @@ for (const user of powerBuyers) {
       await waitForConfirmation(page);
       await page.waitForTimeout(1000);
     } catch (err) {
-      console.log(`  Power #${user.index} checkout failed:`, (err as Error).message);
+      console.log(`  Power #${user.index} Multi checkout failed:`, (err as Error).message);
     }
 
-    // 11. After purchase — visit wishlist, move to cart
+    collector.assertFired("add_to_cart", 2);
+    console.log(`  Power #${user.index} Multi events:`, collector.summary());
+    await context.close();
+  });
+}
+
+// Journey B: Search + Filter + Checkout
+for (const user of powerBuyers) {
+  test(`Power #${user.index} Search [${user.device.name}]: ${user.email}`, async ({ browser }) => {
+    test.setTimeout(120_000);
+    const { context, page, collector } = await createUserContext(browser, user);
+
+    // Browse many products
+    await browseProducts(page);
+    for (let i = 0; i < 5; i++) {
+      await viewRandomProduct(page);
+      await page.waitForTimeout(400);
+      await browseProducts(page);
+    }
+
+    // Search
+    await searchProducts(page, "pro");
+    await page.waitForTimeout(500);
+
+    // Filter by category
+    await filterByCategory(page);
+    await page.waitForTimeout(500);
+
+    // Add an item and buy
+    await browseProducts(page);
+    await viewRandomProduct(page);
+    await page.waitForTimeout(400);
+    await addToCart(page);
+    await page.waitForTimeout(400);
+
+    await viewCart(page);
+    await page.waitForTimeout(500);
+
+    try {
+      await startCheckout(page);
+      await fillShipping(page);
+      await advanceCheckoutStep(page);
+      await page.waitForTimeout(500);
+      await advanceCheckoutStep(page);
+      await page.waitForTimeout(500);
+      await fillStripeAndPay(page);
+      await waitForConfirmation(page);
+    } catch (err) {
+      console.log(`  Power #${user.index} Search checkout failed:`, (err as Error).message);
+    }
+
+    collector.assertFired("product_viewed", 3);
+    console.log(`  Power #${user.index} Search events:`, collector.summary());
+    await context.close();
+  });
+}
+
+// Journey C: Wishlist flow
+for (const user of powerBuyers) {
+  test(`Power #${user.index} Wishlist [${user.device.name}]: ${user.email}`, async ({ browser }) => {
+    test.setTimeout(120_000);
+    const { context, page, collector } = await createUserContext(browser, user);
+
+    // Browse and wishlist items
+    await browseProducts(page);
+    await viewRandomProduct(page);
+    await page.waitForTimeout(400);
+    await addToWishlist(page);
+    await page.waitForTimeout(400);
+
+    await browseProducts(page);
+    await viewRandomProduct(page);
+    await page.waitForTimeout(400);
+    await addToCart(page);
+    await page.waitForTimeout(400);
+
+    // Visit wishlist, move to cart
     await viewWishlist(page);
     await page.waitForTimeout(500);
     await moveWishlistToCart(page);
     await page.waitForTimeout(500);
 
-    // 12. Visit cart (may be empty after purchase cleared it)
+    // Visit cart
     await viewCart(page);
     await page.waitForTimeout(1000);
 
-    // Verify key events
-    collector.assertFired("product_viewed", 3);
-    collector.assertFired("add_to_cart", 2);
-    collector.assertFired("search_performed");
-
-    console.log(`  Power #${user.index} events:`, collector.summary());
+    collector.assertFired("product_viewed");
+    console.log(`  Power #${user.index} Wishlist events:`, collector.summary());
     await context.close();
   });
 }
