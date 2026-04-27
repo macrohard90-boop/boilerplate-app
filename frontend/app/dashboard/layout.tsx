@@ -46,7 +46,10 @@ const NAV_ITEMS = [
  * Save consent preferences to backend + localStorage.
  * Shared by "Save Preferences" and "Accept All" flows.
  */
-async function persistConsent(toggles: Record<string, boolean>) {
+async function persistConsent(
+  toggles: Record<string, boolean>,
+  userId: string,
+) {
   await Promise.all(
     CONSENT_TYPES.map((ct) =>
       apiFetch("/gdpr/consent", {
@@ -69,7 +72,7 @@ async function persistConsent(toggles: Record<string, boolean>) {
   }).catch(() => {});
 
   localStorage.setItem("cookie_consent", JSON.stringify(cookiePrefs));
-  localStorage.setItem("consent_modal_completed", "true");
+  localStorage.setItem(`consent_completed_${userId}`, "true");
 
   return cookiePrefs;
 }
@@ -79,7 +82,7 @@ export default function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, user } = useAuth();
   const { showToast } = useToast();
   const pathname = usePathname();
   const router = useRouter();
@@ -97,10 +100,11 @@ export default function DashboardLayout({
   });
 
   useEffect(() => {
-    if (!isAuthenticated || isLoading) return;
+    if (!isAuthenticated || isLoading || !user) return;
 
-    // Fast path: already completed consent in this session
-    const completed = localStorage.getItem("consent_modal_completed");
+    // User-specific localStorage key — prevents stale consent from a different account
+    const consentKey = `consent_completed_${user.id}`;
+    const completed = localStorage.getItem(consentKey);
     if (completed) {
       setConsentState("done");
       return;
@@ -119,15 +123,11 @@ export default function DashboardLayout({
         const hasRecords = data.consents?.some((c) => c.updated_at !== null);
         if (hasRecords) {
           // Returning user — sync localStorage from DB records and skip consent screen
-          localStorage.setItem("consent_modal_completed", "true");
+          localStorage.setItem(consentKey, "true");
           const cookiePrefs: Record<string, boolean> = { necessary: true };
-          for (const [consentKey, cookieKey] of Object.entries(
-            CONSENT_TO_COOKIE_MAP,
-          )) {
-            const record = data.consents.find(
-              (c) => c.consent_type === consentKey,
-            );
-            cookiePrefs[cookieKey] = record?.granted ?? false;
+          for (const [ctKey, ckKey] of Object.entries(CONSENT_TO_COOKIE_MAP)) {
+            const record = data.consents.find((c) => c.consent_type === ctKey);
+            cookiePrefs[ckKey] = record?.granted ?? false;
           }
           localStorage.setItem("cookie_consent", JSON.stringify(cookiePrefs));
           setConsentState("done");
@@ -139,7 +139,7 @@ export default function DashboardLayout({
         setConsentState("needed");
       }
     })();
-  }, [isAuthenticated, isLoading]);
+  }, [isAuthenticated, isLoading, user]);
 
   function handleToggle(key: string) {
     const ct = CONSENT_TYPES.find((c) => c.key === key);
@@ -150,7 +150,7 @@ export default function DashboardLayout({
   async function handleSave() {
     setSaving(true);
     try {
-      const cookiePrefs = await persistConsent(toggles);
+      const cookiePrefs = await persistConsent(toggles, user!.id);
       trackEvent("cookie_consent_given", {
         analytics: cookiePrefs.analytics ?? false,
         marketing: cookiePrefs.marketing ?? false,
@@ -171,7 +171,7 @@ export default function DashboardLayout({
       for (const ct of CONSENT_TYPES) {
         allAccepted[ct.key] = true;
       }
-      const cookiePrefs = await persistConsent(allAccepted);
+      const cookiePrefs = await persistConsent(allAccepted, user!.id);
       trackEvent("cookie_consent_given", {
         analytics: cookiePrefs.analytics ?? false,
         marketing: cookiePrefs.marketing ?? false,
