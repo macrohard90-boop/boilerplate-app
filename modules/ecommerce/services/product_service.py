@@ -124,9 +124,12 @@ async def list_products(
         where_clauses.append("(p.name ILIKE :search OR p.description ILIKE :search)")
         params["search"] = f"%{search}%"
     if category_id:
+        # Include products from this category AND all its subcategories
         where_clauses.append(
             "EXISTS (SELECT 1 FROM ecommerce.product_categories pc "
-            "WHERE pc.product_id = p.id AND pc.category_id = :cat_id)"
+            "JOIN ecommerce.categories c ON c.id = pc.category_id "
+            "WHERE pc.product_id = p.id "
+            "AND (c.id = :cat_id OR c.parent_id = :cat_id))"
         )
         params["cat_id"] = category_id
 
