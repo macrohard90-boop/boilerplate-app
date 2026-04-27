@@ -108,12 +108,17 @@ async def list_products(
     pricing_type: str | None = None,
 ) -> dict[str, Any]:
     """List products with pagination, filtering, and search."""
-    where_clauses = ["p.deleted_at IS NULL"]
+    where_clauses: list[str] = []
     params: dict[str, Any] = {}
 
-    if status:
-        where_clauses.append("p.status = :status")
-        params["status"] = status
+    if status == "archived":
+        # Show soft-deleted (archived) products
+        where_clauses.append("p.deleted_at IS NOT NULL")
+    else:
+        where_clauses.append("p.deleted_at IS NULL")
+        if status:
+            where_clauses.append("p.status = :status")
+            params["status"] = status
     if product_type:
         where_clauses.append("p.type = :ptype")
         params["ptype"] = product_type

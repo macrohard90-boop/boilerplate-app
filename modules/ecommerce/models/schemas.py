@@ -461,6 +461,7 @@ class DiscountResponse(BaseModel):
     stripe_sync_status: str = "unsynced"
     stripe_sync_error: str | None = None
     product_ids: list[UUID] = Field(default_factory=list)
+    product_names: list[dict[str, str]] = Field(default_factory=list)
     restricted_to_customer_id: UUID | None = None
     first_time_transaction_only: bool = False
     max_uses_per_customer: int | None = None

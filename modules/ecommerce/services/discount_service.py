@@ -34,6 +34,28 @@ async def get_restricted_product_ids(db: AsyncSession, discount_id: str) -> list
     return [str(r["product_id"]) for r in rows]
 
 
+async def get_restricted_product_names(
+    db: AsyncSession, discount_id: str
+) -> list[dict[str, str]]:
+    """Return product id+name for restrictions (includes archived products)."""
+    rows = (
+        (
+            await db.execute(
+                text(
+                    "SELECT p.id, p.name "
+                    "FROM ecommerce.discount_product_restrictions dpr "
+                    "JOIN ecommerce.products p ON p.id = dpr.product_id "
+                    "WHERE dpr.discount_code_id = :did"
+                ),
+                {"did": discount_id},
+            )
+        )
+        .mappings()
+        .all()
+    )
+    return [{"id": str(r["id"]), "name": r["name"]} for r in rows]
+
+
 async def increment_customer_uses(
     db: AsyncSession, discount_id: str, user_id: str
 ) -> None:
@@ -434,6 +456,7 @@ async def list_discounts(
     for r in rows:
         d = dict(r)
         d["product_ids"] = await get_restricted_product_ids(db, str(d["id"]))
+        d["product_names"] = await get_restricted_product_names(db, str(d["id"]))
         items.append(d)
 
     return {

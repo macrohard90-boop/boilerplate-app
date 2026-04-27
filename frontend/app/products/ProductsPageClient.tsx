@@ -340,6 +340,10 @@ function ProductsContent() {
                     description={product.description}
                     recurring_interval={product.recurring_interval}
                     trial_period_days={product.trial_period_days}
+                    image_url={
+                      product.images?.find((i) => i.is_primary)?.url ||
+                      product.images?.[0]?.url
+                    }
                   />
                 ) : (
                   <ProductCard

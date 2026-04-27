@@ -31,6 +31,7 @@ interface Discount {
   stripe_sync_status: string;
   stripe_sync_error: string | null;
   product_ids: string[];
+  product_names: { id: string; name: string }[];
   restricted_to_customer_id: string | null;
   first_time_transaction_only: boolean;
   max_uses_per_customer: number | null;
@@ -65,11 +66,6 @@ function getStatusInfo(d: Discount): { label: string; className: string } {
   return { label: "Active", className: "badge-green" };
 }
 
-interface ProductInfo {
-  id: string;
-  name: string;
-}
-
 export default function AdminCouponsPage() {
   const router = useRouter();
   const { showToast } = useToast();
@@ -79,7 +75,6 @@ export default function AdminCouponsPage() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [deactivateId, setDeactivateId] = useState<string | null>(null);
   const [deactivating, setDeactivating] = useState(false);
-  const [productMap, setProductMap] = useState<Record<string, string>>({});
 
   const fetchCoupons = useCallback(() => {
     setLoading(true);
@@ -95,30 +90,6 @@ export default function AdminCouponsPage() {
   useEffect(() => {
     fetchCoupons();
   }, [fetchCoupons]);
-
-  // Fetch product names for any coupons that have product_ids
-  useEffect(() => {
-    if (!data) return;
-    const allProductIds = new Set<string>();
-    data.items.forEach((d) =>
-      d.product_ids?.forEach((pid) => {
-        if (!productMap[pid]) allProductIds.add(pid);
-      }),
-    );
-    if (allProductIds.size === 0) return;
-    // Fetch products to build id→name map
-    apiFetch<{ items: ProductInfo[] }>(
-      "/ecommerce/products?status=active&page_size=200",
-    )
-      .then((res) => {
-        const map: Record<string, string> = { ...productMap };
-        (res.items || []).forEach((p) => {
-          map[p.id] = p.name;
-        });
-        setProductMap(map);
-      })
-      .catch(() => {});
-  }, [data]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleStatusFilterChange = (value: string) => {
     setStatusFilter(value);
@@ -257,15 +228,15 @@ export default function AdminCouponsPage() {
                       </td>
                       <td className="p-4">
                         <div className="flex flex-col gap-1">
-                          {d.product_ids?.length > 0 && (
+                          {d.product_names?.length > 0 && (
                             <div className="flex flex-wrap gap-1">
-                              {d.product_ids.map((pid) => (
+                              {d.product_names.map((p) => (
                                 <span
-                                  key={pid}
+                                  key={p.id}
                                   className="text-[10px] px-1.5 py-0.5 rounded bg-accent-blue/10 text-accent-blue"
-                                  title={pid}
+                                  title={p.id}
                                 >
-                                  {productMap[pid] || pid.slice(0, 8)}
+                                  {p.name}
                                 </span>
                               ))}
                             </div>
