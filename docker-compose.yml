@@ -53,6 +53,7 @@ services:
     env_file: .env
     volumes:
       - upload_data:/app/uploads
+      - sim_reports:/tmp/sim-reports
       - ./frontend/app:/app/frontend/app:ro  # Page discovery reads Next.js routes
       - ~/.claude:/home/appuser/.claude:ro    # Claude CLI auth for SEO advisor
     depends_on:
@@ -101,6 +102,7 @@ services:
     volumes:
       - ./docker/nginx.conf:/etc/nginx/conf.d/default.conf:ro
       - upload_data:/app/uploads:ro
+      - sim_reports:/tmp/sim-reports:ro
     depends_on:
       - fastapi
       - nextjs
@@ -136,6 +138,7 @@ volumes:
   postgres_data:
   redis_data:
   upload_data:
+  sim_reports:
 
 networks:
   app-network:

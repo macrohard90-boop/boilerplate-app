@@ -522,6 +522,9 @@ def main() -> int:
         user_count=config.user_count,
     )
     print(f"Report files: {report_path}")
+    # Print browsable URL (works when nginx serves /sim-reports/)
+    report_dir_name = report_path.name if hasattr(report_path, "name") else str(report_path).split("/")[-1]
+    print(f"View report:  {config.target}/sim-reports/{report_dir_name}/report.html")
 
     # Save to DB
     if checks:
