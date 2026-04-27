@@ -75,12 +75,12 @@ interface PersonaDef {
 }
 
 const PERSONA_DEFS: Record<string, PersonaDef> = {
-  window_shopper: { tag: "shopper", firstName: "Shopper", count: 30 },
-  cart_abandoner: { tag: "abandoner", firstName: "Abandoner", count: 20 },
-  single_buyer: { tag: "buyer", firstName: "Buyer", count: 25 },
-  power_buyer: { tag: "power", firstName: "Power", count: 10 },
-  subscriber: { tag: "sub", firstName: "Subscriber", count: 10 },
-  bouncer: { tag: "bounce", firstName: "Bounce", count: 5 },
+  window_shopper: { tag: "shopper", firstName: "Shopper", count: 15 },
+  cart_abandoner: { tag: "abandoner", firstName: "Abandoner", count: 10 },
+  single_buyer: { tag: "buyer", firstName: "Buyer", count: 12 },
+  power_buyer: { tag: "power", firstName: "Power", count: 5 },
+  subscriber: { tag: "sub", firstName: "Subscriber", count: 5 },
+  bouncer: { tag: "bounce", firstName: "Bounce", count: 3 },
 };
 
 /** Global counter across all personas so emails are sequential: test001, test002, ... */
@@ -107,7 +107,7 @@ function generatePersonaUsers(
   return users;
 }
 
-/** All 100 users. */
+/** All 50 users. */
 let _allUsers: TestUser[] | null = null;
 export function getAllUsers(): TestUser[] {
   if (!_allUsers) {
