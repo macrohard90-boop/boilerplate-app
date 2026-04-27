@@ -61,6 +61,7 @@ async def create_checkout(
                 data.billing_address.model_dump() if data.billing_address else None
             ),
             discount_code=data.discount_code,
+            session_id=user.get("session_id"),
         )
         if settings.enable_tracking and not x_session_id:
             _row = (

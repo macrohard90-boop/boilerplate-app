@@ -106,8 +106,11 @@ export default function AdminCouponsPage() {
       showToast("Coupon deactivated", "success");
       setDeactivateId(null);
       fetchCoupons();
-    } catch {
-      showToast("Failed to deactivate coupon", "error");
+    } catch (err: unknown) {
+      const apiErr = err as { message?: string; details?: string } | undefined;
+      const msg =
+        apiErr?.details || apiErr?.message || "Failed to deactivate coupon";
+      showToast(msg, "error");
     }
     setDeactivating(false);
   };

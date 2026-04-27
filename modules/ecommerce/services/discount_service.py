@@ -228,13 +228,54 @@ async def get_discount_by_id(
     return d
 
 
-async def increment_uses(db: AsyncSession, discount_id: str) -> None:
+async def increment_uses(
+    db: AsyncSession,
+    discount_id: str,
+    *,
+    session_id: str | None = None,
+    user_id: str | None = None,
+) -> None:
     await db.execute(
         text(
             "UPDATE ecommerce.discount_codes SET uses_count = uses_count + 1 WHERE id = :id"
         ),
         {"id": discount_id},
     )
+
+    # Check if the coupon just got exhausted (uses_count reached max_uses)
+    from backend.core.config import settings
+
+    if session_id and settings.enable_tracking:
+        row = (
+            (
+                await db.execute(
+                    text(
+                        "SELECT code, uses_count, max_uses FROM ecommerce.discount_codes "
+                        "WHERE id = :id"
+                    ),
+                    {"id": discount_id},
+                )
+            )
+            .mappings()
+            .first()
+        )
+        if row and row["max_uses"] is not None and row["uses_count"] >= row["max_uses"]:
+            try:
+                from modules.tracking.services.event_service import record_event
+
+                await record_event(
+                    db,
+                    session_id,
+                    "coupon.exhausted",
+                    {
+                        "coupon_code": row["code"],
+                        "max_uses": row["max_uses"],
+                        "uses_count": row["uses_count"],
+                    },
+                    user_id=user_id,
+                )
+            except Exception:
+                logger.debug("Failed to track coupon.exhausted", exc_info=True)
 
 
 # ---------------------------------------------------------------------------
@@ -400,8 +441,14 @@ async def _mark_discount_error(db: AsyncSession, discount_id: str, error: str) -
     await db.commit()
 
 
-async def _delete_stripe_coupon(discount: dict[str, Any]) -> None:
-    """Delete a Stripe Coupon if one exists. Stripe auto-deactivates promo codes."""
+async def _delete_stripe_coupon(
+    discount: dict[str, Any], *, raise_on_error: bool = False
+) -> None:
+    """Delete a Stripe Coupon if one exists. Stripe auto-deactivates promo codes.
+
+    When raise_on_error=True, propagates the exception so callers can abort
+    their operation (e.g. deactivation) when Stripe is unreachable.
+    """
     stripe_coupon_id = discount.get("stripe_coupon_id")
     if not stripe_coupon_id:
         return
@@ -412,8 +459,10 @@ async def _delete_stripe_coupon(discount: dict[str, Any]) -> None:
         provider = get_payment_provider()
         await provider.delete_coupon(stripe_coupon_id)
         logger.info("Deleted Stripe coupon %s", stripe_coupon_id)
-    except Exception:
+    except Exception as e:
         logger.exception("Failed to delete Stripe coupon %s", stripe_coupon_id)
+        if raise_on_error:
+            raise RuntimeError(f"Stripe coupon deletion failed: {e}") from e
 
 
 # ---------------------------------------------------------------------------
@@ -650,11 +699,14 @@ async def deactivate_discount(db: AsyncSession, discount_id: str) -> None:
     if not existing:
         raise ValueError("Discount not found")
 
+    # Delete Stripe coupon FIRST — block deactivation if Stripe fails.
+    # This ensures we never have a locally-deactivated coupon that's still
+    # live on Stripe (customers could still redeem it via Stripe Checkout).
+    await _delete_stripe_coupon(existing, raise_on_error=True)
+
+    # Stripe succeeded (or no Stripe coupon) — now deactivate locally
     await db.execute(
         text("UPDATE ecommerce.discount_codes SET active = FALSE WHERE id = :id"),
         {"id": discount_id},
     )
     await db.commit()
-
-    # Delete Stripe coupon
-    await _delete_stripe_coupon(existing)

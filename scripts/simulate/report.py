@@ -661,7 +661,9 @@ def _build_stripe_detail(phase2_result: dict) -> str:
     expected_synced_variants = sum(
         1 for v in variants if v.get("expected", "").startswith("id=not null")
     )
-    synced_coupons = sum(1 for c in coupons if c.get("stripe_coupon_id"))
+    synced_coupons = sum(
+        1 for c in coupons if c.get("stripe_coupon_id") or c.get("active") is False
+    )
     expected_synced_coupons = sum(
         1 for c in coupons if c.get("type") != "free_shipping"
     )
@@ -866,9 +868,14 @@ def _build_stripe_detail(phase2_result: dict) -> str:
 
         ok = c.get("pass", False)
 
+        is_deactivated = c.get("active") is False
+
         if ctype == "free_shipping":
             exp_display = '<span style="color:#525252">N/A (by design)</span>'
             sync_display = '<span style="color:#525252">N/A</span>'
+        elif is_deactivated:
+            exp_display = '<span style="color:#a78bfa">deactivated</span>'
+            sync_display = '<span style="color:#a78bfa">deactivated</span>'
         else:
             exp_display = "synced"
             sync_display = f'<span style="color:{sync_color}">{sync}</span>'

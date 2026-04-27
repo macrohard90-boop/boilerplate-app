@@ -25,7 +25,9 @@ async def create_order(
     db: AsyncSession = Depends(get_db),
 ) -> Any:
     try:
-        order = await order_service.create_order_from_cart(db, user["user_id"])
+        order = await order_service.create_order_from_cart(
+            db, user["user_id"], session_id=user.get("session_id")
+        )
     except ValueError as e:
         raise HTTPException(
             status_code=400,

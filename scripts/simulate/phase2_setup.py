@@ -739,7 +739,8 @@ COUPONS = [
         "applies_to": "all",
         "stripe_duration": "once",
         "valid_until": "past",  # Special marker — set to yesterday
-        "description": "Expired coupon (should fail validation)",
+        "deactivate_after_create": True,  # Admin cleans up expired coupon
+        "description": "Expired coupon (deactivated by admin)",
     },
     {
         "code": "MAXEDOUT",
@@ -748,8 +749,8 @@ COUPONS = [
         "max_uses": 1,
         "applies_to": "all",
         "stripe_duration": "once",
-        "exhaust_after_create": True,  # Special marker — set uses_count=1 via SQL
-        "description": "$10 off (already fully redeemed)",
+        "deactivate_after_create": True,  # Admin retires fully-redeemed coupon
+        "description": "$10 off (deactivated after redemption)",
     },
 ]
 
@@ -1348,26 +1349,32 @@ def run(api_url: str, admin_email: str, admin_password: str) -> dict:
         except Exception as e:
             result["errors"].append(f"Coupon {coupon_data['code']}: {e}")
 
-    # ── 8. Exhaust MAXEDOUT coupon via SQL ──
-    try:
-        db_url = _get_db_url()
-        conn = psycopg2.connect(db_url)
-        conn.autocommit = True
-        cur = conn.cursor()
-
-        for coupon_data in COUPONS:
-            if coupon_data.get("exhaust_after_create"):
-                cur.execute(
-                    "UPDATE ecommerce.discount_codes SET uses_count = max_uses "
-                    "WHERE UPPER(code) = %s AND max_uses IS NOT NULL",
-                    (coupon_data["code"].upper(),),
+    # ── 8. Deactivate marked coupons via API (fires admin.coupon_deactivated) ──
+    coupon_code_to_id = {c["code"]: c["id"] for c in result["coupons"] if c.get("id")}
+    result["deactivated_coupons"] = []
+    for coupon_data in COUPONS:
+        if not coupon_data.get("deactivate_after_create"):
+            continue
+        cid = coupon_code_to_id.get(coupon_data["code"])
+        if not cid:
+            result["errors"].append(
+                f"Cannot deactivate {coupon_data['code']}: ID not found"
+            )
+            continue
+        try:
+            resp = client.delete(
+                f"{api_url}/ecommerce/admin/discounts/{cid}",
+                headers=auth,
+            )
+            if resp.status_code == 204:
+                result["deactivated_coupons"].append(coupon_data["code"])
+                logger.info("Deactivated coupon: %s", coupon_data["code"])
+            else:
+                result["errors"].append(
+                    f"Deactivate {coupon_data['code']}: {resp.status_code} {resp.text}"
                 )
-                logger.info("Exhausted coupon: %s", coupon_data["code"])
-
-        cur.close()
-        conn.close()
-    except Exception as e:
-        result["errors"].append(f"Coupon exhaustion failed: {e}")
+        except Exception as e:
+            result["errors"].append(f"Deactivate {coupon_data['code']}: {e}")
 
     # Simulate admin viewing templates page
     _track_pageview(
@@ -1657,7 +1664,7 @@ def run(api_url: str, admin_email: str, admin_password: str) -> dict:
             "SELECT id, code, type, value, currency, applies_to, "
             "stripe_coupon_id, stripe_promotion_code_id, "
             "stripe_sync_status, stripe_sync_error, stripe_duration, "
-            "stripe_duration_in_months "
+            "stripe_duration_in_months, active "
             "FROM ecommerce.discount_codes ORDER BY created_at"
         )
         db_coupons = [
@@ -1674,6 +1681,7 @@ def run(api_url: str, admin_email: str, admin_password: str) -> dict:
                 "stripe_sync_error": r[9],
                 "stripe_duration": r[10],
                 "stripe_duration_in_months": r[11],
+                "active": r[12],
             }
             for r in cur.fetchall()
         ]
@@ -1842,13 +1850,22 @@ def run(api_url: str, admin_email: str, admin_password: str) -> dict:
             )
 
         # Coupon checks
+        deactivated_codes = set(result.get("deactivated_coupons", []))
         coupon_checks = []
         for c in db_coupons:
+            is_deactivated = c["code"] in deactivated_codes or not c["active"]
+
             if c["type"] == "free_shipping":
                 exp_coupon = "null (N/A)"
                 exp_promo = "null (N/A)"
                 exp_status = "N/A"
                 ok = True  # free_shipping is never synced by design
+            elif is_deactivated:
+                # Deactivated coupons: Stripe coupon deleted, IDs cleared
+                exp_coupon = "null (deleted)"
+                exp_promo = "null (deleted)"
+                exp_status = "synced (deactivated)"
+                ok = not c["active"]  # must be inactive
             else:
                 exp_coupon = "not null"
                 exp_promo = "not null"
@@ -1862,6 +1879,8 @@ def run(api_url: str, admin_email: str, admin_password: str) -> dict:
             actual_coupon = c["stripe_coupon_id"] or "NULL"
             actual_promo = c["stripe_promotion_code_id"] or "NULL"
             actual_status = c["stripe_sync_status"] or "none"
+            if is_deactivated:
+                actual_status = f"{actual_status} (deactivated)"
 
             # Duration display
             dur = c.get("stripe_duration") or "once"
@@ -1878,6 +1897,7 @@ def run(api_url: str, admin_email: str, admin_password: str) -> dict:
                     "value": c["value"],
                     "currency": c["currency"],
                     "applies_to": c["applies_to"],
+                    "active": c["active"],
                     "stripe_duration": dur_display,
                     "stripe_coupon_id": c["stripe_coupon_id"],
                     "stripe_promotion_code_id": c["stripe_promotion_code_id"],

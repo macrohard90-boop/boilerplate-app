@@ -22,6 +22,7 @@ async def checkout(
     shipping_address: dict[str, Any] | None = None,
     billing_address: dict[str, Any] | None = None,
     discount_code: str | None = None,
+    session_id: str | None = None,
 ) -> dict[str, Any]:
     """Full checkout flow: create order from cart, then create payment intent.
 
@@ -39,7 +40,9 @@ async def checkout(
         await _apply_discount_to_cart(db, user_id, discount_code)
 
     # 2. Convert cart to order (handles stock reservation, pricing, snapshots)
-    order = await order_service.create_order_from_cart(db, user_id)
+    order = await order_service.create_order_from_cart(
+        db, user_id, session_id=session_id
+    )
     order_id = str(order["id"])
 
     # 3. Store addresses on the order (shipping optional for subscriptions)

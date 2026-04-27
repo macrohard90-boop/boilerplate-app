@@ -136,6 +136,15 @@ async def admin_deactivate_discount(
             status_code=404,
             detail={"error": "not_found", "message": str(e), "details": None},
         )
+    except RuntimeError as e:
+        raise HTTPException(
+            status_code=502,
+            detail={
+                "error": "stripe_error",
+                "message": str(e),
+                "details": "The coupon was NOT deactivated. Resolve the Stripe issue and retry.",
+            },
+        )
 
     if settings.enable_tracking:
         try:

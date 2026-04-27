@@ -28,6 +28,7 @@ async def create_subscription(
             product_id=str(body.product_id),
             variant_id=str(body.variant_id) if body.variant_id else None,
             discount_code=body.discount_code,
+            session_id=user.get("session_id"),
         )
     except ValueError as e:
         raise HTTPException(

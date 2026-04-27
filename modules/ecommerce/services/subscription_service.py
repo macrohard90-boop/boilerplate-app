@@ -56,6 +56,7 @@ async def create_subscription(
     product_id: str,
     variant_id: str | None = None,
     discount_code: str | None = None,
+    session_id: str | None = None,
 ) -> dict[str, Any]:
     """Create a subscription for a recurring product.
 
@@ -189,7 +190,9 @@ async def create_subscription(
     if discount_code_id:
         from modules.ecommerce.services import discount_service
 
-        await discount_service.increment_uses(db, discount_code_id)
+        await discount_service.increment_uses(
+            db, discount_code_id, session_id=session_id, user_id=user_id
+        )
 
     sub = dict(row)
     sub["client_secret"] = result.client_secret

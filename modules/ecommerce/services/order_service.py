@@ -20,6 +20,8 @@ from modules.ecommerce.services import (
 async def create_order_from_cart(
     db: AsyncSession,
     user_id: str,
+    *,
+    session_id: str | None = None,
 ) -> dict[str, Any]:
     """Convert active cart into an order with stock reservation.
 
@@ -152,7 +154,9 @@ async def create_order_from_cart(
             discount_amount = discount_service.calculate_discount(
                 d, applicable_subtotal
             )
-            await discount_service.increment_uses(db, str(d["id"]))
+            await discount_service.increment_uses(
+                db, str(d["id"]), session_id=session_id, user_id=user_id
+            )
             await discount_service.increment_customer_uses(db, str(d["id"]), user_id)
 
     total = max(subtotal - discount_amount, 0)

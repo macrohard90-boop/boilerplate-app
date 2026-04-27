@@ -259,7 +259,14 @@ INSERT INTO analytics.event_definitions (name, description, category, payload_sc
  false)
 ON CONFLICT (name) DO NOTHING;
 
--- ── Discount (2) ──
+-- ── Discount (3) ──
+
+INSERT INTO analytics.event_definitions (name, description, category, payload_schema, source_locations, is_system) VALUES
+('coupon.exhausted', 'System event fired when a coupon reaches its max_uses limit during checkout', 'discount',
+ '[{"field":"coupon_code","type":"string","description":"Coupon code that was exhausted"},{"field":"max_uses","type":"number","description":"Maximum usage limit"},{"field":"uses_count","type":"number","description":"Final usage count"}]',
+ '[{"file":"modules/ecommerce/services/discount_service.py","snippet":"record_event(db, session_id, \"coupon.exhausted\", ...)"}]',
+ true)
+ON CONFLICT (name) DO NOTHING;
 
 INSERT INTO analytics.event_definitions (name, description, category, payload_schema, source_locations, is_system) VALUES
 ('coupon_applied', 'Fired when a coupon code is successfully applied to the cart', 'discount',
