@@ -8,10 +8,6 @@ import Pagination from "../../../../components/Pagination";
 import LoadingSpinner from "../../../../components/LoadingSpinner";
 import Modal from "../../../../components/Modal";
 import { useToast } from "../../../../components/Toast";
-import ProductForm, {
-  type ProductFormData,
-  type CategoryOption,
-} from "../../../../components/admin/ProductForm";
 import SyncStatusBadge from "../../../../components/admin/SyncStatusBadge";
 
 interface Product {
@@ -28,6 +24,15 @@ interface Product {
   stripe_sync_error: string | null;
   synced_provider: string | null;
   created_at: string;
+}
+
+interface Variant {
+  id: string;
+  name: string;
+  sku: string | null;
+  price_override: number | null;
+  stock_quantity: number;
+  attributes: Record<string, string>;
 }
 
 interface ProductResponse {
@@ -51,12 +56,12 @@ export default function AdminProductsPage() {
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState("all");
-  const [showCreate, setShowCreate] = useState(false);
-  const [creating, setCreating] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [syncingId, setSyncingId] = useState<string | null>(null);
-  const [categories, setCategories] = useState<CategoryOption[]>([]);
+  const [expandedRows, setExpandedRows] = useState<
+    Record<string, Variant[] | "loading">
+  >({});
 
   const fetchProducts = useCallback(() => {
     setLoading(true);
@@ -73,33 +78,9 @@ export default function AdminProductsPage() {
     fetchProducts();
   }, [fetchProducts]);
 
-  useEffect(() => {
-    apiFetch<CategoryOption[]>("/ecommerce/categories")
-      .then(setCategories)
-      .catch(() => {});
-  }, []);
-
   const handleStatusFilterChange = (value: string) => {
     setStatusFilter(value);
     setPage(1);
-  };
-
-  const handleCreate = async (formData: ProductFormData) => {
-    setCreating(true);
-    try {
-      await apiFetch("/ecommerce/products", {
-        method: "POST",
-        body: JSON.stringify(formData),
-      });
-      showToast("Product created", "success");
-      setShowCreate(false);
-      fetchProducts();
-    } catch (err: unknown) {
-      const msg =
-        (err as { message?: string })?.message || "Failed to create product";
-      showToast(msg, "error");
-    }
-    setCreating(false);
   };
 
   const handleDelete = async () => {
@@ -132,6 +113,39 @@ export default function AdminProductsPage() {
     setSyncingId(null);
   };
 
+  const toggleExpand = async (productId: string) => {
+    if (expandedRows[productId]) {
+      setExpandedRows((prev) => {
+        const next = { ...prev };
+        delete next[productId];
+        return next;
+      });
+      return;
+    }
+
+    setExpandedRows((prev) => ({ ...prev, [productId]: "loading" }));
+    try {
+      const variants = await apiFetch<Variant[]>(
+        `/ecommerce/products/${productId}/variants`,
+      );
+      setExpandedRows((prev) => ({ ...prev, [productId]: variants }));
+    } catch {
+      setExpandedRows((prev) => {
+        const next = { ...prev };
+        delete next[productId];
+        return next;
+      });
+      showToast("Failed to load variants", "error");
+    }
+  };
+
+  const getStockDisplay = (productId: string) => {
+    const entry = expandedRows[productId];
+    if (!entry || entry === "loading") return "—";
+    const total = entry.reduce((sum, v) => sum + v.stock_quantity, 0);
+    return total.toString();
+  };
+
   const statusBadge = (status: string) => {
     if (status === "active") return "badge-green";
     if (status === "archived") return "badge-pink";
@@ -162,7 +176,7 @@ export default function AdminProductsPage() {
           )}
         </div>
         <button
-          onClick={() => setShowCreate(true)}
+          onClick={() => router.push("/admin/catalog/products/new")}
           className="btn-primary px-4 py-2 rounded-lg text-sm font-medium"
         >
           + Create Product
@@ -176,7 +190,7 @@ export default function AdminProductsPage() {
             Create your first product to get started.
           </p>
           <button
-            onClick={() => setShowCreate(true)}
+            onClick={() => router.push("/admin/catalog/products/new")}
             className="btn-primary px-4 py-2 rounded-lg text-sm"
           >
             + Create Product
@@ -198,6 +212,9 @@ export default function AdminProductsPage() {
                     Price
                   </th>
                   <th className="text-left p-4 text-text-muted font-medium">
+                    Stock
+                  </th>
+                  <th className="text-left p-4 text-text-muted font-medium">
                     Status
                   </th>
                   <th className="text-left p-4 text-text-muted font-medium">
@@ -212,61 +229,163 @@ export default function AdminProductsPage() {
                 </tr>
               </thead>
               <tbody>
-                {data.items.map((p) => (
-                  <tr
-                    key={p.id}
-                    className="border-b border-glass-border/50 hover:bg-glass-hover transition-colors"
-                  >
-                    <td className="p-4 text-text-primary font-medium">
-                      {p.name}
-                    </td>
-                    <td className="p-4 text-text-muted font-mono text-xs">
-                      {p.sku || "—"}
-                    </td>
-                    <td className="p-4 text-text-primary">
-                      {formatPrice(p.base_price, p.currency)}
-                    </td>
-                    <td className="p-4">
-                      <span className={statusBadge(p.status)}>{p.status}</span>
-                    </td>
-                    <td className="p-4">
-                      <SyncStatusBadge
-                        status={p.stripe_sync_status}
-                        error={p.stripe_sync_error}
-                        provider={p.synced_provider}
-                        onRetry={
-                          p.stripe_sync_status === "error"
-                            ? () => handleRetrySync(p.id)
-                            : undefined
-                        }
-                      />
-                      {syncingId === p.id && (
-                        <span className="text-xs text-text-muted ml-1">
-                          Syncing...
-                        </span>
+                {data.items.map((p) => {
+                  const isExpanded = !!expandedRows[p.id];
+                  const variantEntry = expandedRows[p.id];
+                  const variants: Variant[] | null =
+                    Array.isArray(variantEntry) ? variantEntry : null;
+
+                  return (
+                    <>
+                      <tr
+                        key={p.id}
+                        className="border-b border-glass-border/50 hover:bg-glass-hover transition-colors"
+                      >
+                        <td className="p-4 text-text-primary font-medium">
+                          <button
+                            onClick={() => toggleExpand(p.id)}
+                            className="flex items-center gap-2 hover:text-accent-blue transition-colors text-left"
+                          >
+                            <svg
+                              className={`w-3.5 h-3.5 text-text-muted transition-transform ${isExpanded ? "rotate-90" : ""}`}
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              stroke="currentColor"
+                              strokeWidth={2}
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                d="M9 5l7 7-7 7"
+                              />
+                            </svg>
+                            {p.name}
+                          </button>
+                        </td>
+                        <td className="p-4 text-text-muted font-mono text-xs">
+                          {p.sku || "—"}
+                        </td>
+                        <td className="p-4 text-text-primary">
+                          {formatPrice(p.base_price, p.currency)}
+                        </td>
+                        <td className="p-4 text-text-primary font-mono text-xs">
+                          {getStockDisplay(p.id)}
+                        </td>
+                        <td className="p-4">
+                          <span className={statusBadge(p.status)}>
+                            {p.status}
+                          </span>
+                        </td>
+                        <td className="p-4">
+                          <SyncStatusBadge
+                            status={p.stripe_sync_status}
+                            error={p.stripe_sync_error}
+                            provider={p.synced_provider}
+                            onRetry={
+                              p.stripe_sync_status === "error"
+                                ? () => handleRetrySync(p.id)
+                                : undefined
+                            }
+                          />
+                          {syncingId === p.id && (
+                            <span className="text-xs text-text-muted ml-1">
+                              Syncing...
+                            </span>
+                          )}
+                        </td>
+                        <td className="p-4 text-text-muted">
+                          {formatDate(p.created_at)}
+                        </td>
+                        <td className="p-4 text-right whitespace-nowrap">
+                          <button
+                            onClick={() =>
+                              router.push(`/admin/catalog/products/${p.id}`)
+                            }
+                            className="text-xs text-accent-blue hover:text-accent-blue/80 mr-3"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            onClick={() => setDeleteId(p.id)}
+                            className="text-xs text-accent-pink hover:text-accent-pink/80"
+                          >
+                            Delete
+                          </button>
+                        </td>
+                      </tr>
+                      {/* Expanded variant rows */}
+                      {isExpanded && expandedRows[p.id] === "loading" && (
+                        <tr key={`${p.id}-loading`}>
+                          <td
+                            colSpan={8}
+                            className="p-3 pl-12 text-text-muted text-xs bg-glass-bg/50"
+                          >
+                            Loading variants...
+                          </td>
+                        </tr>
                       )}
-                    </td>
-                    <td className="p-4 text-text-muted">
-                      {formatDate(p.created_at)}
-                    </td>
-                    <td className="p-4 text-right whitespace-nowrap">
-                      <button
-                        onClick={() =>
-                          router.push(`/admin/catalog/products/${p.id}`)
-                        }
-                        className="text-xs text-accent-blue hover:text-accent-blue/80 mr-3"
-                      >
-                        Edit
-                      </button>
-                      <button
-                        onClick={() => setDeleteId(p.id)}
-                        className="text-xs text-accent-pink hover:text-accent-pink/80"
-                      >
-                        Delete
-                      </button>
-                    </td>
-                  </tr>
-                ))}
+                      {isExpanded && variants && variants.length === 0 && (
+                        <tr key={`${p.id}-empty`}>
+                          <td
+                            colSpan={8}
+                            className="p-3 pl-12 text-text-muted text-xs bg-glass-bg/50"
+                          >
+                            No variants (single SKU)
+                          </td>
+                        </tr>
+                      )}
+                      {isExpanded &&
+                        variants &&
+                        variants.map((v) => (
+                          <tr
+                            key={v.id}
+                            className="bg-glass-bg/50 border-b border-glass-border/30"
+                          >
+                            <td className="p-3 pl-12 text-text-secondary text-xs">
+                              {v.name}
+                              {v.attributes &&
+                                Object.keys(v.attributes).length > 0 && (
+                                  <span className="ml-2">
+                                    {Object.entries(v.attributes).map(
+                                      ([key, val]) => (
+                                        <span
+                                          key={key}
+                                          className="inline-block bg-glass-hover text-text-muted px-1.5 py-0.5 rounded text-[10px] mr-1"
+                                        >
+                                          {key}: {String(val)}
+                                        </span>
+                                      ),
+                                    )}
+                                  </span>
+                                )}
+                            </td>
+                            <td className="p-3 text-text-muted font-mono text-xs">
+                              {v.sku || "—"}
+                            </td>
+                            <td className="p-3 text-text-secondary text-xs">
+                              {v.price_override
+                                ? formatPrice(v.price_override, "usd")
+                                : "—"}
+                            </td>
+                            <td className="p-3 font-mono text-xs">
+                              <span
+                                className={
+                                  v.stock_quantity === 0
+                                    ? "text-accent-pink"
+                                    : v.stock_quantity <= 5
+                                      ? "text-yellow-400"
+                                      : "text-text-primary"
+                                }
+                              >
+                                {v.stock_quantity}
+                              </span>
+                            </td>
+                            <td colSpan={4}></td>
+                          </tr>
+                        ))}
+                    </>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -281,23 +400,6 @@ export default function AdminProductsPage() {
           )}
         </>
       )}
-
-      {/* Create Product Modal */}
-      <Modal
-        isOpen={showCreate}
-        onClose={() => setShowCreate(false)}
-        title="Create Product"
-        size="lg"
-      >
-        <ProductForm
-          onSubmit={handleCreate}
-          onCancel={() => setShowCreate(false)}
-          loading={creating}
-          submitLabel="Create"
-          allowRecurring={false}
-          categories={categories}
-        />
-      </Modal>
 
       {/* Delete Confirmation Modal */}
       <Modal

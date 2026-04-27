@@ -12,8 +12,6 @@ const CATALOG_TABS = [
     label: "Coupons",
     feature: "coupons" as const,
   },
-  { href: "/admin/catalog/shipping", label: "Shipping Rates" },
-  { href: "/admin/catalog/tax", label: "Tax Rates" },
 ];
 
 export default function CatalogLayout({

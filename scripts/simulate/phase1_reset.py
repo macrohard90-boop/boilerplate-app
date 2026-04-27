@@ -94,7 +94,12 @@ def run(db_url: str | None = None) -> dict:
     conn.autocommit = True
     cur = conn.cursor()
 
-    result = {"tables_truncated": 0, "events_seeded": 0, "errors": []}
+    result = {
+        "tables_truncated": 0,
+        "events_seeded": 0,
+        "templates_seeded": 0,
+        "errors": [],
+    }
 
     # Truncate tables
     for table in TRUNCATE_TABLES:
@@ -144,12 +149,40 @@ def run(db_url: str | None = None) -> dict:
             stmt = stmt.strip()
             if not stmt:
                 continue
-            if "core.roles" in stmt or "core.permissions" in stmt or "core.role_permissions" in stmt:
+            if (
+                "core.roles" in stmt
+                or "core.permissions" in stmt
+                or "core.role_permissions" in stmt
+            ):
                 try:
                     cur.execute(stmt + ";")
                 except Exception:
                     conn.rollback()
                     conn.autocommit = True
+
+    # Re-seed built-in email templates (wiped by TRUNCATE core.users CASCADE)
+    template_file = PROJECT_ROOT / "migrations" / "025_email_templates.sql"
+    if template_file.exists():
+        sql = template_file.read_text()
+        lines = sql.split("\n")
+        insert_block = []
+        in_insert = False
+        for line in lines:
+            if line.strip().startswith("INSERT INTO"):
+                in_insert = True
+            if in_insert:
+                insert_block.append(line)
+            if in_insert and line.strip().endswith(";"):
+                stmt = "\n".join(insert_block)
+                try:
+                    cur.execute(stmt)
+                    result["templates_seeded"] += 1
+                except Exception as e:
+                    logger.warning("Template seed failed: %s", e)
+                    conn.rollback()
+                    conn.autocommit = True
+                insert_block = []
+                in_insert = False
 
     cur.close()
     conn.close()

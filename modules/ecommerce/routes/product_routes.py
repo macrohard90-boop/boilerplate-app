@@ -125,12 +125,33 @@ async def create_product(
     db: AsyncSession = Depends(get_db),
 ) -> Any:
     try:
-        return await product_service.create_product(db, body.model_dump())
+        result = await product_service.create_product(db, body.model_dump())
     except ValueError as e:
         raise HTTPException(
             status_code=409,
             detail={"error": "conflict", "message": str(e), "details": None},
         )
+
+    if settings.enable_tracking:
+        try:
+            from modules.tracking.services.event_service import record_event
+
+            await record_event(
+                db,
+                user["session_id"],
+                "admin.product_created",
+                {
+                    "product_id": str(result["id"]),
+                    "product_name": result.get("name", ""),
+                    "status": result.get("status", ""),
+                    "base_price": result.get("base_price", 0),
+                },
+                user_id=user["user_id"],
+            )
+        except Exception:
+            logger.debug("Failed to track admin.product_created", exc_info=True)
+
+    return result
 
 
 @router.put("/{product_id}", response_model=ProductResponse)
@@ -141,7 +162,7 @@ async def update_product(
     db: AsyncSession = Depends(get_db),
 ) -> Any:
     try:
-        return await product_service.update_product(
+        result = await product_service.update_product(
             db, product_id, body.model_dump(exclude_unset=True)
         )
     except ValueError as e:
@@ -149,6 +170,25 @@ async def update_product(
             status_code=404,
             detail={"error": "not_found", "message": str(e), "details": None},
         )
+
+    if settings.enable_tracking:
+        try:
+            from modules.tracking.services.event_service import record_event
+
+            await record_event(
+                db,
+                user["session_id"],
+                "admin.product_updated",
+                {
+                    "product_id": str(result["id"]),
+                    "product_name": result.get("name", ""),
+                },
+                user_id=user["user_id"],
+            )
+        except Exception:
+            logger.debug("Failed to track admin.product_updated", exc_info=True)
+
+    return result
 
 
 @router.post("/{product_id}/sync", response_model=ProductResponse)
@@ -188,6 +228,20 @@ async def delete_product(
             status_code=404,
             detail={"error": "not_found", "message": msg, "details": None},
         )
+
+    if settings.enable_tracking:
+        try:
+            from modules.tracking.services.event_service import record_event
+
+            await record_event(
+                db,
+                user["session_id"],
+                "admin.product_deleted",
+                {"product_id": product_id},
+                user_id=user["user_id"],
+            )
+        except Exception:
+            logger.debug("Failed to track admin.product_deleted", exc_info=True)
 
 
 # ---------------------------------------------------------------------------
@@ -234,7 +288,27 @@ async def create_variant(
                 "details": None,
             },
         )
-    return await variant_service.create_variant(db, product_id, body.model_dump())
+    result = await variant_service.create_variant(db, product_id, body.model_dump())
+
+    if settings.enable_tracking:
+        try:
+            from modules.tracking.services.event_service import record_event
+
+            await record_event(
+                db,
+                user["session_id"],
+                "admin.variant_created",
+                {
+                    "product_id": product_id,
+                    "variant_name": result.get("name", ""),
+                    "stock_quantity": result.get("stock_quantity", 0),
+                },
+                user_id=user["user_id"],
+            )
+        except Exception:
+            logger.debug("Failed to track admin.variant_created", exc_info=True)
+
+    return result
 
 
 @router.put("/{product_id}/variants/{variant_id}", response_model=VariantResponse)

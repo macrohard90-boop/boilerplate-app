@@ -1,13 +1,17 @@
 """Marketing admin endpoints — campaigns, email logs, comm types."""
 
+import logging
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from backend.core.config import settings
 from backend.core.database import get_db
 from backend.core.dependencies import require_role
+
+logger = logging.getLogger(__name__)
 from pydantic import BaseModel, Field
 
 from modules.marketing.models.schemas import (
@@ -426,10 +430,29 @@ async def create_template(
             variables=body.variables,
             created_by=user["user_id"],
         )
-        # Fetch full template for response
-        return await template_crud_service.get_template(db, result["id"])
+        template = await template_crud_service.get_template(db, result["id"])
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+    if settings.enable_tracking:
+        try:
+            from modules.tracking.services.event_service import record_event
+
+            await record_event(
+                db,
+                user["session_id"],
+                "admin.template_created",
+                {
+                    "template_id": str(result["id"]),
+                    "template_name": body.name,
+                    "category": body.category,
+                },
+                user_id=user["user_id"],
+            )
+        except Exception:
+            logger.debug("Failed to track admin.template_created", exc_info=True)
+
+    return template
 
 
 @router.post("/templates/preview")
@@ -480,7 +503,24 @@ async def update_template(
     )
     if not result:
         raise HTTPException(status_code=404, detail="Template not found")
-    # Fetch full template for response
+
+    if settings.enable_tracking:
+        try:
+            from modules.tracking.services.event_service import record_event
+
+            await record_event(
+                db,
+                user["session_id"],
+                "admin.template_updated",
+                {
+                    "template_id": template_id,
+                    "template_name": result.get("name", ""),
+                },
+                user_id=user["user_id"],
+            )
+        except Exception:
+            logger.debug("Failed to track admin.template_updated", exc_info=True)
+
     return await template_crud_service.get_template(db, template_id)
 
 
@@ -493,10 +533,25 @@ async def delete_template(
     """Delete a template. Built-in templates cannot be deleted."""
     try:
         await template_crud_service.delete_template(db, template_id)
-        return {"status": "deleted"}
     except ValueError as e:
         status = 400 if "Cannot delete" in str(e) else 404
         raise HTTPException(status_code=status, detail=str(e))
+
+    if settings.enable_tracking:
+        try:
+            from modules.tracking.services.event_service import record_event
+
+            await record_event(
+                db,
+                user["session_id"],
+                "admin.template_deleted",
+                {"template_id": template_id},
+                user_id=user["user_id"],
+            )
+        except Exception:
+            logger.debug("Failed to track admin.template_deleted", exc_info=True)
+
+    return {"status": "deleted"}
 
 
 @router.post(

@@ -321,6 +321,100 @@ def run(
         )
     )
 
+    # ── Admin Events ──
+
+    cur.execute(
+        "SELECT event_type, count(*) FROM analytics.events "
+        "WHERE event_type LIKE 'admin.%%' GROUP BY event_type ORDER BY event_type"
+    )
+    admin_events = {row[0]: row[1] for row in cur.fetchall()}
+    total_admin_events = sum(admin_events.values())
+
+    checks.append(
+        Check(
+            category="Admin Events",
+            name="Total admin.* events",
+            expected=">= 50",
+            actual=str(total_admin_events),
+            passed=total_admin_events >= 50,
+            detail=", ".join(f"{k}={v}" for k, v in admin_events.items()),
+        )
+    )
+
+    checks.append(
+        Check(
+            category="Admin Events",
+            name="admin.product_created events",
+            expected=">= 28",
+            actual=str(admin_events.get("admin.product_created", 0)),
+            passed=admin_events.get("admin.product_created", 0) >= 28,
+        )
+    )
+
+    checks.append(
+        Check(
+            category="Admin Events",
+            name="admin.category_created events",
+            expected=">= 20",
+            actual=str(admin_events.get("admin.category_created", 0)),
+            passed=admin_events.get("admin.category_created", 0) >= 20,
+        )
+    )
+
+    checks.append(
+        Check(
+            category="Admin Events",
+            name="admin.coupon_created events",
+            expected=">= 5",
+            actual=str(admin_events.get("admin.coupon_created", 0)),
+            passed=admin_events.get("admin.coupon_created", 0) >= 5,
+        )
+    )
+
+    checks.append(
+        Check(
+            category="Admin Events",
+            name="admin.product_deleted events",
+            expected=">= 2",
+            actual=str(admin_events.get("admin.product_deleted", 0)),
+            passed=admin_events.get("admin.product_deleted", 0) >= 2,
+        )
+    )
+
+    # Admin page views
+    cur.execute(
+        "SELECT COUNT(*) FROM analytics.page_views pv "
+        "JOIN analytics.analytics_sessions s ON s.session_id = pv.session_id "
+        "JOIN core.users u ON u.id = s.user_id "
+        "JOIN core.roles r ON r.id = u.role_id "
+        "WHERE r.name = 'admin'"
+    )
+    admin_pvs = cur.fetchone()[0]
+    checks.append(
+        Check(
+            category="Admin Events",
+            name="Admin page views",
+            expected=">= 5",
+            actual=str(admin_pvs),
+            passed=admin_pvs >= 5,
+        )
+    )
+
+    # Email templates survived reset
+    cur.execute(
+        "SELECT COUNT(*) FROM marketing.email_templates WHERE is_builtin = true"
+    )
+    templates = cur.fetchone()[0]
+    checks.append(
+        Check(
+            category="Admin Events",
+            name="Built-in email templates",
+            expected="8",
+            actual=str(templates),
+            passed=templates == 8,
+        )
+    )
+
     # ── Sessions & Page Views ──
 
     cur.execute("SELECT COUNT(*) FROM analytics.analytics_sessions")

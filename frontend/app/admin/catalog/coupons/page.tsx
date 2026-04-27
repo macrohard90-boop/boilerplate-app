@@ -9,9 +9,6 @@ import LoadingSpinner from "../../../../components/LoadingSpinner";
 import Modal from "../../../../components/Modal";
 import { useToast } from "../../../../components/Toast";
 import SyncStatusBadge from "../../../../components/admin/SyncStatusBadge";
-import CouponForm, {
-  type CouponFormData,
-} from "../../../../components/admin/CouponForm";
 
 interface Discount {
   id: string;
@@ -68,6 +65,11 @@ function getStatusInfo(d: Discount): { label: string; className: string } {
   return { label: "Active", className: "badge-green" };
 }
 
+interface ProductInfo {
+  id: string;
+  name: string;
+}
+
 export default function AdminCouponsPage() {
   const router = useRouter();
   const { showToast } = useToast();
@@ -75,10 +77,9 @@ export default function AdminCouponsPage() {
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState("all");
-  const [showCreate, setShowCreate] = useState(false);
-  const [creating, setCreating] = useState(false);
   const [deactivateId, setDeactivateId] = useState<string | null>(null);
   const [deactivating, setDeactivating] = useState(false);
+  const [productMap, setProductMap] = useState<Record<string, string>>({});
 
   const fetchCoupons = useCallback(() => {
     setLoading(true);
@@ -95,32 +96,33 @@ export default function AdminCouponsPage() {
     fetchCoupons();
   }, [fetchCoupons]);
 
+  // Fetch product names for any coupons that have product_ids
+  useEffect(() => {
+    if (!data) return;
+    const allProductIds = new Set<string>();
+    data.items.forEach((d) =>
+      d.product_ids?.forEach((pid) => {
+        if (!productMap[pid]) allProductIds.add(pid);
+      }),
+    );
+    if (allProductIds.size === 0) return;
+    // Fetch products to build id→name map
+    apiFetch<{ items: ProductInfo[] }>(
+      "/ecommerce/products?status=active&page_size=200",
+    )
+      .then((res) => {
+        const map: Record<string, string> = { ...productMap };
+        (res.items || []).forEach((p) => {
+          map[p.id] = p.name;
+        });
+        setProductMap(map);
+      })
+      .catch(() => {});
+  }, [data]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const handleStatusFilterChange = (value: string) => {
     setStatusFilter(value);
     setPage(1);
-  };
-
-  const handleCreate = async (formData: CouponFormData) => {
-    setCreating(true);
-    try {
-      const created = await apiFetch<Discount>("/ecommerce/admin/discounts", {
-        method: "POST",
-        body: JSON.stringify(formData),
-      });
-      if (created.stripe_sync_status === "error") {
-        showToast(
-          `Coupon created, but Stripe sync failed: ${created.stripe_sync_error}`,
-          "error",
-        );
-      } else {
-        showToast("Coupon created", "success");
-      }
-      setShowCreate(false);
-      fetchCoupons();
-    } catch {
-      showToast("Failed to create coupon", "error");
-    }
-    setCreating(false);
   };
 
   const handleDeactivate = async () => {
@@ -163,7 +165,7 @@ export default function AdminCouponsPage() {
           )}
         </div>
         <button
-          onClick={() => setShowCreate(true)}
+          onClick={() => router.push("/admin/catalog/coupons/new")}
           className="btn-primary px-4 py-2 rounded-lg text-sm font-medium"
         >
           + Create Coupon
@@ -177,7 +179,7 @@ export default function AdminCouponsPage() {
             Create your first coupon to offer discounts.
           </p>
           <button
-            onClick={() => setShowCreate(true)}
+            onClick={() => router.push("/admin/catalog/coupons/new")}
             className="btn-primary px-4 py-2 rounded-lg text-sm"
           >
             + Create Coupon
@@ -254,34 +256,43 @@ export default function AdminCouponsPage() {
                             : "All"}
                       </td>
                       <td className="p-4">
-                        <div className="flex flex-wrap gap-1">
+                        <div className="flex flex-col gap-1">
                           {d.product_ids?.length > 0 && (
-                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-accent-blue/10 text-accent-blue">
-                              {d.product_ids.length} product
-                              {d.product_ids.length !== 1 ? "s" : ""}
-                            </span>
+                            <div className="flex flex-wrap gap-1">
+                              {d.product_ids.map((pid) => (
+                                <span
+                                  key={pid}
+                                  className="text-[10px] px-1.5 py-0.5 rounded bg-accent-blue/10 text-accent-blue"
+                                  title={pid}
+                                >
+                                  {productMap[pid] || pid.slice(0, 8)}
+                                </span>
+                              ))}
+                            </div>
                           )}
-                          {d.restricted_to_customer_id && (
-                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-accent-purple/10 text-accent-purple">
-                              Customer
-                            </span>
-                          )}
-                          {d.first_time_transaction_only && (
-                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-accent-green/10 text-accent-green">
-                              First-time
-                            </span>
-                          )}
-                          {d.max_uses_per_customer != null && (
-                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-yellow-500/10 text-yellow-400">
-                              {d.max_uses_per_customer}/customer
-                            </span>
-                          )}
+                          <div className="flex flex-wrap gap-1">
+                            {d.restricted_to_customer_id && (
+                              <span className="text-[10px] px-1.5 py-0.5 rounded bg-accent-purple/10 text-accent-purple">
+                                Customer
+                              </span>
+                            )}
+                            {d.first_time_transaction_only && (
+                              <span className="text-[10px] px-1.5 py-0.5 rounded bg-accent-green/10 text-accent-green">
+                                First-time
+                              </span>
+                            )}
+                            {d.max_uses_per_customer != null && (
+                              <span className="text-[10px] px-1.5 py-0.5 rounded bg-yellow-500/10 text-yellow-400">
+                                {d.max_uses_per_customer}/customer
+                              </span>
+                            )}
+                          </div>
                           {!d.product_ids?.length &&
                             !d.restricted_to_customer_id &&
                             !d.first_time_transaction_only &&
                             d.max_uses_per_customer == null && (
                               <span className="text-text-muted text-xs">
-                                None
+                                Global
                               </span>
                             )}
                         </div>
@@ -340,21 +351,6 @@ export default function AdminCouponsPage() {
           )}
         </>
       )}
-
-      {/* Create Coupon Modal */}
-      <Modal
-        isOpen={showCreate}
-        onClose={() => setShowCreate(false)}
-        title="Create Coupon"
-        size="lg"
-      >
-        <CouponForm
-          onSubmit={handleCreate}
-          onCancel={() => setShowCreate(false)}
-          loading={creating}
-          submitLabel="Create"
-        />
-      </Modal>
 
       {/* Deactivate Confirmation Modal */}
       <Modal

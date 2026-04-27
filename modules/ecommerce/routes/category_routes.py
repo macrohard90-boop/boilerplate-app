@@ -1,12 +1,16 @@
 """Category endpoints."""
 
+import logging
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from backend.core.config import settings
 from backend.core.database import get_db
 from backend.core.dependencies import require_role
+
+logger = logging.getLogger(__name__)
 from modules.ecommerce.models.schemas import (
     CategoryCreate,
     CategoryResponse,
@@ -52,7 +56,26 @@ async def create_category(
     user: dict = Depends(require_role("admin")),
     db: AsyncSession = Depends(get_db),
 ) -> Any:
-    return await category_service.create_category(db, body.model_dump())
+    result = await category_service.create_category(db, body.model_dump())
+
+    if settings.enable_tracking:
+        try:
+            from modules.tracking.services.event_service import record_event
+
+            await record_event(
+                db,
+                user["session_id"],
+                "admin.category_created",
+                {
+                    "category_id": str(result["id"]),
+                    "category_name": result.get("name", ""),
+                },
+                user_id=user["user_id"],
+            )
+        except Exception:
+            logger.debug("Failed to track admin.category_created", exc_info=True)
+
+    return result
 
 
 @router.put("/{category_id}", response_model=CategoryResponse)
@@ -63,7 +86,7 @@ async def update_category(
     db: AsyncSession = Depends(get_db),
 ) -> Any:
     try:
-        return await category_service.update_category(
+        result = await category_service.update_category(
             db, category_id, body.model_dump(exclude_unset=True)
         )
     except ValueError as e:
@@ -71,6 +94,25 @@ async def update_category(
             status_code=404,
             detail={"error": "not_found", "message": str(e), "details": None},
         )
+
+    if settings.enable_tracking:
+        try:
+            from modules.tracking.services.event_service import record_event
+
+            await record_event(
+                db,
+                user["session_id"],
+                "admin.category_updated",
+                {
+                    "category_id": category_id,
+                    "category_name": result.get("name", ""),
+                },
+                user_id=user["user_id"],
+            )
+        except Exception:
+            logger.debug("Failed to track admin.category_updated", exc_info=True)
+
+    return result
 
 
 @router.delete("/{category_id}", status_code=204)
@@ -92,3 +134,17 @@ async def delete_category(
             status_code=409,
             detail={"error": "conflict", "message": msg, "details": None},
         )
+
+    if settings.enable_tracking:
+        try:
+            from modules.tracking.services.event_service import record_event
+
+            await record_event(
+                db,
+                user["session_id"],
+                "admin.category_deleted",
+                {"category_id": category_id},
+                user_id=user["user_id"],
+            )
+        except Exception:
+            logger.debug("Failed to track admin.category_deleted", exc_info=True)

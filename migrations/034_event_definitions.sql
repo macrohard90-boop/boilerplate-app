@@ -314,5 +314,98 @@ INSERT INTO analytics.event_definitions (name, description, category, payload_sc
  true)
 ON CONFLICT (name) DO NOTHING;
 
+-- ── Admin (13) — Admin CRUD actions tracked server-side ──
+
+INSERT INTO analytics.event_definitions (name, description, category, payload_schema, source_locations, is_system) VALUES
+('admin.product_created', 'Fired when an admin creates a new product', 'admin',
+ '[{"field":"product_id","type":"UUID","description":"Created product ID"},{"field":"product_name","type":"string","description":"Product name"},{"field":"status","type":"string","description":"Product status"},{"field":"base_price","type":"number","description":"Base price in cents"}]',
+ '[{"file":"modules/ecommerce/routes/product_routes.py","snippet":"record_event(db, ..., \"admin.product_created\", ...)"}]',
+ false)
+ON CONFLICT (name) DO NOTHING;
+
+INSERT INTO analytics.event_definitions (name, description, category, payload_schema, source_locations, is_system) VALUES
+('admin.product_updated', 'Fired when an admin updates a product', 'admin',
+ '[{"field":"product_id","type":"UUID","description":"Updated product ID"},{"field":"product_name","type":"string","description":"Product name"}]',
+ '[{"file":"modules/ecommerce/routes/product_routes.py","snippet":"record_event(db, ..., \"admin.product_updated\", ...)"}]',
+ false)
+ON CONFLICT (name) DO NOTHING;
+
+INSERT INTO analytics.event_definitions (name, description, category, payload_schema, source_locations, is_system) VALUES
+('admin.product_deleted', 'Fired when an admin deletes a product', 'admin',
+ '[{"field":"product_id","type":"UUID","description":"Deleted product ID"}]',
+ '[{"file":"modules/ecommerce/routes/product_routes.py","snippet":"record_event(db, ..., \"admin.product_deleted\", ...)"}]',
+ false)
+ON CONFLICT (name) DO NOTHING;
+
+INSERT INTO analytics.event_definitions (name, description, category, payload_schema, source_locations, is_system) VALUES
+('admin.variant_created', 'Fired when an admin creates a product variant', 'admin',
+ '[{"field":"product_id","type":"UUID","description":"Parent product ID"},{"field":"variant_name","type":"string","description":"Variant name"},{"field":"stock_quantity","type":"number","description":"Initial stock quantity"}]',
+ '[{"file":"modules/ecommerce/routes/product_routes.py","snippet":"record_event(db, ..., \"admin.variant_created\", ...)"}]',
+ false)
+ON CONFLICT (name) DO NOTHING;
+
+INSERT INTO analytics.event_definitions (name, description, category, payload_schema, source_locations, is_system) VALUES
+('admin.category_created', 'Fired when an admin creates a category', 'admin',
+ '[{"field":"category_id","type":"UUID","description":"Created category ID"},{"field":"category_name","type":"string","description":"Category name"}]',
+ '[{"file":"modules/ecommerce/routes/category_routes.py","snippet":"record_event(db, ..., \"admin.category_created\", ...)"}]',
+ false)
+ON CONFLICT (name) DO NOTHING;
+
+INSERT INTO analytics.event_definitions (name, description, category, payload_schema, source_locations, is_system) VALUES
+('admin.category_updated', 'Fired when an admin updates a category', 'admin',
+ '[{"field":"category_id","type":"UUID","description":"Updated category ID"},{"field":"category_name","type":"string","description":"Category name"}]',
+ '[{"file":"modules/ecommerce/routes/category_routes.py","snippet":"record_event(db, ..., \"admin.category_updated\", ...)"}]',
+ false)
+ON CONFLICT (name) DO NOTHING;
+
+INSERT INTO analytics.event_definitions (name, description, category, payload_schema, source_locations, is_system) VALUES
+('admin.category_deleted', 'Fired when an admin deletes a category', 'admin',
+ '[{"field":"category_id","type":"UUID","description":"Deleted category ID"}]',
+ '[{"file":"modules/ecommerce/routes/category_routes.py","snippet":"record_event(db, ..., \"admin.category_deleted\", ...)"}]',
+ false)
+ON CONFLICT (name) DO NOTHING;
+
+INSERT INTO analytics.event_definitions (name, description, category, payload_schema, source_locations, is_system) VALUES
+('admin.coupon_created', 'Fired when an admin creates a coupon/discount', 'admin',
+ '[{"field":"coupon_code","type":"string","description":"Coupon code"},{"field":"type","type":"string","description":"Discount type"},{"field":"value","type":"number","description":"Discount value"}]',
+ '[{"file":"modules/ecommerce/routes/discount_routes.py","snippet":"record_event(db, ..., \"admin.coupon_created\", ...)"}]',
+ false)
+ON CONFLICT (name) DO NOTHING;
+
+INSERT INTO analytics.event_definitions (name, description, category, payload_schema, source_locations, is_system) VALUES
+('admin.coupon_updated', 'Fired when an admin updates a coupon/discount', 'admin',
+ '[{"field":"discount_id","type":"UUID","description":"Discount ID"},{"field":"coupon_code","type":"string","description":"Coupon code"}]',
+ '[{"file":"modules/ecommerce/routes/discount_routes.py","snippet":"record_event(db, ..., \"admin.coupon_updated\", ...)"}]',
+ false)
+ON CONFLICT (name) DO NOTHING;
+
+INSERT INTO analytics.event_definitions (name, description, category, payload_schema, source_locations, is_system) VALUES
+('admin.coupon_deactivated', 'Fired when an admin deactivates a coupon/discount', 'admin',
+ '[{"field":"discount_id","type":"UUID","description":"Discount ID"},{"field":"coupon_code","type":"string","description":"Coupon code"}]',
+ '[{"file":"modules/ecommerce/routes/discount_routes.py","snippet":"record_event(db, ..., \"admin.coupon_deactivated\", ...)"}]',
+ false)
+ON CONFLICT (name) DO NOTHING;
+
+INSERT INTO analytics.event_definitions (name, description, category, payload_schema, source_locations, is_system) VALUES
+('admin.template_created', 'Fired when an admin creates an email template', 'admin',
+ '[{"field":"template_id","type":"UUID","description":"Template ID"},{"field":"template_name","type":"string","description":"Template name"},{"field":"category","type":"string","description":"Template category"}]',
+ '[{"file":"modules/marketing/routes/admin_routes.py","snippet":"record_event(db, ..., \"admin.template_created\", ...)"}]',
+ false)
+ON CONFLICT (name) DO NOTHING;
+
+INSERT INTO analytics.event_definitions (name, description, category, payload_schema, source_locations, is_system) VALUES
+('admin.template_updated', 'Fired when an admin updates an email template', 'admin',
+ '[{"field":"template_id","type":"UUID","description":"Template ID"},{"field":"template_name","type":"string","description":"Template name"}]',
+ '[{"file":"modules/marketing/routes/admin_routes.py","snippet":"record_event(db, ..., \"admin.template_updated\", ...)"}]',
+ false)
+ON CONFLICT (name) DO NOTHING;
+
+INSERT INTO analytics.event_definitions (name, description, category, payload_schema, source_locations, is_system) VALUES
+('admin.template_deleted', 'Fired when an admin deletes an email template', 'admin',
+ '[{"field":"template_id","type":"UUID","description":"Template ID"}]',
+ '[{"file":"modules/marketing/routes/admin_routes.py","snippet":"record_event(db, ..., \"admin.template_deleted\", ...)"}]',
+ false)
+ON CONFLICT (name) DO NOTHING;
+
 -- DOWN
 DROP TABLE IF EXISTS analytics.event_definitions CASCADE;

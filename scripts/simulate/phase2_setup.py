@@ -779,7 +779,7 @@ def _placeholder_url(product_name: str, category: str, index: int = 0) -> str:
     # Encode product name for URL (replace spaces with +)
     text = product_name.replace(" ", "+")
     suffix = f"+{index + 1}" if index > 0 else ""
-    return f"https://placehold.co/600x400/{bg}/{fg}?text={text}{suffix}"
+    return f"https://placehold.co/600x400/{bg}/{fg}.png?text={text}{suffix}"
 
 
 # ---------------------------------------------------------------------------
@@ -887,6 +887,72 @@ def run(api_url: str, admin_email: str, admin_password: str) -> dict:
 
     auth = {"Authorization": f"Bearer {token}", "X-Csrf-Token": csrf}
 
+    # ── 3b. Grant analytics consent for admin (required for pageview tracking) ──
+    try:
+        db_url = _get_db_url()
+        conn = psycopg2.connect(db_url)
+        conn.autocommit = True
+        cur = conn.cursor()
+        # Get admin user ID
+        cur.execute("SELECT id FROM core.users WHERE email = %s", (admin_email,))
+        admin_row = cur.fetchone()
+        if admin_row:
+            admin_uid = str(admin_row[0])
+            # Get session ID from JWT claims
+            import json
+            import base64
+
+            # Decode JWT payload (middle segment) to get session_id
+            parts = token.split(".")
+            if len(parts) == 3:
+                # Add padding
+                payload_b64 = parts[1] + "=" * (4 - len(parts[1]) % 4)
+                payload = json.loads(base64.urlsafe_b64decode(payload_b64))
+                admin_sid = payload.get("sid", "")
+            else:
+                admin_sid = ""
+
+            cur.execute(
+                "INSERT INTO gdpr.cookie_preferences "
+                "(user_id, session_id, necessary, analytics, marketing, preferences) "
+                "VALUES (%s, %s, true, true, true, true) "
+                "ON CONFLICT DO NOTHING",
+                (admin_uid, admin_sid),
+            )
+            cur.execute(
+                "INSERT INTO gdpr.consent_records "
+                "(user_id, consent_type, granted) "
+                "VALUES (%s, 'analytics', true) "
+                "ON CONFLICT DO NOTHING",
+                (admin_uid,),
+            )
+            logger.info("Granted analytics consent for admin user")
+        cur.close()
+        conn.close()
+    except Exception as e:
+        logger.warning("Admin consent grant failed: %s", e)
+
+    # ── Helper: simulate admin page navigation ──
+    def _track_pageview(
+        path: str, referrer: str | None = None, duration_ms: int = 8000
+    ):
+        """Record a pageview for the admin user to simulate navigation."""
+        try:
+            client.post(
+                f"{api_url}/tracking/pageview",
+                json={
+                    "path": path,
+                    "referrer": referrer,
+                    "duration_ms": duration_ms,
+                },
+                headers=auth,
+            )
+        except Exception:
+            pass  # Non-critical — don't fail setup over tracking
+
+    # Simulate admin landing on dashboard after login
+    _track_pageview("/admin", referrer="/auth/login", duration_ms=5000)
+
     # ── Rate-limit bypass: flush the rate-limit keys so setup isn't throttled ──
     def _flush_rate_keys():
         """Clear rate-limit keys in Redis so admin setup isn't throttled."""
@@ -907,6 +973,7 @@ def run(api_url: str, admin_email: str, admin_password: str) -> dict:
 
     # ── 4. Create categories (parent + subcategories with parent_id) ──
     _flush_rate_keys()
+    _track_pageview("/admin/catalog/categories", referrer="/admin", duration_ms=6000)
     category_map = {}  # name → id (includes both parents and children)
 
     for parent_data in CATEGORY_TREE:
@@ -975,6 +1042,11 @@ def run(api_url: str, admin_email: str, admin_password: str) -> dict:
 
     # ── 5. Create products with variants and images ──
     _flush_rate_keys()
+    _track_pageview(
+        "/admin/catalog/products",
+        referrer="/admin/catalog/categories",
+        duration_ms=12000,
+    )
     product_name_to_id = {}  # For coupon product restrictions
 
     for idx, prod_data in enumerate(PRODUCTS):
@@ -1105,6 +1177,11 @@ def run(api_url: str, admin_email: str, admin_password: str) -> dict:
 
     # ── 7. Create coupons ──
     _flush_rate_keys()
+    _track_pageview(
+        "/admin/catalog/coupons",
+        referrer="/admin/catalog/products",
+        duration_ms=8000,
+    )
     for coupon_data in COUPONS:
         try:
             payload = {
@@ -1188,7 +1265,41 @@ def run(api_url: str, admin_email: str, admin_password: str) -> dict:
     except Exception as e:
         result["errors"].append(f"Coupon exhaustion failed: {e}")
 
-    # ── 9. Wait for Stripe sync ──
+    # Simulate admin viewing templates page
+    _track_pageview(
+        "/admin/marketing/templates",
+        referrer="/admin/catalog/coupons",
+        duration_ms=10000,
+    )
+
+    # ── 9. Archive a few products (generates admin.product_deleted events) ──
+    _flush_rate_keys()
+    PRODUCTS_TO_ARCHIVE = [
+        "Mystery Box",       # Draft → archive (admin decided against launching)
+        "Limited Sneakers",  # Draft → archive (collaboration fell through)
+        "Kitchen Timer",      # Active → archive (discontinued)
+    ]
+    result["archived_products"] = []
+    for pname in PRODUCTS_TO_ARCHIVE:
+        pid = product_name_to_id.get(pname)
+        if not pid:
+            continue
+        try:
+            resp = client.delete(
+                f"{api_url}/ecommerce/products/{pid}",
+                headers=auth,
+            )
+            if resp.status_code == 204:
+                result["archived_products"].append(pname)
+                logger.info("Archived product: %s", pname)
+            else:
+                result["errors"].append(
+                    f"Archive {pname}: {resp.status_code} {resp.text}"
+                )
+        except Exception as e:
+            result["errors"].append(f"Archive {pname}: {e}")
+
+    # ── 10. Wait for Stripe sync ──
     _flush_rate_keys()
     active_products = [p for p in result["products"] if p["status"] == "active"]
     if active_products:
@@ -1212,7 +1323,7 @@ def run(api_url: str, admin_email: str, admin_password: str) -> dict:
         else:
             result["errors"].append("Stripe sync timed out after 60s")
 
-    # ── 10. Store auth tokens for later phases ──
+    # ── 11. Store auth tokens for later phases ──
     result["admin_token"] = token
     result["admin_csrf"] = csrf
 
@@ -1220,18 +1331,59 @@ def run(api_url: str, admin_email: str, admin_password: str) -> dict:
     active_count = len([p for p in result["products"] if p["status"] == "active"])
     draft_count = len([p for p in result["products"] if p["status"] == "draft"])
     sub_count = len([p for p in result["products"] if p["pricing_type"] == "recurring"])
+    archived_count = len(result.get("archived_products", []))
     logger.info(
-        "Phase 2 complete: %d products (%d active, %d draft, %d subs), "
+        "Phase 2 complete: %d products (%d active, %d draft, %d subs, %d archived), "
         "%d categories (%d parents + %d subcategories), %d coupons",
         len(result["products"]),
         active_count,
         draft_count,
         sub_count,
+        archived_count,
         len(result["categories"]),
         parent_count,
         child_count,
         len(result["coupons"]),
     )
+
+    # ── Analytics summary ──
+    try:
+        db_url = _get_db_url()
+        conn = psycopg2.connect(db_url)
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT event_type, count(*) FROM analytics.events "
+            "WHERE event_type LIKE 'admin.%%' GROUP BY event_type ORDER BY event_type"
+        )
+        admin_events = dict(cur.fetchall())
+        cur.execute("SELECT count(*) FROM analytics.page_views")
+        page_view_count = cur.fetchone()[0]
+        cur.execute("SELECT count(*) FROM analytics.analytics_sessions")
+        session_count = cur.fetchone()[0]
+        cur.execute(
+            "SELECT count(*) FROM marketing.email_templates WHERE is_builtin = true"
+        )
+        template_count = cur.fetchone()[0]
+        cur.close()
+        conn.close()
+
+        result["analytics_summary"] = {
+            "admin_events": admin_events,
+            "page_views": page_view_count,
+            "sessions": session_count,
+            "builtin_templates": template_count,
+        }
+        total_admin = sum(admin_events.values())
+        logger.info(
+            "Analytics: %d admin events (%s), %d page views, %d sessions, %d templates",
+            total_admin,
+            ", ".join(f"{k}={v}" for k, v in admin_events.items()),
+            page_view_count,
+            session_count,
+            template_count,
+        )
+    except Exception as e:
+        logger.warning("Analytics summary failed: %s", e)
 
     client.close()
     return result

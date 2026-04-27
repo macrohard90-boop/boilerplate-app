@@ -23,6 +23,9 @@ docker/volumes/
 *.swp
 *.swo
 
+# Simulation reports
+reports/
+
 # OS
 .DS_Store
 Thumbs.db
