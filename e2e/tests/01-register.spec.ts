@@ -39,9 +39,14 @@ function getConsentLevel(
 // Override with TEST_USER_COUNT for fine-grained control.
 const profile = process.env.TEST_PROFILE || "smoke";
 const defaultCount = profile === "full" ? 50 : 10;
-const userCount = parseInt(process.env.TEST_USER_COUNT || String(defaultCount), 10);
+const userCount = parseInt(
+  process.env.TEST_USER_COUNT || String(defaultCount),
+  10,
+);
 const allUsers = getAllUsers().slice(0, userCount);
-console.log(`  [${profile}] Registering ${allUsers.length} of ${getAllUsers().length} users`);
+console.log(
+  `  [${profile}] Registering ${allUsers.length} of ${getAllUsers().length} users`,
+);
 
 for (const user of allUsers) {
   test(`Register ${user.persona} #${user.index}: ${user.email}`, async ({
@@ -66,9 +71,7 @@ for (const user of allUsers) {
     // Fill registration form
     await page.locator('input[placeholder="John"]').fill(user.firstName);
     await page.locator('input[placeholder="Doe"]').fill(user.lastName);
-    await page
-      .locator('input[placeholder="you@example.com"]')
-      .fill(user.email);
+    await page.locator('input[placeholder="you@example.com"]').fill(user.email);
     await page
       .locator('input[placeholder="Min 8 characters"]')
       .fill(user.password);
@@ -78,10 +81,9 @@ for (const user of allUsers) {
 
     // Wait for the page to leave /auth/register — either dashboard (new) or error (existing)
     try {
-      await page.waitForURL(
-        (url) => !url.pathname.includes("/auth/register"),
-        { timeout: 30000 },
-      );
+      await page.waitForURL((url) => !url.pathname.includes("/auth/register"), {
+        timeout: 30000,
+      });
     } catch {
       // Still on register page — check if there's an error message
     }
@@ -178,19 +180,17 @@ for (const user of allUsers) {
         await page.waitForTimeout(300);
 
         // Click "Save Preferences"
-        await page
-          .getByRole("button", { name: /Save Preferences/i })
-          .click();
+        await page.getByRole("button", { name: /Save Preferences/i }).click();
         console.log(
           `  ${user.email}: consent = custom (analytics YES, marketing NO)`,
         );
       } else {
         // reject_analytics — leave everything at defaults (all OFF except required)
         // Just click "Save Preferences"
-        await page
-          .getByRole("button", { name: /Save Preferences/i })
-          .click();
-        console.log(`  ${user.email}: consent = reject_analytics (no tracking)`);
+        await page.getByRole("button", { name: /Save Preferences/i }).click();
+        console.log(
+          `  ${user.email}: consent = reject_analytics (no tracking)`,
+        );
       }
 
       // Wait for consent to save (POST /gdpr/consent × 6 + POST /gdpr/cookies)
@@ -221,3 +221,67 @@ for (const user of allUsers) {
     await context.close();
   });
 }
+
+// ── Auth error event tests ──
+// Run AFTER the registration loop so user 001 is guaranteed to exist.
+
+test("Auth error: signup_failed (duplicate email)", async ({ page }) => {
+  const collector = new EventCollector();
+  collector.attach(page);
+
+  await page.goto("/auth/register");
+  await page.waitForLoadState("networkidle");
+  await acceptAllCookies(page);
+
+  // User 001 was just registered above — attempting again triggers duplicate error
+  await page.locator('input[placeholder="John"]').fill("Duplicate");
+  await page.locator('input[placeholder="Doe"]').fill("Test");
+  await page
+    .locator('input[placeholder="you@example.com"]')
+    .fill("adrian+test001@estmgroup.com");
+  await page
+    .locator('input[placeholder="Min 8 characters"]')
+    .fill("TestPass123!");
+
+  await page.locator('button[type="submit"]').click();
+
+  // Wait for error to appear (stays on register page)
+  await page
+    .locator('[class*="accent-pink"]')
+    .first()
+    .waitFor({ state: "visible", timeout: 10000 })
+    .catch(() => {});
+  await page.waitForTimeout(1500);
+
+  const events = collector.summary();
+  console.log("  signup_failed test events:", events);
+  expect(page.url()).toContain("/auth/register");
+});
+
+test("Auth error: login_failed (wrong password)", async ({ page }) => {
+  const collector = new EventCollector();
+  collector.attach(page);
+
+  await page.goto("/auth/login");
+  await page.waitForLoadState("networkidle");
+  await acceptAllCookies(page);
+
+  await page
+    .locator('input[type="email"]')
+    .fill("adrian+test001@estmgroup.com");
+  await page.locator('input[type="password"]').fill("WrongPassword999!");
+
+  await page.locator('button[type="submit"]').click();
+
+  // Wait for error to appear (stays on login page)
+  await page
+    .locator('[class*="accent-pink"]')
+    .first()
+    .waitFor({ state: "visible", timeout: 10000 })
+    .catch(() => {});
+  await page.waitForTimeout(1500);
+
+  const events = collector.summary();
+  console.log("  login_failed test events:", events);
+  expect(page.url()).toContain("/auth/login");
+});
