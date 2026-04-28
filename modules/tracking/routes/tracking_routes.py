@@ -11,6 +11,7 @@ from backend.core.config import settings
 from backend.core.database import get_db
 from backend.core.dependencies import get_optional_user
 from backend.core.redis import get_redis
+from modules.auth.services import token_service
 from modules.tracking.models.schemas import (
     EventBatch,
     EventCreate,
@@ -152,6 +153,18 @@ async def record_event(
 
     user_id = user["user_id"] if user else None
     session_id = user.get("session_id") if user else x_session_id
+
+    # sendBeacon fallback: extract user from inline _access_token in body
+    # when the Authorization header is absent.
+    if not user_id and data.access_token:
+        try:
+            claims = token_service.decode_access_token(data.access_token)
+            user_id = claims.get("sub")
+            session_id = session_id or claims.get("sid")
+        except Exception:
+            pass  # Invalid token — continue as anonymous
+    if not session_id and data.session_id_inline:
+        session_id = data.session_id_inline
 
     # Auth operational events are exempt from GDPR consent — they record
     # the fact that an account action happened, not user behaviour analytics.

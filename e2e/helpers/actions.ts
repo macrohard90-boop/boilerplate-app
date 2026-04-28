@@ -77,7 +77,10 @@ export async function filterByCategory(page: Page): Promise<string | null> {
 }
 
 /** Click the Nth category filter pill (0-indexed). Deterministic. */
-export async function filterByNthCategory(page: Page, n: number): Promise<string | null> {
+export async function filterByNthCategory(
+  page: Page,
+  n: number,
+): Promise<string | null> {
   // Category pills are rounded-full buttons — skip "All"
   const pills = page
     .locator("button.rounded-full")
@@ -123,7 +126,10 @@ export async function viewRandomProduct(page: Page): Promise<string | null> {
 }
 
 /** Click the Nth product (0-indexed) from the listing. Deterministic. */
-export async function viewNthProduct(page: Page, n: number): Promise<string | null> {
+export async function viewNthProduct(
+  page: Page,
+  n: number,
+): Promise<string | null> {
   const links = page.locator('a[href*="/products/"]');
   // Wait for product cards to render before trying to click
   await links
@@ -148,24 +154,16 @@ export async function viewProduct(page: Page, slug: string): Promise<void> {
 
 /** Select a variant on the product detail page if variants exist. */
 export async function selectVariant(page: Page): Promise<boolean> {
-  // Look for variant-like elements (skip disabled ones — out of stock variants)
-  const productVariants = page
-    .locator('[class*="variant"]:not([disabled])')
-    .or(page.locator("[data-variant]:not([disabled])"));
-  const variantCount = await productVariants.count();
-  if (variantCount > 1) {
-    await productVariants.nth(1).click();
-    await page.waitForTimeout(300);
-    return true;
-  }
-  // Fallback: look for enabled short-text buttons that aren't action buttons
-  const btns = page.locator("button:not([disabled])").filter({
-    hasText: /^(?!Add to Cart|Subscribe|Buy|Get Access|Remove|Back|Out of Stock|\+|-).{1,20}$/,
-  });
-  const count = await btns.count();
+  // The variant section has a label "Variant" followed by a div of buttons.
+  // Find the container by looking for the label, then click a non-selected,
+  // non-disabled button inside its sibling div.
+  const variantSection = page.locator('label:has-text("Variant") + div');
+  const buttons = variantSection.locator("button:not([disabled])");
+  const count = await buttons.count().catch(() => 0);
   if (count > 1) {
-    await btns.nth(1).click();
-    await page.waitForTimeout(300);
+    // Click the second variant (first is usually pre-selected as "Default")
+    await buttons.nth(1).click();
+    await page.waitForTimeout(500);
     return true;
   }
   return false;
@@ -211,7 +209,10 @@ export async function viewCart(page: Page): Promise<void> {
 /** Increase quantity of the first item in cart. */
 export async function increaseQuantity(page: Page): Promise<void> {
   // Scope to cart item rows to avoid hitting unrelated "+" buttons
-  const plusBtn = page.locator('.glass.rounded-xl button').filter({ hasText: "+" }).first();
+  const plusBtn = page
+    .locator(".glass.rounded-xl button")
+    .filter({ hasText: "+" })
+    .first();
   if (await plusBtn.isVisible().catch(() => false)) {
     await plusBtn.click();
     await page.waitForTimeout(500);
@@ -220,7 +221,10 @@ export async function increaseQuantity(page: Page): Promise<void> {
 
 /** Decrease quantity of the first item in cart. */
 export async function decreaseQuantity(page: Page): Promise<void> {
-  const minusBtn = page.locator('.glass.rounded-xl button').filter({ hasText: "-" }).first();
+  const minusBtn = page
+    .locator(".glass.rounded-xl button")
+    .filter({ hasText: "-" })
+    .first();
   if (await minusBtn.isVisible().catch(() => false)) {
     await minusBtn.click();
     await page.waitForTimeout(500);
@@ -436,9 +440,7 @@ export async function removeFromWishlist(page: Page): Promise<void> {
     return;
   }
   // Fallback: icon button with SVG
-  const iconBtn = page
-    .locator('button:has(svg[viewBox="0 0 24 24"])')
-    .first();
+  const iconBtn = page.locator('button:has(svg[viewBox="0 0 24 24"])').first();
   if (await iconBtn.isVisible().catch(() => false)) {
     await iconBtn.click();
     await page.waitForTimeout(500);
@@ -507,8 +509,10 @@ async function gotoDashboard(page: Page, path: string): Promise<void> {
         });
         if (!res.ok) return false;
         const data = await res.json();
-        if (data.access_token) sessionStorage.setItem("access_token", data.access_token);
-        if (data.csrf_token) sessionStorage.setItem("csrf_token", data.csrf_token);
+        if (data.access_token)
+          sessionStorage.setItem("access_token", data.access_token);
+        if (data.csrf_token)
+          sessionStorage.setItem("csrf_token", data.csrf_token);
         return true;
       } catch {
         return false;

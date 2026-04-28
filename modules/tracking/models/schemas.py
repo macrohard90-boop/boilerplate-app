@@ -23,6 +23,9 @@ class PageViewBatch(BaseModel):
 class EventCreate(BaseModel):
     event_type: str = Field(..., max_length=100)
     event_data: dict[str, Any] = Field(default_factory=dict)
+    # Inline auth for sendBeacon (can't set headers). Stripped before storage.
+    access_token: str | None = Field(None, alias="_access_token")
+    session_id_inline: str | None = Field(None, alias="_session_id")
 
 
 class EventBatch(BaseModel):
