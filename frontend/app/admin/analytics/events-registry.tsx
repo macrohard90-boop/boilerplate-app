@@ -179,7 +179,15 @@ export default function EventsRegistryTab() {
 
               {/* Events table */}
               <div className="glass rounded-xl overflow-hidden">
-                <table className="w-full text-sm">
+                <table className="w-full text-sm table-fixed">
+                  <colgroup>
+                    <col className="w-[22%]" />
+                    <col className="w-[38%]" />
+                    <col className="w-[10%]" />
+                    <col className="w-[10%]" />
+                    <col className="w-[10%]" />
+                    <col className="w-[10%]" />
+                  </colgroup>
                   <thead>
                     <tr className="text-text-muted text-xs text-left border-b border-glass-border/50">
                       <th className="px-4 py-2.5 font-medium">Event</th>
