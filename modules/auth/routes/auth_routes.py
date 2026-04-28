@@ -316,9 +316,11 @@ async def refresh(
             },
         )
 
-    # Rotate: expire old refresh with a short grace period so the client
+    # Rotate: expire old refresh with a grace period so the client
     # can safely store the new cookie before the old one becomes invalid.
-    await token_service.revoke_refresh_token(redis, refresh_token, grace_seconds=30)
+    await token_service.revoke_refresh_token(
+        redis, refresh_token, grace_seconds=settings.refresh_token_grace
+    )
 
     user = await auth_service.get_user_by_id(db, user_id)
     if not user:

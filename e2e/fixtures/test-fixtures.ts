@@ -23,28 +23,37 @@ export const test = base.extend<{
 /**
  * Call POST /auth/refresh and seed sessionStorage with the resulting tokens.
  * Must be called while on a page with the correct origin (so cookies are sent).
+ * Retries up to `maxRetries` times with a delay between attempts.
  * Returns true if refresh succeeded.
  */
-async function seedSessionTokens(page: Page): Promise<boolean> {
-  return page.evaluate(async () => {
-    try {
-      const res = await fetch("/api/auth/refresh", {
-        method: "POST",
-        credentials: "include",
-      });
-      if (!res.ok) return false;
-      const data = await res.json();
-      if (data.access_token) {
-        sessionStorage.setItem("access_token", data.access_token);
+async function seedSessionTokens(page: Page, maxRetries = 2): Promise<boolean> {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    const ok = await page.evaluate(async () => {
+      try {
+        const res = await fetch("/api/auth/refresh", {
+          method: "POST",
+          credentials: "include",
+        });
+        if (!res.ok) return false;
+        const data = await res.json();
+        if (data.access_token) {
+          sessionStorage.setItem("access_token", data.access_token);
+        }
+        if (data.csrf_token) {
+          sessionStorage.setItem("csrf_token", data.csrf_token);
+        }
+        return true;
+      } catch {
+        return false;
       }
-      if (data.csrf_token) {
-        sessionStorage.setItem("csrf_token", data.csrf_token);
-      }
-      return true;
-    } catch {
-      return false;
+    });
+    if (ok) return true;
+    if (attempt < maxRetries) {
+      console.log(`  seedSessionTokens attempt ${attempt} failed, retrying...`);
+      await page.waitForTimeout(1000);
     }
-  });
+  }
+  return false;
 }
 
 /** Navigate to /products and wait for it to be interactive. Retries once on failure. */
@@ -61,10 +70,34 @@ async function gotoProducts(page: Page): Promise<void> {
       return;
     } catch (err) {
       if (attempt === 2) throw err;
-      console.log(`  Products page load failed (attempt ${attempt}), retrying...`);
+      console.log(
+        `  Products page load failed (attempt ${attempt}), retrying...`,
+      );
       await page.waitForTimeout(2000);
     }
   }
+}
+
+/**
+ * Perform a fresh login, seed sessionStorage, and navigate to /products.
+ * Consolidated helper to avoid repeating this 3-step sequence.
+ */
+async function freshLoginAndSeed(
+  page: Page,
+  email: string,
+  password: string,
+): Promise<void> {
+  await loginUser(page, email, password);
+  // After login the browser has a fresh refresh cookie — wait briefly
+  // for the Set-Cookie to be processed before calling /auth/refresh.
+  await page.waitForTimeout(500);
+  const seeded = await seedSessionTokens(page);
+  if (!seeded) {
+    console.log(
+      `  WARNING: seedSessionTokens failed after fresh login for ${email}`,
+    );
+  }
+  await gotoProducts(page);
 }
 
 /** Create a browser context for a specific test user (loads auth + device). */
@@ -86,7 +119,9 @@ export async function createUserContext(
     contextOptions.storageState = statePath;
     hasStorageState = true;
   } else {
-    console.log(`  WARNING: No auth state file for ${user.email} — will login fresh`);
+    console.log(
+      `  WARNING: No auth state file for ${user.email} — will login fresh`,
+    );
   }
 
   if (user.device.userAgent) {
@@ -117,18 +152,14 @@ export async function createUserContext(
       await gotoProducts(page);
     } else {
       // Refresh token expired — fall back to fresh login
-      console.log(`  ${user.email}: stored refresh token expired, logging in fresh`);
-      await loginUser(page, user.email, user.password);
-      // loginUser redirects away from /auth/login — seed sessionStorage
-      // from the refresh cookie that the login response set
-      await seedSessionTokens(page);
-      await gotoProducts(page);
+      console.log(
+        `  ${user.email}: stored refresh token expired, logging in fresh`,
+      );
+      await freshLoginAndSeed(page, user.email, user.password);
     }
   } else {
     // No stored auth — do a fresh login
-    await loginUser(page, user.email, user.password);
-    await seedSessionTokens(page);
-    await gotoProducts(page);
+    await freshLoginAndSeed(page, user.email, user.password);
   }
 
   await acceptAllCookies(page);

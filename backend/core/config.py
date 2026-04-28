@@ -41,6 +41,7 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     jwt_expiry: int = 3600
     refresh_token_ttl: int = 604800
+    refresh_token_grace: int = 300  # seconds old token stays valid after rotation
     max_sessions_per_user: int = 5
 
     @property
