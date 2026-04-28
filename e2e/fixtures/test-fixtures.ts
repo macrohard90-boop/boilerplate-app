@@ -30,7 +30,8 @@ export async function createUserContext(
     hasTouch: user.device.hasTouch,
   };
 
-  // Load saved auth state if it exists
+  // Load saved auth state — preserves consent localStorage + cookie banner state.
+  // The JWT inside may be expired, so we always re-login below.
   try {
     const path = authStatePath(user.email);
     contextOptions.storageState = path;
@@ -49,17 +50,15 @@ export async function createUserContext(
   const collector = new EventCollector();
   collector.attach(page);
 
-  // Navigate to the site, then accept cookies via localStorage
+  // Always do a fresh login to get a new JWT.
+  // The saved storageState JWT expires after 15 min (jwt_expiry=900),
+  // and registration alone can take 15+ min for 50 users.
+  await loginUser(page, user.email, user.password);
+
+  // Now navigate to the starting page with a fresh session
   await page.goto("/products");
   await page.waitForLoadState("domcontentloaded");
   await acceptAllCookies(page);
-
-  // If JWT expired and we got redirected to login, re-authenticate
-  if (page.url().includes("/auth/login") || page.url().includes("/auth/register")) {
-    await loginUser(page, user.email, user.password);
-    await page.goto("/products");
-    await page.waitForLoadState("domcontentloaded");
-  }
 
   return { context, page, collector };
 }
