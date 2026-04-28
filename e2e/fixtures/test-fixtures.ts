@@ -79,8 +79,11 @@ async function gotoProducts(page: Page): Promise<void> {
 }
 
 /**
- * Perform a fresh login, seed sessionStorage, and navigate to /products.
- * Consolidated helper to avoid repeating this 3-step sequence.
+ * Perform a fresh login, ensure sessionStorage has tokens, navigate to /products.
+ *
+ * After loginUser, React's auth-context on the redirected page will call
+ * POST /auth/refresh itself, rotating the token and seeding sessionStorage.
+ * We wait for that to happen rather than competing with a second refresh call.
  */
 async function freshLoginAndSeed(
   page: Page,
@@ -88,15 +91,30 @@ async function freshLoginAndSeed(
   password: string,
 ): Promise<void> {
   await loginUser(page, email, password);
-  // After login the browser has a fresh refresh cookie — wait briefly
-  // for the Set-Cookie to be processed before calling /auth/refresh.
-  await page.waitForTimeout(500);
-  const seeded = await seedSessionTokens(page);
-  if (!seeded) {
-    console.log(
-      `  WARNING: seedSessionTokens failed after fresh login for ${email}`,
+
+  // Wait for React's auth-context to finish its own refresh cycle.
+  // It stores access_token in sessionStorage once it gets a valid response.
+  for (let i = 0; i < 10; i++) {
+    const hasToken = await page.evaluate(
+      () => !!sessionStorage.getItem("access_token"),
     );
+    if (hasToken) break;
+    await page.waitForTimeout(500);
   }
+
+  // If React didn't seed it (e.g. page landed somewhere unexpected), do it ourselves
+  const hasToken = await page.evaluate(
+    () => !!sessionStorage.getItem("access_token"),
+  );
+  if (!hasToken) {
+    const seeded = await seedSessionTokens(page);
+    if (!seeded) {
+      console.log(
+        `  WARNING: could not seed sessionStorage for ${email} — continuing anyway`,
+      );
+    }
+  }
+
   await gotoProducts(page);
 }
 
