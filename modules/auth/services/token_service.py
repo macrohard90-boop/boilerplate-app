@@ -102,6 +102,18 @@ async def validate_refresh_token(
     return {"user_id": data["user_id"], "session_id": data["session_id"]}
 
 
-async def revoke_refresh_token(redis: Redis, token: str) -> None:
-    """Delete a refresh token from Redis."""
-    await redis.delete(f"{_REFRESH_PREFIX}{token}")
+async def revoke_refresh_token(
+    redis: Redis, token: str, *, grace_seconds: int = 0
+) -> None:
+    """Delete a refresh token from Redis.
+
+    When *grace_seconds* > 0 the token is kept alive for a short window
+    instead of being deleted immediately.  This prevents a race where the
+    client hasn't stored the replacement cookie yet and retries with the
+    old token (common during rapid full-page navigations).
+    """
+    key = f"{_REFRESH_PREFIX}{token}"
+    if grace_seconds > 0:
+        await redis.expire(key, grace_seconds)
+    else:
+        await redis.delete(key)

@@ -415,8 +415,7 @@ export async function addToWishlist(page: Page): Promise<void> {
 
 /** Navigate to the wishlist page. */
 export async function viewWishlist(page: Page): Promise<void> {
-  await page.goto("/dashboard/wishlists");
-  await page.waitForLoadState("networkidle");
+  await gotoDashboard(page, "/dashboard/wishlists");
 }
 
 /** Remove first item from wishlist. */
@@ -475,6 +474,47 @@ export async function logout(page: Page): Promise<void> {
 
 // ── Navigation ──
 
+/**
+ * Navigate to a dashboard page and wait for auth to settle.
+ * Dashboard pages have an auth guard that redirects to /auth/login
+ * if the session is invalid. This helper detects the redirect and
+ * retries by refreshing the auth cookie first.
+ */
+async function gotoDashboard(page: Page, path: string): Promise<void> {
+  await page.goto(path);
+  await page.waitForLoadState("networkidle");
+
+  // Give React auth context a moment to finish initializing.
+  // networkidle may resolve before the auth redirect fires.
+  await page.waitForTimeout(500);
+
+  // Check if we got redirected to the login page
+  if (page.url().includes("/auth/login")) {
+    console.log(`  AUTH: redirected to login from ${path} — retrying`);
+    // Attempt a manual refresh via the API to get a new access token
+    const refreshOk = await page.evaluate(async () => {
+      try {
+        const res = await fetch("/api/auth/refresh", {
+          method: "POST",
+          credentials: "include",
+        });
+        return res.ok;
+      } catch {
+        return false;
+      }
+    });
+
+    if (refreshOk) {
+      // Refresh worked — navigate again
+      await page.goto(path);
+      await page.waitForLoadState("networkidle");
+      await page.waitForTimeout(500);
+    } else {
+      console.log(`  AUTH: refresh also failed for ${path}`);
+    }
+  }
+}
+
 /** Navigate to the homepage. */
 export async function visitHomepage(page: Page): Promise<void> {
   await page.goto("/");
@@ -483,26 +523,22 @@ export async function visitHomepage(page: Page): Promise<void> {
 
 /** Navigate to the dashboard overview. */
 export async function visitDashboard(page: Page): Promise<void> {
-  await page.goto("/dashboard");
-  await page.waitForLoadState("networkidle");
+  await gotoDashboard(page, "/dashboard");
 }
 
 /** Navigate to the orders page. */
 export async function visitOrders(page: Page): Promise<void> {
-  await page.goto("/dashboard/orders");
-  await page.waitForLoadState("networkidle");
+  await gotoDashboard(page, "/dashboard/orders");
 }
 
 /** Navigate to the profile page. */
 export async function visitProfile(page: Page): Promise<void> {
-  await page.goto("/dashboard/profile");
-  await page.waitForLoadState("networkidle");
+  await gotoDashboard(page, "/dashboard/profile");
 }
 
 /** Navigate to the privacy settings page. */
 export async function visitPrivacy(page: Page): Promise<void> {
-  await page.goto("/dashboard/privacy");
-  await page.waitForLoadState("networkidle");
+  await gotoDashboard(page, "/dashboard/privacy");
 }
 
 /** Dismiss any open overlays (user dropdown, modals) by pressing Escape. */
