@@ -3,6 +3,7 @@
  */
 
 import { test as base, BrowserContext, Page } from "@playwright/test";
+import { existsSync } from "fs";
 import { EventCollector } from "../helpers/event-collector";
 import { TestUser, DEVICES, authStatePath } from "../helpers/users";
 import { loginUser } from "../helpers/auth";
@@ -30,13 +31,13 @@ export async function createUserContext(
     hasTouch: user.device.hasTouch,
   };
 
-  // Load saved auth state — preserves consent localStorage + cookie banner state.
-  // The JWT inside may be expired, so we always re-login below.
-  try {
-    const path = authStatePath(user.email);
-    contextOptions.storageState = path;
-  } catch {
-    // No auth state saved yet — that's fine for registration
+  // Load saved auth state — preserves JWT cookies, refresh token,
+  // consent localStorage, and cookie banner state.
+  let hasStorageState = false;
+  const statePath = authStatePath(user.email);
+  if (existsSync(statePath)) {
+    contextOptions.storageState = statePath;
+    hasStorageState = true;
   }
 
   if (user.device.userAgent) {
@@ -50,14 +51,33 @@ export async function createUserContext(
   const collector = new EventCollector();
   collector.attach(page);
 
-  // Always do a fresh login to get a new JWT.
-  // The saved storageState JWT expires after 15 min (jwt_expiry=900),
-  // and registration alone can take 15+ min for 50 users.
-  await loginUser(page, user.email, user.password);
+  if (hasStorageState) {
+    // Skip the login page entirely — go straight to /products.
+    // StorageState has auth cookies + refresh token (7-day TTL).
+    // The frontend's apiFetch auto-refreshes expired JWTs.
+    await page.goto("/products", { timeout: 30000 });
+    await page.waitForLoadState("networkidle");
 
-  // Now navigate to the starting page with a fresh session
-  await page.goto("/products");
-  await page.waitForLoadState("domcontentloaded");
+    // Verify we're authenticated by checking for user avatar in header
+    const userAvatar = page.locator("div.w-8.h-8.rounded-full").first();
+    const isAuthenticated = await userAvatar
+      .waitFor({ state: "visible", timeout: 8000 })
+      .then(() => true)
+      .catch(() => false);
+
+    if (!isAuthenticated) {
+      // Session fully expired — fall back to login
+      await loginUser(page, user.email, user.password);
+      await page.goto("/products", { timeout: 30000 });
+      await page.waitForLoadState("networkidle");
+    }
+  } else {
+    // No stored auth — do a fresh login
+    await loginUser(page, user.email, user.password);
+    await page.goto("/products", { timeout: 30000 });
+    await page.waitForLoadState("networkidle");
+  }
+
   await acceptAllCookies(page);
 
   return { context, page, collector };

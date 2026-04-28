@@ -35,37 +35,46 @@ export async function loginUser(
   email: string,
   password: string,
 ): Promise<void> {
-  await page.goto("/auth/login", { timeout: 30000 });
-  await page.waitForLoadState("domcontentloaded");
+  // Navigate to login — use "commit" so we don't wait for full render
+  // (the page may redirect before it fully loads if already authenticated)
+  await page.goto("/auth/login", { timeout: 30000, waitUntil: "commit" });
 
-  // The login page redirects to "/" if already authenticated (useAuth check).
-  // Wait for React to hydrate and auth context to resolve, then check URL.
-  await page.waitForTimeout(2500);
-  if (!page.url().includes("/auth/login")) {
-    return; // Already authenticated via stored session
+  // Race two outcomes: either the login form appears (need credentials)
+  // or the page redirects away (already authenticated via stored session).
+  // This avoids any fixed-time waits — whichever happens first wins.
+  const formPromise = page
+    .locator('input[type="email"]')
+    .waitFor({ state: "visible", timeout: 15000 })
+    .then(() => "form" as const)
+    .catch(() => "no-form" as const);
+
+  const redirectPromise = page
+    .waitForURL((url) => !url.pathname.includes("/auth/login"), {
+      timeout: 15000,
+    })
+    .then(() => "redirect" as const)
+    .catch(() => "no-redirect" as const);
+
+  const outcome = await Promise.race([formPromise, redirectPromise]);
+
+  if (outcome !== "form") {
+    // Already authenticated — page redirected or form never appeared
+    await page.waitForLoadState("domcontentloaded").catch(() => {});
+    return;
   }
 
-  // Verify login form is actually present (not mid-redirect)
-  const emailInput = page.locator('input[type="email"]');
-  const hasForm = await emailInput
-    .waitFor({ state: "visible", timeout: 5000 })
-    .then(() => true)
-    .catch(() => false);
-  if (!hasForm) {
-    return; // Login form gone — already authenticated
-  }
-
-  await emailInput.fill(email);
+  // Login form is visible — fill and submit
+  await page.locator('input[type="email"]').fill(email);
   await page.locator('input[type="password"]').fill(password);
   await page.locator('button[type="submit"]').click();
 
-  // Wait for redirect away from login page (longer timeout for slow VM)
+  // Wait for redirect away from login page
   try {
     await page.waitForURL((url) => !url.pathname.includes("/auth/login"), {
       timeout: 30000,
     });
   } catch {
-    // Redirect may have failed but session cookie might be set — try navigating directly
+    // Redirect may have failed but session cookie might be set
     await page.goto("/dashboard", { timeout: 30000 });
     await page.waitForLoadState("domcontentloaded");
   }

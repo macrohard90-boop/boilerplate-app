@@ -94,19 +94,34 @@ for (const user of allUsers) {
       await loginUser(page, user.email, user.password);
     }
 
-    // At this point we should be logged in — wait for page to settle
-    await page.waitForTimeout(2000);
-
-    // If still on an auth page, try navigating to /dashboard directly
-    // (session cookie may have been set even if redirect failed)
+    // At this point we should be logged in — verify by navigating to dashboard.
+    // The improved loginUser uses Promise.race (no fixed waits), but double-check.
     const postLoginUrl = page.url();
     if (
       postLoginUrl.includes("/auth/login") ||
       postLoginUrl.includes("/auth/register")
     ) {
+      // Session cookie may have been set even if redirect didn't complete
       await page.goto("/dashboard", { timeout: 30000 });
-      await page.waitForLoadState("domcontentloaded");
-      await page.waitForTimeout(2000);
+      await page.waitForLoadState("networkidle");
+    }
+
+    // Final auth check: verify we're not stuck on an auth page.
+    // If still on /auth/login, try one more time — go to dashboard and
+    // check for the user avatar (proves authentication).
+    const checkUrl = page.url();
+    if (
+      checkUrl.includes("/auth/login") ||
+      checkUrl.includes("/auth/register")
+    ) {
+      await page.goto("/dashboard", { timeout: 30000 });
+      await page.waitForLoadState("networkidle");
+      // Wait for auth context to resolve — look for user avatar
+      await page
+        .locator("div.w-8.h-8.rounded-full")
+        .first()
+        .waitFor({ state: "visible", timeout: 10000 })
+        .catch(() => {});
     }
 
     // Verify we're authenticated

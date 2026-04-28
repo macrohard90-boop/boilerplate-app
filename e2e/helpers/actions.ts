@@ -21,11 +21,16 @@ export async function finishJourney(
 
 // ── Product Browsing ──
 
-/** Navigate to /products and wait for the page to load. */
+/** Navigate to /products and wait for product cards to render. */
 export async function browseProducts(page: Page): Promise<number> {
   await page.goto("/products");
   await page.waitForLoadState("networkidle");
   const cards = page.locator('a[href*="/products/"]');
+  // Wait for at least one product card to render (React may still be fetching)
+  await cards
+    .first()
+    .waitFor({ state: "visible", timeout: 10000 })
+    .catch(() => {});
   const count = await cards.count();
   return count;
 }
@@ -33,6 +38,12 @@ export async function browseProducts(page: Page): Promise<number> {
 /** Type a search query into the product search input. */
 export async function searchProducts(page: Page, query: string): Promise<void> {
   const searchInput = page.locator('input[placeholder*="Search"]').first();
+  // On mobile viewports the search input may not be visible — skip if hidden
+  const visible = await searchInput
+    .waitFor({ state: "visible", timeout: 5000 })
+    .then(() => true)
+    .catch(() => false);
+  if (!visible) return;
   await searchInput.fill(query);
   await page.waitForTimeout(600);
   await page.waitForLoadState("networkidle");
@@ -96,6 +107,11 @@ export async function resetCategoryFilter(page: Page): Promise<void> {
 /** Click into a random product detail page from the listing. */
 export async function viewRandomProduct(page: Page): Promise<string | null> {
   const links = page.locator('a[href*="/products/"]');
+  // Wait for product cards to render before trying to click
+  await links
+    .first()
+    .waitFor({ state: "visible", timeout: 10000 })
+    .catch(() => {});
   const count = await links.count();
   if (count === 0) return null;
   const idx = Math.floor(Math.random() * Math.min(count, 12));
@@ -109,6 +125,11 @@ export async function viewRandomProduct(page: Page): Promise<string | null> {
 /** Click the Nth product (0-indexed) from the listing. Deterministic. */
 export async function viewNthProduct(page: Page, n: number): Promise<string | null> {
   const links = page.locator('a[href*="/products/"]');
+  // Wait for product cards to render before trying to click
+  await links
+    .first()
+    .waitFor({ state: "visible", timeout: 10000 })
+    .catch(() => {});
   const count = await links.count();
   if (count === 0) return null;
   const idx = n % count;
@@ -127,18 +148,18 @@ export async function viewProduct(page: Page, slug: string): Promise<void> {
 
 /** Select a variant on the product detail page if variants exist. */
 export async function selectVariant(page: Page): Promise<boolean> {
-  // Look for variant-like elements
+  // Look for variant-like elements (skip disabled ones — out of stock variants)
   const productVariants = page
-    .locator('[class*="variant"]')
-    .or(page.locator("[data-variant]"));
+    .locator('[class*="variant"]:not([disabled])')
+    .or(page.locator("[data-variant]:not([disabled])"));
   const variantCount = await productVariants.count();
   if (variantCount > 1) {
     await productVariants.nth(1).click();
     await page.waitForTimeout(300);
     return true;
   }
-  // Fallback: look for short-text buttons that aren't action buttons
-  const btns = page.locator("button").filter({
+  // Fallback: look for enabled short-text buttons that aren't action buttons
+  const btns = page.locator("button:not([disabled])").filter({
     hasText: /^(?!Add to Cart|Subscribe|Buy|Get Access|Remove|Back|Out of Stock|\+|-).{1,20}$/,
   });
   const count = await btns.count();
@@ -494,6 +515,12 @@ export async function dismissOverlays(page: Page): Promise<void> {
 export async function backToProducts(page: Page): Promise<void> {
   await page.goto("/products");
   await page.waitForLoadState("networkidle");
+  // Wait for product cards to render (React SPA may still be fetching)
+  await page
+    .locator('a[href*="/products/"]')
+    .first()
+    .waitFor({ state: "visible", timeout: 10000 })
+    .catch(() => {});
 }
 
 // ── Orders ──
