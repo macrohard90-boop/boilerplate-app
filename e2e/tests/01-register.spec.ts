@@ -38,7 +38,7 @@ function getConsentLevel(
 //   smoke (default) → 5 users    full → all 50
 // Override with TEST_USER_COUNT for fine-grained control.
 const profile = process.env.TEST_PROFILE || "smoke";
-const defaultCount = profile === "full" ? 50 : 5;
+const defaultCount = profile === "full" ? 50 : 10;
 const userCount = parseInt(process.env.TEST_USER_COUNT || String(defaultCount), 10);
 const allUsers = getAllUsers().slice(0, userCount);
 console.log(`  [${profile}] Registering ${allUsers.length} of ${getAllUsers().length} users`);

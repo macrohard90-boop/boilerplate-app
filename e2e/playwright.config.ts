@@ -5,7 +5,7 @@ const BASE_URL = process.env.BASE_URL || "http://34.30.88.59";
 /**
  * Test profile — controls which journey files run.
  *
- *   TEST_PROFILE=smoke   → 5 users, 1 worker, sequential (default)
+ *   TEST_PROFILE=smoke   → 10 users, 1 worker, sequential (default)
  *   TEST_PROFILE=full    → 50 users, 2 workers, parallel
  *
  * Usage:
@@ -41,8 +41,10 @@ export default defineConfig({
       name: "chromium",
       use: { ...devices["Desktop Chrome"] },
       dependencies: ["setup"],
-      // smoke = only the 5-user file; full = all journey files
-      testMatch: isFull ? "0[2-9]-*.spec.ts" : "02-users-001-005.spec.ts",
+      // smoke = users 001-010 files; full = all journey files
+      testMatch: isFull
+        ? "0[2-9]-*.spec.ts"
+        : ["02-users-001-005.spec.ts", "03-users-006-010.spec.ts"],
       testIgnore: "01-register.spec.ts",
     },
   ],

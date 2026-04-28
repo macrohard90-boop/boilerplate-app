@@ -492,13 +492,18 @@ async function gotoDashboard(page: Page, path: string): Promise<void> {
   if (page.url().includes("/auth/login")) {
     console.log(`  AUTH: redirected to login from ${path} — retrying`);
     // Attempt a manual refresh via the API to get a new access token
+    // and seed sessionStorage so subsequent navigations work too
     const refreshOk = await page.evaluate(async () => {
       try {
         const res = await fetch("/api/auth/refresh", {
           method: "POST",
           credentials: "include",
         });
-        return res.ok;
+        if (!res.ok) return false;
+        const data = await res.json();
+        if (data.access_token) sessionStorage.setItem("access_token", data.access_token);
+        if (data.csrf_token) sessionStorage.setItem("csrf_token", data.csrf_token);
+        return true;
       } catch {
         return false;
       }

@@ -74,21 +74,41 @@ export async function createUserContext(
   collector.attach(page);
 
   if (hasStorageState) {
-    // Skip the login page entirely — go straight to /products.
-    // StorageState has auth cookies + refresh token (7-day TTL).
-    // The frontend's apiFetch auto-refreshes expired JWTs.
-    await gotoProducts(page);
+    // StorageState includes cookies (refresh token) and localStorage (consent),
+    // but NOT sessionStorage (access token). We must obtain an access token
+    // BEFORE navigating to any page — otherwise the auth-context's async
+    // refresh races against the dashboard layout's auth guard, causing
+    // intermittent redirects to /auth/login.
+    //
+    // Strategy: navigate to a minimal page (about:blank won't have cookies),
+    // so we go to the base URL, call POST /auth/refresh, and seed
+    // sessionStorage with the tokens. Then navigate to /products.
+    await page.goto("/", { waitUntil: "commit" });
+    const refreshed = await page.evaluate(async () => {
+      try {
+        const res = await fetch("/api/auth/refresh", {
+          method: "POST",
+          credentials: "include",
+        });
+        if (!res.ok) return false;
+        const data = await res.json();
+        if (data.access_token) {
+          sessionStorage.setItem("access_token", data.access_token);
+        }
+        if (data.csrf_token) {
+          sessionStorage.setItem("csrf_token", data.csrf_token);
+        }
+        return true;
+      } catch {
+        return false;
+      }
+    });
 
-    // Verify we're authenticated by checking for user avatar in header
-    const userAvatar = page.locator("div.w-8.h-8.rounded-full").first();
-    const isAuthenticated = await userAvatar
-      .waitFor({ state: "visible", timeout: 8000 })
-      .then(() => true)
-      .catch(() => false);
-
-    if (!isAuthenticated) {
-      // Session fully expired — fall back to login
-      console.log(`  ${user.email}: stored auth expired, logging in fresh`);
+    if (refreshed) {
+      await gotoProducts(page);
+    } else {
+      // Refresh token expired — fall back to fresh login
+      console.log(`  ${user.email}: stored refresh token expired, logging in fresh`);
       await loginUser(page, user.email, user.password);
       await gotoProducts(page);
     }
