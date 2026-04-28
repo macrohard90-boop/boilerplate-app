@@ -20,6 +20,33 @@ export const test = base.extend<{
   },
 });
 
+/**
+ * Call POST /auth/refresh and seed sessionStorage with the resulting tokens.
+ * Must be called while on a page with the correct origin (so cookies are sent).
+ * Returns true if refresh succeeded.
+ */
+async function seedSessionTokens(page: Page): Promise<boolean> {
+  return page.evaluate(async () => {
+    try {
+      const res = await fetch("/api/auth/refresh", {
+        method: "POST",
+        credentials: "include",
+      });
+      if (!res.ok) return false;
+      const data = await res.json();
+      if (data.access_token) {
+        sessionStorage.setItem("access_token", data.access_token);
+      }
+      if (data.csrf_token) {
+        sessionStorage.setItem("csrf_token", data.csrf_token);
+      }
+      return true;
+    } catch {
+      return false;
+    }
+  });
+}
+
 /** Navigate to /products and wait for it to be interactive. Retries once on failure. */
 async function gotoProducts(page: Page): Promise<void> {
   for (let attempt = 1; attempt <= 2; attempt++) {
@@ -84,25 +111,7 @@ export async function createUserContext(
     // so we go to the base URL, call POST /auth/refresh, and seed
     // sessionStorage with the tokens. Then navigate to /products.
     await page.goto("/", { waitUntil: "commit" });
-    const refreshed = await page.evaluate(async () => {
-      try {
-        const res = await fetch("/api/auth/refresh", {
-          method: "POST",
-          credentials: "include",
-        });
-        if (!res.ok) return false;
-        const data = await res.json();
-        if (data.access_token) {
-          sessionStorage.setItem("access_token", data.access_token);
-        }
-        if (data.csrf_token) {
-          sessionStorage.setItem("csrf_token", data.csrf_token);
-        }
-        return true;
-      } catch {
-        return false;
-      }
-    });
+    const refreshed = await seedSessionTokens(page);
 
     if (refreshed) {
       await gotoProducts(page);
@@ -110,11 +119,15 @@ export async function createUserContext(
       // Refresh token expired — fall back to fresh login
       console.log(`  ${user.email}: stored refresh token expired, logging in fresh`);
       await loginUser(page, user.email, user.password);
+      // loginUser redirects away from /auth/login — seed sessionStorage
+      // from the refresh cookie that the login response set
+      await seedSessionTokens(page);
       await gotoProducts(page);
     }
   } else {
     // No stored auth — do a fresh login
     await loginUser(page, user.email, user.password);
+    await seedSessionTokens(page);
     await gotoProducts(page);
   }
 

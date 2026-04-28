@@ -210,7 +210,8 @@ export async function viewCart(page: Page): Promise<void> {
 
 /** Increase quantity of the first item in cart. */
 export async function increaseQuantity(page: Page): Promise<void> {
-  const plusBtn = page.locator("button").filter({ hasText: "+" }).first();
+  // Scope to cart item rows to avoid hitting unrelated "+" buttons
+  const plusBtn = page.locator('.glass.rounded-xl button').filter({ hasText: "+" }).first();
   if (await plusBtn.isVisible().catch(() => false)) {
     await plusBtn.click();
     await page.waitForTimeout(500);
@@ -219,7 +220,7 @@ export async function increaseQuantity(page: Page): Promise<void> {
 
 /** Decrease quantity of the first item in cart. */
 export async function decreaseQuantity(page: Page): Promise<void> {
-  const minusBtn = page.locator("button").filter({ hasText: "-" }).first();
+  const minusBtn = page.locator('.glass.rounded-xl button').filter({ hasText: "-" }).first();
   if (await minusBtn.isVisible().catch(() => false)) {
     await minusBtn.click();
     await page.waitForTimeout(500);
@@ -228,22 +229,27 @@ export async function decreaseQuantity(page: Page): Promise<void> {
 
 /** Remove an item from cart (clicks the X / trash icon button). */
 export async function removeFromCart(page: Page): Promise<void> {
-  // The remove button contains an SVG icon, look for small icon buttons in cart
+  // Dismiss any open overlays (user dropdown, modals) that block clicks
+  await page.keyboard.press("Escape");
+  await page.waitForTimeout(200);
+
+  // The remove button is inside a cart item row (.glass.rounded-xl)
+  // and contains an SVG with the close/X path (M6 18L18 6M6 6l12 12)
   const removeBtn = page
-    .locator("button")
-    .filter({ hasText: /Remove|×/i })
+    .locator('.glass.rounded-xl button:has(svg path[d*="M6 18L18 6"])')
     .first();
   if (await removeBtn.isVisible().catch(() => false)) {
     await removeBtn.click();
     await page.waitForTimeout(500);
     return;
   }
-  // Fallback: look for icon-only buttons with trash/X SVGs
-  const iconBtn = page
-    .locator('button:has(svg[viewBox="0 0 24 24"])')
+  // Fallback: text-based remove button
+  const textBtn = page
+    .locator("button")
+    .filter({ hasText: /Remove|×/i })
     .first();
-  if (await iconBtn.isVisible().catch(() => false)) {
-    await iconBtn.click();
+  if (await textBtn.isVisible().catch(() => false)) {
+    await textBtn.click();
     await page.waitForTimeout(500);
   }
 }
