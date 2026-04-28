@@ -13,8 +13,8 @@ import { test, expect } from "@playwright/test";
 import { AdminApiClient } from "../helpers/api-client";
 
 const BASE_URL = process.env.BASE_URL || "http://34.30.88.59";
-const ADMIN_EMAIL = "admin@boilerplate.test";
-const ADMIN_PASSWORD = "Admin123!";
+const ADMIN_EMAIL = "simadmin@test.com";
+const ADMIN_PASSWORD = "Test1234!";
 
 // Events we expect the test suite to have fired across all 50 users + 10 guests
 const EXPECTED_EVENTS: {

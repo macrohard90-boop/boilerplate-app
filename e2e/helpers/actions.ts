@@ -35,10 +35,10 @@ export async function changeSort(page: Page, sortValue: string): Promise<void> {
 
 /** Click a category filter pill on the products page. */
 export async function filterByCategory(page: Page): Promise<string | null> {
-  // Category pills are buttons — skip "All", "Products", "Subscriptions"
+  // Category pills are rounded-full buttons — skip "All"
   const pills = page
-    .locator("button")
-    .filter({ hasNotText: /^(All|Products|Subscriptions)$/i });
+    .locator("button.rounded-full")
+    .filter({ hasNotText: /^All$/i });
   const count = await pills.count();
   if (count > 0) {
     const idx = Math.floor(Math.random() * Math.min(count, 5));
@@ -53,9 +53,10 @@ export async function filterByCategory(page: Page): Promise<string | null> {
 
 /** Click the Nth category filter pill (0-indexed). Deterministic. */
 export async function filterByNthCategory(page: Page, n: number): Promise<string | null> {
+  // Category pills are rounded-full buttons — skip "All"
   const pills = page
-    .locator("button")
-    .filter({ hasNotText: /^(All|Products|Subscriptions)$/i });
+    .locator("button.rounded-full")
+    .filter({ hasNotText: /^All$/i });
   const count = await pills.count();
   if (count === 0) return null;
   const idx = n % count;
@@ -68,7 +69,10 @@ export async function filterByNthCategory(page: Page, n: number): Promise<string
 
 /** Click "All" category filter to reset. */
 export async function resetCategoryFilter(page: Page): Promise<void> {
-  const allPill = page.locator("button").filter({ hasText: /^All$/i }).first();
+  const allPill = page
+    .locator("button.rounded-full")
+    .filter({ hasText: /^All$/i })
+    .first();
   if (await allPill.isVisible().catch(() => false)) {
     await allPill.click();
     await page.waitForLoadState("networkidle");
@@ -147,15 +151,20 @@ export async function clickSubscriptionsTab(page: Page): Promise<void> {
 
 // ── Cart ──
 
-/** Click "Add to Cart" or "Subscribe" on the current product page. */
-export async function addToCart(page: Page): Promise<void> {
+/** Click "Add to Cart" or "Subscribe" on the current product page. Returns false if button not found (e.g. out of stock). */
+export async function addToCart(page: Page): Promise<boolean> {
   const btn = page
-    .locator("button")
+    .locator("button:not([disabled])")
     .filter({ hasText: /Add to Cart|Subscribe|Get Access/i })
     .first();
-  await btn.waitFor({ state: "visible", timeout: 5000 });
+  const visible = await btn
+    .waitFor({ state: "visible", timeout: 5000 })
+    .then(() => true)
+    .catch(() => false);
+  if (!visible) return false;
   await btn.click();
   await page.waitForTimeout(1000);
+  return true;
 }
 
 /** Navigate to the cart page. */
@@ -459,6 +468,12 @@ export async function visitProfile(page: Page): Promise<void> {
 export async function visitPrivacy(page: Page): Promise<void> {
   await page.goto("/dashboard/privacy");
   await page.waitForLoadState("networkidle");
+}
+
+/** Dismiss any open overlays (user dropdown, modals) by pressing Escape. */
+export async function dismissOverlays(page: Page): Promise<void> {
+  await page.keyboard.press("Escape");
+  await page.waitForTimeout(200);
 }
 
 /** Go back to the products listing from a product detail page. */

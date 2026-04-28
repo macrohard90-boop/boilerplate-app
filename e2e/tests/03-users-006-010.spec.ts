@@ -120,7 +120,7 @@ test("User 006 James Clark — Window Shopper [Mobile Landscape]", async ({
 
 // ────────────────────────────────────────────────────────────────
 // User 007: Sophia Rodriguez — Desktop Chrome — 13 pages
-// Products → search "xyznothing" → clear search → sort name_asc →
+// Products → search "xyznothing" → clear search → sort name →
 // view #0 → back → view #1 → back → view #2 → back →
 // view #3 → back → homepage → dashboard/profile
 // ────────────────────────────────────────────────────────────────
@@ -147,7 +147,7 @@ test("User 007 Sophia Rodriguez — Window Shopper [Desktop Chrome]", async ({
   await snap(page, "03-clear-search");
 
   // Step 4: Sort by name ascending
-  await changeSort(page, "name_asc");
+  await changeSort(page, "name");
   await page.waitForTimeout(3000);
   await snap(page, "04-sort-name-asc");
 

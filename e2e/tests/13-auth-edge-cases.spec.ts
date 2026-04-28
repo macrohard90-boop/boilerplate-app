@@ -169,7 +169,7 @@ test.describe("Auth edge cases", () => {
     await context.close();
   });
 
-  test("Visit checkout while logged out redirects to login", async ({ browser }) => {
+  test("Visit checkout while logged out shows sign-in prompt", async ({ browser }) => {
     const context = await browser.newContext();
     const page = await context.newPage();
 
@@ -177,7 +177,12 @@ test.describe("Auth edge cases", () => {
     await page.waitForLoadState("networkidle");
     await page.waitForTimeout(1000);
 
-    expect(page.url()).toContain("/auth/login");
+    // Checkout page shows "Sign in Required" message with login link (no redirect)
+    const signInPrompt = page.getByText("Sign in Required");
+    const loginLink = page.locator('a[href="/auth/login"]');
+    const hasPrompt = await signInPrompt.isVisible().catch(() => false);
+    const hasLink = await loginLink.isVisible().catch(() => false);
+    expect(hasPrompt || hasLink).toBeTruthy();
     await context.close();
   });
 });

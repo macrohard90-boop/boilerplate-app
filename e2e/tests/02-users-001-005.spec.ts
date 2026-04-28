@@ -126,7 +126,7 @@ test("User 001 Emma Anderson — Window Shopper [Desktop Chrome]", async ({
 // ────────────────────────────────────────────────────────────────
 // User 002: Liam Martinez — Desktop Large — 13 pages
 // Products → sort price_asc → view #0 → back → sort price_desc →
-// view #2 → back → sort name_asc → view #4 → back → view #6 →
+// view #2 → back → sort name → view #4 → back → view #6 →
 // back → homepage → dashboard/orders
 // ────────────────────────────────────────────────────────────────
 test("User 002 Liam Martinez — Window Shopper [Desktop Large]", async ({
@@ -172,7 +172,7 @@ test("User 002 Liam Martinez — Window Shopper [Desktop Large]", async ({
   await snap(page, "07-back-2");
 
   // Step 8: Sort by name ascending
-  await changeSort(page, "name_asc");
+  await changeSort(page, "name");
   await page.waitForTimeout(3000);
   await snap(page, "08-sort-name-asc");
 

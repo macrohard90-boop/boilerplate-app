@@ -126,7 +126,7 @@ test("User 011 Isabella Young — Window Shopper [iPad Pro]", async ({
 
 // ────────────────────────────────────────────────────────────────
 // User 012: Mason King — Mobile Landscape — 13 pages
-// Products (4s) → sort name_asc (3s) → view #0 (5s) → add wishlist (3s) →
+// Products (4s) → sort name (3s) → view #0 (5s) → add wishlist (3s) →
 // back (3s) → filter category #0 (4s) → view #0 (5s) → back (3s) →
 // view #1 (5s) → back (3s) → wishlist page (4s) → products (3s) →
 // view #2 (5s) → dashboard/profile (3s)
@@ -144,7 +144,7 @@ test("User 012 Mason King — Window Shopper [Mobile Landscape]", async ({
   await snap(page, "01-products-listing");
 
   // Step 2: Sort by name ascending
-  await changeSort(page, "name_asc");
+  await changeSort(page, "name");
   await page.waitForTimeout(3000);
   await snap(page, "02-sort-name-asc");
 
