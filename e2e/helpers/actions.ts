@@ -200,10 +200,18 @@ export async function addToCart(page: Page): Promise<boolean> {
   return true;
 }
 
-/** Navigate to the cart page. */
+/** Navigate to the cart page and wait for it to fully load. */
 export async function viewCart(page: Page): Promise<void> {
   await page.goto("/cart");
   await page.waitForLoadState("networkidle");
+  // Wait for cart content to render (past the loading spinner).
+  // The "Shopping Cart" heading only appears after auth + cart fetch complete,
+  // which is also when the cart_viewed / empty_cart_viewed event fires.
+  await page
+    .getByText("Shopping Cart")
+    .first()
+    .waitFor({ state: "visible", timeout: 15000 })
+    .catch(() => {});
 }
 
 /** Increase quantity of the first item in cart. */
