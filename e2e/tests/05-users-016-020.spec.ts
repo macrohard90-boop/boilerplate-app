@@ -23,6 +23,7 @@ import {
   advanceCheckoutStep,
   visitHomepage,
   visitDashboard,
+  finishJourney,
 } from "../helpers/actions";
 
 const users = getAllUsers();
@@ -101,9 +102,7 @@ test("User 016 Alexander Harper — Cart Abandoner [Desktop Chrome]", async ({
 
   // Print summary
   journey.printSummary("016 Alexander Harper");
-  console.log("  Events:", collector.summary());
-
-  await context.close();
+  await finishJourney(page, context, collector);
 });
 
 // ────────────────────────────────────────────────────────────────
@@ -190,9 +189,7 @@ test("User 017 Benjamin Evelyn — Cart Abandoner [Desktop Large]", async ({
 
   // Print summary
   journey.printSummary("017 Benjamin Evelyn");
-  console.log("  Events:", collector.summary());
-
-  await context.close();
+  await finishJourney(page, context, collector);
 });
 
 // ────────────────────────────────────────────────────────────────
@@ -274,9 +271,7 @@ test("User 018 Daniel Aria — Cart Abandoner [iPhone 13]", async ({
 
   // Print summary
   journey.printSummary("018 Daniel Aria");
-  console.log("  Events:", collector.summary());
-
-  await context.close();
+  await finishJourney(page, context, collector);
 });
 
 // ────────────────────────────────────────────────────────────────
@@ -356,9 +351,7 @@ test("User 019 Henry Ella — Cart Abandoner [Pixel 7]", async ({ browser }) => 
 
   // Print summary
   journey.printSummary("019 Henry Ella");
-  console.log("  Events:", collector.summary());
-
-  await context.close();
+  await finishJourney(page, context, collector);
 });
 
 // ────────────────────────────────────────────────────────────────
@@ -451,7 +444,5 @@ test("User 020 Sebastian Scarlett — Cart Abandoner [iPad Pro]", async ({
 
   // Print summary
   journey.printSummary("020 Sebastian Scarlett");
-  console.log("  Events:", collector.summary());
-
-  await context.close();
+  await finishJourney(page, context, collector);
 });

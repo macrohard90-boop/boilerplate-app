@@ -21,6 +21,7 @@ import {
   advanceCheckoutStep,
   visitHomepage,
   visitFirstCategory,
+  finishJourney,
 } from "../helpers/actions";
 
 const users = getAllUsers();
@@ -121,9 +122,7 @@ test("User 046 Charlotte Lopez — Subscriber [Pixel 7]", async ({
 
   // Print summary
   journey.printSummary("046 Charlotte Lopez");
-  console.log("  Events:", collector.summary());
-
-  await context.close();
+  await finishJourney(page, context, collector);
 });
 
 // ────────────────────────────────────────────────────────────────
@@ -220,9 +219,7 @@ test("User 047 Logan Hill — Subscriber [iPad Pro]", async ({ browser }) => {
 
   // Print summary
   journey.printSummary("047 Logan Hill");
-  console.log("  Events:", collector.summary());
-
-  await context.close();
+  await finishJourney(page, context, collector);
 });
 
 // ────────────────────────────────────────────────────────────────
@@ -272,9 +269,7 @@ test("User 048 Amelia Scott — Bouncer [Desktop Chrome]", async ({
 
   // Print summary
   journey.printSummary("048 Amelia Scott");
-  console.log("  Events:", collector.summary());
-
-  await context.close();
+  await finishJourney(page, context, collector);
 });
 
 // ────────────────────────────────────────────────────────────────
@@ -316,9 +311,7 @@ test("User 049 Alexander Green — Bouncer [Desktop Large]", async ({
 
   // Print summary
   journey.printSummary("049 Alexander Green");
-  console.log("  Events:", collector.summary());
-
-  await context.close();
+  await finishJourney(page, context, collector);
 });
 
 // ────────────────────────────────────────────────────────────────
@@ -357,11 +350,9 @@ test("User 050 Benjamin Adams — Bouncer (no analytics) [iPhone 13]", async ({
   journey.assertMinVisits(3);
 
   // User 050 rejected analytics — tracking should be blocked
-  console.log("  User 050 (reject analytics) events:", collector.summary());
   // We don't assert events fired since tracking is blocked
 
   // Print summary
   journey.printSummary("050 Benjamin Adams");
-
-  await context.close();
+  await finishJourney(page, context, collector);
 });

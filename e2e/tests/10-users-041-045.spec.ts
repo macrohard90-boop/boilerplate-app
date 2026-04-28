@@ -31,6 +31,7 @@ import {
   waitForConfirmation,
   visitHomepage,
   visitOrders,
+  finishJourney,
 } from "../helpers/actions";
 
 const users = getAllUsers();
@@ -142,9 +143,7 @@ test("User 041 Lucas Walker — Power Buyer MIXED CART [Pixel 7]", async ({ brow
 
   // Print summary
   journey.printSummary("041 Lucas Walker (Mixed Cart)");
-  console.log("  Events:", collector.summary());
-
-  await context.close();
+  await finishJourney(page, context, collector);
 });
 
 // ────────────────────────────────────────────────────────────────
@@ -277,9 +276,7 @@ test("User 042 Mia Hall — Power Buyer [iPad Pro]", async ({ browser }) => {
 
   // Print summary
   journey.printSummary("042 Mia Hall");
-  console.log("  Events:", collector.summary());
-
-  await context.close();
+  await finishJourney(page, context, collector);
 });
 
 // ────────────────────────────────────────────────────────────────
@@ -378,9 +375,7 @@ test("User 043 Ethan Young — Subscriber [Desktop Chrome]", async ({
 
   // Print summary
   journey.printSummary("043 Ethan Young");
-  console.log("  Events:", collector.summary());
-
-  await context.close();
+  await finishJourney(page, context, collector);
 });
 
 // ────────────────────────────────────────────────────────────────
@@ -489,9 +484,7 @@ test("User 044 Isabella King — Subscriber [Desktop Large]", async ({
 
   // Print summary
   journey.printSummary("044 Isabella King");
-  console.log("  Events:", collector.summary());
-
-  await context.close();
+  await finishJourney(page, context, collector);
 });
 
 // ────────────────────────────────────────────────────────────────
@@ -583,7 +576,5 @@ test("User 045 Mason Wright — Subscriber [iPhone 13]", async ({ browser }) => 
 
   // Print summary
   journey.printSummary("045 Mason Wright");
-  console.log("  Events:", collector.summary());
-
-  await context.close();
+  await finishJourney(page, context, collector);
 });

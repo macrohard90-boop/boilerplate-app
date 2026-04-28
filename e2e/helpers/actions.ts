@@ -3,7 +3,21 @@
  * Selectors match the actual frontend components in this app.
  */
 
-import { Page } from "@playwright/test";
+import { Page, BrowserContext } from "@playwright/test";
+import { EventCollector } from "./event-collector";
+
+// ── Journey Lifecycle ──
+
+/** Logout, log events, and close context. Call at end of every journey test. */
+export async function finishJourney(
+  page: Page,
+  context: BrowserContext,
+  collector: EventCollector,
+): Promise<void> {
+  await logout(page);
+  console.log("  Events:", collector.summary());
+  await context.close();
+}
 
 // ── Product Browsing ──
 

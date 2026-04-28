@@ -26,6 +26,7 @@ import {
   visitProfile,
   visitOrders,
   logout,
+  finishJourney,
 } from "../helpers/actions";
 
 const users = getAllUsers();
@@ -119,9 +120,7 @@ test("User 011 Isabella Young — Window Shopper [iPad Pro]", async ({
 
   // Print summary
   journey.printSummary("011 Isabella Young");
-  console.log("  Events:", collector.summary());
-
-  await context.close();
+  await finishJourney(page, context, collector);
 });
 
 // ────────────────────────────────────────────────────────────────
@@ -214,9 +213,7 @@ test("User 012 Mason King — Window Shopper [Mobile Landscape]", async ({
 
   // Print summary
   journey.printSummary("012 Mason King");
-  console.log("  Events:", collector.summary());
-
-  await context.close();
+  await finishJourney(page, context, collector);
 });
 
 // ────────────────────────────────────────────────────────────────
@@ -309,9 +306,7 @@ test("User 013 Charlotte Wright — Window Shopper [Desktop Chrome]", async ({
 
   // Print summary
   journey.printSummary("013 Charlotte Wright");
-  console.log("  Events:", collector.summary());
-
-  await context.close();
+  await finishJourney(page, context, collector);
 });
 
 // ────────────────────────────────────────────────────────────────
@@ -409,9 +404,7 @@ test("User 014 Logan Lopez — Window Shopper [Desktop Large]", async ({
 
   // Print summary
   journey.printSummary("014 Logan Lopez");
-  console.log("  Events:", collector.summary());
-
-  await context.close();
+  await finishJourney(page, context, collector);
 });
 
 // ────────────────────────────────────────────────────────────────
@@ -498,7 +491,5 @@ test("User 015 Amelia Hill — Window Shopper [iPhone 13]", async ({
 
   // Print summary
   journey.printSummary("015 Amelia Hill");
-  console.log("  Events:", collector.summary());
-
-  await context.close();
+  await finishJourney(page, context, collector);
 });

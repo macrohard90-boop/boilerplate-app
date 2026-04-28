@@ -27,6 +27,7 @@ import {
   visitOrders,
   visitPrivacy,
   logout,
+  finishJourney,
 } from "../helpers/actions";
 
 const users = getAllUsers();
@@ -113,9 +114,7 @@ test("User 006 James Clark — Window Shopper [Mobile Landscape]", async ({
   collector.assertFired("product_viewed", 4);
 
   journey.printSummary("006 James Clark");
-  console.log("  Events:", collector.summary());
-
-  await context.close();
+  await finishJourney(page, context, collector);
 });
 
 // ────────────────────────────────────────────────────────────────
@@ -206,9 +205,7 @@ test("User 007 Sophia Rodriguez — Window Shopper [Desktop Chrome]", async ({
   collector.assertFired("product_viewed", 4);
 
   journey.printSummary("007 Sophia Rodriguez");
-  console.log("  Events:", collector.summary());
-
-  await context.close();
+  await finishJourney(page, context, collector);
 });
 
 // ────────────────────────────────────────────────────────────────
@@ -288,9 +285,7 @@ test("User 008 Lucas Lewis — Window Shopper [Desktop Large]", async ({
   collector.assertFired("product_viewed", 3);
 
   journey.printSummary("008 Lucas Lewis");
-  console.log("  Events:", collector.summary());
-
-  await context.close();
+  await finishJourney(page, context, collector);
 });
 
 // ────────────────────────────────────────────────────────────────
@@ -382,9 +377,7 @@ test("User 009 Mia Walker — Window Shopper [iPhone 13]", async ({
   collector.assertFired("product_viewed", 3);
 
   journey.printSummary("009 Mia Walker");
-  console.log("  Events:", collector.summary());
-
-  await context.close();
+  await finishJourney(page, context, collector);
 });
 
 // ────────────────────────────────────────────────────────────────
@@ -475,7 +468,5 @@ test("User 010 Ethan Hall — Window Shopper [Pixel 7]", async ({
   collector.assertFired("product_viewed", 4);
 
   journey.printSummary("010 Ethan Hall");
-  console.log("  Events:", collector.summary());
-
-  await context.close();
+  await finishJourney(page, context, collector);
 });

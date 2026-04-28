@@ -17,6 +17,7 @@ import {
   fillStripeDeclineCard,
   fillStripeAndPay,
   waitForConfirmation,
+  finishJourney,
 } from "../helpers/actions";
 
 // Use first 5 single_buyer users for payment failure tests
@@ -88,8 +89,7 @@ for (let i = 0; i < declineCards.length; i++) {
     collector.assertFired("product_viewed");
     collector.assertFired("add_to_cart");
 
-    console.log(`  Payment Failure ${card.label} events:`, collector.summary());
-    await context.close();
+    await finishJourney(page, context, collector);
   });
 }
 
@@ -147,8 +147,7 @@ test(`Payment Retry: Decline then succeed [${buyers[3].device.name}]: ${buyers[3
   collector.assertFired("product_viewed");
   collector.assertFired("add_to_cart");
 
-  console.log(`  Payment Retry events:`, collector.summary());
-  await context.close();
+  await finishJourney(page, context, collector);
 });
 
 // Test 5: Payment with correct card (baseline — confirms Stripe works)
@@ -194,6 +193,5 @@ test(`Payment Success Baseline [${buyers[4].device.name}]: ${buyers[4].email}`, 
     collector.assertFired("add_to_cart");
   }
 
-  console.log(`  Payment Baseline events:`, collector.summary());
-  await context.close();
+  await finishJourney(page, context, collector);
 });

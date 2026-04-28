@@ -25,6 +25,7 @@ import {
   fillShipping,
   advanceCheckoutStep,
   visitHomepage,
+  finishJourney,
 } from "../helpers/actions";
 
 const users = getAllUsers();
@@ -114,9 +115,7 @@ test("User 021 Jack Grace — Cart Abandoner [Mobile Landscape]", async ({
 
   // Print summary
   journey.printSummary("021 Jack Grace");
-  console.log("  Events:", collector.summary());
-
-  await context.close();
+  await finishJourney(page, context, collector);
 });
 
 // ────────────────────────────────────────────────────────────────
@@ -204,9 +203,7 @@ test("User 022 Owen Chloe — Cart Abandoner [Desktop Chrome]", async ({
 
   // Print summary
   journey.printSummary("022 Owen Chloe");
-  console.log("  Events:", collector.summary());
-
-  await context.close();
+  await finishJourney(page, context, collector);
 });
 
 // ────────────────────────────────────────────────────────────────
@@ -294,9 +291,7 @@ test("User 023 Samuel Lily — Cart Abandoner [Desktop Large]", async ({
 
   // Print summary
   journey.printSummary("023 Samuel Lily");
-  console.log("  Events:", collector.summary());
-
-  await context.close();
+  await finishJourney(page, context, collector);
 });
 
 // ────────────────────────────────────────────────────────────────
@@ -378,9 +373,7 @@ test("User 024 Ryan Zoey — Cart Abandoner [iPhone 13]", async ({
 
   // Print summary
   journey.printSummary("024 Ryan Zoey");
-  console.log("  Events:", collector.summary());
-
-  await context.close();
+  await finishJourney(page, context, collector);
 });
 
 // ────────────────────────────────────────────────────────────────
@@ -468,7 +461,5 @@ test("User 025 Nathan Penelope — Cart Abandoner [Pixel 7]", async ({
 
   // Print summary
   journey.printSummary("025 Nathan Penelope");
-  console.log("  Events:", collector.summary());
-
-  await context.close();
+  await finishJourney(page, context, collector);
 });
