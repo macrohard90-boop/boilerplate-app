@@ -38,7 +38,24 @@ export async function loginUser(
   await page.goto("/auth/login", { timeout: 30000 });
   await page.waitForLoadState("domcontentloaded");
 
-  await page.locator('input[type="email"]').fill(email);
+  // The login page redirects to "/" if already authenticated (useAuth check).
+  // Wait for React to hydrate and auth context to resolve, then check URL.
+  await page.waitForTimeout(2500);
+  if (!page.url().includes("/auth/login")) {
+    return; // Already authenticated via stored session
+  }
+
+  // Verify login form is actually present (not mid-redirect)
+  const emailInput = page.locator('input[type="email"]');
+  const hasForm = await emailInput
+    .waitFor({ state: "visible", timeout: 5000 })
+    .then(() => true)
+    .catch(() => false);
+  if (!hasForm) {
+    return; // Login form gone — already authenticated
+  }
+
+  await emailInput.fill(email);
   await page.locator('input[type="password"]').fill(password);
   await page.locator('button[type="submit"]').click();
 
