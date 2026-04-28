@@ -5,7 +5,7 @@ import { useState, useEffect } from "react";
 import { useAuth } from "../lib/auth-context";
 import { useCart } from "../lib/cart-context";
 import { useConfig } from "../lib/config-context";
-import { trackEvent } from "../lib/track-event";
+import { trackEvent, trackEventAsync } from "../lib/track-event";
 
 interface NavCategory {
   name: string;
@@ -204,8 +204,8 @@ export default function Header() {
                       )}
                       <div className="border-t border-glass-border mt-1 pt-1">
                         <button
-                          onClick={() => {
-                            trackEvent("logout");
+                          onClick={async () => {
+                            await trackEventAsync("logout");
                             logout();
                             setUserMenuOpen(false);
                           }}

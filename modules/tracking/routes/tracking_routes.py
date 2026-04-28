@@ -153,11 +153,23 @@ async def record_event(
     user_id = user["user_id"] if user else None
     session_id = user.get("session_id") if user else x_session_id
 
-    has_consent = await consent_service.has_analytics_consent(
-        db, user_id=user_id, session_id=session_id
-    )
-    if not has_consent:
-        return TrackingResponse(recorded=0, session_id=session_id or "")
+    # Auth operational events are exempt from GDPR consent — they record
+    # the fact that an account action happened, not user behaviour analytics.
+    _CONSENT_EXEMPT = {
+        "signup_completed",
+        "signup_failed",
+        "login_completed",
+        "login_failed",
+        "logout",
+        "oauth_started",
+        "cookie_consent_given",
+    }
+    if data.event_type not in _CONSENT_EXEMPT:
+        has_consent = await consent_service.has_analytics_consent(
+            db, user_id=user_id, session_id=session_id
+        )
+        if not has_consent:
+            return TrackingResponse(recorded=0, session_id=session_id or "")
 
     session_id = await session_service.get_or_create_session(
         db, redis, session_id=session_id, user_id=user_id

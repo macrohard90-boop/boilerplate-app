@@ -23,6 +23,18 @@ export function trackEvent(
   eventType: string,
   eventData?: Record<string, unknown>,
 ): void {
+  trackEventAsync(eventType, eventData).catch(() => {});
+}
+
+/**
+ * Awaitable version of trackEvent. Use when the event MUST be delivered
+ * before navigating away (e.g. logout). Resolves once the POST completes
+ * or after a 3-second timeout — whichever comes first.
+ */
+export async function trackEventAsync(
+  eventType: string,
+  eventData?: Record<string, unknown>,
+): Promise<void> {
   const body = { event_type: eventType, event_data: eventData ?? {} };
   const opts: RequestInit = {
     method: "POST",
@@ -32,16 +44,20 @@ export function trackEvent(
     keepalive: true,
   };
 
-  fetch("/api/tracking/events", opts)
+  const timeout = new Promise<void>((resolve) => setTimeout(resolve, 3000));
+  const send = fetch("/api/tracking/events", opts)
     .then(async (res) => {
       if (res.status === 401) {
         const refreshed = await refreshTokens();
         if (refreshed) {
-          fetch("/api/tracking/events", { ...opts, headers: getAuthHeaders() });
+          await fetch("/api/tracking/events", {
+            ...opts,
+            headers: getAuthHeaders(),
+          });
         }
       }
     })
-    .catch(() => {
-      // Silent — tracking should never disrupt the user
-    });
+    .catch(() => {});
+
+  await Promise.race([send, timeout]);
 }
