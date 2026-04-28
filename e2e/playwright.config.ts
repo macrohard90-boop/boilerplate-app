@@ -3,11 +3,12 @@ import { defineConfig, devices } from "@playwright/test";
 const BASE_URL = process.env.BASE_URL || "http://34.30.88.59";
 
 export default defineConfig({
+  globalSetup: "./global-setup.ts",
   testDir: "./tests",
   timeout: 120_000,
   expect: { timeout: 10_000 },
   retries: 2,
-  workers: 3,
+  workers: 2,
   fullyParallel: true,
   use: {
     baseURL: BASE_URL,

@@ -1,15 +1,29 @@
 /**
- * Screenshot helper — attaches a full-page screenshot to the Playwright HTML report.
- * Each screenshot appears in the test's "Attachments" section with the given label.
+ * Screenshot helper — saves step screenshots to both the Playwright HTML report
+ * and to disk in the test's output directory for easy browsing.
  */
 
 import { test } from "@playwright/test";
 import { Page } from "@playwright/test";
+import { writeFileSync, mkdirSync } from "fs";
+import { dirname } from "path";
 
-/** Take a full-page screenshot and attach it to the current test's report. */
+/** Take a full-page screenshot: attach to report AND save to test output dir. */
 export async function snap(page: Page, label: string): Promise<void> {
+  const screenshot = await page.screenshot({ fullPage: true });
+
+  // Attach to Playwright HTML report (visible in show-report)
   await test.info().attach(label, {
-    body: await page.screenshot({ fullPage: true }),
+    body: screenshot,
     contentType: "image/png",
   });
+
+  // Save to disk in the test's output directory (visible in test-results/ folder)
+  try {
+    const outPath = test.info().outputPath(`${label}.png`);
+    mkdirSync(dirname(outPath), { recursive: true });
+    writeFileSync(outPath, screenshot);
+  } catch {
+    // Non-critical — report attachment is the primary output
+  }
 }

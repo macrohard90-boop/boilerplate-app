@@ -23,13 +23,22 @@ export default function Header() {
   const [navCategories, setNavCategories] = useState<NavCategory[]>([]);
 
   useEffect(() => {
-    fetch("/api/ecommerce/categories")
-      .then((r) => (r.ok ? r.json() : []))
-      .then((data: NavCategory[]) => {
-        // Only root categories (no parent), max 5
-        setNavCategories(data.filter((c) => !c.parent_id).slice(0, 5));
-      })
-      .catch(() => {});
+    async function loadCategories(retries = 2) {
+      for (let i = 0; i <= retries; i++) {
+        try {
+          const r = await fetch("/api/ecommerce/categories");
+          if (r.ok) {
+            const data: NavCategory[] = await r.json();
+            setNavCategories(data.filter((c) => !c.parent_id).slice(0, 5));
+            return;
+          }
+        } catch {
+          // Network error — retry
+        }
+        if (i < retries) await new Promise((r) => setTimeout(r, 1000));
+      }
+    }
+    loadCategories();
   }, []);
 
   return (

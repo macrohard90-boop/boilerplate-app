@@ -20,6 +20,26 @@ export const test = base.extend<{
   },
 });
 
+/** Navigate to /products and wait for it to be interactive. Retries once on failure. */
+async function gotoProducts(page: Page): Promise<void> {
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    try {
+      await page.goto("/products", { timeout: 30000 });
+      await page.waitForLoadState("domcontentloaded");
+      // Wait for either product cards or "No products found" to confirm the page rendered
+      await page
+        .locator('a[href*="/products/"], [class*="text-center"]')
+        .first()
+        .waitFor({ state: "visible", timeout: 15000 });
+      return;
+    } catch (err) {
+      if (attempt === 2) throw err;
+      console.log(`  Products page load failed (attempt ${attempt}), retrying...`);
+      await page.waitForTimeout(2000);
+    }
+  }
+}
+
 /** Create a browser context for a specific test user (loads auth + device). */
 export async function createUserContext(
   browser: import("@playwright/test").Browser,
@@ -38,6 +58,8 @@ export async function createUserContext(
   if (existsSync(statePath)) {
     contextOptions.storageState = statePath;
     hasStorageState = true;
+  } else {
+    console.log(`  WARNING: No auth state file for ${user.email} — will login fresh`);
   }
 
   if (user.device.userAgent) {
@@ -55,8 +77,7 @@ export async function createUserContext(
     // Skip the login page entirely — go straight to /products.
     // StorageState has auth cookies + refresh token (7-day TTL).
     // The frontend's apiFetch auto-refreshes expired JWTs.
-    await page.goto("/products", { timeout: 30000 });
-    await page.waitForLoadState("networkidle");
+    await gotoProducts(page);
 
     // Verify we're authenticated by checking for user avatar in header
     const userAvatar = page.locator("div.w-8.h-8.rounded-full").first();
@@ -67,15 +88,14 @@ export async function createUserContext(
 
     if (!isAuthenticated) {
       // Session fully expired — fall back to login
+      console.log(`  ${user.email}: stored auth expired, logging in fresh`);
       await loginUser(page, user.email, user.password);
-      await page.goto("/products", { timeout: 30000 });
-      await page.waitForLoadState("networkidle");
+      await gotoProducts(page);
     }
   } else {
     // No stored auth — do a fresh login
     await loginUser(page, user.email, user.password);
-    await page.goto("/products", { timeout: 30000 });
-    await page.waitForLoadState("networkidle");
+    await gotoProducts(page);
   }
 
   await acceptAllCookies(page);

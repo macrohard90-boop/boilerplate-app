@@ -129,6 +129,13 @@ for (const user of allUsers) {
     expect(verifyUrl).not.toContain("/auth/login");
     expect(verifyUrl).not.toContain("/auth/register");
 
+    // Ensure we're on the dashboard — the consent screen only renders there.
+    // Registration redirects to /dashboard, but login redirects to / (home page).
+    if (!page.url().includes("/dashboard")) {
+      await page.goto("/dashboard", { timeout: 30000 });
+      await page.waitForLoadState("networkidle");
+    }
+
     // ── Handle consent screen ──
     // The dashboard layout shows a full-page consent screen before the user can access dashboard.
     // For returning users who already consented, this screen is skipped.

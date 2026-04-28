@@ -62,7 +62,7 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
 
   if (isAuthenticated) {
-    router.push("/");
+    router.push("/dashboard");
     return null;
   }
 
@@ -73,7 +73,7 @@ export default function LoginPage() {
     try {
       await login(email, password);
       trackEvent("login_completed", { method: "email" });
-      router.push("/");
+      router.push("/dashboard");
     } catch {
       trackEvent("login_failed", { method: "email" });
     } finally {

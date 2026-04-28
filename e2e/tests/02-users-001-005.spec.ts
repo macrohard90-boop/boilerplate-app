@@ -9,6 +9,7 @@ import { createUserContext } from "../fixtures/test-fixtures";
 import { EventCollector } from "../helpers/event-collector";
 import { JourneyLogger } from "../helpers/journey-logger";
 import { snap } from "../helpers/screenshot";
+import { StepTracker } from "../helpers/step-tracker";
 import {
   browseProducts,
   searchProducts,
@@ -43,79 +44,97 @@ test("User 001 Emma Anderson — Window Shopper [Desktop Chrome]", async ({
   const { context, page, collector } = await createUserContext(browser, user);
   const journey = new JourneyLogger();
   journey.attach(page);
+  const tracker = new StepTracker(page, "User 001 Emma Anderson");
 
   // Step 1: Products listing (already on /products from createUserContext)
-  await page.waitForTimeout(5000);
-  await snap(page, "01-products-listing");
+  await tracker.run("products-listing", async () => {
+    await page.waitForTimeout(5000);
+  });
 
   // Step 2: Search "premium"
-  await searchProducts(page, "premium");
-  await page.waitForTimeout(4000);
-  await snap(page, "02-search-premium");
+  await tracker.run("search-premium", async () => {
+    await searchProducts(page, "premium");
+    await page.waitForTimeout(4000);
+  });
 
   // Step 3: View product #0
-  await viewNthProduct(page, 0);
-  await page.waitForTimeout(5000);
-  await snap(page, "03-product-detail-0");
+  await tracker.run("product-detail-0", async () => {
+    await viewNthProduct(page, 0);
+    await page.waitForTimeout(5000);
+  });
 
   // Step 4: Back to products
-  await backToProducts(page);
-  await page.waitForTimeout(3000);
-  await snap(page, "04-back-to-products");
+  await tracker.run("back-to-products", async () => {
+    await backToProducts(page);
+    await page.waitForTimeout(3000);
+  });
 
   // Step 5: View product #1
-  await viewNthProduct(page, 1);
-  await page.waitForTimeout(5000);
-  await snap(page, "05-product-detail-1");
+  await tracker.run("product-detail-1", async () => {
+    await viewNthProduct(page, 1);
+    await page.waitForTimeout(5000);
+  });
 
   // Step 6: Back to products
-  await backToProducts(page);
-  await page.waitForTimeout(3000);
-  await snap(page, "06-back-to-products-2");
+  await tracker.run("back-to-products-2", async () => {
+    await backToProducts(page);
+    await page.waitForTimeout(3000);
+  });
 
   // Step 7: Search "xyznonexistent99" (no results)
-  await searchProducts(page, "xyznonexistent99");
-  await page.waitForTimeout(4000);
-  await snap(page, "07-search-no-results");
+  await tracker.run("search-no-results", async () => {
+    await searchProducts(page, "xyznonexistent99");
+    await page.waitForTimeout(4000);
+  });
 
   // Step 8: Clear search
-  await searchProducts(page, "");
-  await page.waitForTimeout(3000);
-  await snap(page, "08-clear-search");
+  await tracker.run("clear-search", async () => {
+    await searchProducts(page, "");
+    await page.waitForTimeout(3000);
+  });
 
   // Step 9: View product #2
-  await viewNthProduct(page, 2);
-  await page.waitForTimeout(5000);
-  await snap(page, "09-product-detail-2");
+  await tracker.run("product-detail-2", async () => {
+    await viewNthProduct(page, 2);
+    await page.waitForTimeout(5000);
+  });
 
   // Step 10: Back to products
-  await backToProducts(page);
-  await page.waitForTimeout(3000);
-  await snap(page, "10-back-to-products-3");
+  await tracker.run("back-to-products-3", async () => {
+    await backToProducts(page);
+    await page.waitForTimeout(3000);
+  });
 
   // Step 11: Homepage
-  await visitHomepage(page);
-  await page.waitForTimeout(4000);
-  await snap(page, "11-homepage");
+  await tracker.run("homepage", async () => {
+    await visitHomepage(page);
+    await page.waitForTimeout(4000);
+  });
 
   // Step 12: Back to products
-  await browseProducts(page);
-  await page.waitForTimeout(3000);
-  await snap(page, "12-products-again");
+  await tracker.run("products-again", async () => {
+    await browseProducts(page);
+    await page.waitForTimeout(3000);
+  });
 
   // Step 13: View product #3
-  await viewNthProduct(page, 3);
-  await page.waitForTimeout(4000);
-  await snap(page, "13-product-detail-3");
+  await tracker.run("product-detail-3", async () => {
+    await viewNthProduct(page, 3);
+    await page.waitForTimeout(4000);
+  });
 
   // Step 14: Dashboard profile
-  await visitProfile(page);
-  await page.waitForTimeout(3000);
-  await snap(page, "14-dashboard-profile");
+  await tracker.run("dashboard-profile", async () => {
+    await visitProfile(page);
+    await page.waitForTimeout(3000);
+  });
 
   // Assertions
   journey.assertMinVisits(10);
   collector.assertFired("product_viewed", 3);
+
+  // Write progress summary (success case)
+  tracker.writeSummary();
 
   // Print summary
   journey.printSummary("001 Emma Anderson");

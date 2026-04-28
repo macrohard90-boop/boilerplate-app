@@ -263,18 +263,18 @@ export default function DashboardLayout({
             ))}
           </div>
 
-          <div className="flex gap-3 mt-6 pt-4 border-t border-glass-border">
+          <div className="flex flex-col-reverse sm:flex-row gap-3 mt-6 pt-4 border-t border-glass-border">
             <button
               onClick={handleSave}
               disabled={saving}
-              className="btn-primary text-sm disabled:opacity-50"
+              className="w-full sm:w-auto btn-primary text-sm disabled:opacity-50"
             >
               {saving ? "Saving..." : "Save Preferences"}
             </button>
             <button
               onClick={handleAcceptAll}
               disabled={saving}
-              className="btn-secondary text-sm disabled:opacity-50"
+              className="w-full sm:w-auto btn-secondary text-sm disabled:opacity-50"
             >
               {saving ? "..." : "Accept All & Continue"}
             </button>
