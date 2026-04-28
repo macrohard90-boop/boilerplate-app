@@ -5,6 +5,7 @@
 import { test as base, BrowserContext, Page } from "@playwright/test";
 import { EventCollector } from "../helpers/event-collector";
 import { TestUser, DEVICES, authStatePath } from "../helpers/users";
+import { loginUser } from "../helpers/auth";
 import { acceptAllCookies } from "../helpers/consent";
 
 /** Extended test with event collector fixture. */
@@ -50,8 +51,15 @@ export async function createUserContext(
 
   // Navigate to the site, then accept cookies via localStorage
   await page.goto("/products");
-  await page.waitForLoadState("networkidle");
+  await page.waitForLoadState("domcontentloaded");
   await acceptAllCookies(page);
+
+  // If JWT expired and we got redirected to login, re-authenticate
+  if (page.url().includes("/auth/login") || page.url().includes("/auth/register")) {
+    await loginUser(page, user.email, user.password);
+    await page.goto("/products");
+    await page.waitForLoadState("domcontentloaded");
+  }
 
   return { context, page, collector };
 }
