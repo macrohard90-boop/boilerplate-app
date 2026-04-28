@@ -2,14 +2,28 @@ import { defineConfig, devices } from "@playwright/test";
 
 const BASE_URL = process.env.BASE_URL || "http://34.30.88.59";
 
+/**
+ * Test profile — controls which journey files run.
+ *
+ *   TEST_PROFILE=smoke   → 5 users, 1 worker, sequential (default)
+ *   TEST_PROFILE=full    → 50 users, 2 workers, parallel
+ *
+ * Usage:
+ *   TEST_PROFILE=smoke npx playwright test
+ *   TEST_PROFILE=full  npx playwright test
+ */
+const profile = process.env.TEST_PROFILE || "smoke";
+
+const isFull = profile === "full";
+
 export default defineConfig({
   globalSetup: "./global-setup.ts",
   testDir: "./tests",
   timeout: 120_000,
   expect: { timeout: 10_000 },
-  retries: 1,
-  workers: 1, // Sequential for easier debugging
-  fullyParallel: false,
+  retries: isFull ? 2 : 1,
+  workers: isFull ? 2 : 1,
+  fullyParallel: isFull,
   preserveOutput: "always",
   use: {
     baseURL: BASE_URL,
@@ -27,8 +41,9 @@ export default defineConfig({
       name: "chromium",
       use: { ...devices["Desktop Chrome"] },
       dependencies: ["setup"],
-      // Only run the 5-user journey file for now
-      testMatch: "02-users-001-005.spec.ts",
+      // smoke = only the 5-user file; full = all journey files
+      testMatch: isFull ? "0[2-9]-*.spec.ts" : "02-users-001-005.spec.ts",
+      testIgnore: "01-register.spec.ts",
     },
   ],
   reporter: [

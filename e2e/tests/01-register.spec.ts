@@ -34,11 +34,14 @@ function getConsentLevel(
   return CONSENT_CONFIG[email] ?? "accept_all";
 }
 
-// Only register a subset of users for faster iteration.
-// Set TEST_USER_COUNT env var to control how many (default: 5).
-const userCount = parseInt(process.env.TEST_USER_COUNT || "5", 10);
+// TEST_PROFILE controls how many users to register:
+//   smoke (default) → 5 users    full → all 50
+// Override with TEST_USER_COUNT for fine-grained control.
+const profile = process.env.TEST_PROFILE || "smoke";
+const defaultCount = profile === "full" ? 50 : 5;
+const userCount = parseInt(process.env.TEST_USER_COUNT || String(defaultCount), 10);
 const allUsers = getAllUsers().slice(0, userCount);
-console.log(`  Registering ${allUsers.length} of ${getAllUsers().length} users`);
+console.log(`  [${profile}] Registering ${allUsers.length} of ${getAllUsers().length} users`);
 
 for (const user of allUsers) {
   test(`Register ${user.persona} #${user.index}: ${user.email}`, async ({
