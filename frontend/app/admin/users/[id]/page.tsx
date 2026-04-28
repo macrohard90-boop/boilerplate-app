@@ -78,7 +78,6 @@ interface FullProfile {
   top_pages: TopPage[];
   email_preferences: EmailPreferences | null;
   cart_summary: { active_carts: number; total_items: number };
-  wishlist_summary: { wishlists: number; total_items: number };
   stripe_customer_id: string | null;
 }
 
@@ -738,23 +737,6 @@ export default function UserProfilePage() {
             <p className="text-xs text-text-muted">
               {data.cart_summary.active_carts} active{" "}
               {data.cart_summary.active_carts === 1 ? "cart" : "carts"}
-            </p>
-          </div>
-
-          {/* Wishlist Summary */}
-          <div>
-            <h4 className="text-xs font-medium text-text-muted mb-2">
-              Wishlists
-            </h4>
-            <p className="text-lg font-bold text-text-primary tabular-nums">
-              {data.wishlist_summary.total_items}
-              <span className="text-xs font-normal text-text-muted ml-1">
-                items
-              </span>
-            </p>
-            <p className="text-xs text-text-muted">
-              {data.wishlist_summary.wishlists}{" "}
-              {data.wishlist_summary.wishlists === 1 ? "wishlist" : "wishlists"}
             </p>
           </div>
 

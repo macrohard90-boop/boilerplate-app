@@ -32,9 +32,7 @@ const CATEGORY_COLORS: Record<string, string> = {
   cart: "bg-green-500/20 text-green-300 border-green-500/30",
   checkout: "bg-amber-500/20 text-amber-300 border-amber-500/30",
   engagement: "bg-cyan-500/20 text-cyan-300 border-cyan-500/30",
-  wishlist: "bg-pink-500/20 text-pink-300 border-pink-500/30",
   discount: "bg-orange-500/20 text-orange-300 border-orange-500/30",
-  navigation: "bg-gray-500/20 text-gray-300 border-gray-500/30",
   lifecycle: "bg-red-500/20 text-red-300 border-red-500/30",
 };
 

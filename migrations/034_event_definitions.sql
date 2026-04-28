@@ -20,10 +20,10 @@ CREATE INDEX IF NOT EXISTS idx_event_defs_name ON analytics.event_definitions(na
 CREATE INDEX IF NOT EXISTS idx_event_defs_category ON analytics.event_definitions(category);
 CREATE INDEX IF NOT EXISTS idx_event_defs_enabled ON analytics.event_definitions(is_enabled);
 
--- Seed all 40 known events
--- Categories: auth, browse, cart, checkout, engagement, wishlist, discount, navigation, lifecycle
+-- Seed all known events
+-- Categories: auth, browse, cart, checkout, engagement, discount, lifecycle, admin
 
--- ── Auth (6) ──
+-- ── Auth (7) ──
 
 INSERT INTO analytics.event_definitions (name, description, category, payload_schema, source_locations, is_system) VALUES
 ('login_completed', 'Fired when a user successfully logs in via email/password', 'auth',
@@ -64,6 +64,13 @@ INSERT INTO analytics.event_definitions (name, description, category, payload_sc
 ('logout', 'Fired when a user logs out', 'auth',
  '[]',
  '[{"file":"frontend/components/Header.tsx","line":204,"snippet":"trackEvent(\"logout\")"}]',
+ false)
+ON CONFLICT (name) DO NOTHING;
+
+INSERT INTO analytics.event_definitions (name, description, category, payload_schema, source_locations, is_system) VALUES
+('cookie_consent_given', 'Fired when a user accepts cookie consent', 'auth',
+ '[{"field":"analytics","type":"boolean","description":"Analytics cookies accepted"},{"field":"marketing","type":"boolean","description":"Marketing cookies accepted"}]',
+ '[{"file":"frontend/components/ConsentModal.tsx","line":68,"snippet":"trackEvent(\"cookie_consent_given\", { analytics: toggles.analytics_cookies, marketing: toggles.marketing_cookies })"}]',
  false)
 ON CONFLICT (name) DO NOTHING;
 
@@ -236,29 +243,6 @@ INSERT INTO analytics.event_definitions (name, description, category, payload_sc
  false)
 ON CONFLICT (name) DO NOTHING;
 
--- ── Wishlist (3) ──
-
-INSERT INTO analytics.event_definitions (name, description, category, payload_schema, source_locations, is_system) VALUES
-('wishlist_removed', 'Fired when a user removes an item from their wishlist', 'wishlist',
- '[{"field":"product_id","type":"UUID","description":"Product removed from wishlist"}]',
- '[{"file":"frontend/app/dashboard/wishlists/page.tsx","line":55,"snippet":"trackEvent(\"wishlist_removed\", { product_id: item.product_id })"}]',
- false)
-ON CONFLICT (name) DO NOTHING;
-
-INSERT INTO analytics.event_definitions (name, description, category, payload_schema, source_locations, is_system) VALUES
-('wishlist_moved_to_cart', 'Fired when a user moves a wishlist item to their cart', 'wishlist',
- '[{"field":"product_id","type":"UUID","description":"Product moved to cart"},{"field":"quantity","type":"number","description":"Quantity added"}]',
- '[{"file":"frontend/app/dashboard/wishlists/page.tsx","line":69,"snippet":"trackEvent(\"wishlist_moved_to_cart\", { product_id: item.product_id, quantity: 1 })"}]',
- false)
-ON CONFLICT (name) DO NOTHING;
-
-INSERT INTO analytics.event_definitions (name, description, category, payload_schema, source_locations, is_system) VALUES
-('empty_wishlist_viewed', 'Fired when a user views an empty wishlist page', 'wishlist',
- '[]',
- '[{"file":"frontend/app/dashboard/wishlists/page.tsx","line":82,"snippet":"trackEvent(\"empty_wishlist_viewed\")"}]',
- false)
-ON CONFLICT (name) DO NOTHING;
-
 -- ── Discount (3) ──
 
 INSERT INTO analytics.event_definitions (name, description, category, payload_schema, source_locations, is_system) VALUES
@@ -279,15 +263,6 @@ INSERT INTO analytics.event_definitions (name, description, category, payload_sc
 ('coupon_failed', 'Fired when a coupon code validation fails', 'discount',
  '[{"field":"code","type":"string","description":"Coupon code that failed"}]',
  '[{"file":"frontend/lib/cart-context.tsx","line":225,"snippet":"trackEvent(\"coupon_failed\", { code })"}]',
- false)
-ON CONFLICT (name) DO NOTHING;
-
--- ── Navigation (2) ──
-
-INSERT INTO analytics.event_definitions (name, description, category, payload_schema, source_locations, is_system) VALUES
-('cookie_consent_given', 'Fired when a user accepts cookie consent', 'navigation',
- '[{"field":"analytics","type":"boolean","description":"Analytics cookies accepted"},{"field":"marketing","type":"boolean","description":"Marketing cookies accepted"}]',
- '[{"file":"frontend/components/ConsentModal.tsx","line":68,"snippet":"trackEvent(\"cookie_consent_given\", { analytics: toggles.analytics_cookies, marketing: toggles.marketing_cookies })"}]',
  false)
 ON CONFLICT (name) DO NOTHING;
 

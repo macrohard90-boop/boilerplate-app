@@ -19,14 +19,14 @@ export interface PageVisit {
 function labelForPath(path: string): string {
   if (path === "/" || path === "") return "Homepage";
   if (path === "/products") return "Products Listing";
-  if (path.startsWith("/products/")) return `Product Detail (${path.split("/products/")[1]})`;
+  if (path.startsWith("/products/"))
+    return `Product Detail (${path.split("/products/")[1]})`;
   if (path === "/cart") return "Cart";
   if (path === "/checkout") return "Checkout";
   if (path.startsWith("/checkout")) return `Checkout (${path})`;
   if (path === "/dashboard") return "Dashboard";
   if (path === "/dashboard/orders") return "Orders";
   if (path === "/dashboard/profile") return "Profile";
-  if (path === "/dashboard/wishlists") return "Wishlists";
   if (path === "/dashboard/privacy") return "Privacy Settings";
   if (path.startsWith("/dashboard/orders/") && path.includes("/confirmation"))
     return "Order Confirmation";
@@ -113,10 +113,14 @@ export class JourneyLogger {
   /** Print a formatted journey summary to console. */
   printSummary(userName: string): void {
     const lines: string[] = [];
-    lines.push(`\n  === Journey: ${userName} (${this.totalVisits} visits, ${this.pageCount} unique pages) ===`);
+    lines.push(
+      `\n  === Journey: ${userName} (${this.totalVisits} visits, ${this.pageCount} unique pages) ===`,
+    );
     for (let i = 0; i < this.visits.length; i++) {
       const v = this.visits[i];
-      const duration = v.durationMs ? ` (${(v.durationMs / 1000).toFixed(1)}s)` : "";
+      const duration = v.durationMs
+        ? ` (${(v.durationMs / 1000).toFixed(1)}s)`
+        : "";
       const step = String(i + 1).padStart(2, " ");
       lines.push(`  ${step}. ${v.label}${duration}`);
     }

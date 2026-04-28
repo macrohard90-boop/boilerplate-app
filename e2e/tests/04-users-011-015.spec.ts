@@ -1,6 +1,6 @@
 /**
  * Group 3: Users 011-015 — Window Shoppers
- * Browse, search, filter, wishlist, NO purchases. 12-13 pages each.
+ * Browse, search, filter, NO purchases. 10-13 pages each.
  */
 
 import { test, expect } from "@playwright/test";
@@ -18,9 +18,6 @@ import {
   resetCategoryFilter,
   changeSort,
   selectVariant,
-  addToWishlist,
-  removeFromWishlist,
-  viewWishlist,
   visitHomepage,
   visitDashboard,
   visitProfile,
@@ -124,10 +121,10 @@ test("User 011 Isabella Young — Window Shopper [iPad Pro]", async ({
 });
 
 // ────────────────────────────────────────────────────────────────
-// User 012: Mason King — Mobile Landscape — 13 pages
-// Products (4s) → sort name (3s) → view #0 (5s) → add wishlist (3s) →
-// back (3s) → filter category #0 (4s) → view #0 (5s) → back (3s) →
-// view #1 (5s) → back (3s) → wishlist page (4s) → products (3s) →
+// User 012: Mason King — Mobile Landscape — 11 pages
+// Products (4s) → sort name (3s) → view #0 (5s) → back (3s) →
+// filter category #0 (4s) → view #0 (5s) → back (3s) →
+// view #1 (5s) → back (3s) → products (3s) →
 // view #2 (5s) → dashboard/profile (3s)
 // ────────────────────────────────────────────────────────────────
 test("User 012 Mason King — Window Shopper [Mobile Landscape]", async ({
@@ -152,15 +149,10 @@ test("User 012 Mason King — Window Shopper [Mobile Landscape]", async ({
   await page.waitForTimeout(5000);
   await snap(page, "03-product-detail-0");
 
-  // Step 4: Add to wishlist
-  await addToWishlist(page);
-  await page.waitForTimeout(3000);
-  await snap(page, "04-added-to-wishlist");
-
-  // Step 5: Back to products
+  // Step 4: Back to products
   await backToProducts(page);
   await page.waitForTimeout(3000);
-  await snap(page, "05-back");
+  await snap(page, "04-back");
 
   // Step 6: Filter by category #0
   await filterByNthCategory(page, 0);
@@ -187,25 +179,20 @@ test("User 012 Mason King — Window Shopper [Mobile Landscape]", async ({
   await page.waitForTimeout(3000);
   await snap(page, "10-back-3");
 
-  // Step 11: Wishlist page
-  await viewWishlist(page);
-  await page.waitForTimeout(4000);
-  await snap(page, "11-wishlist-page");
-
-  // Step 12: Back to products
+  // Step 11: Back to products
   await browseProducts(page);
   await page.waitForTimeout(3000);
-  await snap(page, "12-products-again");
+  await snap(page, "11-products-again");
 
-  // Step 13: View product #2
+  // Step 12: View product #2
   await viewNthProduct(page, 2);
   await page.waitForTimeout(5000);
-  await snap(page, "13-product-detail-2");
+  await snap(page, "12-product-detail-2");
 
-  // Step 14: Dashboard profile
+  // Step 13: Dashboard profile
   await visitProfile(page);
   await page.waitForTimeout(3000);
-  await snap(page, "14-dashboard-profile");
+  await snap(page, "13-dashboard-profile");
 
   // Assertions
   journey.assertMinVisits(10);
@@ -217,10 +204,9 @@ test("User 012 Mason King — Window Shopper [Mobile Landscape]", async ({
 });
 
 // ────────────────────────────────────────────────────────────────
-// User 013: Charlotte Wright — Desktop Chrome — 13 pages
-// Products (5s) → view #1 (5s) → add wishlist (3s) → back (3s) →
-// view #2 (5s) → add wishlist (3s) → back (3s) → view #3 (5s) →
-// back (3s) → wishlist page (4s) → remove first (3s) → products (3s) →
+// User 013: Charlotte Wright — Desktop Chrome — 10 pages
+// Products (5s) → view #1 (5s) → back (3s) → view #2 (5s) →
+// back (3s) → view #3 (5s) → back (3s) → products (3s) →
 // homepage (4s) → logout (3s)
 // ────────────────────────────────────────────────────────────────
 test("User 013 Charlotte Wright — Window Shopper [Desktop Chrome]", async ({
@@ -240,65 +226,45 @@ test("User 013 Charlotte Wright — Window Shopper [Desktop Chrome]", async ({
   await page.waitForTimeout(5000);
   await snap(page, "02-product-detail-1");
 
-  // Step 3: Add to wishlist
-  await addToWishlist(page);
-  await page.waitForTimeout(3000);
-  await snap(page, "03-added-to-wishlist");
-
-  // Step 4: Back to products
+  // Step 3: Back to products
   await backToProducts(page);
   await page.waitForTimeout(3000);
-  await snap(page, "04-back");
+  await snap(page, "03-back");
 
-  // Step 5: View product #2
+  // Step 4: View product #2
   await viewNthProduct(page, 2);
   await page.waitForTimeout(5000);
-  await snap(page, "05-product-detail-2");
+  await snap(page, "04-product-detail-2");
 
-  // Step 6: Add to wishlist
-  await addToWishlist(page);
+  // Step 5: Back to products
+  await backToProducts(page);
   await page.waitForTimeout(3000);
-  await snap(page, "06-added-to-wishlist-2");
+  await snap(page, "05-back-2");
+
+  // Step 6: View product #3
+  await viewNthProduct(page, 3);
+  await page.waitForTimeout(5000);
+  await snap(page, "06-product-detail-3");
 
   // Step 7: Back to products
   await backToProducts(page);
   await page.waitForTimeout(3000);
-  await snap(page, "07-back-2");
+  await snap(page, "07-back-3");
 
-  // Step 8: View product #3
-  await viewNthProduct(page, 3);
-  await page.waitForTimeout(5000);
-  await snap(page, "08-product-detail-3");
-
-  // Step 9: Back to products
-  await backToProducts(page);
-  await page.waitForTimeout(3000);
-  await snap(page, "09-back-3");
-
-  // Step 10: Wishlist page
-  await viewWishlist(page);
-  await page.waitForTimeout(4000);
-  await snap(page, "10-wishlist-page");
-
-  // Step 11: Remove first wishlist item
-  await removeFromWishlist(page);
-  await page.waitForTimeout(3000);
-  await snap(page, "11-wishlist-after-remove");
-
-  // Step 12: Back to products
+  // Step 8: Back to products
   await browseProducts(page);
   await page.waitForTimeout(3000);
-  await snap(page, "12-products-again");
+  await snap(page, "08-products-again");
 
-  // Step 13: Homepage
+  // Step 9: Homepage
   await visitHomepage(page);
   await page.waitForTimeout(4000);
-  await snap(page, "13-homepage");
+  await snap(page, "09-homepage");
 
-  // Step 14: Logout
+  // Step 10: Logout
   await logout(page);
   await page.waitForTimeout(3000);
-  await snap(page, "14-logged-out");
+  await snap(page, "10-logged-out");
 
   // Assertions
   journey.assertMinVisits(10);
@@ -310,7 +276,7 @@ test("User 013 Charlotte Wright — Window Shopper [Desktop Chrome]", async ({
 });
 
 // ────────────────────────────────────────────────────────────────
-// User 014: Logan Lopez — Desktop Large — 13 pages
+// User 014: Logan Lopez — Desktop Large — 12 pages
 // Products (4s) → search "xyznothing" (4s) → clear search (3s) →
 // search "pro" (4s) → view #0 (5s) → back (3s) → filter category #0 (4s) →
 // view #1 (5s) → back (3s) → sort price_asc (3s) → view #0 (5s) →
@@ -392,11 +358,6 @@ test("User 014 Logan Lopez — Window Shopper [Desktop Large]", async ({
   await visitOrders(page);
   await page.waitForTimeout(3000);
   await snap(page, "14-dashboard-orders");
-
-  // Step 15: Wishlist page (empty — triggers empty_wishlist_viewed event)
-  await viewWishlist(page);
-  await page.waitForTimeout(3000);
-  await snap(page, "15-empty-wishlist");
 
   // Assertions
   journey.assertMinVisits(10);

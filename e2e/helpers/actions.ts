@@ -415,58 +415,6 @@ export async function waitForConfirmation(page: Page): Promise<void> {
   await page.waitForLoadState("networkidle");
 }
 
-// ── Wishlist ──
-
-/** Click the wishlist/heart button on a product page. */
-export async function addToWishlist(page: Page): Promise<void> {
-  const wishBtn = page
-    .locator("button")
-    .filter({ hasText: /Wishlist|♡|Save/i })
-    .or(page.locator('[aria-label*="wishlist" i]'))
-    .or(page.locator('[class*="wishlist"]'))
-    .first();
-  if (await wishBtn.isVisible().catch(() => false)) {
-    await wishBtn.click();
-    await page.waitForTimeout(500);
-  }
-}
-
-/** Navigate to the wishlist page. */
-export async function viewWishlist(page: Page): Promise<void> {
-  await gotoDashboard(page, "/dashboard/wishlists");
-}
-
-/** Remove first item from wishlist. */
-export async function removeFromWishlist(page: Page): Promise<void> {
-  const removeBtn = page
-    .locator("button")
-    .filter({ hasText: /Remove/i })
-    .first();
-  if (await removeBtn.isVisible().catch(() => false)) {
-    await removeBtn.click();
-    await page.waitForTimeout(500);
-    return;
-  }
-  // Fallback: icon button with SVG
-  const iconBtn = page.locator('button:has(svg[viewBox="0 0 24 24"])').first();
-  if (await iconBtn.isVisible().catch(() => false)) {
-    await iconBtn.click();
-    await page.waitForTimeout(500);
-  }
-}
-
-/** Move first wishlist item to cart. */
-export async function moveWishlistToCart(page: Page): Promise<void> {
-  const moveBtn = page
-    .locator("button")
-    .filter({ hasText: /Add to Cart|Move to Cart/i })
-    .first();
-  if (await moveBtn.isVisible().catch(() => false)) {
-    await moveBtn.click();
-    await page.waitForTimeout(500);
-  }
-}
-
 // ── Auth ──
 
 /** Click "Sign out" from the user dropdown menu. */

@@ -28,8 +28,6 @@ import {
   decreaseQuantity,
   removeFromCart,
   clickSubscriptionsTab,
-  addToWishlist,
-  viewWishlist,
   finishJourney,
 } from "../helpers/actions";
 
@@ -461,7 +459,10 @@ test("User 010 — Tabs + subscriptions [Pixel 7]", async ({ browser }) => {
   await page.waitForTimeout(2000);
 
   // Step 3: Back to products tab
-  const productsTab = page.locator("button").filter({ hasText: "Products" }).first();
+  const productsTab = page
+    .locator("button")
+    .filter({ hasText: "Products" })
+    .first();
   if (await productsTab.isVisible().catch(() => false)) {
     await productsTab.click();
     await page.waitForLoadState("networkidle");

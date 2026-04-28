@@ -1,6 +1,6 @@
 /**
  * Group 9: Users 041-045 — Power Buyers (041-042) & Subscribers (043-045)
- * 041-042: Heavy browsing, wishlist, cart manipulation, coupons, full checkout.
+ * 041-042: Heavy browsing, cart manipulation, coupons, full checkout.
  * 043-045: Browse products then switch to subscriptions tab, add plan to cart,
  *          start checkout (subscription checkout redirects to external Stripe Checkout).
  */
@@ -20,9 +20,6 @@ import {
   increaseQuantity,
   removeFromCart,
   applyCoupon,
-  addToWishlist,
-  viewWishlist,
-  moveWishlistToCart,
   clickSubscriptionsTab,
   startCheckout,
   fillShipping,
@@ -44,7 +41,9 @@ const users = getAllUsers();
 // advance (triggers POST /payments/checkout/session → Stripe redirect) →
 // orders page
 // ────────────────────────────────────────────────────────────────
-test("User 041 Lucas Walker — Power Buyer MIXED CART [Pixel 7]", async ({ browser }) => {
+test("User 041 Lucas Walker — Power Buyer MIXED CART [Pixel 7]", async ({
+  browser,
+}) => {
   const user = users[40]; // test041
   const { context, page, collector } = await createUserContext(browser, user);
   const journey = new JourneyLogger();
@@ -115,10 +114,14 @@ test("User 041 Lucas Walker — Power Buyer MIXED CART [Pixel 7]", async ({ brow
   await snap(page, "13-checkout-review");
 
   // Step 14: Advance — triggers POST /payments/checkout/session for mixed/subscription carts
-  const sessionRequestPromise = page.waitForRequest(
-    (req) => req.url().includes("/payments/checkout/session") && req.method() === "POST",
-    { timeout: 15000 },
-  ).catch(() => null);
+  const sessionRequestPromise = page
+    .waitForRequest(
+      (req) =>
+        req.url().includes("/payments/checkout/session") &&
+        req.method() === "POST",
+      { timeout: 15000 },
+    )
+    .catch(() => null);
 
   await advanceCheckoutStep(page);
   const sessionRequest = await sessionRequestPromise;
@@ -128,7 +131,9 @@ test("User 041 Lucas Walker — Power Buyer MIXED CART [Pixel 7]", async ({ brow
   if (sessionRequest) {
     console.log("  Mixed cart: checkout session API called (Stripe redirect)");
   } else {
-    console.log("  WARNING: checkout session API was NOT called for mixed cart");
+    console.log(
+      "  WARNING: checkout session API was NOT called for mixed cart",
+    );
   }
 
   // Step 15: Visit orders page (redirected back or navigate manually)
@@ -353,10 +358,14 @@ test("User 043 Ethan Young — Subscriber [Desktop Chrome]", async ({
   await snap(page, "12-checkout");
 
   // Step 13: Advance to review (triggers Stripe Checkout redirect for subscriptions)
-  const sessionRequestPromise043 = page.waitForRequest(
-    (req) => req.url().includes("/payments/checkout/session") && req.method() === "POST",
-    { timeout: 15000 },
-  ).catch(() => null);
+  const sessionRequestPromise043 = page
+    .waitForRequest(
+      (req) =>
+        req.url().includes("/payments/checkout/session") &&
+        req.method() === "POST",
+      { timeout: 15000 },
+    )
+    .catch(() => null);
 
   await advanceCheckoutStep(page);
   const sessionRequest043 = await sessionRequestPromise043;
@@ -462,10 +471,14 @@ test("User 044 Isabella King — Subscriber [Desktop Large]", async ({
   await snap(page, "14-checkout");
 
   // Step 15: Advance to review (triggers Stripe Checkout redirect for subscriptions)
-  const sessionRequestPromise044 = page.waitForRequest(
-    (req) => req.url().includes("/payments/checkout/session") && req.method() === "POST",
-    { timeout: 15000 },
-  ).catch(() => null);
+  const sessionRequestPromise044 = page
+    .waitForRequest(
+      (req) =>
+        req.url().includes("/payments/checkout/session") &&
+        req.method() === "POST",
+      { timeout: 15000 },
+    )
+    .catch(() => null);
 
   await advanceCheckoutStep(page);
   const sessionRequest044 = await sessionRequestPromise044;
@@ -549,10 +562,14 @@ test("User 045 Mason Wright — Subscriber [iPhone 13]", async ({ browser }) => 
   await snap(page, "10-checkout");
 
   // Step 11: Advance to review (triggers Stripe Checkout redirect for subscriptions)
-  const sessionRequestPromise045 = page.waitForRequest(
-    (req) => req.url().includes("/payments/checkout/session") && req.method() === "POST",
-    { timeout: 15000 },
-  ).catch(() => null);
+  const sessionRequestPromise045 = page
+    .waitForRequest(
+      (req) =>
+        req.url().includes("/payments/checkout/session") &&
+        req.method() === "POST",
+      { timeout: 15000 },
+    )
+    .catch(() => null);
 
   await advanceCheckoutStep(page);
   const sessionRequest045 = await sessionRequestPromise045;

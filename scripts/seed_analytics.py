@@ -70,10 +70,9 @@ EVENT_TYPES = [
     "checkout_started",
     "checkout_abandoned",
     "search_performed",
-    "wishlist_added",
     "coupon_applied",
 ]
-EVENT_WEIGHTS = [40, 20, 5, 10, 5, 10, 5, 5]
+EVENT_WEIGHTS = [40, 20, 5, 10, 5, 10, 5]
 
 
 def load_env() -> dict[str, str]:

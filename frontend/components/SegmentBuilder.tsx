@@ -19,7 +19,6 @@ export interface SegmentFilters {
   signup_days_max?: number | null;
   has_orders?: boolean;
   cart_status?: string;
-  has_wishlist?: boolean;
   communication_type?: string;
   is_verified?: boolean;
   // Analytics-based filters
@@ -662,20 +661,6 @@ export default function SegmentBuilder({
             className="rounded border-glass-border"
           />
           Has placed orders
-        </label>
-        <label className="flex items-center gap-1.5 text-sm text-text-secondary cursor-pointer">
-          <input
-            type="checkbox"
-            checked={!!filters.has_wishlist}
-            onChange={(e) =>
-              onChange({
-                ...filters,
-                has_wishlist: e.target.checked || undefined,
-              })
-            }
-            className="rounded border-glass-border"
-          />
-          Has wishlist items
         </label>
         <label className="flex items-center gap-1.5 text-sm text-text-secondary cursor-pointer">
           <input

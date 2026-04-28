@@ -73,14 +73,6 @@ export default function Footer() {
                   Orders
                 </Link>
               </li>
-              <li>
-                <Link
-                  href="/dashboard/wishlists"
-                  className="text-sm text-text-muted hover:text-text-secondary transition-colors"
-                >
-                  Wishlists
-                </Link>
-              </li>
             </ul>
           </div>
 

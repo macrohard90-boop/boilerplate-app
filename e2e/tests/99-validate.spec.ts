@@ -90,7 +90,8 @@ const EXPECTED_EVENTS: {
   {
     event_type: "filter_used",
     min_count: 3,
-    source_tests: "02 (003, 005), 03 (009), 04 (012, 014), 05 (021), 08 (031), 09 (039)",
+    source_tests:
+      "02 (003, 005), 03 (009), 04 (012, 014), 05 (021), 08 (031), 09 (039)",
   },
   {
     event_type: "cart_quantity_changed",
@@ -106,11 +107,6 @@ const EXPECTED_EVENTS: {
     event_type: "empty_cart_viewed",
     min_count: 1,
     source_tests: "11 (048 — bouncer visits empty cart)",
-  },
-  {
-    event_type: "empty_wishlist_viewed",
-    min_count: 1,
-    source_tests: "04 (014 — window shopper visits empty wishlist)",
   },
   {
     event_type: "checkout_step_viewed",
