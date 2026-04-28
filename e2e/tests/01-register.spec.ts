@@ -206,24 +206,9 @@ for (const user of allUsers) {
     expect(finalUrl).not.toContain("/auth/login");
     expect(finalUrl).not.toContain("/auth/register");
 
-    // Re-fire signup_completed now that GDPR consent exists.
-    // The original trackEvent during registration was dropped because
-    // consent hadn't been given yet.
-    await page.evaluate(() => {
-      // @ts-ignore — trackEvent is loaded globally by the app
-      if (typeof window !== "undefined") {
-        fetch("/api/tracking/events", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
-          body: JSON.stringify({
-            event_type: "signup_completed",
-            event_data: { method: "email" },
-          }),
-        }).catch(() => {});
-      }
-    });
-    await page.waitForTimeout(500);
+    // signup_completed is now exempt from GDPR consent gating on the backend,
+    // so the original trackEvent on the register page fires successfully.
+    // No need to re-fire it here.
 
     // Save auth state (includes cookies, localStorage with consent flags)
     const statePath = authStatePath(user.email);
