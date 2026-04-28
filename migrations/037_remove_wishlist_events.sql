@@ -16,8 +16,12 @@ DELETE FROM analytics.event_definitions WHERE name = 'nav_cart_clicked';
 -- Move cookie_consent_given from "navigation" to "auth"
 UPDATE analytics.event_definitions SET category = 'auth' WHERE name = 'cookie_consent_given';
 
--- Clean up any historical wishlist events from the events table (optional, keeps data clean)
--- DELETE FROM analytics.events WHERE event_type IN ('wishlist_removed', 'wishlist_moved_to_cart', 'empty_wishlist_viewed', 'nav_cart_clicked');
+-- Remove unused system events
+DELETE FROM analytics.event_definitions WHERE name IN (
+    'user.registered',
+    'segment.entered',
+    'coupon.exhausted'
+);
 
 -- DOWN
 -- Re-insert wishlist events and restore cookie_consent_given category if needed

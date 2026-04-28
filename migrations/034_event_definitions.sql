@@ -243,14 +243,7 @@ INSERT INTO analytics.event_definitions (name, description, category, payload_sc
  false)
 ON CONFLICT (name) DO NOTHING;
 
--- ── Discount (3) ──
-
-INSERT INTO analytics.event_definitions (name, description, category, payload_schema, source_locations, is_system) VALUES
-('coupon.exhausted', 'System event fired when a coupon reaches its max_uses limit during checkout', 'discount',
- '[{"field":"coupon_code","type":"string","description":"Coupon code that was exhausted"},{"field":"max_uses","type":"number","description":"Maximum usage limit"},{"field":"uses_count","type":"number","description":"Final usage count"}]',
- '[{"file":"modules/ecommerce/services/discount_service.py","snippet":"record_event(db, session_id, \"coupon.exhausted\", ...)"}]',
- true)
-ON CONFLICT (name) DO NOTHING;
+-- ── Discount (2) ──
 
 INSERT INTO analytics.event_definitions (name, description, category, payload_schema, source_locations, is_system) VALUES
 ('coupon_applied', 'Fired when a coupon code is successfully applied to the cart', 'discount',
@@ -266,14 +259,7 @@ INSERT INTO analytics.event_definitions (name, description, category, payload_sc
  false)
 ON CONFLICT (name) DO NOTHING;
 
--- ── Lifecycle (4) — Backend system events ──
-
-INSERT INTO analytics.event_definitions (name, description, category, payload_schema, source_locations, is_system) VALUES
-('user.registered', 'System event fired when a new user account is created (triggers automation flows)', 'lifecycle',
- '[{"field":"email","type":"string","description":"New user email"},{"field":"first_name","type":"string","description":"User first name"}]',
- '[{"file":"modules/auth/routes/auth_routes.py","line":176,"snippet":"await fire_event_for_flows(db, \"user.registered\", str(new_user.id), {\"email\": email, \"first_name\": first_name})"}]',
- true)
-ON CONFLICT (name) DO NOTHING;
+-- ── Lifecycle (2) — Backend system events ──
 
 INSERT INTO analytics.event_definitions (name, description, category, payload_schema, source_locations, is_system) VALUES
 ('order.completed', 'System event fired when a Stripe payment succeeds and order is marked completed', 'lifecycle',
@@ -286,13 +272,6 @@ INSERT INTO analytics.event_definitions (name, description, category, payload_sc
 ('cart.abandoned', 'System event fired by the order reaper when a cart is inactive for too long', 'lifecycle',
  '[{"field":"cart_id","type":"UUID","description":"Abandoned cart ID"}]',
  '[{"file":"modules/payments/services/order_reaper.py","line":168,"snippet":"await fire_event_for_flows(db, \"cart.abandoned\", user_id, {\"cart_id\": str(cart_id)})"}]',
- true)
-ON CONFLICT (name) DO NOTHING;
-
-INSERT INTO analytics.event_definitions (name, description, category, payload_schema, source_locations, is_system) VALUES
-('segment.entered', 'System event fired by the segment check worker when a user enters a new audience segment', 'lifecycle',
- '[{"field":"segment_id","type":"UUID","description":"Segment the user entered"}]',
- '[{"file":"modules/marketing/workers/segment_check_worker.py","line":83,"snippet":"await fire_event_for_flows(db, \"segment.entered\", user_id, {\"segment_id\": str(segment_id)})"}]',
  true)
 ON CONFLICT (name) DO NOTHING;
 
