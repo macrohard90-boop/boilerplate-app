@@ -10,10 +10,11 @@ export default defineConfig({
   retries: 2,
   workers: 2,
   fullyParallel: true,
+  preserveOutput: "always",
   use: {
     baseURL: BASE_URL,
     trace: "retain-on-failure",
-    screenshot: "only-on-failure",
+    screenshot: "on",
     video: "retain-on-failure",
   },
   projects: [
@@ -29,5 +30,5 @@ export default defineConfig({
       testIgnore: "01-register.spec.ts",
     },
   ],
-  reporter: [["html", { open: "never" }], ["list"]],
+  reporter: [["html", { open: "never" }], ["list"], ["json", { outputFile: "test-results/results.json" }]],
 });
