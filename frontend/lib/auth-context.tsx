@@ -9,9 +9,11 @@ import React, {
 } from "react";
 import {
   apiFetch,
+  refreshTokens,
   setAccessToken,
   getAccessToken,
   setCsrfToken,
+  onSessionExpired,
   type ApiError,
 } from "./api";
 
@@ -80,7 +82,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  // Try to restore session on mount (via refresh token cookie)
+  // Listen for session-expired events from apiFetch (replaces nuclear redirect)
+  useEffect(() => {
+    return onSessionExpired(() => {
+      setUser(null);
+      setSession(null);
+    });
+  }, []);
+
+  // Try to restore session on mount (via sessionStorage + refresh token cookie)
   useEffect(() => {
     async function init() {
       // Check URL for token from OAuth callback
@@ -94,20 +104,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       if (!getAccessToken()) {
-        // Try refresh
-        try {
-          const res = await fetch("/api/auth/refresh", {
-            method: "POST",
-            credentials: "include",
-          });
-          if (res.ok) {
-            const data = await res.json();
-            setAccessToken(data.access_token);
-            if (data.csrf_token) setCsrfToken(data.csrf_token);
-          }
-        } catch {
-          // No valid refresh token
-        }
+        // Try refresh via httpOnly cookie
+        await refreshTokens();
       }
 
       if (getAccessToken()) {
@@ -125,6 +123,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const data = await apiFetch<{
           access_token: string;
           csrf_token?: string;
+          expires_in?: number;
         }>("/auth/login", {
           method: "POST",
           body: JSON.stringify({ email, password }),
@@ -153,6 +152,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const data = await apiFetch<{
           access_token: string;
           csrf_token?: string;
+          expires_in?: number;
         }>("/auth/register", {
           method: "POST",
           body: JSON.stringify({

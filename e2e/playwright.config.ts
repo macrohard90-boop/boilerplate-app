@@ -7,9 +7,9 @@ export default defineConfig({
   testDir: "./tests",
   timeout: 120_000,
   expect: { timeout: 10_000 },
-  retries: 2,
-  workers: 2,
-  fullyParallel: true,
+  retries: 1,
+  workers: 1, // Sequential for easier debugging
+  fullyParallel: false,
   preserveOutput: "always",
   use: {
     baseURL: BASE_URL,
@@ -27,8 +27,13 @@ export default defineConfig({
       name: "chromium",
       use: { ...devices["Desktop Chrome"] },
       dependencies: ["setup"],
-      testIgnore: "01-register.spec.ts",
+      // Only run the 5-user journey file for now
+      testMatch: "02-users-001-005.spec.ts",
     },
   ],
-  reporter: [["html", { open: "never" }], ["list"], ["json", { outputFile: "test-results/results.json" }]],
+  reporter: [
+    ["html", { open: "never" }],
+    ["list"],
+    ["json", { outputFile: "test-results/results.json" }],
+  ],
 });

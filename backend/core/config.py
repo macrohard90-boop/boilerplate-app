@@ -39,7 +39,7 @@ class Settings(BaseSettings):
     # Auth
     jwt_secret: str = "change-me-to-a-long-random-string"
     jwt_algorithm: str = "HS256"
-    jwt_expiry: int = 900
+    jwt_expiry: int = 3600
     refresh_token_ttl: int = 604800
     max_sessions_per_user: int = 5
 

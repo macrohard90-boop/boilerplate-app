@@ -1,12 +1,54 @@
 /**
  * Centralized API client with token handling and 401 refresh interceptor.
+ *
+ * Tokens are persisted in sessionStorage so they survive page reloads
+ * within the same tab.  A background timer proactively refreshes the
+ * access token before it expires.
  */
 
 const API_BASE = "/api";
 
-let accessToken: string | null = null;
-let csrfToken: string | null = null;
-let refreshPromise: Promise<boolean> | null = null;
+// ── Token storage (sessionStorage-backed) ──
+
+function _read(key: string): string | null {
+  if (typeof window === "undefined") return null;
+  return sessionStorage.getItem(key);
+}
+
+function _write(key: string, value: string | null) {
+  if (typeof window === "undefined") return;
+  if (value) sessionStorage.setItem(key, value);
+  else sessionStorage.removeItem(key);
+}
+
+let _accessToken: string | null = null;
+let _csrfToken: string | null = null;
+let _expiresIn: number = 3600; // seconds, updated on each token response
+let _refreshTimer: ReturnType<typeof setTimeout> | null = null;
+
+// Hydrate from sessionStorage on module load
+if (typeof window !== "undefined") {
+  _accessToken = sessionStorage.getItem("access_token");
+  _csrfToken = sessionStorage.getItem("csrf_token");
+}
+
+export function setAccessToken(token: string | null) {
+  _accessToken = token;
+  _write("access_token", token);
+}
+
+export function getAccessToken(): string | null {
+  return _accessToken;
+}
+
+export function setCsrfToken(token: string | null) {
+  _csrfToken = token;
+  _write("csrf_token", token);
+}
+
+export function getCsrfToken(): string | null {
+  return _csrfToken;
+}
 
 /** Generate a UUID v4 without requiring a secure context. */
 function uuidv4(): string {
@@ -34,21 +76,28 @@ export function getSessionId(): string {
   return sid;
 }
 
-export function setAccessToken(token: string | null) {
-  accessToken = token;
+// ── Proactive refresh timer ──
+
+function scheduleRefresh() {
+  if (_refreshTimer) clearTimeout(_refreshTimer);
+  if (typeof window === "undefined") return;
+  // Refresh at 80% of the token lifetime
+  const delayMs = Math.max(_expiresIn * 0.8 * 1000, 30_000);
+  _refreshTimer = setTimeout(() => {
+    refreshTokens().catch(() => {});
+  }, delayMs);
 }
 
-export function getAccessToken(): string | null {
-  return accessToken;
+function cancelRefresh() {
+  if (_refreshTimer) {
+    clearTimeout(_refreshTimer);
+    _refreshTimer = null;
+  }
 }
 
-export function setCsrfToken(token: string | null) {
-  csrfToken = token;
-}
+// ── Token refresh ──
 
-export function getCsrfToken(): string | null {
-  return csrfToken;
-}
+let refreshPromise: Promise<boolean> | null = null;
 
 export async function refreshTokens(): Promise<boolean> {
   try {
@@ -56,20 +105,53 @@ export async function refreshTokens(): Promise<boolean> {
       method: "POST",
       credentials: "include", // send httpOnly cookie
     });
-    if (!res.ok) return false;
+    if (!res.ok) {
+      cancelRefresh();
+      return false;
+    }
     const data = await res.json();
-    accessToken = data.access_token;
-    if (data.csrf_token) csrfToken = data.csrf_token;
+    setAccessToken(data.access_token);
+    if (data.csrf_token) setCsrfToken(data.csrf_token);
+    if (data.expires_in) _expiresIn = data.expires_in;
+    scheduleRefresh();
     return true;
   } catch {
+    cancelRefresh();
     return false;
   }
 }
+
+// ── Fetch helpers ──
 
 export interface ApiError {
   error: string;
   message: string;
   details?: unknown;
+}
+
+/** Event emitted when the session is truly dead (refresh failed). */
+type SessionExpiredListener = () => void;
+const _sessionExpiredListeners: SessionExpiredListener[] = [];
+
+export function onSessionExpired(fn: SessionExpiredListener) {
+  _sessionExpiredListeners.push(fn);
+  return () => {
+    const idx = _sessionExpiredListeners.indexOf(fn);
+    if (idx >= 0) _sessionExpiredListeners.splice(idx, 1);
+  };
+}
+
+function _notifySessionExpired() {
+  setAccessToken(null);
+  setCsrfToken(null);
+  cancelRefresh();
+  for (const fn of _sessionExpiredListeners) {
+    try {
+      fn();
+    } catch {
+      /* ignore */
+    }
+  }
 }
 
 export async function apiFetch<T = unknown>(
@@ -81,8 +163,8 @@ export async function apiFetch<T = unknown>(
     ...(options.headers as Record<string, string>),
   };
 
-  if (accessToken) {
-    headers["Authorization"] = `Bearer ${accessToken}`;
+  if (_accessToken) {
+    headers["Authorization"] = `Bearer ${_accessToken}`;
   }
 
   // Attach guest session ID for consent/tracking when not authenticated
@@ -93,8 +175,8 @@ export async function apiFetch<T = unknown>(
 
   // Attach CSRF token on state-changing requests
   const method = (options.method || "GET").toUpperCase();
-  if (csrfToken && ["POST", "PUT", "DELETE", "PATCH"].includes(method)) {
-    headers["X-CSRF-Token"] = csrfToken;
+  if (_csrfToken && ["POST", "PUT", "DELETE", "PATCH"].includes(method)) {
+    headers["X-CSRF-Token"] = _csrfToken;
   }
 
   let res = await fetch(`${API_BASE}${path}`, {
@@ -104,7 +186,7 @@ export async function apiFetch<T = unknown>(
   });
 
   // On 401, try to refresh tokens once
-  if (res.status === 401 && accessToken) {
+  if (res.status === 401 && _accessToken) {
     if (!refreshPromise) {
       refreshPromise = refreshTokens();
     }
@@ -112,9 +194,9 @@ export async function apiFetch<T = unknown>(
     refreshPromise = null;
 
     if (refreshed) {
-      headers["Authorization"] = `Bearer ${accessToken}`;
-      if (csrfToken && ["POST", "PUT", "DELETE", "PATCH"].includes(method)) {
-        headers["X-CSRF-Token"] = csrfToken;
+      headers["Authorization"] = `Bearer ${_accessToken}`;
+      if (_csrfToken && ["POST", "PUT", "DELETE", "PATCH"].includes(method)) {
+        headers["X-CSRF-Token"] = _csrfToken;
       }
       res = await fetch(`${API_BASE}${path}`, {
         ...options,
@@ -122,10 +204,7 @@ export async function apiFetch<T = unknown>(
         credentials: "include",
       });
     } else {
-      accessToken = null;
-      if (typeof window !== "undefined") {
-        window.location.href = "/auth/login";
-      }
+      _notifySessionExpired();
       throw new Error("Session expired");
     }
   }
@@ -140,9 +219,9 @@ export async function apiFetch<T = unknown>(
       const msg = body?.detail?.message || body?.message || "";
       if (msg.toLowerCase().includes("csrf")) {
         const refreshed = await refreshTokens();
-        if (refreshed && csrfToken) {
-          headers["X-CSRF-Token"] = csrfToken;
-          if (accessToken) headers["Authorization"] = `Bearer ${accessToken}`;
+        if (refreshed && _csrfToken) {
+          headers["X-CSRF-Token"] = _csrfToken;
+          if (_accessToken) headers["Authorization"] = `Bearer ${_accessToken}`;
           res = await fetch(`${API_BASE}${path}`, {
             ...options,
             headers,
@@ -183,11 +262,11 @@ export async function apiUpload<T = unknown>(
 ): Promise<T> {
   const headers: Record<string, string> = {};
 
-  if (accessToken) {
-    headers["Authorization"] = `Bearer ${accessToken}`;
+  if (_accessToken) {
+    headers["Authorization"] = `Bearer ${_accessToken}`;
   }
-  if (csrfToken) {
-    headers["X-CSRF-Token"] = csrfToken;
+  if (_csrfToken) {
+    headers["X-CSRF-Token"] = _csrfToken;
   }
 
   const res = await fetch(`${API_BASE}${path}`, {
