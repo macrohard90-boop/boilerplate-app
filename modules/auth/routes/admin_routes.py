@@ -442,3 +442,42 @@ async def resend_verification(
         )
 
     return {"message": f"Verification email sent to {row['email']}"}
+
+
+@router.post("/verify-user/{user_id}", response_model=MessageResponse)
+async def admin_verify_user(
+    user_id: str,
+    db: AsyncSession = Depends(get_db),
+    _admin: Any = Depends(require_role("admin")),
+) -> Any:
+    """Directly mark a user as verified (admin action)."""
+    row = (
+        (
+            await db.execute(
+                text("SELECT id, is_verified FROM core.users WHERE id = :uid"),
+                {"uid": user_id},
+            )
+        )
+        .mappings()
+        .first()
+    )
+
+    if not row:
+        raise HTTPException(
+            status_code=404,
+            detail={
+                "error": "not_found",
+                "message": "User not found",
+                "details": None,
+            },
+        )
+
+    if row["is_verified"]:
+        return {"message": "User is already verified"}
+
+    await db.execute(
+        text("UPDATE core.users SET is_verified = TRUE WHERE id = :uid"),
+        {"uid": user_id},
+    )
+    await db.commit()
+    return {"message": "User verified successfully"}

@@ -210,6 +210,38 @@ for (const user of allUsers) {
     // so the original trackEvent on the register page fires successfully.
     // No need to re-fire it here.
 
+    // ── Post-registration: auto-verify user via admin endpoint ──
+    // Get user ID from /auth/me
+    const meResp = await page.request.get("/api/auth/me");
+    if (meResp.ok()) {
+      const meData = await meResp.json();
+      const userId = meData?.user?.id;
+      if (userId) {
+        // Auto-verify: call admin endpoint to mark user as verified
+        // Login as admin first
+        const BASE_URL = process.env.BASE_URL || "http://34.30.88.59";
+        const adminLoginResp = await page.request.post(
+          `${BASE_URL}/api/auth/login`,
+          {
+            data: {
+              email: "simadmin@test.com",
+              password: "Test1234!",
+            },
+          },
+        );
+        if (adminLoginResp.ok()) {
+          const adminData = await adminLoginResp.json();
+          const adminToken = adminData.access_token;
+          await page.request.post(
+            `${BASE_URL}/api/auth/admin/verify-user/${userId}`,
+            {
+              headers: { Authorization: `Bearer ${adminToken}` },
+            },
+          );
+        }
+      }
+    }
+
     // Save auth state (includes cookies, localStorage with consent flags)
     const statePath = authStatePath(user.email);
     await context.storageState({ path: statePath });
