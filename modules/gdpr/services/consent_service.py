@@ -125,6 +125,49 @@ async def update_consent(
         },
     )
 
+    # Sync email-related consent to the operational email_preferences table
+    if consent_type in ("marketing_email", "transactional_email"):
+        current_prefs = (
+            (
+                await db.execute(
+                    text(
+                        "SELECT marketing_email, transactional_email "
+                        "FROM gdpr.email_preferences WHERE user_id = :uid"
+                    ),
+                    {"uid": user_id},
+                )
+            )
+            .mappings()
+            .first()
+        )
+
+        if consent_type == "marketing_email":
+            mkt = granted
+            txn = current_prefs["transactional_email"] if current_prefs else True
+        else:
+            mkt = current_prefs["marketing_email"] if current_prefs else False
+            txn = granted
+
+        if current_prefs:
+            await db.execute(
+                text(
+                    "UPDATE gdpr.email_preferences "
+                    "SET marketing_email = :mkt, transactional_email = :txn, "
+                    "updated_at = NOW() "
+                    "WHERE user_id = :uid"
+                ),
+                {"uid": user_id, "mkt": mkt, "txn": txn},
+            )
+        else:
+            await db.execute(
+                text(
+                    "INSERT INTO gdpr.email_preferences "
+                    "(user_id, marketing_email, transactional_email) "
+                    "VALUES (:uid, :mkt, :txn)"
+                ),
+                {"uid": user_id, "mkt": mkt, "txn": txn},
+            )
+
     await db.commit()
 
 

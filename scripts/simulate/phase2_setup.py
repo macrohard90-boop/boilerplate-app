@@ -984,6 +984,11 @@ def run(api_url: str, admin_email: str, admin_password: str) -> dict:
         admin_row = cur.fetchone()
         if admin_row:
             admin_uid = str(admin_row[0])
+            # Mark admin as verified
+            cur.execute(
+                "UPDATE core.users SET is_verified = true WHERE id = %s",
+                (admin_uid,),
+            )
             # Get session ID from JWT claims
             import base64
 
@@ -1004,14 +1009,28 @@ def run(api_url: str, admin_email: str, admin_password: str) -> dict:
                 "ON CONFLICT DO NOTHING",
                 (admin_uid, admin_sid),
             )
+            for consent_type in (
+                "analytics",
+                "marketing_email",
+                "transactional_email",
+            ):
+                cur.execute(
+                    "INSERT INTO gdpr.consent_records "
+                    "(user_id, consent_type, granted) "
+                    "VALUES (%s, %s, true) "
+                    "ON CONFLICT DO NOTHING",
+                    (admin_uid, consent_type),
+                )
+            # Sync to operational email_preferences table
             cur.execute(
-                "INSERT INTO gdpr.consent_records "
-                "(user_id, consent_type, granted) "
-                "VALUES (%s, 'analytics', true) "
-                "ON CONFLICT DO NOTHING",
+                "INSERT INTO gdpr.email_preferences "
+                "(user_id, marketing_email, transactional_email) "
+                "VALUES (%s, true, true) "
+                "ON CONFLICT (user_id) DO UPDATE "
+                "SET marketing_email = true, transactional_email = true",
                 (admin_uid,),
             )
-            logger.info("Granted analytics consent for admin user")
+            logger.info("Granted consent + email preferences for admin user")
         cur.close()
         conn.close()
     except Exception as e:

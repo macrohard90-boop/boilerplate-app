@@ -327,6 +327,20 @@ async def list_audience_metrics(db: AsyncSession = Depends(get_db)):
     return {"metrics": metrics, "total": len(metrics)}
 
 
+@router.post("/refresh-audience-counts")
+async def refresh_audience_counts_endpoint(
+    db: AsyncSession = Depends(get_db),
+    _admin: Any = Depends(require_role("admin")),
+):
+    """Recompute user_count for all audience segments."""
+    from modules.tracking.services.audience_seed_service import (
+        refresh_audience_counts,
+    )
+
+    result = await refresh_audience_counts(db)
+    return result
+
+
 @router.get("/{metric_id}/audience-dashboard")
 async def get_audience_dashboard(
     metric_id: str,

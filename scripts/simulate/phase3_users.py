@@ -171,12 +171,29 @@ async def _grant_consent(
             (user.user_id, user.session_id),
         )
 
-        # Explicit consent record
+        # Mark user as verified (simulates email verification click)
         cur.execute(
-            "INSERT INTO gdpr.consent_records "
-            "(user_id, consent_type, granted) "
-            "VALUES (%s, 'analytics', true) "
-            "ON CONFLICT DO NOTHING",
+            "UPDATE core.users SET is_verified = true WHERE id = %s",
+            (user.user_id,),
+        )
+
+        # Explicit consent records (analytics + marketing email)
+        for consent_type in ("analytics", "marketing_email", "transactional_email"):
+            cur.execute(
+                "INSERT INTO gdpr.consent_records "
+                "(user_id, consent_type, granted) "
+                "VALUES (%s, %s, true) "
+                "ON CONFLICT DO NOTHING",
+                (user.user_id, consent_type),
+            )
+
+        # Sync to operational email_preferences table
+        cur.execute(
+            "INSERT INTO gdpr.email_preferences "
+            "(user_id, marketing_email, transactional_email) "
+            "VALUES (%s, true, true) "
+            "ON CONFLICT (user_id) DO UPDATE "
+            "SET marketing_email = true, transactional_email = true",
             (user.user_id,),
         )
 

@@ -209,9 +209,63 @@ async def seed_audience_presets(
         skipped,
     )
 
+    # Compute actual user counts for all audiences
+    count_result = await refresh_audience_counts(db)
+    logger.info(
+        "Audience count refresh: %d updated, %d errors",
+        count_result["updated"],
+        len(count_result["errors"]),
+    )
+
     return {
         "created": created,
         "updated": updated,
         "skipped": skipped,
         "details": details,
+        "count_refresh": count_result,
     }
+
+
+async def refresh_audience_counts(db: AsyncSession) -> dict[str, Any]:
+    """Recompute user_count for all audience segments by executing their SQL."""
+    rows = (
+        (
+            await db.execute(
+                text(
+                    "SELECT sm.id AS metric_id, sm.name, sm.sql_query, "
+                    "seg.id AS segment_id "
+                    "FROM analytics.saved_metrics sm "
+                    "JOIN marketing.audience_segments seg "
+                    "  ON seg.metric_id = sm.id "
+                    "WHERE sm.is_audience = TRUE "
+                    "  AND sm.sql_query IS NOT NULL"
+                )
+            )
+        )
+        .mappings()
+        .all()
+    )
+
+    updated = 0
+    errors: list[dict[str, str]] = []
+
+    for row in rows:
+        try:
+            cnt = (
+                await db.execute(text(f"SELECT COUNT(*) FROM ({row['sql_query']}) _q"))
+            ).scalar() or 0
+            await db.execute(
+                text(
+                    "UPDATE marketing.audience_segments "
+                    "SET user_count = :cnt, last_computed_at = NOW() "
+                    "WHERE id = :sid"
+                ),
+                {"cnt": cnt, "sid": row["segment_id"]},
+            )
+            updated += 1
+        except Exception as e:
+            logger.warning("Failed to count audience %s: %s", row["name"], e)
+            errors.append({"name": row["name"], "error": str(e)})
+
+    await db.commit()
+    return {"updated": updated, "errors": errors}
