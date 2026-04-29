@@ -4,7 +4,11 @@ Provider-agnostic: signature verification is delegated to the configured
 PaymentProvider via ``verify_webhook()``.
 """
 
+import json
 import logging
+import random
+import string
+from datetime import datetime, timezone
 from typing import Any
 
 from sqlalchemy import text
@@ -14,6 +18,7 @@ from backend.core.config import settings
 from modules.ecommerce.services import (
     inventory_service,
     order_service,
+    pricing_service,
     subscription_service,
 )
 from modules.payments.adapters import get_payment_provider
@@ -234,6 +239,183 @@ async def _build_order_email_data(db: AsyncSession, order_id: str) -> dict[str, 
         "total": f"${total_cents / 100:.2f} {currency}",
         "order_url": f"{settings.frontend_url}/dashboard/orders",
     }
+
+
+async def _build_subscription_email_data(
+    db: AsyncSession,
+    recurring_items: list[Any],
+    stripe_subscription_id: str | None,
+) -> dict[str, Any]:
+    """Build template data for the subscription_confirmation email.
+
+    ``first_name`` is injected automatically by the email send service.
+    """
+    # Plan name(s) from cart items
+    plan_names = [item["product_name"] for item in recurring_items]
+    plan_name = ", ".join(plan_names)
+
+    # Try to get next billing date from subscription record.
+    # The customer.subscription.created webhook may not have fired yet,
+    # so the record might not exist — next_billing_date stays None.
+    next_billing_date = None
+    if stripe_subscription_id:
+        sub_row = (
+            (
+                await db.execute(
+                    text(
+                        "SELECT current_period_end FROM ecommerce.subscriptions "
+                        "WHERE stripe_subscription_id = :ssid"
+                    ),
+                    {"ssid": stripe_subscription_id},
+                )
+            )
+            .mappings()
+            .first()
+        )
+        if sub_row and sub_row.get("current_period_end"):
+            next_billing_date = sub_row["current_period_end"].strftime("%B %d, %Y")
+
+    return {
+        "plan_name": plan_name,
+        "next_billing_date": next_billing_date,
+        "dashboard_url": f"{settings.frontend_url}/dashboard",
+    }
+
+
+async def _create_order_from_session(
+    db: AsyncSession,
+    user_id: str,
+    one_time_items: list[Any],
+) -> str | None:
+    """Create an order for one-time items paid via Stripe Checkout Session.
+
+    Payment is already confirmed by Stripe, so the order is created with
+    status ``completed``.  Stock is reserved for each item.
+    """
+    subtotal = 0
+    order_items_data: list[dict[str, Any]] = []
+
+    for item in one_time_items:
+        effective_price = (
+            item["price_override"]
+            if item["price_override"] is not None
+            else item["base_price"]
+        )
+        unit_price = await pricing_service.get_effective_unit_price(
+            db,
+            str(item["product_id"]),
+            str(item["variant_id"]),
+            item["quantity"],
+            effective_price,
+        )
+        line_total = unit_price * item["quantity"]
+        subtotal += line_total
+
+        snapshot = {
+            "product_name": item["product_name"],
+            "product_slug": item.get("product_slug"),
+            "product_sku": item.get("product_sku"),
+            "variant_name": item["variant_name"],
+            "variant_sku": item.get("variant_sku"),
+            "attributes": (
+                item["attributes"] if isinstance(item.get("attributes"), dict) else {}
+            ),
+        }
+
+        order_items_data.append(
+            {
+                "product_id": str(item["product_id"]),
+                "variant_id": str(item["variant_id"]),
+                "quantity": item["quantity"],
+                "unit_price": unit_price,
+                "total_price": line_total,
+                "product_snapshot": json.dumps(snapshot),
+            }
+        )
+
+    # Reserve stock for each item
+    for item in one_time_items:
+        try:
+            await inventory_service.reserve_stock(
+                db, str(item["variant_id"]), item["quantity"]
+            )
+        except Exception:
+            logger.warning(
+                "Stock reservation failed for variant %s in checkout session",
+                item["variant_id"],
+            )
+
+    total = subtotal
+
+    # Generate order number
+    now = datetime.now(timezone.utc)
+    rand = "".join(random.choices(string.ascii_uppercase + string.digits, k=5))
+    order_number = f"ORD-{now.strftime('%Y%m%d')}-{rand}"
+
+    # Create order — already paid via Stripe Checkout Session
+    order_row = (
+        (
+            await db.execute(
+                text(
+                    "INSERT INTO ecommerce.orders "
+                    "(user_id, order_number, status, currency, subtotal, "
+                    "discount_amount, tax_amount, total) "
+                    "VALUES (:uid, :num, 'completed', 'USD', :sub, 0, 0, :total) "
+                    "RETURNING id"
+                ),
+                {
+                    "uid": user_id,
+                    "num": order_number,
+                    "sub": subtotal,
+                    "total": total,
+                },
+            )
+        )
+        .mappings()
+        .first()
+    )
+
+    if not order_row:
+        return None
+
+    order_id = str(order_row["id"])
+
+    for oi in order_items_data:
+        await db.execute(
+            text(
+                "INSERT INTO ecommerce.order_items "
+                "(order_id, product_id, variant_id, quantity, unit_price, "
+                "total_price, product_snapshot) "
+                "VALUES (:oid, :pid, :vid, :qty, :up, :tp, CAST(:snap AS jsonb))"
+            ),
+            {
+                "oid": order_id,
+                "pid": oi["product_id"],
+                "vid": oi["variant_id"],
+                "qty": oi["quantity"],
+                "up": oi["unit_price"],
+                "tp": oi["total_price"],
+                "snap": oi["product_snapshot"],
+            },
+        )
+
+    # Update customer metrics
+    await db.execute(
+        text(
+            "INSERT INTO ecommerce.customer_metrics "
+            "(user_id, order_count, total_spent, last_purchase_at) "
+            "VALUES (:uid, 1, :total, NOW()) "
+            "ON CONFLICT (user_id) DO UPDATE SET "
+            "order_count = ecommerce.customer_metrics.order_count + 1, "
+            "total_spent = ecommerce.customer_metrics.total_spent + :total, "
+            "last_purchase_at = NOW()"
+        ),
+        {"uid": user_id, "total": total},
+    )
+
+    await db.commit()
+    logger.info("Created order %s for one-time items in checkout session", order_id)
+    return order_id
 
 
 async def _handle_payment_failed(
@@ -536,16 +718,18 @@ async def _handle_invoice_payment_failed(
 async def _handle_checkout_session_completed(
     db: AsyncSession, session: dict[str, Any]
 ) -> None:
-    """checkout.session.completed -> create subscription records from Checkout Session.
+    """checkout.session.completed -> send confirmation emails, clear cart.
 
-    When a Stripe Checkout Session completes in subscription mode,
-    we receive the subscription ID. The subscription.created webhook
-    will handle the actual subscription record creation, but we log
-    the session completion and can clear the user's cart here.
+    Stripe Checkout Sessions are used when the cart contains subscriptions.
+    The cart may also contain one-time products (mixed cart).
+
+    - Recurring items  -> send ``subscription_confirmation`` email
+    - One-time items   -> create order record + send ``order_confirmation`` email
+    - Both             -> send both emails
     """
     session_id = session.get("id")
     mode = session.get("mode")
-    subscription_id = session.get("subscription")
+    subscription_stripe_id = session.get("subscription")
     customer_id = session.get("customer")
     user_id = (session.get("metadata") or {}).get("user_id")
 
@@ -553,18 +737,99 @@ async def _handle_checkout_session_completed(
         "Checkout session completed: %s mode=%s subscription=%s customer=%s",
         session_id,
         mode,
-        subscription_id,
+        subscription_stripe_id,
         customer_id,
     )
 
-    # For subscription mode, the customer.subscription.created event handles
-    # the subscription record creation. We just ensure the cart is cleared.
-    if user_id:
-        await db.execute(
-            text(
-                "UPDATE ecommerce.cart SET status = 'converted' "
-                "WHERE user_id = :uid AND status = 'active'"
-            ),
-            {"uid": user_id},
+    if not user_id:
+        return
+
+    # Fetch cart + items BEFORE marking as converted
+    cart_row = (
+        (
+            await db.execute(
+                text(
+                    "SELECT id, discount_code_id FROM ecommerce.cart "
+                    "WHERE user_id = :uid AND status = 'active'"
+                ),
+                {"uid": user_id},
+            )
         )
-        await db.commit()
+        .mappings()
+        .first()
+    )
+
+    if not cart_row:
+        logger.info("No active cart for user %s — already converted?", user_id)
+        return
+
+    cart_id = str(cart_row["id"])
+
+    cart_items = (
+        (
+            await db.execute(
+                text(
+                    "SELECT ci.product_id, ci.variant_id, ci.quantity, "
+                    "p.pricing_type, p.name AS product_name, p.base_price, "
+                    "p.currency, p.slug AS product_slug, p.sku AS product_sku, "
+                    "v.name AS variant_name, v.sku AS variant_sku, "
+                    "v.price_override, v.attributes "
+                    "FROM ecommerce.cart_items ci "
+                    "JOIN ecommerce.products p ON p.id = ci.product_id "
+                    "JOIN ecommerce.product_variants v ON v.id = ci.variant_id "
+                    "WHERE ci.cart_id = :cid"
+                ),
+                {"cid": cart_id},
+            )
+        )
+        .mappings()
+        .all()
+    )
+
+    recurring_items = [i for i in cart_items if i["pricing_type"] == "recurring"]
+    one_time_items = [i for i in cart_items if i["pricing_type"] != "recurring"]
+
+    from modules.gdpr.services.email_send_service import send_email_fire_and_forget
+
+    # ── One-time items: create order + send order_confirmation ──
+    if one_time_items:
+        try:
+            order_id = await _create_order_from_session(db, user_id, one_time_items)
+            if order_id:
+                email_data = await _build_order_email_data(db, order_id)
+                await send_email_fire_and_forget(
+                    user_id,
+                    "order_confirmation",
+                    email_data,
+                    email_type="transactional_email",
+                )
+        except Exception:
+            logger.exception(
+                "Failed to create order / send email for session %s one-time items",
+                session_id,
+            )
+
+    # ── Recurring items: send subscription_confirmation ──
+    if recurring_items:
+        try:
+            email_data = await _build_subscription_email_data(
+                db, recurring_items, subscription_stripe_id
+            )
+            await send_email_fire_and_forget(
+                user_id,
+                "subscription_confirmation",
+                email_data,
+                email_type="transactional_email",
+            )
+        except Exception:
+            logger.exception(
+                "Failed to send subscription confirmation for session %s",
+                session_id,
+            )
+
+    # ── Mark cart as converted ──
+    await db.execute(
+        text("UPDATE ecommerce.cart SET status = 'converted' WHERE id = :cid"),
+        {"cid": cart_id},
+    )
+    await db.commit()
