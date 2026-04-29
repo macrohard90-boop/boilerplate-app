@@ -784,6 +784,52 @@ async def get_analytics_filter_options(db: AsyncSession) -> dict[str, Any]:
         .all()
     )
 
+    # Products list for purchase-based filters
+    product_rows = (
+        (
+            await db.execute(
+                text(
+                    "SELECT p.id, p.name "
+                    "FROM ecommerce.products p "
+                    "WHERE p.status = 'active' "
+                    "ORDER BY p.name LIMIT 200"
+                )
+            )
+        )
+        .mappings()
+        .all()
+    )
+
+    # Categories for category-based filters
+    category_rows = (
+        (
+            await db.execute(
+                text(
+                    "SELECT c.id, c.name "
+                    "FROM ecommerce.categories c "
+                    "ORDER BY c.name LIMIT 100"
+                )
+            )
+        )
+        .mappings()
+        .all()
+    )
+
+    # Subscription statuses
+    sub_status_rows = (
+        (
+            await db.execute(
+                text(
+                    "SELECT DISTINCT status AS val "
+                    "FROM ecommerce.subscriptions "
+                    "ORDER BY val"
+                )
+            )
+        )
+        .mappings()
+        .all()
+    )
+
     return {
         "device_types": [r["val"] for r in device_rows],
         "browsers": [{"value": r["val"], "count": r["cnt"]} for r in browser_rows],
@@ -795,6 +841,9 @@ async def get_analytics_filter_options(db: AsyncSession) -> dict[str, Any]:
         "event_types": [
             {"value": r["val"], "count": r["cnt"]} for r in event_type_rows
         ],
+        "products": [{"id": str(r["id"]), "name": r["name"]} for r in product_rows],
+        "categories": [{"id": str(r["id"]), "name": r["name"]} for r in category_rows],
+        "subscription_statuses": [r["val"] for r in sub_status_rows],
     }
 
 

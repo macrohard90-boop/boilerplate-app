@@ -106,7 +106,7 @@ def _build_segment_query(
 
     # --- Cart status filter ---
     if "cart_status" in filters and filters["cart_status"]:
-        joins.append("JOIN ecommerce.carts cart ON cart.user_id = u.id")
+        joins.append("JOIN ecommerce.cart cart ON cart.user_id = u.id")
         wheres.append("cart.status = :cart_st")
         params["cart_st"] = filters["cart_status"]
 
@@ -283,6 +283,195 @@ def _build_segment_query(
             wheres.append(
                 f"EXISTS (SELECT 1 FROM analytics.events _ev WHERE {ev_where})"
             )
+
+    # --- NOT-event filter (exclude users who have specific event types) ---
+    if "not_event_type" in filters and filters["not_event_type"]:
+        not_event_types = filters["not_event_type"]
+        if isinstance(not_event_types, str):
+            not_event_types = [not_event_types]
+        nev_placeholders = ", ".join(f":nev_{i}" for i in range(len(not_event_types)))
+        for i, net in enumerate(not_event_types):
+            params[f"nev_{i}"] = net
+
+        nev_where = f"_nev.user_id = u.id AND _nev.event_type IN ({nev_placeholders})"
+        if (
+            "not_event_days_lookback" in filters
+            and filters["not_event_days_lookback"] is not None
+        ):
+            nev_where += " AND _nev.created_at >= NOW() - INTERVAL '1 day' * :nev_days"
+            params["nev_days"] = int(filters["not_event_days_lookback"])
+
+        wheres.append(
+            f"NOT EXISTS (SELECT 1 FROM analytics.events _nev WHERE {nev_where})"
+        )
+
+    # --- Subscription status filter ---
+    if "subscription_status" in filters and filters["subscription_status"]:
+        statuses = filters["subscription_status"]
+        if isinstance(statuses, str):
+            statuses = [statuses]
+        sub_placeholders = ", ".join(f":sub_st_{i}" for i in range(len(statuses)))
+        wheres.append(
+            f"EXISTS (SELECT 1 FROM ecommerce.subscriptions _sub "
+            f"WHERE _sub.user_id = u.id AND _sub.status IN ({sub_placeholders}))"
+        )
+        for i, st in enumerate(statuses):
+            params[f"sub_st_{i}"] = st
+
+    # --- No subscription filter ---
+    if filters.get("no_subscription"):
+        wheres.append(
+            "NOT EXISTS (SELECT 1 FROM ecommerce.subscriptions _nosub "
+            "WHERE _nosub.user_id = u.id)"
+        )
+
+    # --- Subscription cancelled within N days ---
+    if (
+        "subscription_cancelled_days" in filters
+        and filters["subscription_cancelled_days"] is not None
+    ):
+        wheres.append(
+            "EXISTS (SELECT 1 FROM ecommerce.subscriptions _csub "
+            "WHERE _csub.user_id = u.id AND _csub.status = 'canceled' "
+            "AND _csub.updated_at >= NOW() - INTERVAL '1 day' * :csub_days)"
+        )
+        params["csub_days"] = int(filters["subscription_cancelled_days"])
+
+    # --- Cart abandoned within N days ---
+    if "cart_abandoned_days" in filters and filters["cart_abandoned_days"] is not None:
+        wheres.append(
+            "EXISTS (SELECT 1 FROM ecommerce.cart _ac "
+            "WHERE _ac.user_id = u.id AND _ac.status = 'abandoned' "
+            "AND _ac.updated_at >= NOW() - INTERVAL '1 day' * :cart_aband_days)"
+        )
+        params["cart_aband_days"] = int(filters["cart_abandoned_days"])
+
+    # --- Min abandoned cart value (cents) ---
+    if "min_cart_value" in filters and filters["min_cart_value"] is not None:
+        wheres.append(
+            "EXISTS (SELECT 1 FROM ecommerce.cart _hvc "
+            "JOIN ecommerce.cart_items _hvci ON _hvci.cart_id = _hvc.id "
+            "WHERE _hvc.user_id = u.id AND _hvc.status = 'abandoned' "
+            "GROUP BY _hvc.id "
+            "HAVING SUM(_hvci.unit_price_at_add * _hvci.quantity) >= :min_cart_val)"
+        )
+        params["min_cart_val"] = int(filters["min_cart_value"])
+
+    # --- Inactive for N days (no page views) ---
+    if "inactive_days" in filters and filters["inactive_days"] is not None:
+        wheres.append(
+            "NOT EXISTS (SELECT 1 FROM analytics.page_views _ipv "
+            "WHERE _ipv.user_id = u.id "
+            "AND _ipv.created_at >= NOW() - INTERVAL '1 day' * :inactive_days)"
+        )
+        params["inactive_days"] = int(filters["inactive_days"])
+
+    # --- Active within N days (has page views) ---
+    if "active_days" in filters and filters["active_days"] is not None:
+        wheres.append(
+            "EXISTS (SELECT 1 FROM analytics.page_views _apv "
+            "WHERE _apv.user_id = u.id "
+            "AND _apv.created_at >= NOW() - INTERVAL '1 day' * :active_days)"
+        )
+        params["active_days"] = int(filters["active_days"])
+
+    # --- Purchased specific product ---
+    if "purchased_product_id" in filters and filters["purchased_product_id"]:
+        pp_where = (
+            "_pp.user_id = u.id "
+            "AND _pp.status IN ('completed','processing','accepted') "
+            "AND _ppi.product_id = :pp_product_id"
+        )
+        params["pp_product_id"] = filters["purchased_product_id"]
+        if (
+            "purchase_days_lookback" in filters
+            and filters["purchase_days_lookback"] is not None
+        ):
+            pp_where += (
+                " AND _pp.created_at >= NOW() - INTERVAL '1 day' * :purchase_lookback"
+            )
+            params["purchase_lookback"] = int(filters["purchase_days_lookback"])
+        wheres.append(
+            f"EXISTS (SELECT 1 FROM ecommerce.orders _pp "
+            f"JOIN ecommerce.order_items _ppi ON _ppi.order_id = _pp.id "
+            f"WHERE {pp_where})"
+        )
+
+    # --- Purchased from specific category ---
+    if "purchased_category_id" in filters and filters["purchased_category_id"]:
+        pc_where = (
+            "_pc.user_id = u.id "
+            "AND _pc.status IN ('completed','processing','accepted') "
+            "AND _pccat.category_id = :pc_category_id"
+        )
+        params["pc_category_id"] = filters["purchased_category_id"]
+        if (
+            "purchase_days_lookback" in filters
+            and filters["purchase_days_lookback"] is not None
+            and "purchase_lookback" not in params
+        ):
+            pc_where += (
+                " AND _pc.created_at >= NOW() - INTERVAL '1 day' * :purchase_lookback"
+            )
+            params["purchase_lookback"] = int(filters["purchase_days_lookback"])
+        wheres.append(
+            f"EXISTS (SELECT 1 FROM ecommerce.orders _pc "
+            f"JOIN ecommerce.order_items _pci ON _pci.order_id = _pc.id "
+            f"JOIN ecommerce.product_categories _pccat ON _pccat.product_id = _pci.product_id "
+            f"WHERE {pc_where})"
+        )
+
+    # --- NOT purchased specific product ---
+    if "not_purchased_product_id" in filters and filters["not_purchased_product_id"]:
+        wheres.append(
+            "NOT EXISTS (SELECT 1 FROM ecommerce.orders _np "
+            "JOIN ecommerce.order_items _npi ON _npi.order_id = _np.id "
+            "WHERE _np.user_id = u.id "
+            "AND _np.status IN ('completed','processing','accepted') "
+            "AND _npi.product_id = :np_product_id)"
+        )
+        params["np_product_id"] = filters["not_purchased_product_id"]
+
+    # --- Used specific coupon code ---
+    if "used_coupon_code" in filters and filters["used_coupon_code"]:
+        wheres.append(
+            "EXISTS (SELECT 1 FROM ecommerce.orders _co "
+            "JOIN ecommerce.discount_codes _dc ON _dc.id = _co.discount_code_id "
+            "WHERE _co.user_id = u.id "
+            "AND _co.status IN ('completed','processing','accepted') "
+            "AND _dc.code = :coupon_code)"
+        )
+        params["coupon_code"] = filters["used_coupon_code"]
+
+    # --- Has any coupon order ---
+    if filters.get("has_coupon"):
+        wheres.append(
+            "EXISTS (SELECT 1 FROM ecommerce.orders _hco "
+            "WHERE _hco.user_id = u.id "
+            "AND _hco.status IN ('completed','processing','accepted') "
+            "AND _hco.discount_code_id IS NOT NULL)"
+        )
+
+    # --- Viewed product but not purchased ---
+    if (
+        "viewed_product_not_purchased" in filters
+        and filters["viewed_product_not_purchased"]
+    ):
+        vpnp_id = filters["viewed_product_not_purchased"]
+        wheres.append(
+            "EXISTS (SELECT 1 FROM analytics.events _vpnp "
+            "WHERE _vpnp.user_id = u.id AND _vpnp.event_type = 'product_viewed' "
+            "AND _vpnp.event_data->>'product_id' = :vpnp_product_id)"
+        )
+        wheres.append(
+            "NOT EXISTS (SELECT 1 FROM ecommerce.orders _vpno "
+            "JOIN ecommerce.order_items _vpnoi ON _vpnoi.order_id = _vpno.id "
+            "WHERE _vpno.user_id = u.id "
+            "AND _vpno.status IN ('completed','processing','accepted') "
+            "AND _vpnoi.product_id = :vpnp_product_uuid)"
+        )
+        params["vpnp_product_id"] = str(vpnp_id)
+        params["vpnp_product_uuid"] = vpnp_id
 
     join_clause = "\n".join(joins)
     where_clause = " AND ".join(wheres)

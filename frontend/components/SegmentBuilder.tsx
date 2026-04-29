@@ -33,6 +33,31 @@ export interface SegmentFilters {
   event_type?: string[];
   event_min_count?: number | null;
   event_days_lookback?: number | null;
+  not_event_type?: string[];
+  not_event_days_lookback?: number | null;
+  // Subscription filters
+  subscription_status?: string[];
+  no_subscription?: boolean;
+  subscription_cancelled_days?: number | null;
+  // Cart behavior filters
+  cart_abandoned_days?: number | null;
+  min_cart_value?: number | null;
+  // Activity filters
+  inactive_days?: number | null;
+  active_days?: number | null;
+  // Purchase targeting filters
+  purchased_product_id?: string;
+  purchased_category_id?: string;
+  not_purchased_product_id?: string;
+  purchase_days_lookback?: number | null;
+  used_coupon_code?: string;
+  has_coupon?: boolean;
+  viewed_product_not_purchased?: string;
+  // Engagement score filters
+  score_above?: number | null;
+  score_below?: number | null;
+  velocity_min?: number | null;
+  velocity_max?: number | null;
 }
 
 const RFM_OPTIONS = [
@@ -308,6 +333,9 @@ interface FilterOptions {
   top_pages: Array<{ value: string; count: number }>;
   referral_sources: Array<{ value: string; count: number }>;
   event_types: Array<{ value: string; count: number }>;
+  products: Array<{ id: string; name: string }>;
+  categories: Array<{ id: string; name: string }>;
+  subscription_statuses: string[];
 }
 
 interface DashboardData {
@@ -698,6 +726,338 @@ export default function SegmentBuilder({
         </select>
       </div>
 
+      {/* ── Subscription Filters ── */}
+      {filterOptions && filterOptions.subscription_statuses.length > 0 && (
+        <div className="pt-3 border-t border-glass-border">
+          <label className="text-xs text-text-muted font-medium uppercase tracking-wider block mb-2">
+            Subscription
+          </label>
+          <div className="space-y-3">
+            <div>
+              <label className="text-xs text-text-muted font-medium block mb-1.5">
+                Subscription Status
+              </label>
+              <div className="flex flex-wrap gap-1.5">
+                {filterOptions.subscription_statuses.map((st) => {
+                  const active = (filters.subscription_status || []).includes(
+                    st,
+                  );
+                  return (
+                    <button
+                      key={st}
+                      type="button"
+                      onClick={() => {
+                        const current = filters.subscription_status || [];
+                        const updated = current.includes(st)
+                          ? current.filter((v) => v !== st)
+                          : [...current, st];
+                        onChange({
+                          ...filters,
+                          subscription_status: updated.length
+                            ? updated
+                            : undefined,
+                        });
+                      }}
+                      className={pill(active, "purple")}
+                    >
+                      {st}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+            <label className="flex items-center gap-1.5 text-sm text-text-secondary cursor-pointer">
+              <input
+                type="checkbox"
+                checked={!!filters.no_subscription}
+                onChange={(e) =>
+                  onChange({
+                    ...filters,
+                    no_subscription: e.target.checked || undefined,
+                  })
+                }
+                className="rounded border-glass-border"
+              />
+              No subscription (never subscribed)
+            </label>
+            <div>
+              <label className="text-xs text-text-muted font-medium block mb-1">
+                Cancelled within last N days
+              </label>
+              <input
+                type="number"
+                min={1}
+                value={filters.subscription_cancelled_days ?? ""}
+                onChange={(e) =>
+                  setNumericFilter(
+                    "subscription_cancelled_days",
+                    e.target.value,
+                  )
+                }
+                placeholder="Any"
+                className="w-full px-2.5 py-1.5 text-sm rounded-md border border-glass-border bg-transparent text-text-primary placeholder:text-text-muted/50 focus:outline-none focus:border-accent-blue"
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Cart Behavior Filters ── */}
+      <div className="pt-3 border-t border-glass-border">
+        <label className="text-xs text-text-muted font-medium uppercase tracking-wider block mb-2">
+          Cart Behavior
+        </label>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="text-xs text-text-muted font-medium block mb-1">
+              Cart abandoned within N days
+            </label>
+            <input
+              type="number"
+              min={1}
+              value={filters.cart_abandoned_days ?? ""}
+              onChange={(e) =>
+                setNumericFilter("cart_abandoned_days", e.target.value)
+              }
+              placeholder="Any"
+              className="w-full px-2.5 py-1.5 text-sm rounded-md border border-glass-border bg-transparent text-text-primary placeholder:text-text-muted/50 focus:outline-none focus:border-accent-blue"
+            />
+          </div>
+          <div>
+            <label className="text-xs text-text-muted font-medium block mb-1">
+              Min cart value (cents)
+            </label>
+            <input
+              type="number"
+              min={0}
+              value={filters.min_cart_value ?? ""}
+              onChange={(e) =>
+                setNumericFilter("min_cart_value", e.target.value)
+              }
+              placeholder="Any"
+              className="w-full px-2.5 py-1.5 text-sm rounded-md border border-glass-border bg-transparent text-text-primary placeholder:text-text-muted/50 focus:outline-none focus:border-accent-blue"
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* ── Activity / Lifecycle Filters ── */}
+      <div className="pt-3 border-t border-glass-border">
+        <label className="text-xs text-text-muted font-medium uppercase tracking-wider block mb-2">
+          Activity & Lifecycle
+        </label>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="text-xs text-text-muted font-medium block mb-1">
+              Active within last N days
+            </label>
+            <input
+              type="number"
+              min={1}
+              value={filters.active_days ?? ""}
+              onChange={(e) => setNumericFilter("active_days", e.target.value)}
+              placeholder="Any"
+              className="w-full px-2.5 py-1.5 text-sm rounded-md border border-glass-border bg-transparent text-text-primary placeholder:text-text-muted/50 focus:outline-none focus:border-accent-blue"
+            />
+          </div>
+          <div>
+            <label className="text-xs text-text-muted font-medium block mb-1">
+              Inactive for N+ days
+            </label>
+            <input
+              type="number"
+              min={1}
+              value={filters.inactive_days ?? ""}
+              onChange={(e) =>
+                setNumericFilter("inactive_days", e.target.value)
+              }
+              placeholder="Any"
+              className="w-full px-2.5 py-1.5 text-sm rounded-md border border-glass-border bg-transparent text-text-primary placeholder:text-text-muted/50 focus:outline-none focus:border-accent-blue"
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* ── Engagement Score Filters ── */}
+      <div className="pt-3 border-t border-glass-border">
+        <label className="text-xs text-text-muted font-medium uppercase tracking-wider block mb-2">
+          Engagement Score
+        </label>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="text-xs text-text-muted font-medium block mb-1">
+              Score above
+            </label>
+            <input
+              type="number"
+              step="0.1"
+              value={filters.score_above ?? ""}
+              onChange={(e) => {
+                const v =
+                  e.target.value === "" ? null : parseFloat(e.target.value);
+                onChange({
+                  ...filters,
+                  score_above: v !== null && isNaN(v) ? null : v,
+                });
+              }}
+              placeholder="Any"
+              className="w-full px-2.5 py-1.5 text-sm rounded-md border border-glass-border bg-transparent text-text-primary placeholder:text-text-muted/50 focus:outline-none focus:border-accent-blue"
+            />
+          </div>
+          <div>
+            <label className="text-xs text-text-muted font-medium block mb-1">
+              Velocity max
+            </label>
+            <input
+              type="number"
+              step="0.01"
+              value={filters.velocity_max ?? ""}
+              onChange={(e) => {
+                const v =
+                  e.target.value === "" ? null : parseFloat(e.target.value);
+                onChange({
+                  ...filters,
+                  velocity_max: v !== null && isNaN(v) ? null : v,
+                });
+              }}
+              placeholder="Any"
+              className="w-full px-2.5 py-1.5 text-sm rounded-md border border-glass-border bg-transparent text-text-primary placeholder:text-text-muted/50 focus:outline-none focus:border-accent-blue"
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* ── Purchase Targeting Filters ── */}
+      {filterOptions &&
+        (filterOptions.products.length > 0 ||
+          filterOptions.categories.length > 0) && (
+          <div className="pt-3 border-t border-glass-border">
+            <label className="text-xs text-text-muted font-medium uppercase tracking-wider block mb-2">
+              Purchase Targeting
+            </label>
+            <div className="space-y-3">
+              {filterOptions.products.length > 0 && (
+                <>
+                  <div>
+                    <label className="text-xs text-text-muted font-medium block mb-1">
+                      Purchased product
+                    </label>
+                    <select
+                      value={filters.purchased_product_id || ""}
+                      onChange={(e) =>
+                        onChange({
+                          ...filters,
+                          purchased_product_id: e.target.value || undefined,
+                        })
+                      }
+                      className="w-full px-2.5 py-1.5 text-sm rounded-md border border-glass-border bg-transparent text-text-primary focus:outline-none focus:border-accent-blue"
+                    >
+                      <option value="">Any</option>
+                      {filterOptions.products.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-xs text-text-muted font-medium block mb-1">
+                      NOT purchased product
+                    </label>
+                    <select
+                      value={filters.not_purchased_product_id || ""}
+                      onChange={(e) =>
+                        onChange({
+                          ...filters,
+                          not_purchased_product_id: e.target.value || undefined,
+                        })
+                      }
+                      className="w-full px-2.5 py-1.5 text-sm rounded-md border border-glass-border bg-transparent text-text-primary focus:outline-none focus:border-accent-blue"
+                    >
+                      <option value="">Any</option>
+                      {filterOptions.products.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </>
+              )}
+              {filterOptions.categories.length > 0 && (
+                <div>
+                  <label className="text-xs text-text-muted font-medium block mb-1">
+                    Purchased from category
+                  </label>
+                  <select
+                    value={filters.purchased_category_id || ""}
+                    onChange={(e) =>
+                      onChange({
+                        ...filters,
+                        purchased_category_id: e.target.value || undefined,
+                      })
+                    }
+                    className="w-full px-2.5 py-1.5 text-sm rounded-md border border-glass-border bg-transparent text-text-primary focus:outline-none focus:border-accent-blue"
+                  >
+                    <option value="">Any</option>
+                    {filterOptions.categories.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+              <div>
+                <label className="text-xs text-text-muted font-medium block mb-1">
+                  Purchase lookback (days)
+                </label>
+                <input
+                  type="number"
+                  min={1}
+                  value={filters.purchase_days_lookback ?? ""}
+                  onChange={(e) =>
+                    setNumericFilter("purchase_days_lookback", e.target.value)
+                  }
+                  placeholder="All time"
+                  className="w-full px-2.5 py-1.5 text-sm rounded-md border border-glass-border bg-transparent text-text-primary placeholder:text-text-muted/50 focus:outline-none focus:border-accent-blue"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-text-muted font-medium block mb-1">
+                  Used coupon code
+                </label>
+                <input
+                  type="text"
+                  value={filters.used_coupon_code || ""}
+                  onChange={(e) =>
+                    onChange({
+                      ...filters,
+                      used_coupon_code: e.target.value || undefined,
+                    })
+                  }
+                  placeholder="e.g., SUMMER20"
+                  className="w-full px-2.5 py-1.5 text-sm rounded-md border border-glass-border bg-transparent text-text-primary placeholder:text-text-muted/50 focus:outline-none focus:border-accent-blue"
+                />
+              </div>
+              <label className="flex items-center gap-1.5 text-sm text-text-secondary cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={!!filters.has_coupon}
+                  onChange={(e) =>
+                    onChange({
+                      ...filters,
+                      has_coupon: e.target.checked || undefined,
+                    })
+                  }
+                  className="rounded border-glass-border"
+                />
+                Used any coupon
+              </label>
+            </div>
+          </div>
+        )}
+
       {/* ── Analytics Filters (dynamic from system data) ── */}
       {filterOptions && (
         <>
@@ -1047,11 +1407,17 @@ export default function SegmentBuilder({
 
 /** Remove null/undefined/empty values from filters before sending to API */
 export function cleanFilters(filters: SegmentFilters): Record<string, unknown> {
+  const booleanKeys = new Set([
+    "is_verified",
+    "no_subscription",
+    "has_coupon",
+    "has_orders",
+  ]);
   const result: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(filters)) {
     if (value === null || value === undefined || value === "") continue;
     if (Array.isArray(value) && value.length === 0) continue;
-    if (value === false && key !== "is_verified") continue;
+    if (value === false && !booleanKeys.has(key)) continue;
     result[key] = value;
   }
   return result;
