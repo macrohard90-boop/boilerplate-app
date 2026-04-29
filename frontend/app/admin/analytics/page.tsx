@@ -1433,7 +1433,7 @@ export default function AdminAnalyticsPage() {
     { id: "overview" as const, label: "Overview" },
     { id: "users" as const, label: "User Activity" },
     { id: "events" as const, label: "Events" },
-    { id: "metrics" as const, label: "Custom Metrics" },
+    { id: "metrics" as const, label: "Audiences" },
     ...(enable_simulation
       ? [{ id: "simulation" as const, label: "Simulation" }]
       : []),

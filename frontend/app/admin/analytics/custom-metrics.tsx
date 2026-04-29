@@ -720,7 +720,8 @@ export default function CustomMetricsTab() {
       resetEditor();
       fetchMetrics();
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Failed to save metric";
+      const msg =
+        err instanceof Error ? err.message : "Failed to save audience";
       setError(msg);
     } finally {
       setSaving(false);
@@ -1085,7 +1086,7 @@ export default function CustomMetricsTab() {
         {/* Header */}
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold text-text-primary">
-            {editingId ? "Edit Metric" : "New Custom Metric"}
+            {editingId ? "Edit Audience" : "New Audience"}
           </h2>
           <button
             onClick={() => {
@@ -1158,7 +1159,7 @@ export default function CustomMetricsTab() {
                 disabled={saving || !name.trim() || !sql.trim()}
                 className="btn-secondary text-sm disabled:opacity-50"
               >
-                {saving ? "Saving..." : editingId ? "Update" : "Save Metric"}
+                {saving ? "Saving..." : editingId ? "Update" : "Save Audience"}
               </button>
             </div>
 
@@ -1168,7 +1169,7 @@ export default function CustomMetricsTab() {
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="Metric name"
+                placeholder="Audience name"
                 className="input-glass text-sm"
               />
               <input
@@ -1327,11 +1328,11 @@ export default function CustomMetricsTab() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <p className="text-text-muted text-sm">
-          Write SQL queries against your analytics data and save them as
-          reusable metrics.
+          Build audience segments from your analytics data using filters or SQL
+          queries.
         </p>
         <button onClick={openNew} className="btn-primary text-sm">
-          New Metric
+          New Audience
         </button>
       </div>
 
@@ -1489,7 +1490,7 @@ export default function CustomMetricsTab() {
       {displayMetrics.length > 0 && (
         <div className="space-y-4">
           <h3 className="text-sm font-semibold text-text-primary">
-            {enable_marketing ? "Analytics Metrics" : "Saved Metrics"} (
+            {enable_marketing ? "Saved Audiences" : "Saved Audiences"} (
             {displayMetrics.length})
           </h3>
           {groupedMetrics.map((group) => {
