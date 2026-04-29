@@ -959,7 +959,8 @@ function TemplatesTab() {
                       <span className="text-text-muted">=</span>
                       <span className="text-accent-green">
                         {typeof SAMPLE_VALUES[v.name] === "object"
-                          ? JSON.stringify(SAMPLE_VALUES[v.name]).slice(0, 40) + "..."
+                          ? JSON.stringify(SAMPLE_VALUES[v.name]).slice(0, 40) +
+                            "..."
                           : (SAMPLE_VALUES[v.name] as string) || `[${v.name}]`}
                       </span>
                     </span>
