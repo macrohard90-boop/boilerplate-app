@@ -16,8 +16,8 @@ interface TemplateEditorProps {
   initialContent: string;
   /** Called when content changes */
   onChange: (content: string) => void;
-  /** Sample data for server-side preview */
-  templateData?: Record<string, string>;
+  /** Sample data for server-side preview (may include arrays for Jinja2 loops) */
+  templateData?: Record<string, unknown>;
   /** Variable definitions for the reference panel */
   variables?: TemplateVariable[];
 }

@@ -481,13 +481,19 @@ function TemplatesTab() {
   // Inline creator mode (replaces full-screen modal for new templates)
   const [creatorMode, setCreatorMode] = useState(false);
 
-  // Sample values for the "Rendered Preview" — covers current + future BP variables
-  const SAMPLE_VALUES: Record<string, string> = {
+  // Sample values for the "Rendered Preview" — covers current + future BP variables.
+  // Most values are strings; array-typed variables (e.g. items) use actual arrays
+  // so Jinja2 {% for %} loops render correctly in the preview.
+  const SAMPLE_VALUES: Record<string, unknown> = {
     first_name: "John",
     verify_url: "https://example.com/verify?token=abc123",
     reset_url: "https://example.com/reset?token=abc123",
     order_id: "ORD-A1B2C3D4",
-    total: "$49.99",
+    items: [
+      { name: "Premium Headphones", quantity: 1, price: "$79.99" },
+      { name: "Wireless Charger", quantity: 2, price: "$29.99" },
+    ],
+    total: "$139.97",
     order_url: "https://example.com/orders/abc123",
     amount: "49.99",
     currency: "USD",
@@ -533,11 +539,11 @@ function TemplatesTab() {
 
   function buildSampleData(
     vars: Array<Record<string, string>>,
-  ): Record<string, string> {
-    const data: Record<string, string> = {};
+  ): Record<string, unknown> {
+    const data: Record<string, unknown> = {};
     for (const v of vars) {
       const name = v.name;
-      if (name) data[name] = SAMPLE_VALUES[name] || `[${name}]`;
+      if (name) data[name] = SAMPLE_VALUES[name] ?? `[${name}]`;
     }
     if (!data.first_name) data.first_name = "John";
     return data;
@@ -952,7 +958,9 @@ function TemplatesTab() {
                       </span>
                       <span className="text-text-muted">=</span>
                       <span className="text-accent-green">
-                        {SAMPLE_VALUES[v.name] || `[${v.name}]`}
+                        {typeof SAMPLE_VALUES[v.name] === "object"
+                          ? JSON.stringify(SAMPLE_VALUES[v.name]).slice(0, 40) + "..."
+                          : (SAMPLE_VALUES[v.name] as string) || `[${v.name}]`}
                       </span>
                     </span>
                   ))}
