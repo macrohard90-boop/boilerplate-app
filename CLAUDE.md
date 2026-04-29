@@ -278,11 +278,11 @@ Claude Code runs on the **LOCAL machine (WSL2)**. It does NOT run on the VM. Eve
 | **Use for** | Code editing, builds, tests | Full payment/email E2E testing |
 
 **Rules:**
-1. When the user reports behavior from `http://34.30.88.59/`, that data is in the **VM database** — you CANNOT query it directly. Do NOT look at the local DB and claim the data isn't there.
-2. To inspect the VM database, the user must either: (a) SSH into the VM, or (b) use a remote DB client (pgAdmin, etc.), or (c) read the browser DevTools Network tab.
+1. When the user reports behavior from `http://34.30.88.59/`, that data is in the **VM database** — you CANNOT query it directly from local Docker. Do NOT look at the local DB and claim the data isn't there.
+2. To inspect the VM, SSH in (see "VM Access for Review" below) or ask the user to check browser DevTools.
 3. When debugging issues on the VM, rely on **browser DevTools** (Network tab, Console) for evidence — the user can share those. Do NOT rely on local Docker logs.
 4. If unsure which environment a problem is in, **ASK FIRST** before running any local queries.
-5. After code changes on the local machine, the user must `git push` and redeploy on the VM for changes to take effect there.
+5. **Code deployment MUST go through CI/CD** — see "Deploying Code to VM" below. NEVER run `git pull` on the VM directly.
 
 ### Local Machine Details
 - Windows 11 + WSL2 (Ubuntu 24.04, ARM64 aarch64)
@@ -298,7 +298,51 @@ Claude Code runs on the **LOCAL machine (WSL2)**. It does NOT run on the VM. Eve
 - VM hostname: `instance-20260416-162856`
 - VM username: `adrian_radoi` (NOT rootuser)
 - Project path: `~/boilerplate-app` (NOT ~/projects/boilerplate-app)
-- Same Docker stack deployed via git pull + docker compose (CI/CD in `.github/workflows/ci.yml`)
+- Deployed via CI/CD pipeline (`.github/workflows/ci.yml`)
 - Stripe webhook endpoint: `http://34.30.88.59/api/payments/webhook`
-- Access via: GCP Console → Compute Engine → SSH button (browser terminal)
 - This is where full E2E payment/email testing happens
+
+### VM Access for Review (READ-ONLY)
+
+SSH into the VM to check logs, database state, and container health. **Never modify code or run git commands on the VM.**
+
+```bash
+# SSH command (from local WSL2)
+ssh -i ~/.ssh/id_ed25519_build adrian_radoi@34.30.88.59
+
+# Allowed commands on VM:
+docker ps                                          # Container status
+docker compose logs --tail=50 fastapi              # Recent API logs
+docker compose logs --tail=50 nextjs               # Recent frontend logs
+docker compose exec postgres psql -U boilerplate -d boilerplate_db -c "SELECT ..."  # DB queries
+docker compose exec redis redis-cli INFO           # Redis status
+```
+
+**VM SSH Rules:**
+- READ-ONLY — check logs, query database, inspect container state
+- NEVER run `git pull`, `git checkout`, or edit files on the VM
+- NEVER run `docker compose up`, `docker compose build`, or restart containers
+- If something needs to change on the VM, push code and let CI/CD handle it
+
+### Deploying Code to VM (CI/CD Pipeline)
+
+All code changes reach the VM through the GitHub Actions CI/CD pipeline. Never deploy manually.
+
+```bash
+# 1. Commit and push locally
+git add <files> && git commit -m "fix: description" && git push
+
+# 2. Monitor the pipeline
+gh run list --limit 5                              # List recent runs
+gh run view <run-id>                               # Check specific run
+gh run watch <run-id>                              # Live tail a running job
+
+# 3. Pipeline stages: lint → test → build → deploy (SSH into VM → git pull → docker compose up)
+# Deploy only runs on push to main branch
+```
+
+**CI/CD Rules:**
+- All code changes MUST go through `git push` → GitHub Actions → deploy
+- Check pipeline health before assuming code is live: `gh run list --limit 1`
+- If pipeline fails, fix the issue locally and push again — do NOT SSH into VM to patch
+- The deploy job handles: git pull, docker compose build, docker compose up, migrations, health check
