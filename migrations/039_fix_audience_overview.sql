@@ -1,5 +1,9 @@
--- UP: Fix Audience Overview presets
--- Rename "All Subscribers" to "All Marketing Opt-ins" (it was misleading)
+-- 039_fix_audience_overview.sql
+-- Rename misleading "All Subscribers" preset and add actual subscriber preset.
+
+-- UP
+
+-- Rename "All Subscribers" to "All Marketing Opt-ins"
 UPDATE marketing.audience_group_presets
 SET label = 'All Marketing Opt-ins',
     detail = 'Users with marketing email consent'
@@ -15,6 +19,7 @@ WHERE ag.name = 'Audience Overview'
 ON CONFLICT (preset_key) DO UPDATE
 SET label = EXCLUDED.label, detail = EXCLUDED.detail, filters = EXCLUDED.filters;
 
--- DOWN:
--- UPDATE marketing.audience_group_presets SET label = 'All Subscribers', detail = '' WHERE preset_key = 'all';
--- DELETE FROM marketing.audience_group_presets WHERE preset_key = 'all_active_subscribers';
+-- DOWN
+
+UPDATE marketing.audience_group_presets SET label = 'All Subscribers', detail = '' WHERE preset_key = 'all';
+DELETE FROM marketing.audience_group_presets WHERE preset_key = 'all_active_subscribers';
