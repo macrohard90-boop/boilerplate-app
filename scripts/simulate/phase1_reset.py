@@ -161,8 +161,14 @@ def run(db_url: str | None = None) -> dict:
                     conn.autocommit = True
 
     # Re-seed built-in email templates (wiped by TRUNCATE core.users CASCADE)
-    template_file = PROJECT_ROOT / "migrations" / "025_email_templates.sql"
-    if template_file.exists():
+    # Both transactional (025) and campaign (040) templates need re-seeding
+    template_files = [
+        PROJECT_ROOT / "migrations" / "025_email_templates.sql",
+        PROJECT_ROOT / "migrations" / "040_campaign_templates.sql",
+    ]
+    for template_file in template_files:
+        if not template_file.exists():
+            continue
         sql = template_file.read_text()
         lines = sql.split("\n")
         insert_block = []
@@ -178,7 +184,9 @@ def run(db_url: str | None = None) -> dict:
                     cur.execute(stmt)
                     result["templates_seeded"] += 1
                 except Exception as e:
-                    logger.warning("Template seed failed: %s", e)
+                    logger.warning(
+                        "Template seed failed (%s): %s", template_file.name, e
+                    )
                     conn.rollback()
                     conn.autocommit = True
                 insert_block = []

@@ -1602,17 +1602,6 @@ function EmailLogsTab() {
     fetchLogs();
   }, [fetchLogs]);
 
-  async function handleResend(eventId: string) {
-    if (!confirm("Resend this email?")) return;
-    try {
-      await apiFetch(`/marketing/admin/resend/${eventId}`, { method: "POST" });
-      showToast("Email resent", "success");
-      fetchLogs();
-    } catch {
-      showToast("Failed to resend email", "error");
-    }
-  }
-
   return (
     <>
       {/* Filters */}
@@ -1678,9 +1667,6 @@ function EmailLogsTab() {
                 <th className="text-left p-3 text-text-muted font-medium">
                   Status
                 </th>
-                <th className="text-right p-3 text-text-muted font-medium">
-                  Actions
-                </th>
               </tr>
             </thead>
             <tbody>
@@ -1709,18 +1695,6 @@ function EmailLogsTab() {
                       <span className="text-xs text-text-muted ml-1">
                         ({log.skip_reason})
                       </span>
-                    )}
-                  </td>
-                  <td className="p-3 text-right">
-                    {["bounced", "complained", "skipped"].includes(
-                      log.status,
-                    ) && (
-                      <button
-                        onClick={() => handleResend(log.id)}
-                        className="text-accent-blue hover:underline text-xs"
-                      >
-                        Resend
-                      </button>
                     )}
                   </td>
                 </tr>
