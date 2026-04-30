@@ -137,6 +137,7 @@ function KpiCard({
 
 const STATUS_OPTIONS = [
   { value: "", label: "All" },
+  { value: "sending", label: "Sending" },
   { value: "sent", label: "Sent" },
   { value: "delivered", label: "Delivered" },
   { value: "opened", label: "Opened" },

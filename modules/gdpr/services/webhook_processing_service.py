@@ -20,7 +20,8 @@ logger = logging.getLogger(__name__)
 # Map provider event types to normalized types
 _BOUNCE_EVENTS = {"hard_bounce", "bounced", "invalid_email", "blocked", "soft_bounce"}
 _COMPLAINT_EVENTS = {"complaint", "spam", "spam_report"}
-_DELIVERY_EVENTS = {"delivered", "request", "sent"}
+_SENT_EVENTS = {"sent", "request"}
+_DELIVERY_EVENTS = {"delivered"}
 _OPEN_EVENTS = {"opened", "unique_opened"}
 _CLICK_EVENTS = {"click", "unique_click"}
 _UNSUBSCRIBE_EVENTS = {"unsubscribed", "unsubscribe"}
@@ -80,6 +81,8 @@ async def process_webhook(
         await _handle_bounce(db, event)
     elif event_type in _COMPLAINT_EVENTS:
         await _handle_complaint(db, event)
+    elif event_type in _SENT_EVENTS:
+        await _handle_sent(db, event)
     elif event_type in _DELIVERY_EVENTS:
         await _handle_delivery(db, event)
     elif event_type in _OPEN_EVENTS:
@@ -150,6 +153,30 @@ async def _handle_complaint(db: AsyncSession, event: WebhookEvent) -> None:
         await _suppress_user_by_email(db, event.recipient_email, "complaint")
 
 
+async def _handle_sent(db: AsyncSession, event: WebhookEvent) -> None:
+    """Brevo confirmed the email was sent — transition sending → sent."""
+    if event.provider_message_id:
+        await db.execute(
+            text(
+                "UPDATE gdpr.email_events "
+                "SET status = 'sent' "
+                "WHERE provider_message_id = :pmid AND status = 'sending'"
+            ),
+            {"pmid": event.provider_message_id},
+        )
+
+        # Update campaign_recipients: sending → sent, set sent_at
+        await db.execute(
+            text(
+                "UPDATE marketing.campaign_recipients "
+                "SET status = CASE WHEN status = 'sending' THEN 'sent' ELSE status END, "
+                "sent_at = COALESCE(sent_at, NOW()) "
+                "WHERE provider_message_id = :pmid"
+            ),
+            {"pmid": event.provider_message_id},
+        )
+
+
 async def _handle_delivery(db: AsyncSession, event: WebhookEvent) -> None:
     """Delivery confirmation — update email_events and campaign_recipients."""
     if event.provider_message_id:
@@ -162,11 +189,12 @@ async def _handle_delivery(db: AsyncSession, event: WebhookEvent) -> None:
             {"pmid": event.provider_message_id},
         )
 
-        # Update campaign_recipients
+        # Update campaign_recipients: sending|sent → delivered
         await db.execute(
             text(
                 "UPDATE marketing.campaign_recipients "
-                "SET status = CASE WHEN status = 'sent' THEN 'delivered' ELSE status END, "
+                "SET status = CASE WHEN status IN ('sending', 'sent') THEN 'delivered' ELSE status END, "
+                "sent_at = COALESCE(sent_at, NOW()), "
                 "delivered_at = COALESCE(delivered_at, NOW()) "
                 "WHERE provider_message_id = :pmid"
             ),
@@ -197,7 +225,7 @@ async def _handle_open(db: AsyncSession, event: WebhookEvent) -> None:
         text(
             "UPDATE marketing.campaign_recipients "
             "SET status = CASE "
-            "  WHEN status IN ('sent', 'delivered') THEN 'opened' "
+            "  WHEN status IN ('sending', 'sent', 'delivered') THEN 'opened' "
             "  ELSE status END, "
             "opened_at = COALESCE(opened_at, NOW()) "
             "WHERE provider_message_id = :pmid"
@@ -220,7 +248,7 @@ async def _handle_click(db: AsyncSession, event: WebhookEvent) -> None:
         text(
             "UPDATE marketing.campaign_recipients "
             "SET status = CASE "
-            "  WHEN status IN ('sent', 'delivered', 'opened') THEN 'clicked' "
+            "  WHEN status IN ('sending', 'sent', 'delivered', 'opened') THEN 'clicked' "
             "  ELSE status END, "
             "clicked_at = COALESCE(clicked_at, NOW()) "
             "WHERE provider_message_id = :pmid"

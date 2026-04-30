@@ -711,13 +711,14 @@ async def deliver_campaign(
                         "error": f"Unknown medium: {medium}",
                     }
 
-                # Update recipient status
+                # Update recipient — keep 'sending' status until Brevo
+                # confirms via webhook. Just store the provider message ID.
                 if send_result["success"]:
                     await db.execute(
                         text(
                             "UPDATE marketing.campaign_recipients "
-                            "SET status = 'sent', provider = :prov, "
-                            "provider_message_id = :pmid, sent_at = NOW() "
+                            "SET provider = :prov, "
+                            "provider_message_id = :pmid "
                             "WHERE id = :rid"
                         ),
                         {
