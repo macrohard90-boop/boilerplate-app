@@ -536,6 +536,10 @@ async def deliver_campaign(
     sent_count = 0
     failed_count = 0
 
+    # Ensure clean read-write transaction before batch inserts.
+    # Audience resolution may leave the session in a read-only state.
+    await db.rollback()
+
     await _update_progress(campaign_id, total, 0, 0, "sending")
 
     # 5. Batch process
@@ -594,6 +598,7 @@ async def deliver_campaign(
                 logger.exception(
                     "Failed to INSERT campaign_recipient for user=%s", user_id
                 )
+                await db.rollback()
                 failed_count += 1
                 continue
 
@@ -610,12 +615,13 @@ async def deliver_campaign(
                     await db.execute(
                         text(
                             "UPDATE marketing.campaign_recipients "
-                            "SET status = 'skipped', error_message = :reason "
+                            "SET status = 'failed', error_message = :reason "
                             "WHERE id = :rid"
                         ),
                         {"rid": recipient_row_id, "reason": guardrail.reason},
                     )
                     await db.commit()
+                    failed_count += 1
                     continue
             except Exception:
                 logger.debug(
@@ -623,6 +629,7 @@ async def deliver_campaign(
                     user_id,
                     exc_info=True,
                 )
+                await db.rollback()
 
             # Send per channel
             try:
@@ -752,6 +759,7 @@ async def deliver_campaign(
                     campaign_id,
                 )
                 failed_count += 1
+                await db.rollback()
                 try:
                     await db.execute(
                         text(
@@ -763,28 +771,54 @@ async def deliver_campaign(
                     )
                     await db.commit()
                 except Exception:
-                    pass
+                    await db.rollback()
 
         # Update progress after each batch
         await _update_progress(campaign_id, total, sent_count, failed_count, "sending")
 
     # 6. Update campaign status
     final_status = "sent"
-    await db.execute(
-        text(
-            "UPDATE marketing.campaigns "
-            "SET status = :status, sent_at = NOW(), "
-            "recipient_count = :rcnt, provider = :prov "
-            "WHERE id = :cid"
-        ),
-        {
-            "cid": campaign_id,
-            "status": final_status,
-            "rcnt": sent_count,
-            "prov": _get_provider_name(medium),
-        },
-    )
-    await db.commit()
+    try:
+        await db.execute(
+            text(
+                "UPDATE marketing.campaigns "
+                "SET status = :status, sent_at = NOW(), "
+                "recipient_count = :rcnt, provider = :prov "
+                "WHERE id = :cid"
+            ),
+            {
+                "cid": campaign_id,
+                "status": final_status,
+                "rcnt": sent_count,
+                "prov": _get_provider_name(medium),
+            },
+        )
+        await db.commit()
+    except Exception:
+        logger.exception("Failed to update campaign %s final status", campaign_id)
+        await db.rollback()
+        # Retry once after rollback
+        try:
+            await db.execute(
+                text(
+                    "UPDATE marketing.campaigns "
+                    "SET status = :status, sent_at = NOW(), "
+                    "recipient_count = :rcnt, provider = :prov "
+                    "WHERE id = :cid"
+                ),
+                {
+                    "cid": campaign_id,
+                    "status": final_status,
+                    "rcnt": sent_count,
+                    "prov": _get_provider_name(medium),
+                },
+            )
+            await db.commit()
+        except Exception:
+            logger.exception(
+                "Retry failed: campaign %s stuck in 'sending'", campaign_id
+            )
+            await db.rollback()
 
     await _update_progress(campaign_id, total, sent_count, failed_count, "complete")
 

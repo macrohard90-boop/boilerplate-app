@@ -539,7 +539,6 @@ async def compute_metric_segment_count(db: AsyncSession, metric_id: str) -> int:
     unlimit_sql = re.sub(r"\s+LIMIT\s+\d+\s*$", "", safe_sql, flags=re.IGNORECASE)
     count_sql = f"SELECT COUNT(*) AS cnt FROM ({unlimit_sql}) AS aq"
     await db.execute(text("SET LOCAL statement_timeout = '10s'"))
-    await db.execute(text("SET TRANSACTION READ ONLY"))
     result = (await db.execute(text(count_sql))).fetchone()
     return result.cnt if result else 0
 
@@ -554,7 +553,6 @@ async def compute_metric_segment_users(
     if limit:
         user_sql += f" LIMIT {int(limit)}"
     await db.execute(text("SET LOCAL statement_timeout = '10s'"))
-    await db.execute(text("SET TRANSACTION READ ONLY"))
     rows = (await db.execute(text(user_sql))).mappings().all()
     return [{"user_id": str(r["user_id"]), "email": ""} for r in rows]
 
