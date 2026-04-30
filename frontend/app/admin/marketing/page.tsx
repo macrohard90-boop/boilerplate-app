@@ -355,13 +355,12 @@ function statusBadge(status: string): string {
 
 // ── Tab types ───────────────────────────────────────────
 
-type TabId = "templates" | "campaigns" | "email_logs" | "automations";
+type TabId = "templates" | "campaigns" | "email_logs";
 
 const TABS: { id: TabId; label: string }[] = [
   { id: "templates", label: "Templates" },
+  { id: "email_logs", label: "Transactional" },
   { id: "campaigns", label: "Campaigns" },
-  { id: "email_logs", label: "Email Logs" },
-  { id: "automations", label: "Automations" },
 ];
 
 // ── Main Page ───────────────────────────────────────────
@@ -411,7 +410,6 @@ export default function AdminMarketingPage() {
       {activeTab === "templates" && <TemplatesTab />}
       {activeTab === "campaigns" && <CampaignsTab />}
       {activeTab === "email_logs" && <EmailLogsTab />}
-      {activeTab === "automations" && <AutomationsTab />}
     </div>
   );
 }
@@ -1574,7 +1572,6 @@ function EmailLogsTab() {
   const [logs, setLogs] = useState<EmailLog[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
-  const [typeFilter, setTypeFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [userFilter, setUserFilter] = useState("");
   const [loading, setLoading] = useState(true);
@@ -1586,8 +1583,8 @@ function EmailLogsTab() {
       const params = new URLSearchParams({
         page: String(page),
         page_size: String(pageSize),
+        email_type: "transactional_email",
       });
-      if (typeFilter) params.set("email_type", typeFilter);
       if (statusFilter) params.set("status", statusFilter);
       if (userFilter.trim()) params.set("user_id", userFilter.trim());
       const data = await apiFetch<EmailLogList>(
@@ -1599,7 +1596,7 @@ function EmailLogsTab() {
       showToast("Failed to load email logs", "error");
     }
     setLoading(false);
-  }, [page, typeFilter, statusFilter, userFilter, showToast]);
+  }, [page, statusFilter, userFilter, showToast]);
 
   useEffect(() => {
     fetchLogs();
@@ -1622,18 +1619,6 @@ function EmailLogsTab() {
       <div className="flex flex-wrap items-center gap-3 mb-4">
         <select
           className="input-glass text-sm py-1.5 px-3"
-          value={typeFilter}
-          onChange={(e) => {
-            setTypeFilter(e.target.value);
-            setPage(1);
-          }}
-        >
-          <option value="">All types</option>
-          <option value="transactional_email">Transactional</option>
-          <option value="marketing_email">Marketing</option>
-        </select>
-        <select
-          className="input-glass text-sm py-1.5 px-3"
           value={statusFilter}
           onChange={(e) => {
             setStatusFilter(e.target.value);
@@ -1641,6 +1626,7 @@ function EmailLogsTab() {
           }}
         >
           <option value="">All statuses</option>
+          <option value="sending">Sending</option>
           <option value="sent">Sent</option>
           <option value="delivered">Delivered</option>
           <option value="bounced">Bounced</option>
@@ -1684,9 +1670,6 @@ function EmailLogsTab() {
                   User
                 </th>
                 <th className="text-left p-3 text-text-muted font-medium">
-                  Type
-                </th>
-                <th className="text-left p-3 text-text-muted font-medium">
                   Template
                 </th>
                 <th className="text-left p-3 text-text-muted font-medium">
@@ -1711,11 +1694,6 @@ function EmailLogsTab() {
                   </td>
                   <td className="p-3 text-text-secondary font-mono text-xs">
                     {truncate(log.user_id, 8)}
-                  </td>
-                  <td className="p-3 text-text-secondary text-xs">
-                    {log.email_type === "marketing_email"
-                      ? "Marketing"
-                      : "Transactional"}
                   </td>
                   <td className="p-3 text-text-muted font-mono text-xs">
                     {log.template_id}

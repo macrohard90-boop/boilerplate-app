@@ -99,7 +99,7 @@ async def _log_email_event(
 ) -> str:
     """Insert a row into gdpr.email_events for GDPR audit trail."""
     event_id = str(uuid.uuid4())
-    sent_at_value = "NOW()" if status == "sent" else "NULL"
+    sent_at_value = "NOW()" if status in ("sent", "sending") else "NULL"
     await db.execute(
         text(
             "INSERT INTO gdpr.email_events "
@@ -298,7 +298,7 @@ async def send_email(
         provider=result.provider,
         provider_message_id=result.provider_message_id,
         consent_snapshot=consent_snapshot,
-        status="sent" if result.success else "queued",
+        status="sending" if result.success else "queued",
     )
 
     # 8. On failure, push to retry queue
