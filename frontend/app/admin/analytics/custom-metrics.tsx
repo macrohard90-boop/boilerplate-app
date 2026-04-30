@@ -455,6 +455,10 @@ export default function CustomMetricsTab() {
   const fetchAudienceMetrics = useCallback(async () => {
     if (!enable_marketing) return;
     try {
+      // Refresh cached counts first, then fetch the list
+      await apiFetch("/tracking/admin/metrics/refresh-audience-counts", {
+        method: "POST",
+      }).catch(() => {});
       const data = await apiFetch<{
         metrics: AudienceMetric[];
         total: number;

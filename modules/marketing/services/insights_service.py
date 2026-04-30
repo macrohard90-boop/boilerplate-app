@@ -563,7 +563,9 @@ async def get_segment_dashboard(
         .mappings()
         .first()
     )
-    avg_order_value = round(float(kpi_row["avg_order_value"] or 0), 2) if kpi_row else 0
+    avg_order_value = (
+        round(float(kpi_row["avg_order_value"] or 0) / 100, 2) if kpi_row else 0
+    )
     total_revenue = int(kpi_row["total_revenue"] or 0) if kpi_row else 0
 
     # Avg sessions per user (90d)
