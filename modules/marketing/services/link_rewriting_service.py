@@ -55,6 +55,10 @@ def rewrite_email_links(
             return match.group(0)
 
         parsed = urlparse(url)
+        # Ensure path is at least "/" so query params attach correctly
+        # (bare origins like http://example.com become http://example.com/)
+        if not parsed.path:
+            parsed = parsed._replace(path="/")
         existing_qs = parse_qs(parsed.query)
 
         # Skip if UTM params already present
