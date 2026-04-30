@@ -11,13 +11,24 @@ ALTER TABLE analytics.saved_metrics ADD COLUMN IF NOT EXISTS preset_key VARCHAR(
 ALTER TABLE analytics.saved_metrics ADD COLUMN IF NOT EXISTS audience_filters JSONB;
 CREATE INDEX IF NOT EXISTS idx_saved_metrics_preset_key ON analytics.saved_metrics(preset_key) WHERE preset_key IS NOT NULL;
 
+-- Deduplicate audience_groups by name (keep earliest created)
+DELETE FROM marketing.audience_groups a
+USING marketing.audience_groups b
+WHERE a.name = b.name AND a.created_at > b.created_at;
+
+-- Ensure name is unique (missing from original schema)
+DO $$ BEGIN
+  ALTER TABLE marketing.audience_groups ADD CONSTRAINT audience_groups_name_key UNIQUE (name);
+EXCEPTION WHEN duplicate_table THEN NULL;
+END $$;
+
 -- Add new groups
 INSERT INTO marketing.audience_groups (name, display_order) VALUES
     ('Subscription',    5),
     ('Browse Intent',   6),
     ('Cart Behavior',   7),
     ('Lifecycle',       8)
-ON CONFLICT DO NOTHING;
+ON CONFLICT (name) DO NOTHING;
 
 -- =====================================================================
 -- A. Purchase-Based (add to existing "Purchase Behavior" group)
