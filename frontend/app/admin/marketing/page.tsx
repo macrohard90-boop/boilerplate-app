@@ -72,16 +72,6 @@ interface CampaignList {
   per_page: number;
 }
 
-interface CampaignStats {
-  sent: number;
-  delivered: number;
-  opened: number;
-  clicked: number;
-  bounced: number;
-  unsubscribed: number;
-  fetched_at: string | null;
-}
-
 interface EmailLog {
   id: string;
   user_id: string;
@@ -1182,8 +1172,6 @@ function CampaignsTab() {
     audience: SelectedAudience;
     name: string;
   } | null>(null);
-  const [statsModal, setStatsModal] = useState<CampaignStats | null>(null);
-  const [statsName, setStatsName] = useState("");
 
   // Suggestion carousel state
   const [suggestionIdx, setSuggestionIdx] = useState(0);
@@ -1293,18 +1281,6 @@ function CampaignsTab() {
       fetchCampaigns();
     } catch {
       showToast("Failed to cancel campaign", "error");
-    }
-  }
-
-  async function handleStats(c: Campaign) {
-    try {
-      const data = await apiFetch<CampaignStats>(
-        `/marketing/admin/campaigns/${c.id}/stats`,
-      );
-      setStatsModal(data);
-      setStatsName(c.name);
-    } catch {
-      showToast("Failed to load stats", "error");
     }
   }
 
@@ -1521,8 +1497,13 @@ function CampaignsTab() {
                   key={c.id}
                   className="border-b border-glass-border/50 hover:bg-glass-hover transition-colors"
                 >
-                  <td className="p-3 text-text-primary">
-                    {truncate(c.name, 30)}
+                  <td className="p-3">
+                    <a
+                      href={`/admin/marketing/campaigns/${c.id}`}
+                      className="text-text-primary hover:text-accent-blue transition-colors"
+                    >
+                      {truncate(c.name, 30)}
+                    </a>
                   </td>
                   <td className="p-3 text-text-secondary">
                     {truncate(c.subject, 30)}
@@ -1560,12 +1541,12 @@ function CampaignsTab() {
                       </>
                     )}
                     {(c.status === "sent" || c.status === "sending") && (
-                      <button
-                        onClick={() => handleStats(c)}
+                      <a
+                        href={`/admin/marketing/campaigns/${c.id}`}
                         className="text-accent-blue hover:underline text-xs"
                       >
-                        Stats
-                      </button>
+                        Details
+                      </a>
                     )}
                   </td>
                 </tr>
@@ -1582,39 +1563,6 @@ function CampaignsTab() {
           onPageChange={setPage}
         />
       </div>
-
-      {/* Stats modal */}
-      <Modal
-        isOpen={!!statsModal}
-        onClose={() => setStatsModal(null)}
-        title={`Stats: ${statsName}`}
-        size="md"
-      >
-        {statsModal && (
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-            {(
-              [
-                ["Sent", statsModal.sent, "accent-blue"],
-                ["Delivered", statsModal.delivered, "accent-green"],
-                ["Opened", statsModal.opened, "accent-purple"],
-                ["Clicked", statsModal.clicked, "accent-pink"],
-                ["Bounced", statsModal.bounced, "accent-pink"],
-                ["Unsubscribed", statsModal.unsubscribed, "accent-pink"],
-              ] as [string, number, string][]
-            ).map(([label, val, color]) => (
-              <div key={label} className="glass rounded-lg p-3 text-center">
-                <p className="text-xs text-text-muted mb-1">{label}</p>
-                <p className={`text-xl font-bold text-${color}`}>{val}</p>
-                {statsModal.sent > 0 && label !== "Sent" && (
-                  <p className="text-xs text-text-muted">
-                    {((val / statsModal.sent) * 100).toFixed(1)}%
-                  </p>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
-      </Modal>
     </>
   );
 }

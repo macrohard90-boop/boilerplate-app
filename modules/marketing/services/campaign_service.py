@@ -2,7 +2,6 @@
 
 import json
 import logging
-from datetime import datetime, timezone
 from typing import Any
 
 from sqlalchemy import text
@@ -11,9 +10,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from backend.core.config import settings
 
 logger = logging.getLogger(__name__)
-
-# Stats cache TTL in seconds (5 minutes)
-_STATS_CACHE_TTL = 300
 
 
 async def create_campaign(
@@ -401,13 +397,107 @@ async def send_campaign(db: AsyncSession, campaign_id: str) -> dict[str, Any]:
 
 
 async def get_campaign_stats(db: AsyncSession, campaign_id: str) -> dict[str, Any]:
-    """Get campaign stats — pull from ESP if stale, otherwise return cached."""
+    """Get campaign stats aggregated from campaign_recipients table."""
     row = (
         (
             await db.execute(
                 text(
-                    "SELECT provider_campaign_id, stats_cache, stats_fetched_at "
-                    "FROM marketing.campaigns WHERE id = :cid"
+                    "SELECT "
+                    "  COUNT(*) FILTER (WHERE status NOT IN ('failed','sending')) AS sent, "
+                    "  COUNT(*) FILTER (WHERE status IN ('delivered','opened','clicked')) AS delivered, "
+                    "  COUNT(*) FILTER (WHERE status IN ('opened','clicked')) AS opened, "
+                    "  COUNT(*) FILTER (WHERE status = 'clicked') AS clicked, "
+                    "  COUNT(*) FILTER (WHERE status = 'bounced') AS bounced, "
+                    "  COUNT(*) FILTER (WHERE status = 'unsubscribed') AS unsubscribed "
+                    "FROM marketing.campaign_recipients WHERE campaign_id = :cid"
+                ),
+                {"cid": campaign_id},
+            )
+        )
+        .mappings()
+        .first()
+    )
+
+    if not row:
+        return _empty_stats()
+
+    return {
+        "sent": row["sent"] or 0,
+        "delivered": row["delivered"] or 0,
+        "opened": row["opened"] or 0,
+        "clicked": row["clicked"] or 0,
+        "bounced": row["bounced"] or 0,
+        "unsubscribed": row["unsubscribed"] or 0,
+    }
+
+
+async def get_campaign_variant_stats(
+    db: AsyncSession, campaign_id: str
+) -> list[dict[str, Any]]:
+    """Get per-variant stats for A/B campaigns."""
+    variants = await get_campaign_variants(db, campaign_id)
+    if not variants:
+        return []
+
+    rows = (
+        (
+            await db.execute(
+                text(
+                    "SELECT variant_id, "
+                    "  COUNT(*) FILTER (WHERE status NOT IN ('failed','sending')) AS sent, "
+                    "  COUNT(*) FILTER (WHERE status IN ('delivered','opened','clicked')) AS delivered, "
+                    "  COUNT(*) FILTER (WHERE status IN ('opened','clicked')) AS opened, "
+                    "  COUNT(*) FILTER (WHERE status = 'clicked') AS clicked, "
+                    "  COUNT(*) FILTER (WHERE status = 'bounced') AS bounced, "
+                    "  COUNT(*) FILTER (WHERE status = 'unsubscribed') AS unsubscribed "
+                    "FROM marketing.campaign_recipients "
+                    "WHERE campaign_id = :cid "
+                    "GROUP BY variant_id"
+                ),
+                {"cid": campaign_id},
+            )
+        )
+        .mappings()
+        .all()
+    )
+
+    stats_by_variant = {str(r["variant_id"]): dict(r) for r in rows}
+
+    results = []
+    for v in variants:
+        s = stats_by_variant.get(v["id"], {})
+        results.append(
+            {
+                "label": v["label"],
+                "subject": v["subject"],
+                "weight": v["weight"],
+                "stats": {
+                    "sent": s.get("sent", 0) or 0,
+                    "delivered": s.get("delivered", 0) or 0,
+                    "opened": s.get("opened", 0) or 0,
+                    "clicked": s.get("clicked", 0) or 0,
+                    "bounced": s.get("bounced", 0) or 0,
+                    "unsubscribed": s.get("unsubscribed", 0) or 0,
+                },
+            }
+        )
+
+    return results
+
+
+async def get_campaign_detail(db: AsyncSession, campaign_id: str) -> dict[str, Any]:
+    """Get full campaign detail with stats and variants."""
+    row = (
+        (
+            await db.execute(
+                text(
+                    "SELECT c.id, c.name, c.subject, c.template_id, c.status, "
+                    "c.medium, c.recipient_count, c.sent_at, c.created_at, "
+                    "c.scheduled_at, c.utm_source, c.utm_medium, c.utm_campaign, "
+                    "t.display_name AS template_display_name "
+                    "FROM marketing.campaigns c "
+                    "LEFT JOIN marketing.email_templates t ON t.name = c.template_id "
+                    "WHERE c.id = :cid"
                 ),
                 {"cid": campaign_id},
             )
@@ -419,148 +509,93 @@ async def get_campaign_stats(db: AsyncSession, campaign_id: str) -> dict[str, An
     if not row:
         raise ValueError("Campaign not found")
 
-    provider_campaign_id = row["provider_campaign_id"]
-
-    # Check if cache is fresh
-    if row["stats_fetched_at"]:
-        fetched_at = row["stats_fetched_at"]
-        if isinstance(fetched_at, datetime):
-            age = (
-                datetime.now(timezone.utc) - fetched_at.replace(tzinfo=timezone.utc)
-            ).total_seconds()
-            if age < _STATS_CACHE_TTL and row["stats_cache"]:
-                return row["stats_cache"]
-
-    # Pull fresh stats from ESP
-    if not provider_campaign_id:
-        return {
-            "sent": 0,
-            "delivered": 0,
-            "opened": 0,
-            "clicked": 0,
-            "bounced": 0,
-            "unsubscribed": 0,
-        }
-
-    from modules.gdpr.adapters import get_email_provider
-
-    provider = get_email_provider("marketing_email")
-
-    try:
-        stats = await provider.get_campaign_stats(provider_campaign_id)
-        stats_dict = {
-            "sent": stats.sent,
-            "delivered": stats.delivered,
-            "opened": stats.opened,
-            "clicked": stats.clicked,
-            "bounced": stats.bounced,
-            "unsubscribed": stats.unsubscribed,
-            "fetched_at": stats.fetched_at,
-        }
-
-        # Cache the stats
-        await db.execute(
-            text(
-                "UPDATE marketing.campaigns "
-                "SET stats_cache = :cache, stats_fetched_at = NOW() "
-                "WHERE id = :cid"
-            ),
-            {"cid": campaign_id, "cache": json.dumps(stats_dict)},
-        )
-        await db.commit()
-
-        return stats_dict
-    except NotImplementedError:
-        return {
-            "sent": 0,
-            "delivered": 0,
-            "opened": 0,
-            "clicked": 0,
-            "bounced": 0,
-            "unsubscribed": 0,
-        }
-
-
-async def get_campaign_variant_stats(
-    db: AsyncSession, campaign_id: str
-) -> list[dict[str, Any]]:
-    """Get per-variant stats for A/B campaigns."""
+    stats = await get_campaign_stats(db, campaign_id)
     variants = await get_campaign_variants(db, campaign_id)
-    if not variants:
-        return []
 
-    from modules.gdpr.adapters import get_email_provider
+    return {
+        "id": str(row["id"]),
+        "name": row["name"],
+        "subject": row["subject"],
+        "template_id": row["template_id"],
+        "template_display_name": row["template_display_name"],
+        "status": row["status"],
+        "medium": row["medium"] or "email",
+        "recipient_count": row["recipient_count"] or 0,
+        "sent_at": str(row["sent_at"]) if row["sent_at"] else None,
+        "created_at": str(row["created_at"]),
+        "scheduled_at": str(row["scheduled_at"]) if row["scheduled_at"] else None,
+        "stats": stats,
+        "variants": variants,
+    }
 
-    provider = get_email_provider("marketing_email")
-    results = []
 
-    for v in variants:
-        pcid = v.get("provider_campaign_id")
-        if not pcid:
-            results.append(
-                {
-                    "label": v["label"],
-                    "subject": v["subject"],
-                    "weight": v["weight"],
-                    "stats": _empty_stats(),
-                }
-            )
-            continue
+async def get_campaign_recipients(
+    db: AsyncSession,
+    campaign_id: str,
+    status: str | None = None,
+    page: int = 1,
+    per_page: int = 20,
+) -> dict[str, Any]:
+    """Get paginated recipient list for a campaign."""
+    where = "WHERE cr.campaign_id = :cid"
+    params: dict[str, Any] = {
+        "cid": campaign_id,
+        "lim": per_page,
+        "off": (page - 1) * per_page,
+    }
 
-        # Check variant cache
-        cached = v.get("stats_cache")
-        if cached and isinstance(cached, dict):
-            results.append(
-                {
-                    "label": v["label"],
-                    "subject": v["subject"],
-                    "weight": v["weight"],
-                    "stats": cached,
-                }
-            )
-            continue
+    if status:
+        where += " AND cr.status = :status"
+        params["status"] = status
 
-        try:
-            stats = await provider.get_campaign_stats(pcid)
-            stats_dict = {
-                "sent": stats.sent,
-                "delivered": stats.delivered,
-                "opened": stats.opened,
-                "clicked": stats.clicked,
-                "bounced": stats.bounced,
-                "unsubscribed": stats.unsubscribed,
-                "fetched_at": stats.fetched_at,
-            }
-            # Cache on the variant
+    total = (
+        await db.execute(
+            text(f"SELECT COUNT(*) FROM marketing.campaign_recipients cr {where}"),
+            params,
+        )
+    ).scalar() or 0
+
+    rows = (
+        (
             await db.execute(
                 text(
-                    "UPDATE marketing.campaign_variants "
-                    "SET stats_cache = :cache, stats_fetched_at = NOW() "
-                    "WHERE id = :vid"
+                    f"SELECT cr.id, cr.to_address, cr.status, cr.provider, "
+                    f"cr.provider_message_id, cr.error_message, "
+                    f"cr.sent_at, cr.delivered_at, cr.opened_at, cr.clicked_at, "
+                    f"cr.created_at, u.first_name, u.last_name "
+                    f"FROM marketing.campaign_recipients cr "
+                    f"LEFT JOIN core.users u ON u.id = cr.user_id "
+                    f"{where} "
+                    f"ORDER BY cr.created_at ASC "
+                    f"LIMIT :lim OFFSET :off"
                 ),
-                {"vid": v["id"], "cache": json.dumps(stats_dict)},
+                params,
             )
-            results.append(
-                {
-                    "label": v["label"],
-                    "subject": v["subject"],
-                    "weight": v["weight"],
-                    "stats": stats_dict,
-                }
-            )
-        except (NotImplementedError, Exception):
-            results.append(
-                {
-                    "label": v["label"],
-                    "subject": v["subject"],
-                    "weight": v["weight"],
-                    "stats": _empty_stats(),
-                }
-            )
+        )
+        .mappings()
+        .all()
+    )
 
-    if results:
-        await db.commit()
-    return results
+    return {
+        "items": [
+            {
+                "id": str(r["id"]),
+                "to_address": r["to_address"],
+                "first_name": r["first_name"],
+                "last_name": r["last_name"],
+                "status": r["status"],
+                "error_message": r["error_message"],
+                "sent_at": str(r["sent_at"]) if r["sent_at"] else None,
+                "delivered_at": str(r["delivered_at"]) if r["delivered_at"] else None,
+                "opened_at": str(r["opened_at"]) if r["opened_at"] else None,
+                "clicked_at": str(r["clicked_at"]) if r["clicked_at"] else None,
+            }
+            for r in rows
+        ],
+        "total": total,
+        "page": page,
+        "per_page": per_page,
+    }
 
 
 def _empty_stats() -> dict[str, Any]:
