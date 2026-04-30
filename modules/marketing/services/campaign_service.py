@@ -511,6 +511,7 @@ async def get_campaign_detail(db: AsyncSession, campaign_id: str) -> dict[str, A
 
     stats = await get_campaign_stats(db, campaign_id)
     variants = await get_campaign_variants(db, campaign_id)
+    variant_stats = await get_campaign_variant_stats(db, campaign_id)
 
     return {
         "id": str(row["id"]),
@@ -526,6 +527,7 @@ async def get_campaign_detail(db: AsyncSession, campaign_id: str) -> dict[str, A
         "scheduled_at": str(row["scheduled_at"]) if row["scheduled_at"] else None,
         "stats": stats,
         "variants": variants,
+        "variant_stats": variant_stats,
     }
 
 
@@ -533,6 +535,7 @@ async def get_campaign_recipients(
     db: AsyncSession,
     campaign_id: str,
     status: str | None = None,
+    variant_id: str | None = None,
     page: int = 1,
     per_page: int = 20,
 ) -> dict[str, Any]:
@@ -548,6 +551,10 @@ async def get_campaign_recipients(
         where += " AND cr.status = :status"
         params["status"] = status
 
+    if variant_id:
+        where += " AND cr.variant_id = :vid"
+        params["vid"] = variant_id
+
     total = (
         await db.execute(
             text(f"SELECT COUNT(*) FROM marketing.campaign_recipients cr {where}"),
@@ -559,12 +566,14 @@ async def get_campaign_recipients(
         (
             await db.execute(
                 text(
-                    f"SELECT cr.id, cr.to_address, cr.status, cr.provider, "
-                    f"cr.provider_message_id, cr.error_message, "
+                    f"SELECT cr.id, cr.to_address, cr.variant_id, cr.status, "
+                    f"cr.provider, cr.provider_message_id, cr.error_message, "
                     f"cr.sent_at, cr.delivered_at, cr.opened_at, cr.clicked_at, "
-                    f"cr.created_at, u.first_name, u.last_name "
+                    f"cr.created_at, u.first_name, u.last_name, "
+                    f"cv.label AS variant_label "
                     f"FROM marketing.campaign_recipients cr "
                     f"LEFT JOIN core.users u ON u.id = cr.user_id "
+                    f"LEFT JOIN marketing.campaign_variants cv ON cv.id = cr.variant_id "
                     f"{where} "
                     f"ORDER BY cr.created_at ASC "
                     f"LIMIT :lim OFFSET :off"
@@ -583,6 +592,8 @@ async def get_campaign_recipients(
                 "to_address": r["to_address"],
                 "first_name": r["first_name"],
                 "last_name": r["last_name"],
+                "variant_id": str(r["variant_id"]) if r["variant_id"] else None,
+                "variant_label": r["variant_label"],
                 "status": r["status"],
                 "error_message": r["error_message"],
                 "sent_at": str(r["sent_at"]) if r["sent_at"] else None,

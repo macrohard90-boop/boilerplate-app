@@ -24,6 +24,13 @@ interface CampaignVariant {
   weight: number;
 }
 
+interface VariantStats {
+  label: string;
+  subject: string;
+  weight: number;
+  stats: CampaignStats;
+}
+
 interface CampaignDetail {
   id: string;
   name: string;
@@ -38,6 +45,7 @@ interface CampaignDetail {
   scheduled_at: string | null;
   stats: CampaignStats;
   variants: CampaignVariant[];
+  variant_stats: VariantStats[];
 }
 
 interface Recipient {
@@ -45,6 +53,8 @@ interface Recipient {
   to_address: string;
   first_name: string | null;
   last_name: string | null;
+  variant_id: string | null;
+  variant_label: string | null;
   status: string;
   error_message: string | null;
   sent_at: string | null;
@@ -160,6 +170,7 @@ export default function CampaignDetailPage() {
   const [error, setError] = useState<string | null>(null);
 
   const [statusFilter, setStatusFilter] = useState("");
+  const [selectedVariant, setSelectedVariant] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const perPage = 20;
 
@@ -184,6 +195,7 @@ export default function CampaignDetailPage() {
         per_page: String(perPage),
       });
       if (statusFilter) qs.set("status", statusFilter);
+      if (selectedVariant) qs.set("variant_id", selectedVariant);
       const data = await apiFetch<RecipientList>(
         `/marketing/admin/campaigns/${id}/recipients?${qs}`,
       );
@@ -191,7 +203,7 @@ export default function CampaignDetailPage() {
     } catch {
       // silent
     }
-  }, [id, page, statusFilter]);
+  }, [id, page, statusFilter, selectedVariant]);
 
   useEffect(() => {
     fetchCampaign();
@@ -223,7 +235,16 @@ export default function CampaignDetailPage() {
     );
   }
 
-  const s = campaign.stats;
+  // Determine which stats to show based on selected variant
+  const hasVariants = campaign.variants.length > 1;
+  const activeStats: CampaignStats = selectedVariant
+    ? (campaign.variant_stats.find(
+        (vs) =>
+          campaign.variants.find((v) => v.id === selectedVariant)?.label ===
+          vs.label,
+      )?.stats ?? campaign.stats)
+    : campaign.stats;
+  const s = activeStats;
   const totalPages = recipients ? Math.ceil(recipients.total / perPage) : 1;
 
   return (
@@ -277,6 +298,45 @@ export default function CampaignDetailPage() {
         </div>
       </div>
 
+      {/* Variant Tabs */}
+      {hasVariants && (
+        <div className="flex gap-1 flex-wrap">
+          <button
+            onClick={() => {
+              setSelectedVariant(null);
+              setPage(1);
+            }}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+              selectedVariant === null
+                ? "bg-accent-blue/20 text-accent-blue border border-accent-blue/40"
+                : "glass text-text-muted hover:text-text-primary"
+            }`}
+          >
+            All
+          </button>
+          {campaign.variants.map((v) => (
+            <button
+              key={v.id}
+              onClick={() => {
+                setSelectedVariant(v.id);
+                setPage(1);
+              }}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                selectedVariant === v.id
+                  ? "bg-accent-blue/20 text-accent-blue border border-accent-blue/40"
+                  : "glass text-text-muted hover:text-text-primary"
+              }`}
+              title={v.subject}
+            >
+              {v.label}
+              <span className="text-xs ml-1.5 opacity-70 max-w-[120px] truncate inline-block align-bottom">
+                {v.subject}
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* KPI Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
         <KpiCard
@@ -328,20 +388,22 @@ export default function CampaignDetailPage() {
               </span>
             )}
           </h2>
-          <select
-            value={statusFilter}
-            onChange={(e) => {
-              setStatusFilter(e.target.value);
-              setPage(1);
-            }}
-            className="input-glass text-sm py-1.5 px-3"
-          >
-            {STATUS_OPTIONS.map((o) => (
-              <option key={o.value} value={o.value}>
-                {o.label}
-              </option>
-            ))}
-          </select>
+          <div className="flex gap-2">
+            <select
+              value={statusFilter}
+              onChange={(e) => {
+                setStatusFilter(e.target.value);
+                setPage(1);
+              }}
+              className="input-glass text-sm py-1.5 px-3"
+            >
+              {STATUS_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
 
         <div className="overflow-x-auto">
@@ -349,6 +411,9 @@ export default function CampaignDetailPage() {
             <thead>
               <tr className="border-b border-glass-border text-left text-text-muted">
                 <th className="p-3 font-medium">Recipient</th>
+                {hasVariants && !selectedVariant && (
+                  <th className="p-3 font-medium">Variant</th>
+                )}
                 <th className="p-3 font-medium">Status</th>
                 <th className="p-3 font-medium">Sent</th>
                 <th className="p-3 font-medium">Delivered</th>
@@ -371,6 +436,11 @@ export default function CampaignDetailPage() {
                       </div>
                     )}
                   </td>
+                  {hasVariants && !selectedVariant && (
+                    <td className="p-3 text-text-muted text-xs">
+                      {r.variant_label ?? "\u2014"}
+                    </td>
+                  )}
                   <td className="p-3">
                     <span className={`badge ${recipientBadge(r.status)}`}>
                       {r.status}
@@ -395,7 +465,10 @@ export default function CampaignDetailPage() {
               ))}
               {recipients && recipients.items.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="p-8 text-center text-text-muted">
+                  <td
+                    colSpan={hasVariants && !selectedVariant ? 8 : 7}
+                    className="p-8 text-center text-text-muted"
+                  >
                     No recipients
                     {statusFilter ? ` with status "${statusFilter}"` : ""}
                   </td>

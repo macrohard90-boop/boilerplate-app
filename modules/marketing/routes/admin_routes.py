@@ -148,12 +148,18 @@ async def get_campaign_recipients(
     db: AsyncSession = Depends(get_db),
     user: dict = Depends(require_role("admin")),
     status: str | None = Query(None),
+    variant_id: str | None = Query(None),
     page: int = Query(1, ge=1),
     per_page: int = Query(20, ge=1, le=100),
 ):
     """Paginated recipient list for a campaign."""
     return await campaign_service.get_campaign_recipients(
-        db, campaign_id, status=status, page=page, per_page=per_page
+        db,
+        campaign_id,
+        status=status,
+        variant_id=variant_id,
+        page=page,
+        per_page=per_page,
     )
 
 
