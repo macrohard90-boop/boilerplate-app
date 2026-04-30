@@ -243,6 +243,23 @@ async def get_user_full_profile(
         .first()
     )
 
+    # 11. Consent records (current state for all 6 types)
+    consent_rows = (
+        (
+            await db.execute(
+                text(
+                    "SELECT DISTINCT ON (consent_type) "
+                    "consent_type, granted, created_at AS updated_at "
+                    "FROM gdpr.consent_records WHERE user_id = :uid "
+                    "ORDER BY consent_type, created_at DESC"
+                ),
+                {"uid": user_id},
+            )
+        )
+        .mappings()
+        .all()
+    )
+
     def _ts(v: Any) -> str | None:
         return v.isoformat() if v else None
 
@@ -318,6 +335,14 @@ async def get_user_full_profile(
             "total_items": int(wl["total_items"]) if wl else 0,
         },
         "stripe_customer_id": sc["stripe_customer_id"] if sc else None,
+        "consent_summary": [
+            {
+                "consent_type": c["consent_type"],
+                "granted": c["granted"],
+                "updated_at": _ts(c["updated_at"]),
+            }
+            for c in consent_rows
+        ],
     }
 
 

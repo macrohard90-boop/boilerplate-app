@@ -8,6 +8,7 @@ import { formatDate, formatPrice, capitalize } from "../../../../lib/format";
 import { useAuth } from "../../../../lib/auth-context";
 import LoadingSpinner from "../../../../components/LoadingSpinner";
 import HorizontalBarChart from "../../../../components/charts/HorizontalBarChart";
+import { CONSENT_TYPES, CATEGORY_LABELS } from "../../../../lib/consent-types";
 
 // --- Types ---
 
@@ -69,6 +70,12 @@ interface EmailPreferences {
   suppressed_at: string | null;
 }
 
+interface ConsentRecord {
+  consent_type: string;
+  granted: boolean;
+  updated_at: string | null;
+}
+
 interface FullProfile {
   user: UserProfile;
   customer_metrics: CustomerMetrics | null;
@@ -78,7 +85,9 @@ interface FullProfile {
   top_pages: TopPage[];
   email_preferences: EmailPreferences | null;
   cart_summary: { active_carts: number; total_items: number };
+  wishlist_summary: { wishlists: number; total_items: number };
   stripe_customer_id: string | null;
+  consent_summary: ConsentRecord[];
 }
 
 // --- Helpers ---
@@ -187,7 +196,6 @@ export default function UserProfilePage() {
   // Admin action state
   const [actionLoading, setActionLoading] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const [actionsOpen, setActionsOpen] = useState(false);
 
   const fetchProfile = useCallback(async () => {
     try {
@@ -284,6 +292,26 @@ export default function UserProfilePage() {
     }
   };
 
+  const handleVerifyUser = async () => {
+    setActionLoading(true);
+    try {
+      const res = await apiFetch<{ message: string }>(
+        `/auth/admin/verify-user/${id}`,
+        { method: "POST" },
+      );
+      alert(res.message);
+      await fetchProfile();
+    } catch (err: unknown) {
+      const msg =
+        err && typeof err === "object" && "message" in err
+          ? (err as { message: string }).message
+          : "Failed to verify user";
+      alert(msg);
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   // --- Render ---
 
   if (loading) {
@@ -310,6 +338,20 @@ export default function UserProfilePage() {
   const isDeleted = !!u.deleted_at;
   const displayName =
     [u.first_name, u.last_name].filter(Boolean).join(" ") || u.email;
+
+  // Build consent map from API data
+  const consentMap = new Map(
+    (data.consent_summary ?? []).map((c) => [c.consent_type, c]),
+  );
+
+  // Group consent types by category
+  const consentByCategory = new Map<string, typeof CONSENT_TYPES>();
+  for (const ct of CONSENT_TYPES) {
+    if (!consentByCategory.has(ct.category)) {
+      consentByCategory.set(ct.category, []);
+    }
+    consentByCategory.get(ct.category)!.push(ct);
+  }
 
   return (
     <div className="max-w-6xl">
@@ -463,137 +505,146 @@ export default function UserProfilePage() {
             )}
           </div>
 
-          {/* Admin Actions */}
+          {/* Admin Actions — always visible */}
           {!isSelf && (
             <div className="glass rounded-xl p-5">
-              <button
-                onClick={() => setActionsOpen(!actionsOpen)}
-                className="flex items-center justify-between w-full text-sm font-semibold text-text-primary uppercase tracking-wide"
-              >
-                <span>Admin Actions</span>
-                <svg
-                  width="16"
-                  height="16"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  strokeWidth={2}
-                  className={`transition-transform ${actionsOpen ? "rotate-180" : ""}`}
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M19 9l-7 7-7-7"
-                  />
-                </svg>
-              </button>
+              <h2 className="text-sm font-semibold text-text-primary mb-4 uppercase tracking-wide">
+                Admin Actions
+              </h2>
+              <div className="space-y-3">
+                {/* View Activity */}
+                <div className="flex items-center justify-between py-1.5">
+                  <span className="text-xs text-text-muted">Activity</span>
+                  <Link
+                    href={`/admin/analytics/user/${id}`}
+                    className="text-xs text-accent-purple hover:text-accent-pink transition-colors"
+                  >
+                    View detailed activity
+                  </Link>
+                </div>
 
-              {actionsOpen && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
-                  {/* Verification */}
-                  <div className="space-y-2">
-                    <h4 className="text-xs font-medium text-text-muted uppercase tracking-wide">
-                      Verification
-                    </h4>
-                    {u.is_verified ? (
-                      <p className="text-xs text-green-400">Email verified</p>
-                    ) : isDeleted ? (
-                      <p className="text-xs text-text-muted">User is deleted</p>
-                    ) : (
+                <div className="border-t border-glass-border/30" />
+
+                {/* Verification */}
+                <div className="flex items-center justify-between py-1.5">
+                  <span className="text-xs text-text-muted">Verification</span>
+                  {u.is_verified ? (
+                    <span className="text-xs text-green-400">Verified</span>
+                  ) : isDeleted ? (
+                    <span className="text-xs text-text-muted">
+                      User is deleted
+                    </span>
+                  ) : (
+                    <div className="flex items-center gap-3">
+                      <button
+                        disabled={actionLoading}
+                        onClick={handleVerifyUser}
+                        className="text-xs text-accent-purple hover:text-accent-pink transition-colors disabled:opacity-40"
+                      >
+                        Verify now
+                      </button>
                       <button
                         disabled={actionLoading}
                         onClick={handleResendVerification}
-                        className="px-3 py-1 rounded text-xs font-medium bg-blue-500/20 text-blue-300 hover:bg-blue-500/30 disabled:opacity-40"
+                        className="text-xs text-text-secondary hover:text-text-primary transition-colors disabled:opacity-40"
                       >
-                        Resend Verification
+                        Resend email
                       </button>
-                    )}
-                  </div>
-
-                  {/* Role */}
-                  <div className="space-y-2">
-                    <h4 className="text-xs font-medium text-text-muted uppercase tracking-wide">
-                      Role
-                    </h4>
-                    {isDeleted ? (
-                      <p className="text-xs text-text-muted">User is deleted</p>
-                    ) : (
-                      <select
-                        defaultValue={u.role}
-                        disabled={actionLoading}
-                        onChange={(e) => {
-                          if (e.target.value !== u.role)
-                            handleRoleChange(e.target.value);
-                        }}
-                        className="input-glass text-xs !py-1 !px-2 !w-auto"
-                      >
-                        {AVAILABLE_ROLES.map((r) => (
-                          <option key={r} value={r}>
-                            {capitalize(r)}
-                          </option>
-                        ))}
-                      </select>
-                    )}
-                  </div>
-
-                  {/* Status */}
-                  <div className="space-y-2">
-                    <h4 className="text-xs font-medium text-text-muted uppercase tracking-wide">
-                      Status
-                    </h4>
-                    {isDeleted ? (
-                      <p className="text-xs text-text-muted">User is deleted</p>
-                    ) : (
-                      <button
-                        disabled={actionLoading}
-                        onClick={() => handleStatusToggle(!u.is_active)}
-                        className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
-                          u.is_active
-                            ? "bg-yellow-500/20 text-yellow-300 hover:bg-yellow-500/30"
-                            : "bg-green-500/20 text-green-300 hover:bg-green-500/30"
-                        } disabled:opacity-40`}
-                      >
-                        {u.is_active ? "Deactivate" : "Activate"}
-                      </button>
-                    )}
-                  </div>
-
-                  {/* Delete */}
-                  <div className="space-y-2">
-                    <h4 className="text-xs font-medium text-text-muted uppercase tracking-wide">
-                      Delete
-                    </h4>
-                    {isDeleted ? (
-                      <p className="text-xs text-text-muted">Already deleted</p>
-                    ) : confirmDelete ? (
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs text-red-400">Confirm?</span>
-                        <button
-                          disabled={actionLoading}
-                          onClick={handleDelete}
-                          className="px-3 py-1 rounded text-xs font-medium bg-red-500/20 text-red-300 hover:bg-red-500/30 disabled:opacity-40"
-                        >
-                          Yes, delete
-                        </button>
-                        <button
-                          onClick={() => setConfirmDelete(false)}
-                          className="px-3 py-1 rounded text-xs font-medium bg-base-100 text-text-secondary hover:bg-base-100/80"
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                    ) : (
-                      <button
-                        disabled={actionLoading}
-                        onClick={() => setConfirmDelete(true)}
-                        className="px-3 py-1 rounded text-xs font-medium bg-red-500/10 text-red-400 hover:bg-red-500/20 disabled:opacity-40"
-                      >
-                        Delete user
-                      </button>
-                    )}
-                  </div>
+                    </div>
+                  )}
                 </div>
-              )}
+
+                <div className="border-t border-glass-border/30" />
+
+                {/* Role */}
+                <div className="flex items-center justify-between py-1.5">
+                  <span className="text-xs text-text-muted">Role</span>
+                  {isDeleted ? (
+                    <span className="text-xs text-text-muted">
+                      User is deleted
+                    </span>
+                  ) : (
+                    <select
+                      defaultValue={u.role}
+                      disabled={actionLoading}
+                      onChange={(e) => {
+                        if (e.target.value !== u.role)
+                          handleRoleChange(e.target.value);
+                      }}
+                      className="input-glass text-xs !py-1 !px-2 !w-auto"
+                    >
+                      {AVAILABLE_ROLES.map((r) => (
+                        <option key={r} value={r}>
+                          {capitalize(r)}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                </div>
+
+                <div className="border-t border-glass-border/30" />
+
+                {/* Status */}
+                <div className="flex items-center justify-between py-1.5">
+                  <span className="text-xs text-text-muted">Status</span>
+                  {isDeleted ? (
+                    <span className="text-xs text-text-muted">
+                      User is deleted
+                    </span>
+                  ) : (
+                    <button
+                      disabled={actionLoading}
+                      onClick={() => handleStatusToggle(!u.is_active)}
+                      className={`text-xs transition-colors disabled:opacity-40 ${
+                        u.is_active
+                          ? "text-yellow-400 hover:text-yellow-300"
+                          : "text-green-400 hover:text-green-300"
+                      }`}
+                    >
+                      {u.is_active ? "Deactivate user" : "Activate user"}
+                    </button>
+                  )}
+                </div>
+
+                <div className="border-t border-glass-border/30" />
+
+                {/* Delete */}
+                <div className="flex items-center justify-between py-1.5">
+                  <span className="text-xs text-text-muted">Delete</span>
+                  {isDeleted ? (
+                    <span className="text-xs text-text-muted">
+                      Already deleted
+                    </span>
+                  ) : confirmDelete ? (
+                    <div className="flex items-center gap-3">
+                      <span className="text-xs text-red-400">
+                        Are you sure?
+                      </span>
+                      <button
+                        disabled={actionLoading}
+                        onClick={handleDelete}
+                        className="text-xs text-red-400 hover:text-red-300 font-medium transition-colors disabled:opacity-40"
+                      >
+                        Yes, delete
+                      </button>
+                      <button
+                        onClick={() => setConfirmDelete(false)}
+                        className="text-xs text-text-muted hover:text-text-secondary transition-colors"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      disabled={actionLoading}
+                      onClick={() => setConfirmDelete(true)}
+                      className="text-xs text-red-400/70 hover:text-red-400 transition-colors disabled:opacity-40"
+                    >
+                      Delete user
+                    </button>
+                  )}
+                </div>
+              </div>
             </div>
           )}
         </div>
@@ -670,100 +721,140 @@ export default function UserProfilePage() {
         </div>
       </div>
 
-      {/* Full-width: Preferences & Summary */}
-      <div className="glass rounded-xl p-5">
-        <h2 className="text-sm font-semibold text-text-primary mb-4 uppercase tracking-wide">
-          Preferences & Summary
-        </h2>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-6">
-          {/* Email Preferences */}
-          <div>
-            <h4 className="text-xs font-medium text-text-muted mb-2">
-              Email Preferences
-            </h4>
-            {data.email_preferences ? (
+      {/* Full-width: Privacy & Consent + Summary */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Privacy & Consent */}
+        <div className="glass rounded-xl p-5">
+          <h2 className="text-sm font-semibold text-text-primary mb-4 uppercase tracking-wide">
+            Privacy & Consent
+          </h2>
+          <div className="space-y-4">
+            {Array.from(consentByCategory.entries()).map(
+              ([category, types]) => (
+                <div key={category}>
+                  <h4 className="text-[10px] font-medium text-text-muted uppercase tracking-wider mb-2">
+                    {CATEGORY_LABELS[category] ?? category}
+                  </h4>
+                  <div className="space-y-1.5">
+                    {types.map((ct) => {
+                      const record = consentMap.get(ct.key);
+                      const granted = record ? record.granted : ct.defaultValue;
+                      return (
+                        <div
+                          key={ct.key}
+                          className="flex items-center justify-between"
+                        >
+                          <div className="flex items-center gap-2">
+                            <span
+                              className={`inline-flex items-center justify-center w-4 h-4 rounded-full text-[10px] font-bold ${
+                                granted
+                                  ? "bg-green-500/20 text-green-400"
+                                  : "bg-red-500/15 text-red-400/70"
+                              }`}
+                            >
+                              {granted ? "\u2713" : "\u2715"}
+                            </span>
+                            <span className="text-xs text-text-secondary">
+                              {ct.label}
+                            </span>
+                            {ct.required && (
+                              <span className="text-[9px] text-text-muted/50 uppercase">
+                                required
+                              </span>
+                            )}
+                          </div>
+                          {record?.updated_at && (
+                            <span className="text-[10px] text-text-muted">
+                              {formatDate(record.updated_at)}
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ),
+            )}
+            {data.email_preferences?.suppressed_at && (
+              <div className="pt-2 border-t border-glass-border/30">
+                <p className="text-xs text-red-400">
+                  Email suppressed:{" "}
+                  {formatDate(data.email_preferences.suppressed_at)}
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Summary */}
+        <div className="glass rounded-xl p-5">
+          <h2 className="text-sm font-semibold text-text-primary mb-4 uppercase tracking-wide">
+            Summary
+          </h2>
+          <div className="grid grid-cols-2 gap-6">
+            {/* Cart Summary */}
+            <div>
+              <h4 className="text-xs font-medium text-text-muted mb-2">
+                Active Cart
+              </h4>
+              <p className="text-lg font-bold text-text-primary tabular-nums">
+                {data.cart_summary.total_items}
+                <span className="text-xs font-normal text-text-muted ml-1">
+                  items
+                </span>
+              </p>
+              <p className="text-xs text-text-muted">
+                {data.cart_summary.active_carts} active{" "}
+                {data.cart_summary.active_carts === 1 ? "cart" : "carts"}
+              </p>
+            </div>
+
+            {/* Wishlist Summary */}
+            <div>
+              <h4 className="text-xs font-medium text-text-muted mb-2">
+                Wishlists
+              </h4>
+              <p className="text-lg font-bold text-text-primary tabular-nums">
+                {data.wishlist_summary?.total_items ?? 0}
+                <span className="text-xs font-normal text-text-muted ml-1">
+                  items
+                </span>
+              </p>
+              <p className="text-xs text-text-muted">
+                {data.wishlist_summary?.wishlists ?? 0}{" "}
+                {(data.wishlist_summary?.wishlists ?? 0) === 1
+                  ? "wishlist"
+                  : "wishlists"}
+              </p>
+            </div>
+
+            {/* Account Info */}
+            <div className="col-span-2">
+              <h4 className="text-xs font-medium text-text-muted mb-2">
+                Account Info
+              </h4>
               <div className="space-y-1">
                 <p className="text-xs">
-                  <span className="text-text-muted">Marketing:</span>{" "}
-                  <span
-                    className={
-                      data.email_preferences.marketing_email
-                        ? "text-green-400"
-                        : "text-red-400"
-                    }
-                  >
-                    {data.email_preferences.marketing_email
-                      ? "Opted in"
-                      : "Opted out"}
+                  <span className="text-text-muted">User ID:</span>{" "}
+                  <span className="text-text-secondary font-mono">
+                    {u.id.slice(0, 8)}...
                   </span>
                 </p>
-                <p className="text-xs">
-                  <span className="text-text-muted">Transactional:</span>{" "}
-                  <span
-                    className={
-                      data.email_preferences.transactional_email
-                        ? "text-green-400"
-                        : "text-red-400"
-                    }
-                  >
-                    {data.email_preferences.transactional_email
-                      ? "Enabled"
-                      : "Disabled"}
-                  </span>
-                </p>
-                {data.email_preferences.suppressed_at && (
+                {data.stripe_customer_id && (
+                  <p className="text-xs">
+                    <span className="text-text-muted">Stripe:</span>{" "}
+                    <span className="text-text-secondary font-mono">
+                      {data.stripe_customer_id}
+                    </span>
+                  </p>
+                )}
+                {u.deleted_at && (
                   <p className="text-xs text-red-400">
-                    Suppressed:{" "}
-                    {formatDate(data.email_preferences.suppressed_at)}
+                    Deleted: {formatDate(u.deleted_at)}
                   </p>
                 )}
               </div>
-            ) : (
-              <p className="text-xs text-text-muted">No preferences set</p>
-            )}
-          </div>
-
-          {/* Cart Summary */}
-          <div>
-            <h4 className="text-xs font-medium text-text-muted mb-2">
-              Active Cart
-            </h4>
-            <p className="text-lg font-bold text-text-primary tabular-nums">
-              {data.cart_summary.total_items}
-              <span className="text-xs font-normal text-text-muted ml-1">
-                items
-              </span>
-            </p>
-            <p className="text-xs text-text-muted">
-              {data.cart_summary.active_carts} active{" "}
-              {data.cart_summary.active_carts === 1 ? "cart" : "carts"}
-            </p>
-          </div>
-
-          {/* Quick Stat */}
-          <div>
-            <h4 className="text-xs font-medium text-text-muted mb-2">
-              Account Info
-            </h4>
-            <p className="text-xs">
-              <span className="text-text-muted">User ID:</span>{" "}
-              <span className="text-text-secondary font-mono">
-                {u.id.slice(0, 8)}...
-              </span>
-            </p>
-            {data.stripe_customer_id && (
-              <p className="text-xs mt-1">
-                <span className="text-text-muted">Stripe:</span>{" "}
-                <span className="text-text-secondary font-mono">
-                  {data.stripe_customer_id}
-                </span>
-              </p>
-            )}
-            {u.deleted_at && (
-              <p className="text-xs text-red-400 mt-1">
-                Deleted: {formatDate(u.deleted_at)}
-              </p>
-            )}
+            </div>
           </div>
         </div>
       </div>

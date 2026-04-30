@@ -536,19 +536,6 @@ export default function EventDetailPage() {
               {formatDateRange(dateFrom, dateTo)}
             </span>
           </div>
-          <label className="flex items-center gap-2 text-sm text-text-secondary cursor-pointer">
-            <input
-              type="checkbox"
-              checked={excludeBots}
-              onChange={(e) => {
-                setExcludeBots(e.target.checked);
-                setPage(1);
-                setFetchKey((k) => k + 1);
-              }}
-              className="rounded border-glass-border"
-            />
-            Exclude bots
-          </label>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">

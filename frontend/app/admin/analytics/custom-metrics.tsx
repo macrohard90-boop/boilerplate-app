@@ -1336,6 +1336,59 @@ export default function CustomMetricsTab() {
         </button>
       </div>
 
+      {/* Starter templates */}
+      {displayMetrics.length === 0 && (
+        <div className="glass rounded-xl p-6">
+          <h3 className="text-sm font-semibold text-text-primary mb-4">
+            Get Started
+          </h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {STARTER_QUERIES.map((sq) => (
+              <button
+                key={sq.name}
+                onClick={() => loadStarter(sq)}
+                className="glass rounded-lg p-4 text-left hover:bg-glass-bg/50 transition-colors group"
+              >
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-text-muted group-hover:text-accent-purple transition-colors">
+                    <VizIcon type={sq.visualization} />
+                  </span>
+                  <span className="text-sm font-medium text-text-primary">
+                    {sq.name}
+                  </span>
+                </div>
+                <p className="text-xs text-text-muted font-mono line-clamp-2">
+                  {sq.sql.split("\n")[0]}...
+                </p>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Always show starter templates link when there are saved metrics */}
+      {displayMetrics.length > 0 && (
+        <div className="glass rounded-xl p-4">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-semibold text-text-primary">
+              Quick Start Templates
+            </h3>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {STARTER_QUERIES.map((sq) => (
+              <button
+                key={sq.name}
+                onClick={() => loadStarter(sq)}
+                className="inline-flex items-center gap-1.5 text-xs bg-glass-bg/50 rounded-full px-3 py-1.5 text-text-muted hover:text-accent-purple hover:bg-glass-bg transition-colors"
+              >
+                <VizIcon type={sq.visualization} />
+                {sq.name}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Audience Segments (unified with Campaign Wizard) */}
       {enable_marketing && (
         <div className="space-y-4">
@@ -1430,59 +1483,6 @@ export default function CustomMetricsTab() {
               )}
             </div>
           )}
-        </div>
-      )}
-
-      {/* Starter templates */}
-      {displayMetrics.length === 0 && (
-        <div className="glass rounded-xl p-6">
-          <h3 className="text-sm font-semibold text-text-primary mb-4">
-            Get Started
-          </h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {STARTER_QUERIES.map((sq) => (
-              <button
-                key={sq.name}
-                onClick={() => loadStarter(sq)}
-                className="glass rounded-lg p-4 text-left hover:bg-glass-bg/50 transition-colors group"
-              >
-                <div className="flex items-center gap-2 mb-1">
-                  <span className="text-text-muted group-hover:text-accent-purple transition-colors">
-                    <VizIcon type={sq.visualization} />
-                  </span>
-                  <span className="text-sm font-medium text-text-primary">
-                    {sq.name}
-                  </span>
-                </div>
-                <p className="text-xs text-text-muted font-mono line-clamp-2">
-                  {sq.sql.split("\n")[0]}...
-                </p>
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Always show starter templates link when there are saved metrics */}
-      {displayMetrics.length > 0 && (
-        <div className="glass rounded-xl p-4">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-sm font-semibold text-text-primary">
-              Quick Start Templates
-            </h3>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {STARTER_QUERIES.map((sq) => (
-              <button
-                key={sq.name}
-                onClick={() => loadStarter(sq)}
-                className="inline-flex items-center gap-1.5 text-xs bg-glass-bg/50 rounded-full px-3 py-1.5 text-text-muted hover:text-accent-purple hover:bg-glass-bg transition-colors"
-              >
-                <VizIcon type={sq.visualization} />
-                {sq.name}
-              </button>
-            ))}
-          </div>
         </div>
       )}
 

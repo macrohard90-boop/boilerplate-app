@@ -252,23 +252,19 @@ function computePresetDates(preset: DatePresetId): {
 function FilterBar({
   dateFrom,
   dateTo,
-  excludeBots,
   activePreset,
   onPresetChange,
   onDateFromChange,
   onDateToChange,
-  onExcludeBotsChange,
   onApply,
   children,
 }: {
   dateFrom: string;
   dateTo: string;
-  excludeBots: boolean;
   activePreset: DatePresetId;
   onPresetChange: (preset: DatePresetId) => void;
   onDateFromChange: (v: string) => void;
   onDateToChange: (v: string) => void;
-  onExcludeBotsChange: (v: boolean) => void;
   onApply: () => void;
   children?: React.ReactNode;
 }) {
@@ -285,15 +281,6 @@ function FilterBar({
             {formatDateRange(dateFrom, dateTo)}
           </span>
         </div>
-        <label className="flex items-center gap-2 text-sm text-text-secondary cursor-pointer">
-          <input
-            type="checkbox"
-            checked={excludeBots}
-            onChange={(e) => onExcludeBotsChange(e.target.checked)}
-            className="rounded border-glass-border"
-          />
-          Exclude bots
-        </label>
       </div>
 
       {/* Row 2: Preset pills + children */}
@@ -643,12 +630,10 @@ function OverviewTab() {
       <FilterBar
         dateFrom={dateFrom}
         dateTo={dateTo}
-        excludeBots={excludeBots}
         activePreset={activePreset}
         onPresetChange={handlePresetChange}
         onDateFromChange={setDateFrom}
         onDateToChange={setDateTo}
-        onExcludeBotsChange={setExcludeBots}
         onApply={handleApply}
       />
 
@@ -1094,28 +1079,89 @@ function OverviewTab() {
             )}
           </div>
 
-          {/* Events (full-width, clickable rows link to detail page) */}
-          <div className="glass rounded-xl p-6 mb-6">
-            <h2 className="text-lg font-semibold text-text-primary mb-4">
-              Events
-              {events && events.total_events > 0 && (
-                <span className="text-sm font-normal text-text-muted ml-2">
-                  {events.total_events.toLocaleString()} total
-                </span>
-              )}
-            </h2>
-            {events && events.total_events > 0 ? (
-              <BreakdownBar
-                items={events.by_type
-                  .slice(0, 12)
-                  .map((e) => ({ label: e.event_type, count: e.count }))}
-                colorClass="bg-accent-green/60"
-                linkPrefix="/admin/analytics/events/"
-              />
-            ) : (
+          {/* Events — split into User Events vs Admin Events */}
+          {events && events.total_events > 0 ? (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+              {/* User Events */}
+              <div className="glass rounded-xl p-6">
+                <h2 className="text-lg font-semibold text-text-primary mb-4">
+                  User Events
+                  {(() => {
+                    const userTotal = events.by_type
+                      .filter((e) => !e.event_type.startsWith("admin."))
+                      .reduce((sum, e) => sum + e.count, 0);
+                    return userTotal > 0 ? (
+                      <span className="text-sm font-normal text-text-muted ml-2">
+                        {userTotal.toLocaleString()} total
+                      </span>
+                    ) : null;
+                  })()}
+                </h2>
+                {(() => {
+                  const userEvents = events.by_type.filter(
+                    (e) => !e.event_type.startsWith("admin."),
+                  );
+                  return userEvents.length > 0 ? (
+                    <BreakdownBar
+                      items={userEvents.slice(0, 10).map((e) => ({
+                        label: e.event_type,
+                        count: e.count,
+                      }))}
+                      colorClass="bg-accent-green/60"
+                      linkPrefix="/admin/analytics/events/"
+                    />
+                  ) : (
+                    <p className="text-sm text-text-muted">
+                      No user events recorded
+                    </p>
+                  );
+                })()}
+              </div>
+
+              {/* Admin Events */}
+              <div className="glass rounded-xl p-6">
+                <h2 className="text-lg font-semibold text-text-primary mb-4">
+                  Admin Events
+                  {(() => {
+                    const adminTotal = events.by_type
+                      .filter((e) => e.event_type.startsWith("admin."))
+                      .reduce((sum, e) => sum + e.count, 0);
+                    return adminTotal > 0 ? (
+                      <span className="text-sm font-normal text-text-muted ml-2">
+                        {adminTotal.toLocaleString()} total
+                      </span>
+                    ) : null;
+                  })()}
+                </h2>
+                {(() => {
+                  const adminEvents = events.by_type.filter((e) =>
+                    e.event_type.startsWith("admin."),
+                  );
+                  return adminEvents.length > 0 ? (
+                    <BreakdownBar
+                      items={adminEvents.slice(0, 10).map((e) => ({
+                        label: e.event_type,
+                        count: e.count,
+                      }))}
+                      colorClass="bg-accent-purple/60"
+                      linkPrefix="/admin/analytics/events/"
+                    />
+                  ) : (
+                    <p className="text-sm text-text-muted">
+                      No admin events recorded
+                    </p>
+                  );
+                })()}
+              </div>
+            </div>
+          ) : (
+            <div className="glass rounded-xl p-6 mb-6">
+              <h2 className="text-lg font-semibold text-text-primary mb-4">
+                Events
+              </h2>
               <p className="text-sm text-text-muted">No events recorded</p>
-            )}
-          </div>
+            </div>
+          )}
         </>
       )}
     </>
@@ -1220,12 +1266,10 @@ function UserActivityTab() {
       <FilterBar
         dateFrom={dateFrom}
         dateTo={dateTo}
-        excludeBots={excludeBots}
         activePreset={activePreset}
         onPresetChange={handlePresetChange}
         onDateFromChange={setDateFrom}
         onDateToChange={setDateTo}
-        onExcludeBotsChange={setExcludeBots}
         onApply={handleApply}
       >
         <div className="flex-1 min-w-[200px]">
